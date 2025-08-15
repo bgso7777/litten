@@ -95,19 +95,6 @@ CREATE TABLE users (
     is_active BOOLEAN DEFAULT true
 );
 
--- 노트(리튼) 정보
-CREATE TABLE notes (
-    note_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,  -- 2차에서 user_id로 변경
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    last_synced TIMESTAMP,                     -- 2차 개발: 동기화 시간 추가
-    is_deleted BOOLEAN DEFAULT false,
-    sort_order INTEGER DEFAULT 0
-);
-
 -- 파일 정보 (2차 개발: 클라우드 저장)
 CREATE TABLE files (
     file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,7 +103,7 @@ CREATE TABLE files (
     file_type VARCHAR(20) NOT NULL CHECK (
         file_type IN ('listening', 'text', 'handwriting', 'annotation', 'converted_image')
     ),                                         -- 'listening', 'text', 'handwriting', 'annotation', 'converted_image'
-    original_file_type VARCHAR(20),           -- 원본 파일 형식 (pdf, doc, ppt 등)
+    original_file_type VARCHAR(20),           -- 원본 파일 형식 (pdf)
     file_name VARCHAR(255) NOT NULL,
     file_size BIGINT,
     file_url VARCHAR(500),                     -- S3 URL (2차 개발에서 추가)
@@ -128,38 +115,6 @@ CREATE TABLE files (
     updated_at TIMESTAMP DEFAULT NOW(),
     last_synced TIMESTAMP,                    -- 2차 개발: 동기화 시간
     is_deleted BOOLEAN DEFAULT false
-);
-
--- 동기화 상태 (2차 개발 핵심 기능)
-CREATE TABLE sync_states (
-    sync_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,  -- 2차에서 user_id로 변경
-    device_id VARCHAR(100) NOT NULL,          -- 디바이스 식별자 (다중 디바이스 지원)
-    last_sync_timestamp TIMESTAMP DEFAULT NOW(),
-    client_version VARCHAR(50),
-    device_info JSONB,                        -- 디바이스 정보 (OS, 모델 등)
-    conflict_resolution VARCHAR(20) DEFAULT 'server_wins' -- 충돌 해결 정책
-);
-
--- 파일 주석 정보 (필기, 하이라이트, 텍스트 주석 등)
-CREATE TABLE file_annotations (
-    annotation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    file_id UUID REFERENCES files(file_id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,  -- 2차에서 user_id로 변경
-    annotation_type VARCHAR(20) NOT NULL CHECK (
-        annotation_type IN ('highlight', 'text_note', 'drawing', 'shape', 'sticker')
-    ),                                         -- 주석 타입
-    page_number INTEGER DEFAULT 1,            -- 페이지 번호 (PDF 등 다중 페이지 지원)
-    position_data JSONB NOT NULL,             -- 위치 정보 {x, y, width, height}
-    content TEXT,                             -- 텍스트 주석 내용
-    style_data JSONB,                         -- 스타일 정보 {color, thickness, opacity}
-    drawing_data JSONB,                       -- 드로잉 경로 데이터 (SVG 형식)
-    audio_timestamp DECIMAL(10,3),           -- 음성 동기화 시간 (초 단위, 예: 123.456)
-    linked_audio_file_id UUID REFERENCES files(file_id), -- 연결된 음성 파일 ID
-    sync_status VARCHAR(20) DEFAULT 'synced', -- 2차 개발: 동기화 상태
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    last_synced TIMESTAMP                     -- 2차 개발: 동기화 시간
 );
 
 -- 사용량 통계 (2차 개발: 구독 관리용)
@@ -190,9 +145,9 @@ CREATE TABLE subscriptions (
 );
 
 -- 2차 개발 구독별 기능 구분
--- 무료(Free): 1차와 동일 + 백업 기능 추가
--- 스탠다드(Standard): 파일 수 제한 없음 + 광고 제거 + 클라우드 동기화
--- 프리미엄(Premium): 추후 3차 개발에서 웹 버전과 함께 제공
+-- 무료(Free): 1차와 동일 
+-- 스탠다드(Standard): 파일 수 제한 없음 + 광고 제거 
+-- 프리미엄(Premium): 파일 동기화 
 
 2.2 인덱스 설계 (2차 개발용)
 -- 성능 최적화를 위한 인덱스
@@ -405,7 +360,7 @@ Response:
 3.4 파일 변환 API
 
 POST /api/v1/files/convert
-# 파일 변환 (PDF, DOC, PPT → JPEG)
+# 파일 변환 (PDF → JPEG)
 Headers: 
   Authorization: Bearer {api_key}
   Content-Type: multipart/form-data
@@ -539,10 +494,10 @@ DELETE /api/v1/annotations/{annotation_id}
 # 주석 삭제
 Headers: Authorization: Bearer {api_key}
 
-3.6 동기화 API
+3.6 저장 API
 
 GET /api/v1/sync/status
-# 동기화 상태 확인
+# 저장 상태 확인
 Headers: Authorization: Bearer {api_key}
 Query: ?since=2024-12-01T14:00:00Z
 
@@ -634,7 +589,7 @@ Response:
         "currency": "KRW",
         "description": "월 4,900원",
         "limits": null,
-        "features": ["파일 수 제한 없음", "광고 제거", "클라우드 동기화"]
+        "features": ["파일 수 제한 없음", "광고 제거", "파일 저장"]
       },
       "premium": {
         "name": "프리미엄 (Premium)",
@@ -689,7 +644,7 @@ Response:
 문서 파일을 이미지로 변환하여 주석 기능을 지원합니다.
 
 주요 기능:
-- PDF, DOC, PPT → JPEG/PNG 변환
+- PDF → PNG 변환
 - 비동기 변환 작업 큐 관리
 - 변환 진행 상태 추적
 - 변환된 파일의 페이지별 관리
@@ -791,22 +746,12 @@ litten-files-production/
 - 노트 목록: 5분 캐싱
 - 사용량 정보: 1분 캐싱
 
-7.3 비동기 처리
-- Bull 큐 시스템
-- 파일 메타데이터 추출
-- 문서 파일 변환 (PDF→JPEG 등)
-- 썸네일 생성
-- 주석 데이터 처리
-- 이메일 전송
-- 통계 데이터 생성
-
 ================================================================================
 
 8. 배포 및 인프라
 
 8.1 컨테이너화
 - Docker 기반 컨테이너
-- Node.js 18 Alpine 이미지
 - 멀티 스테이지 빌드
 
 8.2 AWS 인프라
@@ -894,8 +839,8 @@ litten-files-production/
 ================================================================================
 
 이상으로 리튼(litten) 크로스플랫폼 노트 앱의 2차 개발 백엔드 설계를 완료했습니다.
-이 설계서는 1차 무료 버전의 로컬 저장 시스템을 클라우드 기반 동기화 시스템으로 
-확장하여 스탠다드 구독 서비스를 제공하기 위한 모든 핵심 백엔드 기능을 포괄하고 있습니다.
+이 설계서는 1차 무료/유료 버전의 로컬 저장 시스템을 클라우드 기반 동기화 시스템으로 
+확장하여 프리미엄 구독 서비스를 제공하기 위한 모든 핵심 백엔드 기능을 포괄하고 있습니다.
 
 **1차 개발에서는 이 백엔드 시스템 없이 로컬 저장만으로 앱을 개발하고,**
 **2차 개발 단계에서 이 설계를 바탕으로 서버 시스템을 구축합니다.**
