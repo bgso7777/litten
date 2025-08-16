@@ -72,46 +72,15 @@
 
 ## 📂 프로젝트 구조
 
-```
 litten/
-├── 📄 README.md           # 프로젝트 소개 (현재 파일)
-├── 📄 CLAUDE.md           # 개발 가이드라인
-│   ├── 0_history.txt      # 프로젝트 히스토리
-│   ├── 1_idea.txt         # 아이디어 정리
-│   ├── 2_planning.txt     # 기획 내용
-│   ├── 3_design_frontend.txt  # 프론트엔드 설계
-│   └── 4_design_backend.txt   # 백엔드 설계
-│── 📁 backend/           # 백엔드 (예정)
-└── 📁 frontend/          # Flutter 앱 및 웹 (예정)
-```
-
----
-
-## 🚀 빠른 시작 (예정)
-
-### 사전 요구사항
-```bash
-# Flutter SDK 설치 확인
-flutter doctor
-
-# 의존성 확인
-flutter --version
-```
-
-### 설치 및 실행 (Flutter 프로젝트 생성 후)
-```bash
-# 저장소 클론
-git clone [repository-url]
-cd litten_ex2/litten_app
-
-# 의존성 설치
-flutter pub get
-
-# 앱 실행
-flutter run
-```
-
----
+├── 📄 README.md              # 프로젝트 소개
+├── 📄 CLAUDE.md              # 개발 가이드라인
+├── 📄 1_idea.txt             # 아이디어 정리
+├── 📄 2_planning.txt         # 기획 내용
+├── 📄 3_design_frontend.txt  # 프론트엔드 설계
+├── 📄 4_design_backend.txt   # 백엔드 설계
+│── 📁 backend/               # 백엔드 Java Spring Boot
+└── 📁 frontend/              # 프론드엔드 Flutter 앱 및 웹
 
 ## 🌍 스마트 다국어 지원
 
