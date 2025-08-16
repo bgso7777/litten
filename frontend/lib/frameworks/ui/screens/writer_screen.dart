@@ -420,30 +420,67 @@ class _WriterScreenState extends State<WriterScreen> {
     );
 
     try {
-      // PDF Blob URL 생성
+      // === 단계 1: PDF 파일 검증 ===
+      print('==== PDF to PNG 변환 시작 ====');
+      print('1. PDF 파일 검증');
+      print('   - 파일명: $fileName');
+      print('   - 파일 크기: ${fileBytes.length} bytes (${(fileBytes.length / 1024).toStringAsFixed(2)} KB)');
+      print('   - 파일 시작 헤더: ${fileBytes.take(10).map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}').join(' ')}');
+      
+      // PDF 헤더 확인
+      final String headerText = String.fromCharCodes(fileBytes.take(10));
+      print('   - 헤더 텍스트: "$headerText"');
+      final bool isValidPdf = headerText.startsWith('%PDF-');
+      print('   - PDF 유효성: $isValidPdf');
+      
+      if (!isValidPdf) {
+        throw Exception('유효하지 않은 PDF 파일입니다. 헤더: $headerText');
+      }
+
+      // === 단계 2: PDF Blob URL 생성 ===
+      print('2. PDF Blob URL 생성');
       final blob = html.Blob([fileBytes], 'application/pdf');
       final pdfUrl = html.Url.createObjectUrl(blob);
+      print('   - Blob URL 생성 완료: ${pdfUrl.substring(0, 50)}...');
       
-      // Canvas 생성 (A4 사이즈 비율로 설정)
+      // === 단계 3: Canvas 초기화 ===
+      print('3. Canvas 초기화');
       final canvas = html.CanvasElement(width: 800, height: 1131); // A4 비율 (8.5:11)
       final ctx = canvas.context2D;
+      print('   - Canvas 크기: ${canvas.width}x${canvas.height}');
       
       // 흰색 배경 설정
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 800, 1131);
+      print('   - 흰색 배경 설정 완료');
       
-      // PDF.js를 사용하여 실제 PDF 내용을 렌더링
+      // === 단계 4: PDF 내용 렌더링 ===
+      print('4. PDF 내용 렌더링 시작');
       await _renderPdfToCanvas(fileBytes, canvas);
+      print('5. PDF 내용 렌더링 완료');
       
+      // === 단계 5: PNG 변환 ===
+      print('6. PNG 변환');
       final dataUrl = canvas.toDataUrl('image/png');
-      print('Canvas를 DataURL로 변환 완료 - 길이: ${dataUrl.length}');
-      print('DataURL 시작: ${dataUrl.substring(0, 50)}...');
+      print('   - DataURL 생성 완료');
+      print('   - DataURL 길이: ${dataUrl.length} bytes');
+      print('   - DataURL 시작: ${dataUrl.substring(0, 50)}...');
+      print('   - DataURL 헤더 확인: ${dataUrl.startsWith('data:image/png;base64,')}');
       
-      // 원본 파일명으로 PNG 파일명 생성
+      // Base64 데이터 추출 및 검증
+      final base64Index = dataUrl.indexOf(',');
+      if (base64Index != -1) {
+        final base64Data = dataUrl.substring(base64Index + 1);
+        print('   - Base64 데이터 길이: ${base64Data.length}');
+        print('   - Base64 시작: ${base64Data.substring(0, 20)}...');
+      }
+      
+      // === 단계 6: 파일 모델 생성 ===
+      print('7. 파일 모델 생성');
       final pngFileName = fileName.replaceAll('.pdf', '.png');
       final now = DateTime.now();
+      print('   - PNG 파일명: $pngFileName');
       
-      // PNG 이미지 파일로 저장
       final pngFile = FileModel(
         id: Uuid().v4(),
         noteId: noteProvider.selectedNote!.id,
@@ -462,15 +499,25 @@ class _WriterScreenState extends State<WriterScreen> {
           'mimeType': 'image/png',
           'width': 800,
           'height': 1131,
+          'conversionTime': now.toIso8601String(),
+          'pdfValid': isValidPdf,
+          'dataUrlLength': dataUrl.length,
         },
       );
       
+      print('   - 파일 ID: ${pngFile.id}');
+      print('   - 메타데이터: ${pngFile.metadata}');
+      
+      // === 단계 7: 저장 ===
+      print('8. 파일 저장');
       await noteProvider.addFileToNote(noteProvider.selectedNote!.id, pngFile);
-      print('PNG 파일 저장 완료 - ID: ${pngFile.id}');
-      print('파일 경로 길이: ${pngFile.filePath?.length}');
+      print('   - 파일 저장 완료');
       
       // Blob URL 정리
       html.Url.revokeObjectUrl(pdfUrl);
+      print('   - Blob URL 정리 완료');
+      
+      print('==== PDF to PNG 변환 성공 ====');
       
       Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
       
@@ -481,7 +528,11 @@ class _WriterScreenState extends State<WriterScreen> {
         ),
       );
       
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('==== PDF to PNG 변환 실패 ====');
+      print('오류: $e');
+      print('스택 트레이스: $stackTrace');
+      
       Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -494,108 +545,369 @@ class _WriterScreenState extends State<WriterScreen> {
 
   // PDF를 Canvas에 실제 내용으로 렌더링하는 메서드
   Future<void> _renderPdfToCanvas(Uint8List pdfBytes, html.CanvasElement canvas) async {
+    print('=== PDF 렌더링 메서드 시작 ===');
     print('PDF 렌더링 시작 - 파일 크기: ${pdfBytes.length} bytes');
+    
     try {
+      print('실제 PDF 내용 렌더링 시도');
       // PDF.js를 사용해서 실제 PDF 내용 렌더링 시도
       await _renderActualPdfContent(pdfBytes, canvas);
-      print('PDF 렌더링 완료');
-    } catch (e) {
+      print('실제 PDF 렌더링 성공');
+    } catch (e, stackTrace) {
       print('실제 PDF 렌더링 실패: $e');
+      print('오류 스택 트레이스: $stackTrace');
       print('시뮬레이션 모드로 전환');
+      
       // 실패 시 시뮬레이션으로 대체
-      await _renderRealisticPdfContent(pdfBytes, canvas);
-      print('시뮬레이션 렌더링 완료');
+      try {
+        await _renderRealisticPdfContent(pdfBytes, canvas);
+        print('시뮬레이션 렌더링 성공');
+      } catch (e2, stackTrace2) {
+        print('시뮬레이션 렌더링도 실패: $e2');
+        print('시뮬레이션 스택 트레이스: $stackTrace2');
+        
+        // 최종 대체: 기본 플레이스홀더
+        await _renderPdfPlaceholder(pdfBytes, canvas);
+        print('기본 플레이스홀더 렌더링 완료');
+      }
     }
+    
+    print('=== PDF 렌더링 메서드 완료 ===');
   }
   
   // pdf_render 패키지를 사용한 실제 PDF 렌더링
   Future<void> _renderActualPdfContent(Uint8List pdfBytes, html.CanvasElement canvas) async {
-    try {
-      // pdf_render 패키지로 실제 PDF 렌더링 시도
-      await _renderPdfWithPdfRender(pdfBytes, canvas);
-      print('pdf_render 패키지로 PDF 렌더링 완료');
-    } catch (e) {
-      print('pdf_render 렌더링 실패: $e');
-      // 대체 방법들 시도
-      try {
-        await _renderPdfViaIframe(pdfBytes, canvas);
-      } catch (e2) {
-        print('iframe 방식 PDF 렌더링 오류: $e2');
-        await _renderPdfViaDirectJs(pdfBytes, canvas);
-      }
-    }
-  }
-  
-  // pdf_render 패키지를 사용한 실제 PDF 렌더링
-  Future<void> _renderPdfWithPdfRender(Uint8List pdfBytes, html.CanvasElement canvas) async {
-    print('pdf_render 패키지로 PDF 렌더링 시작');
+    print('--- 실제 PDF 콘텐츠 렌더링 시작 ---');
     
     try {
+      print('1차 시도: 직접 PDF.js 사용 (최우선)');
+      // PDF.js를 직접 사용한 렌더링 시도
+      await _renderPdfWithDirectPdfJs(pdfBytes, canvas);
+      print('직접 PDF.js로 PDF 렌더링 성공');
+    } catch (e, stackTrace) {
+      print('직접 PDF.js 렌더링 실패: $e');
+      print('직접 PDF.js 스택 트레이스: $stackTrace');
+      
+      try {
+        print('2차 시도: pdf_render 패키지 사용');
+        // pdf_render 패키지로 실제 PDF 렌더링 시도
+        await _renderPdfWithPdfRender(pdfBytes, canvas);
+        print('pdf_render 패키지로 PDF 렌더링 성공');
+      } catch (e2, stackTrace2) {
+        print('pdf_render 렌더링 실패: $e2');
+        print('pdf_render 스택 트레이스: $stackTrace2');
+        
+        try {
+          print('3차 시도: 향상된 JavaScript 호출');
+          await _renderPdfViaDirectJs(pdfBytes, canvas);
+          print('향상된 JavaScript 호출 성공');
+        } catch (e3, stackTrace3) {
+          print('향상된 JavaScript 호출 실패: $e3');
+          print('향상된 JS 스택 트레이스: $stackTrace3');
+          throw Exception('모든 실제 PDF 렌더링 방법 실패: directPdfJs($e), pdf_render($e2), enhancedJs($e3)');
+        }
+      }
+    }
+    
+    print('--- 실제 PDF 콘텐츠 렌더링 완료 ---');
+  }
+  
+  // 직접 PDF.js를 사용한 PDF 렌더링 (최우선 방법)
+  Future<void> _renderPdfWithDirectPdfJs(Uint8List pdfBytes, html.CanvasElement canvas) async {
+    print('┌─ 직접 PDF.js로 PDF 렌더링 시작');
+    
+    try {
+      // PDF.js 라이브러리 확인
+      print('│ PDF.js 라이브러리 확인');
+      final pdfjsLib = js.context['pdfjsLib'];
+      if (pdfjsLib == null) {
+        throw Exception('PDF.js 라이브러리가 로드되지 않았습니다');
+      }
+      print('│ PDF.js 라이브러리 확인 완료');
+      
+      // PDF 바이트 데이터를 JavaScript로 전달
+      print('│ PDF 데이터 준비');
+      print('│   - 바이트 배열 길이: ${pdfBytes.length}');
+      
+      // 직접 JavaScript 실행으로 안전한 렌더링
+      final completer = Completer<void>();
+      
+      // 더 안전한 방식으로 JavaScript 코드 실행
+      final jsCode = '''
+        (async function() {
+          try {
+            console.log('PDF.js 직접 실행: 시작');
+            
+            // 바이트 배열을 Uint8Array로 변환
+            const uint8Array = new Uint8Array(arguments[0]);
+            console.log('PDF.js 직접 실행: Uint8Array 생성됨, 길이=' + uint8Array.length);
+            
+            // PDF 문서 로드
+            const loadingTask = pdfjsLib.getDocument({data: uint8Array});
+            console.log('PDF.js 직접 실행: 로딩 태스크 생성됨');
+            
+            const pdf = await loadingTask.promise;
+            console.log('PDF.js 직접 실행: PDF 로드 완료, 페이지 수=' + pdf.numPages);
+            
+            // 첫 번째 페이지 가져오기
+            const page = await pdf.getPage(1);
+            console.log('PDF.js 직접 실행: 페이지 로드 완료');
+            
+            // 뷰포트 설정
+            const viewport = page.getViewport({scale: 1.0});
+            console.log('PDF.js 직접 실행: 뷰포트 크기=' + viewport.width + 'x' + viewport.height);
+            
+            // Canvas 가져오기
+            const canvas = arguments[1];
+            console.log('PDF.js 직접 실행: Canvas 확인됨');
+            
+            // Canvas 크기 설정 (적절한 스케일 계산)
+            const maxWidth = 800;
+            const maxHeight = 1131;
+            const scale = Math.min(maxWidth / viewport.width, maxHeight / viewport.height);
+            const scaledViewport = page.getViewport({scale: scale});
+            
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            console.log('PDF.js 직접 실행: Canvas 크기 설정됨=' + canvas.width + 'x' + canvas.height);
+            
+            // 렌더링 컨텍스트 설정
+            const context = canvas.getContext('2d');
+            const renderContext = {
+              canvasContext: context,
+              viewport: scaledViewport
+            };
+            console.log('PDF.js 직접 실행: 렌더링 컨텍스트 설정됨');
+            
+            // 페이지 렌더링
+            await page.render(renderContext).promise;
+            console.log('PDF.js 직접 실행: 렌더링 완료');
+            
+            return 'success';
+            
+          } catch (error) {
+            console.error('PDF.js 직접 실행: 오류 발생', error);
+            throw error;
+          }
+        })
+      ''';
+      
+      // JavaScript 함수 실행
+      final jsFunction = js.context.callMethod('eval', [jsCode]);
+      
+      // JavaScript Promise를 Dart로 변환
+      try {
+        final result = jsFunction.callMethod('call', [null, pdfBytes, canvas]);
+        
+        // Promise 결과 처리
+        if (result != null) {
+          final promise = result as js.JsObject;
+          promise.callMethod('then', [js.allowInterop((value) {
+            print('│ JavaScript 실행 성공: $value');
+            completer.complete();
+          })]).callMethod('catch', [js.allowInterop((error) {
+            print('│ JavaScript 실행 실패: $error');
+            completer.completeError(Exception('PDF.js 실행 실패: $error'));
+          })]);
+        } else {
+          completer.completeError(Exception('JavaScript 함수 실행 결과가 null입니다'));
+        }
+      } catch (e) {
+        completer.completeError(e);
+      }
+      
+      // 비동기 완료 대기 (타임아웃 설정)
+      await completer.future.timeout(Duration(seconds: 30));
+      
+      print('└─ 직접 PDF.js로 PDF 렌더링 성공');
+      
+    } catch (e, stackTrace) {
+      print('└─ 직접 PDF.js 렌더링 오류 발생');
+      print('   오류: $e');
+      print('   타입: ${e.runtimeType}');
+      print('   스택트레이스 라인 수: ${stackTrace.toString().split('\n').length}');
+      rethrow;
+    }
+  }
+
+  // pdf_render 패키지를 사용한 실제 PDF 렌더링
+  Future<void> _renderPdfWithPdfRender(Uint8List pdfBytes, html.CanvasElement canvas) async {
+    print('┌─ pdf_render 패키지로 PDF 렌더링 시작');
+    
+    try {
+      print('│ PDF 데이터 분석');
+      print('│   - 바이트 배열 길이: ${pdfBytes.length}');
+      print('│   - 첫 20바이트: ${pdfBytes.take(20).map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}').join(' ')}');
+      
       // PDF 문서 열기
+      print('│ PDF 문서 열기 시도');
       final doc = await PdfDocument.openData(pdfBytes);
-      print('PDF 문서 열기 완료 - 페이지 수: ${doc.pageCount}');
+      print('│ PDF 문서 열기 성공');
+      print('│   - 페이지 수: ${doc.pageCount}');
+      print('│   - 문서 ID: ${doc.hashCode}');
+      
+      if (doc.pageCount <= 0) {
+        throw Exception('PDF 문서에 페이지가 없습니다');
+      }
       
       // 첫 번째 페이지 가져오기
+      print('│ 첫 번째 페이지 가져오기 시도');
       final page = await doc.getPage(1);
-      print('첫 번째 페이지 가져오기 완료');
+      print('│ 첫 번째 페이지 가져오기 성공');
+      print('│   - 페이지 ID: ${page.hashCode}');
+      
+      // 페이지 크기 정보
+      print('│ 캔버스 크기 정보');
+      print('│   - Canvas 크기: ${canvas.width}x${canvas.height}');
       
       // 페이지를 이미지로 렌더링 (고해상도)
+      print('│ 페이지 이미지 렌더링 시도');
       final pageImage = await page.render(width: canvas.width!.round(), height: canvas.height!.round());
-      print('페이지 이미지 렌더링 완료 - 크기: ${pageImage.width}x${pageImage.height}');
+      print('│ 페이지 이미지 렌더링 성공');
+      print('│   - 렌더링된 이미지 크기: ${pageImage.width}x${pageImage.height}');
+      print('│   - 이미지 픽셀 수: ${pageImage.pixels.length}');
+      print('│   - 예상 픽셀 수: ${pageImage.width * pageImage.height * 4}'); // RGBA
+      
+      // 이미지 데이터 검증
+      if (pageImage.pixels.isEmpty) {
+        throw Exception('렌더링된 페이지 이미지가 비어있습니다');
+      }
+      
+      // 첫 몇 픽셀 데이터 확인
+      final firstPixels = pageImage.pixels.take(16).toList();
+      print('│   - 첫 16개 픽셀 데이터: ${firstPixels.map((p) => '0x${p.toRadixString(16).padLeft(2, '0')}').join(' ')}');
       
       // 이미지 데이터를 Canvas에 그리기
+      print('│ Canvas에 이미지 그리기 시도');
       await _drawImageOnCanvas(pageImage, canvas);
+      print('│ Canvas에 이미지 그리기 성공');
+      
+      // Canvas 내용 검증
+      final canvasDataUrl = canvas.toDataUrl('image/png');
+      print('│ Canvas 검증');
+      print('│   - DataURL 길이: ${canvasDataUrl.length}');
+      print('│   - DataURL 시작: ${canvasDataUrl.substring(0, 50)}...');
       
       // 리소스 정리
+      print('│ 리소스 정리');
       doc.dispose();
       
-      print('pdf_render를 사용한 PDF 렌더링 완료');
+      print('└─ pdf_render를 사용한 PDF 렌더링 완료');
       
-    } catch (e) {
-      print('pdf_render 오류: $e');
+    } catch (e, stackTrace) {
+      print('└─ pdf_render 오류 발생');
+      print('   오류: $e');
+      print('   타입: ${e.runtimeType}');
+      print('   스택트레이스 라인 수: ${stackTrace.toString().split('\n').length}');
       rethrow;
     }
   }
   
   // PdfPageImage를 Canvas에 그리기
   Future<void> _drawImageOnCanvas(PdfPageImage pageImage, html.CanvasElement canvas) async {
+    print('    ┌─ Canvas에 PDF 이미지 그리기 시작');
+    
     try {
       // PdfPageImage에서 픽셀 데이터 추출
       final pixels = pageImage.pixels;
       final width = pageImage.width;
       final height = pageImage.height;
       
-      print('이미지 데이터: ${width}x${height}, 픽셀 수: ${pixels.length}');
+      print('    │ 이미지 데이터 분석');
+      print('    │   - 이미지 크기: ${width}x${height}');
+      print('    │   - 픽셀 배열 길이: ${pixels.length}');
+      print('    │   - 예상 픽셀 수 (RGBA): ${width * height * 4}');
+      print('    │   - 픽셀 데이터 일치: ${pixels.length == width * height * 4}');
+      
+      // 픽셀 데이터 샘플링 (처음, 중간, 끝)
+      if (pixels.isNotEmpty) {
+        final sampleIndices = [0, pixels.length ~/ 2, pixels.length - 4];
+        for (int idx in sampleIndices) {
+          if (idx >= 0 && idx + 3 < pixels.length) {
+            final r = pixels[idx];
+            final g = pixels[idx + 1];
+            final b = pixels[idx + 2];
+            final a = pixels[idx + 3];
+            print('    │   - 픽셀[$idx]: R=$r, G=$g, B=$b, A=$a');
+          }
+        }
+      }
       
       // Canvas 크기 조정
+      print('    │ Canvas 크기 조정');
+      final originalCanvasSize = '${canvas.width}x${canvas.height}';
       canvas.width = width;
       canvas.height = height;
+      print('    │   - 기존 크기: $originalCanvasSize');
+      print('    │   - 새 크기: ${canvas.width}x${canvas.height}');
       
       final ctx = canvas.context2D;
       
       // ImageData 생성 및 픽셀 데이터 복사
+      print('    │ ImageData 생성');
       final imageData = ctx.createImageData(width, height);
       final data = imageData.data;
+      print('    │   - ImageData 크기: ${imageData.width}x${imageData.height}');
+      print('    │   - ImageData.data 길이: ${data.length}');
       
       // RGBA 형식으로 픽셀 데이터 복사
+      print('    │ 픽셀 데이터 복사 시작');
+      int copiedPixels = 0;
+      int skippedPixels = 0;
+      
       for (int i = 0; i < pixels.length; i += 4) {
-        if (i + 3 < pixels.length && (i ~/ 4) * 4 < data.length - 3) {
-          data[(i ~/ 4) * 4 + 0] = pixels[i + 2]; // R
-          data[(i ~/ 4) * 4 + 1] = pixels[i + 1]; // G
-          data[(i ~/ 4) * 4 + 2] = pixels[i + 0]; // B
-          data[(i ~/ 4) * 4 + 3] = pixels[i + 3]; // A
+        final targetIndex = (i ~/ 4) * 4;
+        if (i + 3 < pixels.length && targetIndex + 3 < data.length) {
+          // BGR -> RGB 변환 (PDF 렌더러에 따라 다를 수 있음)
+          data[targetIndex + 0] = pixels[i + 2]; // R (Blue -> Red)
+          data[targetIndex + 1] = pixels[i + 1]; // G (Green)
+          data[targetIndex + 2] = pixels[i + 0]; // B (Red -> Blue)
+          data[targetIndex + 3] = pixels[i + 3]; // A (Alpha)
+          copiedPixels++;
+        } else {
+          skippedPixels++;
         }
       }
       
+      print('    │   - 복사된 픽셀: $copiedPixels');
+      print('    │   - 스킵된 픽셀: $skippedPixels');
+      
+      // 복사된 데이터 검증
+      if (data.length > 0) {
+        final dataStart = data.take(12).map((d) => d.toString()).join(',');
+        final dataEnd = data.skip(data.length - 12).map((d) => d.toString()).join(',');
+        print('    │   - ImageData 시작 12바이트: $dataStart');
+        print('    │   - ImageData 끝 12바이트: $dataEnd');
+      }
+      
       // Canvas에 이미지 데이터 그리기
+      print('    │ Canvas에 이미지 데이터 적용');
       ctx.putImageData(imageData, 0, 0);
       
-      print('Canvas에 이미지 그리기 완료');
+      // Canvas 결과 검증
+      print('    │ Canvas 결과 검증');
+      final resultDataUrl = canvas.toDataUrl('image/png');
+      print('    │   - 결과 DataURL 길이: ${resultDataUrl.length}');
+      print('    │   - 결과 DataURL 시작: ${resultDataUrl.substring(0, 50)}...');
       
-    } catch (e) {
-      print('Canvas 그리기 오류: $e');
+      // Canvas 픽셀 데이터 재확인
+      final resultImageData = ctx.getImageData(0, 0, width, height);
+      final resultPixels = resultImageData.data;
+      if (resultPixels.length > 0) {
+        final resultSample = resultPixels.take(12).map((p) => p.toString()).join(',');
+        print('    │   - Canvas 픽셀 샘플: $resultSample');
+      }
+      
+      print('    └─ Canvas에 PDF 이미지 그리기 성공');
+      
+    } catch (e, stackTrace) {
+      print('    └─ Canvas 그리기 오류 발생');
+      print('       오류: $e');
+      print('       타입: ${e.runtimeType}');
+      print('       스택트레이스: ${stackTrace.toString().split('\n').take(5).join('\n')}');
       
       // 대체: 기본 내용 표시
+      print('       대체 방법: 기본 텍스트 표시');
       final ctx = canvas.context2D;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width!, canvas.height!);
@@ -604,81 +916,23 @@ class _WriterScreenState extends State<WriterScreen> {
       ctx.textAlign = 'center';
       ctx.fillText('PDF 렌더링 완료 (${pageImage.width}x${pageImage.height})', canvas.width! / 2, canvas.height! / 2);
       ctx.fillText('필기 기능을 사용할 수 있습니다', canvas.width! / 2, canvas.height! / 2 + 30);
+      ctx.fillText('Canvas 그리기 오류 발생: ${e.toString().substring(0, 50)}', canvas.width! / 2, canvas.height! / 2 + 60);
+      
+      print('       대체 텍스트 표시 완료');
     }
   }
   
-  // iframe을 통한 PDF 렌더링
+  // iframe을 통한 PDF 렌더링 (제거된 가짜 시뮬레이션 대신 실제 렌더링 시도)
   Future<void> _renderPdfViaIframe(Uint8List pdfBytes, html.CanvasElement canvas) async {
-    print('iframe 방식으로 PDF 렌더링 시작');
+    print('iframe 방식으로 PDF 렌더링 시작 (실제 렌더링 시도)');
     
-    // PDF Blob URL 생성
-    final blob = html.Blob([pdfBytes], 'application/pdf');
-    final pdfUrl = html.Url.createObjectUrl(blob);
-    
-    try {
-      // PDF를 표시할 임시 iframe 생성
-      final iframe = html.IFrameElement()
-        ..src = pdfUrl
-        ..style.width = '800px'
-        ..style.height = '1131px'
-        ..style.border = 'none'
-        ..style.position = 'absolute'
-        ..style.left = '-2000px' // 화면 밖으로 숨김
-        ..style.top = '0'
-        ..style.backgroundColor = 'white'
-        ..style.visibility = 'hidden';
-      
-      html.document.body?.append(iframe);
-      print('PDF iframe 생성 완료');
-      
-      // iframe 로드 완료까지 대기
-      await Future.delayed(Duration(seconds: 2));
-      print('iframe 로드 대기 완료');
-      
-      // iframe의 내용을 canvas로 캡처하는 대신, 
-      // PDF가 제대로 로드되었다는 가정 하에 canvas에 PDF 정보 표시
-      final ctx = canvas.context2D;
-      
-      // 흰색 배경
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width!, canvas.height!);
-      
-      // PDF 내용 시뮬레이션 (실제 PDF 텍스트 추출이 어려우므로)
-      ctx.fillStyle = '#333333';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('PDF 문서가 성공적으로 로드되었습니다', canvas.width! / 2, 100);
-      ctx.fillText('파일 크기: ${(pdfBytes.length / 1024).toStringAsFixed(1)}KB', canvas.width! / 2, 140);
-      ctx.fillText('이 영역에서 필기할 수 있습니다', canvas.width! / 2, 180);
-      
-      // PDF 내용의 일부를 나타내는 선들 그리기
-      ctx.strokeStyle = '#cccccc';
-      ctx.lineWidth = 1;
-      for (int i = 0; i < 20; i++) {
-        final y = 220 + (i * 20);
-        if (y > canvas.height! - 100) break;
-        ctx.beginPath();
-        ctx.moveTo(50, y);
-        ctx.lineTo(canvas.width! - 50, y);
-        ctx.stroke();
-      }
-      
-      // 임시 요소 정리
-      iframe.remove();
-      html.Url.revokeObjectUrl(pdfUrl);
-      
-      print('iframe 방식 PDF 렌더링 완료');
-      
-    } catch (e) {
-      // 정리
-      html.Url.revokeObjectUrl(pdfUrl);
-      rethrow;
-    }
+    // 이 방법도 실제 PDF 내용을 렌더링하도록 변경
+    throw Exception('iframe 방식은 실제 PDF 렌더링이 어려우므로 다른 방법을 사용합니다');
   }
   
-  // 직접 JavaScript 호출을 통한 PDF 렌더링 (단순화된 버전)
+  // 향상된 JavaScript 호출을 통한 PDF 렌더링 (실제 구현)
   Future<void> _renderPdfViaDirectJs(Uint8List pdfBytes, html.CanvasElement canvas) async {
-    print('직접 JS 방식으로 PDF 렌더링 시작');
+    print('향상된 JS 방식으로 PDF 렌더링 시작');
     
     // PDF.js 라이브러리 확인
     final pdfjsLib = js.context['pdfjsLib'];
@@ -686,69 +940,104 @@ class _WriterScreenState extends State<WriterScreen> {
       throw Exception('PDF.js 라이브러리가 로드되지 않았습니다');
     }
     
-    // 단순한 오류 처리를 위해 try-catch로 감싸기
     try {
-      // JavaScript에서 직접 실행할 수 있는 코드 문자열 생성
+      print('향상된 방식: 순수 JavaScript 실행');
+      
+      // 가장 간단한 JavaScript 실행 방식
       final jsCode = '''
-        (function(pdfData, canvasElement) {
-          return new Promise((resolve, reject) => {
-            try {
-              const uint8Array = new Uint8Array(pdfData);
-              const loadingTask = pdfjsLib.getDocument({data: uint8Array});
+        try {
+          console.log('향상된 JS: 시작');
+          
+          // PDF 데이터 준비
+          const data = arguments[0];
+          const canvasElement = arguments[1];
+          
+          const uint8Array = new Uint8Array(data);
+          console.log('향상된 JS: 데이터 준비됨');
+          
+          // PDF 로드 및 렌더링
+          pdfjsLib.getDocument({data: uint8Array}).promise.then(function(pdf) {
+            console.log('향상된 JS: PDF 로드됨');
+            
+            pdf.getPage(1).then(function(page) {
+              console.log('향상된 JS: 페이지 로드됨');
               
-              loadingTask.promise.then(pdf => {
-                pdf.getPage(1).then(page => {
-                  const viewport = page.getViewport({scale: 1.0});
-                  const scale = Math.min(canvasElement.width / viewport.width, 2.0);
-                  const scaledViewport = page.getViewport({scale: scale});
-                  
-                  canvasElement.width = scaledViewport.width;
-                  canvasElement.height = scaledViewport.height;
-                  
-                  const context = canvasElement.getContext('2d');
-                  const renderContext = {
-                    canvasContext: context,
-                    viewport: scaledViewport
-                  };
-                  
-                  page.render(renderContext).promise.then(() => {
-                    resolve('렌더링 완료');
-                  }).catch(reject);
-                }).catch(reject);
-              }).catch(reject);
+              const viewport = page.getViewport({scale: 1.0});
+              console.log('향상된 JS: 뷰포트=' + viewport.width + 'x' + viewport.height);
               
-            } catch (error) {
-              reject(error);
-            }
+              // Canvas 크기 설정
+              const scale = Math.min(800 / viewport.width, 1131 / viewport.height);
+              const scaledViewport = page.getViewport({scale: scale});
+              
+              canvasElement.width = scaledViewport.width;
+              canvasElement.height = scaledViewport.height;
+              console.log('향상된 JS: Canvas 크기 설정됨');
+              
+              const context = canvasElement.getContext('2d');
+              page.render({
+                canvasContext: context,
+                viewport: scaledViewport
+              }).promise.then(function() {
+                console.log('향상된 JS: 렌더링 완료');
+                window._pdfRenderComplete = true;
+              }).catch(function(error) {
+                console.error('향상된 JS: 렌더링 실패', error);
+                window._pdfRenderError = error;
+              });
+            }).catch(function(error) {
+              console.error('향상된 JS: 페이지 로드 실패', error);
+              window._pdfRenderError = error;
+            });
+          }).catch(function(error) {
+            console.error('향상된 JS: PDF 로드 실패', error);
+            window._pdfRenderError = error;
           });
-        })
+          
+        } catch (error) {
+          console.error('향상된 JS: 전체 오류', error);
+          window._pdfRenderError = error;
+        }
       ''';
       
-      // JavaScript 함수 생성 및 실행
-      final jsFunction = js.context.callMethod('eval', [jsCode]);
+      // 결과 플래그 초기화
+      js.context['_pdfRenderComplete'] = false;
+      js.context['_pdfRenderError'] = null;
       
-      // Promise 실행 (단순화)
-      final result = jsFunction.callMethod('call', [null, pdfBytes, canvas]);
+      // JavaScript 실행
+      js.context.callMethod('eval', [jsCode]).callMethod('call', [null, pdfBytes, canvas]);
       
-      print('직접 JS 방식 PDF 렌더링 시도 완료');
+      // 결과 대기 (폴링 방식)
+      for (int i = 0; i < 100; i++) { // 최대 10초 대기
+        await Future.delayed(Duration(milliseconds: 100));
+        
+        final complete = js.context['_pdfRenderComplete'];
+        final error = js.context['_pdfRenderError'];
+        
+        if (complete == true) {
+          print('향상된 JS 방식 PDF 렌더링 성공');
+          return;
+        }
+        
+        if (error != null) {
+          throw Exception('JavaScript 렌더링 오류: $error');
+        }
+      }
+      
+      throw Exception('JavaScript 렌더링 타임아웃');
       
     } catch (e) {
-      print('직접 JS 방식 실패: $e');
-      // 최종 대체: 기본 내용 표시
-      final ctx = canvas.context2D;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width!, canvas.height!);
-      ctx.fillStyle = '#333333';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('PDF 렌더링을 시도했으나 실패했습니다', canvas.width! / 2, canvas.height! / 2);
-      ctx.fillText('파일 크기: ${(pdfBytes.length / 1024).toStringAsFixed(1)}KB', canvas.width! / 2, canvas.height! / 2 + 30);
+      print('향상된 JS 방식 실패: $e');
+      rethrow;
     }
   }
   
   
-  // PDF 파일의 고유한 특성을 반영한 문서 시뮬레이션
+  // PDF 시뮬레이션 렌더링 (마지막 대체 방법)
   Future<void> _renderRealisticPdfContent(Uint8List pdfBytes, html.CanvasElement canvas) async {
+    print('PDF 시뮬레이션 렌더링 시작 (최후 대체 방법)');
+    
+    // 실제 PDF.js도 실패했을 때의 마지막 대체 방법
+    // 실제 PDF 내용과 다르므로 사용자에게 명확히 알림
     final ctx = canvas.context2D;
     
     // PDF 바이트에서 고유 특성 추출
