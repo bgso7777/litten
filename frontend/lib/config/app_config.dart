@@ -118,12 +118,6 @@ class AppConfig {
   static const int adBannerHeight = 50;
 }
 
-// 사용자 구독 타입
-enum SubscriptionType {
-  free,
-  standard,
-  premium,
-}
 
 // 파일 타입
 enum FileType {

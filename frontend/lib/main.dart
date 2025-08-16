@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'config/app_config.dart';
-import 'providers/locale_provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/note_provider.dart';
-import 'services/audio_service.dart';
-import 'services/drawing_service.dart';
-import 'services/subscription_service.dart';
-import 'screens/main_tab_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'services/preferences_service.dart';
+import 'frameworks/state/locale_provider.dart';
+import 'frameworks/state/theme_provider.dart';
+import 'frameworks/state/note_provider.dart';
+import 'adapters/audio/audio_service.dart';
+import 'adapters/storage/drawing_service.dart';
+import 'adapters/subscription/subscription_service.dart';
+import 'frameworks/ui/screens/main_tab_screen.dart';
+import 'frameworks/ui/screens/onboarding_screen.dart';
+import 'adapters/storage/preferences_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -95,7 +95,7 @@ class _AppInitializerState extends State<AppInitializer> {
     
     // 웹 환경에서 디버깅을 위해 온보딩을 항상 표시 (개발 모드)
     // 배포 시에는 이 라인을 제거하세요
-    final bool forceOnboarding = false;
+    const bool forceOnboarding = false;
     
     // 짧은 지연 후 해당 화면으로 이동
     await Future.delayed(const Duration(milliseconds: 500));
