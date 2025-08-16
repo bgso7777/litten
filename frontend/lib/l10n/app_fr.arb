@@ -1,0 +1,214 @@
+{
+  "@@locale": "fr",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "Accueil",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "Écouter",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "Écrire",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "Paramètres",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "Créer Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "Nouveau Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "Titre",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "Description",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(Optionnel)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "Annuler",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "Créer",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "Supprimer",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "Rechercher",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "Rechercher des notes...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "Créez votre premier Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "Gérez la voix, le texte et l'écriture manuscrite\ndans un espace intégré",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "Aucun résultat de recherche",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "Aucune note trouvée correspondant à \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "Effacer la recherche",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "Supprimer la Note",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "Êtes-vous sûr de vouloir supprimer cette note ?\nTous les fichiers seront supprimés ensemble.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "Note supprimée",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "'{title}' créé",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "{title} sélectionné",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "La version gratuite permet seulement {limit} notes.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "Passer à Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "Passez à Standard et obtenez :\n\n• Création illimitée de notes\n• Stockage illimité de fichiers\n• Suppression des publicités\n• Synchronisation cloud",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "Plus tard",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "Mettre à niveau",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "Zone publicitaire - Supprimer avec la mise à niveau Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "Veuillez saisir un titre",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "Échec de création de note : {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "Échec de suppression de note : {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "La fonction de mise à niveau sera bientôt disponible",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

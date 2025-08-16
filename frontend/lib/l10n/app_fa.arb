@@ -1,0 +1,214 @@
+{
+  "@@locale": "fa",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "خانه",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "گوش دهید",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "بنویسید",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "تنظیمات",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Litten ایجاد کنید",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Litten جدید",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "عنوان",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "توضیحات",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(اختیاری)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "لغو",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "ایجاد",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "حذف",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "جستجو",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "جستجوی یادداشت‌ها...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "اولین Litten خود را ایجاد کنید",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "صدا، متن و دست‌نویس را\nدر یک فضای یکپارچه مدیریت کنید",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "نتیجه‌ای یافت نشد",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "هیچ یادداشتی با \"{query}\" مطابقت ندارد",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "پاک کردن جستجو",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "حذف یادداشت",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "آیا مطمئن هستید که می‌خواهید این یادداشت را حذف کنید؟\nتمام فایل‌ها با هم حذف خواهند شد.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "یادداشت حذف شد",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' ایجاد شد",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} انتخاب شد",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "نسخه رایگان فقط تا {limit} یادداشت اجازه می‌دهد.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "به نسخه استاندارد ارتقا دهید",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "به نسخه استاندارد ارتقا دهید و دریافت کنید:\n\n• ایجاد یادداشت نامحدود\n• ذخیره‌سازی فایل نامحدود\n• حذف تبلیغات\n• همگام‌سازی ابری",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "بعداً",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "ارتقا",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "منطقه تبلیغات - با ارتقای استاندارد حذف کنید",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "لطفاً عنوانی وارد کنید",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "ایجاد یادداشت ناموفق: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "حذف یادداشت ناموفق: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "قابلیت ارتقا به زودی در دسترس خواهد بود",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

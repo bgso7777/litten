@@ -1,0 +1,56 @@
+{
+  "@@locale": "ur",
+  "appName": "لیٹن",
+  "home": "ہوم",
+  "listen": "سنیں",
+  "write": "لکھیں",
+  "settings": "سیٹنگز",
+  "createNote": "لیٹن بنائیں",
+  "newNote": "نیا لیٹن",
+  "title": "عنوان",
+  "description": "تفصیل",
+  "optional": "(اختیاری)",
+  "cancel": "منظور",
+  "create": "بنائیں",
+  "delete": "حذف کریں",
+  "search": "تلاش",
+  "searchNotes": "نوٹس میں تلاش کریں...",
+  "noNotesTitle": "اپنا پہلا لیٹن بنائیں",
+  "noNotesSubtitle": "آواز، متن اور خطاطی\nایک متحد جگہ میں مینج کریں",
+  "noSearchResults": "تلاش کے نتائج نہیں ملے",
+  "noSearchResultsSubtitle": "\"{query}\" کے مطابق کوئی نوٹ نہیں ملا",
+  "@noSearchResultsSubtitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "clearSearch": "تلاش صاف کریں",
+  "deleteNote": "نوٹ حذف کریں",
+  "deleteNoteConfirm": "کیا آپ واقعی یہ نوٹ حذف کرنا چاہتے ہیں؟\nتمام فائلیں اکساتھ حذف ہو جائیں گی۔",
+  "noteDeleted": "نوٹ حذف ہو گیا",
+  "noteCreated": "'{title}' بنایا گیا",
+  "@noteCreated": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "noteSelected": "{title} منتخب",
+  "@noteSelected": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "freeLimitReached": "فری ورژن صرف {limit} نوٹس کی اجازت دیتا ہے۔",
+  "@freeLimitReached": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "upgradeToStandard": "سٹینڈرڈ میں اپ گریڈ کریں",
+  "upgradeFeatures": "سٹینڈرڈ میں اپ گریڈ کریں اور حاصل کریں:\n\n• بے حد نوٹ بنانا\n• بے حد فائل سٹوریج\n• اشتہارات کا ازالہ\n• کلاؤڈ سنکرونائزیشن",
+  "later": "بعد میں",
+  "upgrade": "اپ گریڈ",
+  "adBannerText": "اشتہار کا علاقہ - سٹینڈرڈ اپ گریڈ کے ساتھ ہٹائیں",
+  "enterTitle": "براہ کرم عنوان داخل کریں",
+  "createNoteFailed": "نوٹ بنانے میں ناکام: {error}",
+  "@createNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteNoteFailed": "نوٹ حذف کرنے میں ناکام: {error}",
+  "@deleteNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "upgradeComingSoon": "اپ گریڈ فیچر جلد دستیاب ہوگا"
+}

@@ -1,0 +1,214 @@
+{
+  "@@locale": "th",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "หน้าหลัก",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "ฟัง",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "เขียน",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "การตั้งค่า",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "สร้าง Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Litten ใหม่",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "หัวเรื่อง",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "คำอธิบาย",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(ทางเลือก)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "ยกเลิก",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "สร้าง",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "ลบ",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "ค้นหา",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "ค้นหาโน้ต...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "สร้าง Litten แรกของคุณ",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "จัดการเสียง ข้อความ และลายมือ\nในพื้นที่รวมเดียว",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "ไม่มีผลการค้นหา",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "ไม่พบโน้ตที่ตรงกับ \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "ล้างการค้นหา",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "ลบโน้ต",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "คุณแน่ใจหรือว่าต้องการลบโน้ตนี้?\nไฟล์ทั้งหมดจะถูกลบด้วย",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "ลบโน้ตแล้ว",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "สร้าง '{title}' แล้ว",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "เลือก {title} แล้ว",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "เวอร์ชันฟรีอนุญาตเฉพาะ {limit} โน้ตเท่านั้น",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "อัปเกรดเป็น Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "อัปเกรดเป็น Standard และรับ:\n\n• สร้างโน้ตได้ไม่จำกัด\n• เก็บไฟล์ได้ไม่จำกัด\n• ลบโฆษณา\n• ซิงค์คลาวด์",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "ทีหลัง",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "อัปเกรด",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "พื้นที่โฆษณา - ลบด้วยการอัปเกรด Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "โปรดใส่หัวเรื่อง",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "สร้างโน้ตไม่สำเร็จ: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "ลบโน้ตไม่สำเร็จ: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "ฟีเจอร์อัปเกรดจะพร้อมใช้งานเร็วๆ นี้",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

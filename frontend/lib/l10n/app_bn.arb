@@ -1,0 +1,214 @@
+{
+  "@@locale": "bn",
+  
+  "appName": "লিটেন",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "হোম",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "শুনুন",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "লিখুন",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "সেটিংস",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "লিটেন তৈরি করুন",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "নতুন লিটেন",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "শিরোনাম",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "বিবরণ",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(ঐচ্ছিক)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "বাতিল",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "তৈরি করুন",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "মুছুন",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "অনুসন্ধান",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "নোট অনুসন্ধান করুন...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "আপনার প্রথম লিটেন তৈরি করুন",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "ভয়েস, টেক্সট এবং হাতের লেখা\nএকটি সমন্বিত স্থানে পরিচালনা করুন",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "কোন অনুসন্ধান ফলাফল নেই",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "\"{query}\" এর সাথে মিলে এমন কোন নোট পাওয়া যায়নি",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "অনুসন্ধান পরিষ্কার করুন",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "নোট মুছুন",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "আপনি কি নিশ্চিত যে এই নোটটি মুছে ফেলতে চান?\nসমস্ত ফাইল একসাথে মুছে ফেলা হবে।",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "নোট মুছে ফেলা হয়েছে",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "'{title}' তৈরি করা হয়েছে",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "{title} নির্বাচিত",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "ফ্রি সংস্করণ শুধুমাত্র {limit}টি নোটের অনুমতি দেয়।",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "স্ট্যান্ডার্ডে আপগ্রেড করুন",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "স্ট্যান্ডার্ডে আপগ্রেড করুন এবং পান:\n\n• সীমাহীন নোট তৈরি\n• সীমাহীন ফাইল সংরক্ষণ\n• বিজ্ঞাপন সরানো\n• ক্লাউড সিঙ্ক্রোনাইজেশন",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "পরে",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "আপগ্রেড",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "বিজ্ঞাপন এলাকা - স্ট্যান্ডার্ড আপগ্রেডের সাথে সরান",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "অনুগ্রহ করে একটি শিরোনাম লিখুন",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "নোট তৈরিতে ব্যর্থ: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "নোট মুছতে ব্যর্থ: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "আপগ্রেড বৈশিষ্ট্য শীঘ্রই উপলব্ধ হবে",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

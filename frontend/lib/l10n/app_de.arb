@@ -1,0 +1,56 @@
+{
+  "@@locale": "de",
+  "appName": "Litten",
+  "home": "Startseite",
+  "listen": "Anhören",
+  "write": "Schreiben",
+  "settings": "Einstellungen",
+  "createNote": "Litten erstellen",
+  "newNote": "Neue Litten",
+  "title": "Titel",
+  "description": "Beschreibung",
+  "optional": "(Optional)",
+  "cancel": "Abbrechen",
+  "create": "Erstellen",
+  "delete": "Löschen",
+  "search": "Suchen",
+  "searchNotes": "Notizen suchen...",
+  "noNotesTitle": "Erstelle deine erste Litten",
+  "noNotesSubtitle": "Verwalte Sprache, Text und Handschrift\nin einem integrierten Bereich",
+  "noSearchResults": "Keine Suchergebnisse",
+  "noSearchResultsSubtitle": "Keine Notizen gefunden, die \"{query}\" entsprechen",
+  "@noSearchResultsSubtitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "clearSearch": "Suche löschen",
+  "deleteNote": "Notiz löschen",
+  "deleteNoteConfirm": "Sind Sie sicher, dass Sie diese Notiz löschen möchten?\nAlle Dateien werden zusammen gelöscht.",
+  "noteDeleted": "Notiz gelöscht",
+  "noteCreated": "'{title}' erstellt",
+  "@noteCreated": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "noteSelected": "{title} ausgewählt",
+  "@noteSelected": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "freeLimitReached": "Die kostenlose Version erlaubt nur {limit} Notizen.",
+  "@freeLimitReached": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "upgradeToStandard": "Auf Standard upgraden",
+  "upgradeFeatures": "Auf Standard upgraden und erhalten:\n\n• Unbegrenzte Notizerstellung\n• Unbegrenzter Dateispeicher\n• Werbung entfernen\n• Cloud-Synchronisation",
+  "later": "Später",
+  "upgrade": "Upgraden",
+  "adBannerText": "Werbebereich - Mit Standard-Upgrade entfernen",
+  "enterTitle": "Bitte geben Sie einen Titel ein",
+  "createNoteFailed": "Fehler beim Erstellen der Notiz: {error}",
+  "@createNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteNoteFailed": "Fehler beim Löschen der Notiz: {error}",
+  "@deleteNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "upgradeComingSoon": "Upgrade-Funktion wird bald verfügbar sein"
+}

@@ -1,0 +1,214 @@
+{
+  "@@locale": "ha",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Gida",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Saurara",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Rubuta",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Saitunan",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Kirkiro Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Sabon Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Taken",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Bayanin",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Na zaɓi)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Soke",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Kirkiro",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Share",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Nema",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Nemo bayanai...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Kirkiro Litten na farko",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Sarrafa murya, rubutu, da rubutun hannu\na wuri guda mai haɗuwa",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Babu sakamakon bincike",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Babu bayanai da suka dace da \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Share binciken",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Share Bayanin",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Ka tabbata kana son share wannan bayanin?\nDukkan fayiloli za a share tare.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "An share bayanin",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "An kirkiro '{title}'",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "An zaɓi {title}",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Sigar kyauta tana ba da izini har zuwa bayanai {limit} kawai.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Inganta zuwa Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Inganta zuwa Standard ka sami:\n\n• Kirkiro bayanai mara iyaka\n• Ajiyar fayiloli mara iyaka\n• Cire tallace-tallace\n• Daidaitawar gajimare",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Daga baya",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Inganta",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Yankin Talla - Cire da ingantawar Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Don Allah shigar da taken",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Kirkiro bayanin ya kasa: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Share bayanin ya kasa: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Fasalin ingantawa zai samu nan gaba",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

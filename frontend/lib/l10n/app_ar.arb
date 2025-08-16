@@ -1,0 +1,214 @@
+{
+  "@@locale": "ar",
+  
+  "appName": "ليتن",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "الرئيسية",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "استمع",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "اكتب",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "الإعدادات",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "إنشاء ليتن",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "ليتن جديد",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "العنوان",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "الوصف",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(اختياري)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "إلغاء",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "إنشاء",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "حذف",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "بحث",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "البحث في الملاحظات...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "أنشئ أول ليتن",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "إدارة الصوت والنص والكتابة اليدوية\nفي مساحة متكاملة",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "لا توجد نتائج بحث",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "لم يتم العثور على ملاحظات تطابق \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "مسح البحث",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "حذف الملاحظة",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "هل أنت متأكد من أنك تريد حذف هذه الملاحظة؟\nسيتم حذف جميع الملفات معًا.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "تم حذف الملاحظة",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "تم إنشاء '{title}'",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "تم تحديد {title}",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "الإصدار المجاني يسمح بـ {limit} ملاحظات فقط.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "الترقية إلى المعيار",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "ارتقِ إلى المعيار واحصل على:\n\n• إنشاء ملاحظات غير محدود\n• تخزين ملفات غير محدود\n• إزالة الإعلانات\n• مزامنة السحابة",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "لاحقًا",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "ترقية",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "منطقة الإعلانات - إزالة مع ترقية المعيار",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "يرجى إدخال عنوان",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "فشل في إنشاء الملاحظة: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "فشل في حذف الملاحظة: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "ستتوفر ميزة الترقية قريبًا",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

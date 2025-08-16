@@ -1,0 +1,214 @@
+{
+  "@@locale": "tr",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Ana Sayfa",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Dinle",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Yaz",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Ayarlar",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Litten Oluştur",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Yeni Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Başlık",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Açıklama",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(İsteğe bağlı)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "İptal",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Oluştur",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Sil",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Ara",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Notları ara...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "İlk Litten'ınızı oluşturun",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Ses, metin ve el yazısını\ntek entegre alanda yönetin",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Arama sonucu bulunamadı",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "\"{query}\" ile eşleşen not bulunamadı",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Aramayı temizle",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Notu Sil",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Bu notu silmek istediğinizden emin misiniz?\nTüm dosyalar birlikte silinecektir.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Not silindi",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' oluşturuldu",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} seçildi",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Ücretsiz sürüm yalnızca {limit} nota kadar izin verir.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Standart'a Yükselt",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Standart'a yükseltin ve şunları elde edin:\n\n• Sınırsız not oluşturma\n• Sınırsız dosya depolama\n• Reklam kaldırma\n• Bulut senkronizasyonu",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Sonra",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Yükselt",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Reklam Alanı - Standart yükseltme ile kaldırın",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Lütfen bir başlık girin",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Not oluşturma başarısız: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Not silme başarısız: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Yükseltme özelliği yakında kullanılabilir olacak",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

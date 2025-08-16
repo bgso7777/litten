@@ -1,0 +1,214 @@
+{
+  "@@locale": "hi",
+  
+  "appName": "लिटन",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "मुख्य",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "सुनें",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "लिखें",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "सेटिंग्स",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "लिटन बनाएं",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "नया लिटन",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "शीर्षक",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "विवरण",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(वैकल्पिक)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "रद्द करें",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "बनाएं",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "हटाएं",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "खोजें",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "नोट्स खोजें...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "अपना पहला लिटन बनाएं",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "आवाज, पाठ और हस्तलेखन को\nएक एकीकृत स्थान में प्रबंधित करें",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "कोई खोज परिणाम नहीं",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "\"{query}\" से मेल खाने वाले कोई नोट्स नहीं मिले",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "खोज साफ़ करें",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "नोट हटाएं",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "क्या आप वाकई इस नोट को हटाना चाहते हैं?\nसभी फाइलें एक साथ हटा दी जाएंगी।",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "नोट हटा दिया गया",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "'{title}' बनाया गया",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "{title} चुना गया",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "निःशुल्क संस्करण केवल {limit} नोट्स की अनुमति देता है।",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "स्टैंडर्ड में अपग्रेड करें",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "स्टैंडर्ड में अपग्रेड करें और पाएं:\n\n• असीमित नोट निर्माण\n• असीमित फ़ाइल स्टोरेज\n• विज्ञापन हटाना\n• क्लाउड सिंक्रोनाइज़ेशन",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "बाद में",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "अपग्रेड",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "विज्ञापन क्षेत्र - स्टैंडर्ड अपग्रेड के साथ हटाएं",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "कृपया शीर्षक दर्ज करें",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "नोट बनाने में विफल: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "नोट हटाने में विफल: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "अपग्रेड सुविधा जल्द ही उपलब्ध होगी",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

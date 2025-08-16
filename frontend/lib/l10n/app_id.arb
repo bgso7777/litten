@@ -1,0 +1,56 @@
+{
+  "@@locale": "id",
+  "appName": "Litten",
+  "home": "Beranda",
+  "listen": "Dengarkan",
+  "write": "Tulis",
+  "settings": "Pengaturan",
+  "createNote": "Buat Litten",
+  "newNote": "Litten Baru",
+  "title": "Judul",
+  "description": "Deskripsi",
+  "optional": "(Opsional)",
+  "cancel": "Batal",
+  "create": "Buat",
+  "delete": "Hapus",
+  "search": "Cari",
+  "searchNotes": "Cari catatan...",
+  "noNotesTitle": "Buat Litten pertama Anda",
+  "noNotesSubtitle": "Kelola suara, teks, dan tulisan tangan\ndalam satu ruang terintegrasi",
+  "noSearchResults": "Tidak ada hasil pencarian",
+  "noSearchResultsSubtitle": "Tidak ditemukan catatan yang sesuai dengan \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "clearSearch": "Bersihkan pencarian",
+  "deleteNote": "Hapus Catatan",
+  "deleteNoteConfirm": "Apakah Anda yakin ingin menghapus catatan ini?\nSemua file akan dihapus bersama.",
+  "noteDeleted": "Catatan dihapus",
+  "noteCreated": "'{title}' dibuat",
+  "@noteCreated": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "noteSelected": "{title} dipilih",
+  "@noteSelected": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "freeLimitReached": "Versi gratis hanya mengizinkan {limit} catatan.",
+  "@freeLimitReached": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "upgradeToStandard": "Upgrade ke Standard",
+  "upgradeFeatures": "Upgrade ke Standard dan dapatkan:\n\n• Pembuatan catatan tak terbatas\n• Penyimpanan file tak terbatas\n• Penghapusan iklan\n• Sinkronisasi cloud",
+  "later": "Nanti",
+  "upgrade": "Upgrade",
+  "adBannerText": "Area iklan - Hapus dengan upgrade Standard",
+  "enterTitle": "Silakan masukkan judul",
+  "createNoteFailed": "Gagal membuat catatan: {error}",
+  "@createNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteNoteFailed": "Gagal menghapus catatan: {error}",
+  "@deleteNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "upgradeComingSoon": "Fitur upgrade akan segera tersedia"
+}

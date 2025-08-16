@@ -1,0 +1,214 @@
+{
+  "@@locale": "ru",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "Главная",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "Слушать",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "Писать",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "Настройки",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "Создать Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "Новый Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "Заголовок",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "Описание",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(Необязательно)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "Отмена",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "Создать",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "Удалить",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "Поиск",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "Поиск заметок...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "Создайте свой первый Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "Управляйте голосом, текстом и рукописным вводом\nв едином интегрированном пространстве",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "Нет результатов поиска",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "Не найдено заметок, соответствующих \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "Очистить поиск",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "Удалить заметку",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "Вы уверены, что хотите удалить эту заметку?\nВсе файлы будут удалены вместе.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "Заметка удалена",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "'{title}' создано",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "{title} выбрано",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "Бесплатная версия позволяет только {limit} заметок.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "Обновить до Стандарт",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "Обновитесь до Стандарт и получите:\n\n• Неограниченное создание заметок\n• Неограниченное хранение файлов\n• Удаление рекламы\n• Облачная синхронизация",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "Позже",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "Обновить",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "Рекламная зона - Удалить с обновлением Стандарт",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "Пожалуйста, введите заголовок",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "Не удалось создать заметку: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "Не удалось удалить заметку: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "Функция обновления будет доступна в ближайшее время",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

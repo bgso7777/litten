@@ -1,0 +1,214 @@
+{
+  "@@locale": "ta",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "முகப்பு",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "கேளுங்கள்",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "எழுதுங்கள்",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "அமைப்புகள்",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Litten உருவாக்குங்கள்",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "புதிய Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "தலைப்பு",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "விளக்கம்",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(விருப்பம்)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "ரத்து செய்யுங்கள்",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "உருவாக்குங்கள்",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "அழிக்கவும்",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "தேடுங்கள்",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "குறிப்புகளைத் தேடுங்கள்...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "உங்கள் முதல் Litten ஐ உருவாக்குங்கள்",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "குரல், உரை மற்றும் கையெழுத்தை\nஒரு ஒருங்கிணைந்த இடத்தில் நிர்வகிக்கவும்",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "தேடல் முடிவுகள் இல்லை",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "\"{query}\" உடன் பொருந்தும் குறிப்புகள் எதுவும் கிடைக்கவில்லை",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "தேடலை அழிக்கவும்",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "குறிப்பை அழிக்கவும்",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "இந்த குறிப்பை நீங்கள் நிச்சயமாக அழிக்க விரும்புகிறீர்களா?\nஅனைத்து கோப்புகளும் ஒன்றாக அழிக்கப்படும்.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "குறிப்பு அழிக்கப்பட்டது",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' உருவாக்கப்பட்டது",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} தேர்ந்தெடுக்கப்பட்டது",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "இலவச பதிப்பு {limit} குறிப்புகள் வரை மட்டுமே அனுமதிக்கிறது.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "நிலையானதற்கு மேம்படுத்துங்கள்",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "நிலையானதற்கு மேம்படுத்தி பெறுங்கள்:\n\n• வரம்பற்ற குறிப்பு உருவாக்கம்\n• வரம்பற்ற கோப்பு சேமிப்பு\n• விளம்பர நீக்கம்\n• கிளவுட் ஒத்திசைவு",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "பின்னர்",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "மேம்படுத்துங்கள்",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "விளம்பர பகுதி - நிலையான மேம்பாட்டுடன் நீக்கவும்",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "தயவுசெய்து தலைப்பு உள்ளிடவும்",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "குறிப்பு உருவாக்க முடியவில்லை: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "குறிப்பு அழிக்க முடியவில்லை: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "மேம்படுத்தும் அம்சம் விரைவில் கிடைக்கும்",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

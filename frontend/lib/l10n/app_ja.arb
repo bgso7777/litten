@@ -1,0 +1,56 @@
+{
+  "@@locale": "ja",
+  "appName": "Litten",
+  "home": "ホーム",
+  "listen": "聴く",
+  "write": "書く",
+  "settings": "設定",
+  "createNote": "Littenを作成",
+  "newNote": "新しいLitten",
+  "title": "タイトル",
+  "description": "説明",
+  "optional": "(オプション)",
+  "cancel": "キャンセル",
+  "create": "作成",
+  "delete": "削除",
+  "search": "検索",
+  "searchNotes": "ノートを検索...",
+  "noNotesTitle": "最初のLittenを作成しましょう",
+  "noNotesSubtitle": "音声、テキスト、手書きを\n1つの統合されたスペースで管理",
+  "noSearchResults": "検索結果なし",
+  "noSearchResultsSubtitle": "\"{query}\"に一致するノートが見つかりません",
+  "@noSearchResultsSubtitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "clearSearch": "検索をクリア",
+  "deleteNote": "ノートを削除",
+  "deleteNoteConfirm": "このノートを削除してよろしいですか？\nすべてのファイルが一緒に削除されます。",
+  "noteDeleted": "ノートを削除しました",
+  "noteCreated": "'{title}'を作成しました",
+  "@noteCreated": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "noteSelected": "{title}を選択しました",
+  "@noteSelected": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "freeLimitReached": "無料版では{limit}個のノートのみ作成可能です。",
+  "@freeLimitReached": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "upgradeToStandard": "スタンダードにアップグレード",
+  "upgradeFeatures": "スタンダードにアップグレードして以下を取得:\n\n• 無制限ノート作成\n• 無制限ファイルストレージ\n• 広告の削除\n• クラウド同期",
+  "later": "後で",
+  "upgrade": "アップグレード",
+  "adBannerText": "広告エリア - スタンダードアップグレードで削除",
+  "enterTitle": "タイトルを入力してください",
+  "createNoteFailed": "ノートの作成に失敗: {error}",
+  "@createNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteNoteFailed": "ノートの削除に失敗: {error}",
+  "@deleteNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "upgradeComingSoon": "アップグレード機能は近日中に利用可能になります"
+}

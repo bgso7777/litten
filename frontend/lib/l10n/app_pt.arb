@@ -1,0 +1,56 @@
+{
+  "@@locale": "pt",
+  "appName": "Litten",
+  "home": "Início",
+  "listen": "Ouvir",
+  "write": "Escrever",
+  "settings": "Configurações",
+  "createNote": "Criar Litten",
+  "newNote": "Novo Litten",
+  "title": "Título",
+  "description": "Descrição",
+  "optional": "(Opcional)",
+  "cancel": "Cancelar",
+  "create": "Criar",
+  "delete": "Excluir",
+  "search": "Pesquisar",
+  "searchNotes": "Pesquisar notas...",
+  "noNotesTitle": "Crie seu primeiro Litten",
+  "noNotesSubtitle": "Gerencie voz, texto e escrita à mão\nem um espaço integrado",
+  "noSearchResults": "Sem resultados de pesquisa",
+  "noSearchResultsSubtitle": "Nenhuma nota encontrada correspondente a \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "clearSearch": "Limpar pesquisa",
+  "deleteNote": "Excluir Nota",
+  "deleteNoteConfirm": "Tem certeza de que deseja excluir esta nota?\nTodos os arquivos serão excluídos juntos.",
+  "noteDeleted": "Nota excluída",
+  "noteCreated": "'{title}' criado",
+  "@noteCreated": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "noteSelected": "{title} selecionado",
+  "@noteSelected": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "freeLimitReached": "A versão gratuita permite apenas {limit} notas.",
+  "@freeLimitReached": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "upgradeToStandard": "Atualizar para Padrão",
+  "upgradeFeatures": "Atualize para Padrão e obtenha:\n\n• Criação ilimitada de notas\n• Armazenamento ilimitado de arquivos\n• Remoção de anúncios\n• Sincronização na nuvem",
+  "later": "Mais tarde",
+  "upgrade": "Atualizar",
+  "adBannerText": "Área de anúncios - Remover com atualização Padrão",
+  "enterTitle": "Por favor, insira um título",
+  "createNoteFailed": "Falha ao criar nota: {error}",
+  "@createNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteNoteFailed": "Falha ao excluir nota: {error}",
+  "@deleteNoteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "upgradeComingSoon": "O recurso de atualização estará disponível em breve"
+}

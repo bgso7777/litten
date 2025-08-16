@@ -1,0 +1,214 @@
+{
+  "@@locale": "sw",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Nyumbani",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Sikiliza",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Andika",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Mipangilio",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Unda Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Litten Mpya",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Kichwa",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Maelezo",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Si lazima)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Ghairi",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Unda",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Futa",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Tafuta",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Tafuta notisi...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Unda Litten yako ya kwanza",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Simamia sauti, maandishi, na maandishi ya mkono\nkatika nafasi moja ya ushirikiano",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Hakuna matokeo ya utafutaji",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Hakuna notisi zilizopatikana zinazolingana na \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Futa utafutaji",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Futa Notisi",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Je, una uhakika unataka kufuta notisi hii?\nFaili zote zitafutwa pamoja.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Notisi imefutwa",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' imeundwa",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} imechaguliwa",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Toleo la bure linaruhusu hadi notisi {limit} tu.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Pandisha hadi Kiwango cha Kawaida",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Pandisha hadi Kiwango cha Kawaida na upate:\n\n• Uundaji wa notisi usio na kikomo\n• Uhifadhi wa faili usio na kikomo\n• Ondosha matangazo\n• Ulandanishi wa wingu",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Baadaye",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Pandisha",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Eneo la Tangazo - Ondoa kwa kupandisha Kiwango cha Kawaida",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Tafadhali ingiza kichwa",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Imeshindwa kuunda notisi: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Imeshindwa kufuta notisi: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Kipengele cha kupandisha kitapatikana hivi karibuni",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

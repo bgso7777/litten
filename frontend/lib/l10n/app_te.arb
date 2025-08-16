@@ -1,0 +1,214 @@
+{
+  "@@locale": "te",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "హోమ్",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "వినండి",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "వ్రాయండి",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "సెట్టింగ్స్",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Litten సృష్టించండి",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "కొత్త Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "శీర్షిక",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "వివరణ",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(ఐచ్ఛికం)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "రద్దు చేయండి",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "సృష్టించండి",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "తొలగించండి",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "వెతకండి",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "నోట్స్ వెతకండి...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "మీ మొదటి Litten సృష్టించండి",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "వాయిస్, టెక్స్ట్ మరియు హస్తలేఖనాన్ని\nఒక సమీకృత స్థలంలో నిర్వహించండి",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "శోధన ఫలితాలు లేవు",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "\"{query}\"తో సరిపోలే నోట్స్ కనుగొనబడలేదు",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "శోధనను క్లియర్ చేయండి",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "నోట్ తొలగించండి",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "మీరు ఈ నోట్ను తొలగించాలని ఖచ్చితంగా అనుకుంటున్నారా?\nఅన్ని ఫైల్స్ కలిసి తొలగించబడతాయి.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "నోట్ తొలగించబడింది",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' సృష్టించబడింది",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} ఎంపిక చేయబడింది",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "ఉచిత వెర్షన్ కేవలం {limit} నోట్స్ను మాత్రమే అనుమతిస్తుంది.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "స్టాండర్డ్కు అప్గ్రేడ్ చేయండి",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "స్టాండర్డ్కు అప్గ్రేడ్ చేసి పొందండి:\n\n• అపరిమిత నోట్ సృష్టి\n• అపరిమిత ఫైల్ స్టోరేజ్\n• ప్రకటనలు తీసివేత\n• క్లౌడ్ సింక్రోనైజేషన్",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "తర్వాత",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "అప్గ్రేడ్",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "ప్రకటన ప్రాంతం - స్టాండర్డ్ అప్గ్రేడ్తో తీసివేయండి",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "దయచేసి శీర్షిక నమోదు చేయండి",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "నోట్ సృష్టించడంలో విఫలమైంది: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "నోట్ తొలగించడంలో విఫలమైంది: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "అప్గ్రేడ్ ఫీచర్ త్వరలో అందుబాటులో ఉంటుంది",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

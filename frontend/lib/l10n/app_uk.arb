@@ -1,0 +1,214 @@
+{
+  "@@locale": "uk",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Головна",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Слухати",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Писати",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Налаштування",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Створити Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Новий Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Назва",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Опис",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Необов'язково)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Скасувати",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Створити",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Видалити",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Пошук",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Пошук нотаток...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Створіть свій перший Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Керуйте голосом, текстом та рукописом\nв одному інтегрованому просторі",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Результатів пошуку немає",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Нотаток, що відповідають \"{query}\", не знайдено",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Очистити пошук",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Видалити нотатку",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Ви впевнені, що хочете видалити цю нотатку?\nВсі файли будуть видалені разом.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Нотатку видалено",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' створено",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} вибрано",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Безкоштовна версія дозволяє лише {limit} нотаток.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Оновити до Стандарт",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Оновіться до Стандарт і отримайте:\n\n• Необмежене створення нотаток\n• Необмежене сховище файлів\n• Видалення реклами\n• Хмарна синхронізація",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Пізніше",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Оновити",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Рекламна область - Видаліть з оновленням Стандарт",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Будь ласка, введіть назву",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Не вдалося створити нотатку: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Не вдалося видалити нотатку: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Функція оновлення буде доступна незабаром",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "@@locale": "ps",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "کور",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "واورېږئ",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "ولیکئ",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "تنظیمات",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Litten جوړ کړئ",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "نوی Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "سرلیک",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "تشریح",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(اختیاری)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "لغو کړئ",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "جوړ کړئ",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "ړنګ کړئ",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "پلټنه",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "نوټونه پلټئ...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "خپل لومړی Litten جوړ کړئ",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "غږ، متن، او لاسي لیکنه\nپه یو مربوط ځای کې اداره کړئ",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "د پلټنې پایلې نشته",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "\"{query}\" سره سمون لرونکې نوټونه ونه موندل شول",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "پلټنه پاکه کړئ",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "نوټ ړنګ کړئ",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "ایا تاسو ډاډه یاست چې دا نوټ ړنګول غواړئ؟\nټولې دوتنې یوځای به ړنګې شي.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "نوټ ړنګ شو",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' جوړ شو",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} غوره شو",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "وړیا نسخه یوازې د {limit} نوټونو پورې اجازه ورکوي.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "معیاري ته پورته کړئ",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "معیاري ته پورته کړئ او ترلاسه کړئ:\n\n• د نوټونو نامحدود جوړونه\n• د دوتنو نامحدود ساتنه\n• د اعلاناتو لرې کول\n• د بادل همغږي",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "وروسته",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "پورته کړئ",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "د اعلان ساحه - د معیاري پورته کولو سره لرې کړئ",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "مهرباني وکړئ سرلیک ولیکئ",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "د نوټ جوړول ناکام شو: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "د نوټ ړنګول ناکام شو: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "د پورته کولو ځانګړتیا سمدلاسه شتون لري",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "@@locale": "ms",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Utama",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Dengar",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Tulis",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Tetapan",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Cipta Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Litten Baru",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Tajuk",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Penerangan",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Pilihan)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Batal",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Cipta",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Padam",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Cari",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Cari nota...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Cipta Litten pertama anda",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Urus suara, teks, dan tulisan tangan\ndalam satu ruang bersepadu",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Tiada keputusan carian",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Tiada nota ditemui yang sepadan dengan \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Kosongkan carian",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Padam Nota",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Adakah anda pasti mahu memadam nota ini?\nSemua fail akan dipadamkan bersama.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Nota dipadamkan",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' dicipta",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} dipilih",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Versi percuma hanya membenarkan sehingga {limit} nota.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Naik taraf ke Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Naik taraf ke Standard dan dapatkan:\n\n• Penciptaan nota tanpa had\n• Penyimpanan fail tanpa had\n• Penyingkiran iklan\n• Penyegerakan awan",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Kemudian",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Naik taraf",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Kawasan Iklan - Buang dengan naik taraf Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Sila masukkan tajuk",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Gagal mencipta nota: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Gagal memadam nota: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Ciri naik taraf akan tersedia tidak lama lagi",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

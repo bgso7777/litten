@@ -1,0 +1,214 @@
+{
+  "@@locale": "en",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  
+  "home": "Home",
+  "@home": {
+    "description": "Home tab label"
+  },
+  
+  "listen": "Listen",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+  
+  "write": "Write",
+  "@write": {
+    "description": "Write tab label"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+  
+  "createNote": "Create Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+  
+  "newNote": "New Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+  
+  "title": "Title",
+  "@title": {
+    "description": "Title field label"
+  },
+  
+  "description": "Description",
+  "@description": {
+    "description": "Description field label"
+  },
+  
+  "optional": "(Optional)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "create": "Create",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "search": "Search",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+  
+  "searchNotes": "Search notes...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+  
+  "noNotesTitle": "Create your first Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+  
+  "noNotesSubtitle": "Manage voice, text, and handwriting\nin one integrated space",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+  
+  "noSearchResults": "No search results",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+  
+  "noSearchResultsSubtitle": "No notes found matching \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+  
+  "clearSearch": "Clear search",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+  
+  "deleteNote": "Delete Note",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+  
+  "deleteNoteConfirm": "Are you sure you want to delete this note?\nAll files will be deleted together.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+  
+  "noteDeleted": "Note deleted",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+  
+  "noteCreated": "'{title}' created",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "noteSelected": "{title} selected",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+  
+  "freeLimitReached": "Free version allows up to {limit} notes only.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  
+  "upgradeToStandard": "Upgrade to Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+  
+  "upgradeFeatures": "Upgrade to Standard and get:\n\n• Unlimited note creation\n• Unlimited file storage\n• Ad removal\n• Cloud synchronization",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+  
+  "later": "Later",
+  "@later": {
+    "description": "Later button"
+  },
+  
+  "upgrade": "Upgrade",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "adBannerText": "Ad Area - Remove with Standard upgrade",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+  
+  "enterTitle": "Please enter a title",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+  
+  "createNoteFailed": "Failed to create note: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+  
+  "deleteNoteFailed": "Failed to delete note: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+  
+  "upgradeComingSoon": "Upgrade feature will be available soon",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

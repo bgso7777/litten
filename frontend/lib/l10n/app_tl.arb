@@ -1,0 +1,214 @@
+{
+  "@@locale": "tl",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Home",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Pakinggan",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Sumulat",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Mga Setting",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Gumawa ng Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Bagong Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Pamagat",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Paglalarawan",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Opsyonal)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Kanselahin",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Gumawa",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Burahin",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Hanapin",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Hanapin ang mga note...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Gumawa ng inyong unang Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Pamahalain ang boses, teksto, at sulat kamay\nsa isang pinagsama na espasyo",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Walang resulta ng paghahanap",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Walang nahanap na mga note na tumugma sa \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "I-clear ang paghahanap",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Burahin ang Note",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Sigurado ka ba na gusto mong burahin ang note na ito?\nLahat ng mga file ay mababura nang sama-sama.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Nabura ang note",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "Nagawa ang '{title}'",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "Napili ang {title}",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Ang libreng bersyon ay pinapahintulutan lamang hanggang {limit} notes.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "I-upgrade sa Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "I-upgrade sa Standard at makakuha ng:\n\n• Walang limitasyong paggawa ng note\n• Walang limitasyong file storage\n• Pagtanggal ng ads\n• Cloud synchronization",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Mamaya na",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "I-upgrade",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Ad Area - Tanggalin gamit ang Standard upgrade",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Pakisuyo na maglagay ng pamagat",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Hindi nagawa ang note: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Hindi nabura ang note: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Ang upgrade feature ay malapit nang maging available",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "@@locale": "pl",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Główna",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Słuchaj",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Pisz",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Ustawienia",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Utwórz Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Nowy Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Tytuł",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Opis",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Opcjonalne)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Anuluj",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Utwórz",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Usuń",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Szukaj",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Szukaj notatek...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Utwórz swój pierwszy Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Zarządzaj głosem, tekstem i pismem odręcznym\nw jednej zintegrowanej przestrzeni",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Brak wyników wyszukiwania",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Nie znaleziono notatek pasujących do \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Wyczyść wyszukiwanie",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Usuń notatkę",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Czy jesteś pewien, że chcesz usunąć tę notatkę?\nWszystkie pliki zostaną usunięte razem.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Notatka usunięta",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "Utworzono '{title}'",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "Wybrano {title}",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Darmowa wersja pozwala tylko na {limit} notatek.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Przejdź na Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Przejdź na Standard i otrzymaj:\n\n• Nieograniczone tworzenie notatek\n• Nieograniczone miejsce na pliki\n• Usunięcie reklam\n• Synchronizacja w chmurze",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Później",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Przejdź",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Obszar reklam - Usuń z aktualizacją Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Proszę wprowadzić tytuł",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Nie udało się utworzyć notatki: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Nie udało się usunąć notatki: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Funkcja aktualizacji będzie wkrótce dostępna",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

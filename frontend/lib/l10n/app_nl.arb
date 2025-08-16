@@ -1,0 +1,214 @@
+{
+  "@@locale": "nl",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Home",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Luister",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Schrijf",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Instellingen",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Maak Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Nieuwe Litten",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Titel",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Beschrijving",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Optioneel)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Annuleer",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Maak",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Verwijder",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Zoek",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Zoek notities...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Maak je eerste Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Beheer stem, tekst en handschrift\nin één geïntegreerde ruimte",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Geen zoekresultaten",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Geen notities gevonden die overeenkomen met \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Zoekopdracht wissen",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Verwijder notitie",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Weet je zeker dat je deze notitie wilt verwijderen?\nAlle bestanden worden samen verwijderd.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Notitie verwijderd",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' gemaakt",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} geselecteerd",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Gratis versie staat slechts {limit} notities toe.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Upgrade naar Standaard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Upgrade naar Standaard en krijg:\n\n• Onbeperkt notities maken\n• Onbeperkte bestandsopslag\n• Advertenties verwijderen\n• Cloudsynchronisatie",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Later",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Upgrade",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Advertentiegebied - Verwijder met Standaard upgrade",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Voer een titel in",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Notitie maken mislukt: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Notitie verwijderen mislukt: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Upgrade functie wordt binnenkort beschikbaar",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

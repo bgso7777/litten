@@ -1,0 +1,214 @@
+{
+  "@@locale": "ro",
+  
+  "appName": "Litten",
+  "@appName": {
+    "description": "The name of the application"
+  },
+
+  "home": "Acasă",
+  "@home": {
+    "description": "Home tab label"
+  },
+
+  "listen": "Ascultă",
+  "@listen": {
+    "description": "Listen tab label"
+  },
+
+  "write": "Scrie",
+  "@write": {
+    "description": "Write tab label"
+  },
+
+  "settings": "Setări",
+  "@settings": {
+    "description": "Settings tab label"
+  },
+
+  "createNote": "Creează Litten",
+  "@createNote": {
+    "description": "Button to create a new note"
+  },
+
+  "newNote": "Litten nou",
+  "@newNote": {
+    "description": "Title for creating a new note"
+  },
+
+  "title": "Titlu",
+  "@title": {
+    "description": "Title field label"
+  },
+
+  "description": "Descriere",
+  "@description": {
+    "description": "Description field label"
+  },
+
+  "optional": "(Opțional)",
+  "@optional": {
+    "description": "Optional field indicator"
+  },
+
+  "cancel": "Anulează",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+
+  "create": "Creează",
+  "@create": {
+    "description": "Create button"
+  },
+
+  "delete": "Șterge",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "search": "Caută",
+  "@search": {
+    "description": "Search field placeholder"
+  },
+
+  "searchNotes": "Caută notițe...",
+  "@searchNotes": {
+    "description": "Search notes placeholder"
+  },
+
+  "noNotesTitle": "Creează primul tău Litten",
+  "@noNotesTitle": {
+    "description": "Title when no notes exist"
+  },
+
+  "noNotesSubtitle": "Gestionează vocea, textul și scrisul de mână\nîntr-un singur spațiu integrat",
+  "@noNotesSubtitle": {
+    "description": "Subtitle when no notes exist"
+  },
+
+  "noSearchResults": "Niciun rezultat de căutare",
+  "@noSearchResults": {
+    "description": "Title when search returns no results"
+  },
+
+  "noSearchResultsSubtitle": "Nicio notiță găsită care să corespundă cu \"{query}\"",
+  "@noSearchResultsSubtitle": {
+    "description": "Subtitle when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "meeting"
+      }
+    }
+  },
+
+  "clearSearch": "Șterge căutarea",
+  "@clearSearch": {
+    "description": "Clear search button"
+  },
+
+  "deleteNote": "Șterge notița",
+  "@deleteNote": {
+    "description": "Delete note dialog title"
+  },
+
+  "deleteNoteConfirm": "Ești sigur că vrei să ștergi această notiță?\nToate fișierele vor fi șterse împreună.",
+  "@deleteNoteConfirm": {
+    "description": "Delete note confirmation message"
+  },
+
+  "noteDeleted": "Notiță ștersă",
+  "@noteDeleted": {
+    "description": "Note deleted confirmation message"
+  },
+
+  "noteCreated": "'{title}' creat",
+  "@noteCreated": {
+    "description": "Note created confirmation message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "noteSelected": "{title} selectat",
+  "@noteSelected": {
+    "description": "Note selected message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Meeting Notes"
+      }
+    }
+  },
+
+  "freeLimitReached": "Versiunea gratuită permite doar {limit} notițe.",
+  "@freeLimitReached": {
+    "description": "Free version note limit message",
+    "placeholders": {
+      "limit": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+
+  "upgradeToStandard": "Actualizează la Standard",
+  "@upgradeToStandard": {
+    "description": "Upgrade to Standard button"
+  },
+
+  "upgradeFeatures": "Actualizează la Standard și obține:\n\n• Crearea nelimitată de notițe\n• Stocare nelimitată de fișiere\n• Eliminarea reclamelor\n• Sincronizare în cloud",
+  "@upgradeFeatures": {
+    "description": "Standard upgrade features description"
+  },
+
+  "later": "Mai târziu",
+  "@later": {
+    "description": "Later button"
+  },
+
+  "upgrade": "Actualizează",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "adBannerText": "Zona de reclamă - Elimină cu actualizarea Standard",
+  "@adBannerText": {
+    "description": "Ad banner text for free users"
+  },
+
+  "enterTitle": "Te rugăm să introduci un titlu",
+  "@enterTitle": {
+    "description": "Error message when title is empty"
+  },
+
+  "createNoteFailed": "Crearea notiței a eșuat: {error}",
+  "@createNoteFailed": {
+    "description": "Error message when note creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Storage full"
+      }
+    }
+  },
+
+  "deleteNoteFailed": "Ștergerea notiței a eșuat: {error}",
+  "@deleteNoteFailed": {
+    "description": "Error message when note deletion fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "File in use"
+      }
+    }
+  },
+
+  "upgradeComingSoon": "Funcția de actualizare va fi disponibilă în curând",
+  "@upgradeComingSoon": {
+    "description": "Message when upgrade feature is not yet available"
+  }
+}

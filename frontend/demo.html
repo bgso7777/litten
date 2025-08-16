@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리튼(Litten) - 크로스플랫폼 노트 앱</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        
+        .app-container { max-width: 400px; margin: 20px auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        .app-header { background: #2196F3; color: white; padding: 16px; text-align: center; }
+        .app-header h1 { font-size: 24px; font-weight: 600; }
+        .app-header p { opacity: 0.9; margin-top: 4px; font-size: 14px; }
+        
+        .ad-banner { background: #FFE082; padding: 12px; text-align: center; font-size: 14px; color: #F57F17; border-bottom: 1px solid #FFD54F; }
+        
+        .tab-bar { display: flex; background: white; border-bottom: 1px solid #e0e0e0; }
+        .tab { flex: 1; padding: 16px 8px; text-align: center; cursor: pointer; border: none; background: none; font-size: 12px; color: #666; transition: all 0.3s; }
+        .tab.active { color: #2196F3; border-bottom: 2px solid #2196F3; }
+        .tab-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+        
+        .tab-content { min-height: 400px; padding: 20px; display: none; }
+        .tab-content.active { display: block; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; color: #bbb; }
+        .empty-state h3 { margin-bottom: 8px; color: #333; }
+        .empty-state p { font-size: 14px; line-height: 1.5; }
+        
+        .create-note-btn { background: #2196F3; color: white; border: none; border-radius: 28px; padding: 12px 24px; font-size: 16px; cursor: pointer; margin-top: 20px; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3); }
+        
+        .feature-list { list-style: none; margin-top: 20px; }
+        .feature-list li { padding: 8px 0; color: #666; font-size: 14px; }
+        .feature-list li::before { content: "✓ "; color: #4CAF50; font-weight: bold; }
+        
+        .status-bar { background: #f8f9fa; padding: 12px; font-size: 12px; color: #666; border-top: 1px solid #e0e0e0; }
+        
+        .language-selector { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="app-header">
+            <h1>🎧 리튼 (Litten)</h1>
+            <p>듣기 + 쓰기 통합 노트 앱</p>
+        </div>
+        
+        <div class="ad-banner">
+            📱 무료 버전 - 최대 5개 노트 | 업그레이드로 광고 제거
+        </div>
+        
+        <div class="tab-bar">
+            <button class="tab active" onclick="showTab('home')">
+                <span class="tab-icon">🏠</span>
+                홈
+            </button>
+            <button class="tab" onclick="showTab('listen')">
+                <span class="tab-icon">🎧</span>
+                듣기
+            </button>
+            <button class="tab" onclick="showTab('write')">
+                <span class="tab-icon">✍️</span>
+                쓰기
+            </button>
+            <button class="tab" onclick="showTab('settings')">
+                <span class="tab-icon">⚙️</span>
+                설정
+            </button>
+        </div>
+        
+        <div id="home" class="tab-content active">
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <h3>아직 노트가 없습니다</h3>
+                <p>첫 번째 리튼 공간을 만들어<br>음성과 텍스트를 함께 기록해보세요!</p>
+                <button class="create-note-btn">+ 새 노트 만들기</button>
+            </div>
+        </div>
+        
+        <div id="listen" class="tab-content">
+            <div class="empty-state">
+                <div class="empty-state-icon">🎙️</div>
+                <h3>음성 듣기</h3>
+                <p>노트를 선택하면<br>음성 녹음과 재생이 가능합니다</p>
+                <ul class="feature-list">
+                    <li>음성 녹음 및 재생</li>
+                    <li>재생 속도 조절</li>
+                    <li>노트당 최대 2개 파일 (무료)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div id="write" class="tab-content">
+            <div class="empty-state">
+                <div class="empty-state-icon">📄</div>
+                <h3>텍스트 쓰기</h3>
+                <p>리치 텍스트 에디터와<br>필기 도구를 사용할 수 있습니다</p>
+                <ul class="feature-list">
+                    <li>리치 텍스트 에디터</li>
+                    <li>필기 및 스케치</li>
+                    <li>PDF/DOC 파일 업로드</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div id="settings" class="tab-content">
+            <div style="color: #333;">
+                <h3 style="margin-bottom: 16px;">🔧 앱 설정</h3>
+                
+                <div style="margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                    <strong>구독 정보</strong><br>
+                    <span style="color: #666; font-size: 14px;">무료 버전 (5/5 노트)</span>
+                </div>
+                
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #666;">언어 설정</label>
+                    <select class="language-selector">
+                        <option>한국어</option>
+                        <option>English</option>
+                        <option>中文</option>
+                        <option>日本語</option>
+                        <option>Español</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #666;">테마</label>
+                    <select class="language-selector">
+                        <option>Classic Blue</option>
+                        <option>Dark Mode</option>
+                        <option>Nature Green</option>
+                        <option>Sunset Orange</option>
+                        <option>Monochrome Grey</option>
+                    </select>
+                </div>
+                
+                <ul class="feature-list">
+                    <li>30개 언어 지원</li>
+                    <li>5가지 테마 시스템</li>
+                    <li>자동 시스템 언어 감지</li>
+                    <li>지역별 테마 자동 선택</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            💾 로컬 저장 | 🌐 30개 언어 지원 | 🎨 5개 테마 | 📱 크로스 플랫폼
+        </div>
+    </div>
+    
+    <script>
+        function showTab(tabName) {
+            // 모든 탭 비활성화
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // 선택된 탭 활성화
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+        
+        // 새 노트 만들기 버튼 이벤트
+        document.querySelector('.create-note-btn').addEventListener('click', function() {
+            alert('새 노트 생성 기능은 Flutter 앱에서 구현됩니다!');
+        });
+    </script>
+</body>
+</html>
