@@ -1,0 +1,5 @@
+
+"./READMD.md ./CLAUDE.md ./1_idea.txt ./2_planning.txt ./3_design_frontend.txt"를 읽고
+1차 버젼을 frontend에 만들어, 특히 아키텍쳐를 반드시 숙지해야해 왜냐하면 개발한 소스로 다음 버젼을 만들거니까.
+
+
