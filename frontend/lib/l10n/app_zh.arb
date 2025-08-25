@@ -1,0 +1,97 @@
+{
+  "@@locale": "zh",
+  "appTitle": "听写",
+  "appDescription": "听写合一",
+  
+  "homeTitle": "首页",
+  "recorderTitle": "录音",
+  "writingTitle": "写作",
+  "settingsTitle": "设置",
+  
+  "createLitten": "创建听写",
+  "selectLitten": "创建或选择听写",
+  "noLittensMessage": "还没有听写",
+  "noLittensSubtitle": "点击创建听写按钮开始",
+  
+  "audioFiles": "音频文件",
+  "textFiles": "文本文件", 
+  "drawingFiles": "手写文件",
+  
+  "recording": "录音中...",
+  "playing": "播放中...",
+  "saving": "保存中...",
+  
+  "startRecording": "开始录音",
+  "stopRecording": "停止录音",
+  "playAudio": "播放",
+  "pauseAudio": "暂停",
+  
+  "newText": "新建文本",
+  "newDrawing": "新建手写",
+  "addFile": "添加文件",
+  
+  "save": "保存",
+  "delete": "删除",
+  "edit": "编辑",
+  "cancel": "取消",
+  "ok": "确定",
+  
+  "settingsGeneral": "通用设置",
+  "settingsAudio": "音频设置",
+  "settingsWriting": "写作设置",
+  "settingsSubscription": "订阅",
+  
+  "maxRecordingTime": "最大录音时间",
+  "autoSaveInterval": "自动保存间隔",
+  "language": "语言",
+  "theme": "主题",
+  
+  "freeUser": "免费用户",
+  "standardUser": "标准用户",
+  "premiumUser": "高级用户",
+  
+  "upgradeToStandard": "升级到标准版",
+  "upgradeToPremium": "升级到高级版",
+  
+  "removeAds": "移除广告",
+  "unlimitedFiles": "无限文件",
+  "cloudSync": "云同步",
+  
+  "subscriptionBenefits": "高级版权益：",
+  "monthlyPrice": "月费：¥35",
+  "cancelAnytime": "随时取消",
+  
+  "upgradeNow": "立即升级",
+  "maybeLater": "稍后",
+  
+  "errorTitle": "错误",
+  "errorGeneral": "发生错误，请重试。",
+  "errorNoPermission": "需要权限才能访问此功能",
+  "errorFileNotFound": "文件未找到",
+  "errorNetworkUnavailable": "网络不可用",
+  
+  "warningTitle": "警告",
+  "warningUnsavedChanges": "您有未保存的更改",
+  "warningDeleteConfirm": "确定要删除吗？",
+  
+  "infoTitle": "信息",
+  "infoSaveSuccess": "保存成功",
+  "infoDeleteSuccess": "删除成功",
+  
+  "themeClassicBlue": "经典蓝",
+  "themeDarkMode": "深色模式", 
+  "themeNatureGreen": "自然绿",
+  "themeSunsetOrange": "夕阳橙",
+  "themeMonochromeGrey": "单色灰",
+  
+  "minutes30": "30分钟",
+  "hour1": "1小时",
+  "hours2": "2小时",
+  
+  "seconds10": "10秒",
+  "seconds30": "30秒",
+  "minute1": "1分钟",
+  "minutes3": "3分钟",
+  "minutes5": "5分钟",
+  "minutes10": "10分钟"
+}

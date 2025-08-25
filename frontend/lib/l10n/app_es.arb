@@ -1,0 +1,97 @@
+{
+  "@@locale": "es",
+  "appTitle": "Litten",
+  "appDescription": "Escuchar y Escribir como Uno",
+  
+  "homeTitle": "Inicio",
+  "recorderTitle": "Escuchar",
+  "writingTitle": "Escribir",
+  "settingsTitle": "Configuración",
+  
+  "createLitten": "Crear Litten",
+  "selectLitten": "Crear o seleccionar un Litten",
+  "noLittensMessage": "No hay Littens aún",
+  "noLittensSubtitle": "Toca el botón Crear Litten para comenzar",
+  
+  "audioFiles": "Archivos de Audio",
+  "textFiles": "Archivos de Texto", 
+  "drawingFiles": "Archivos de Dibujo",
+  
+  "recording": "Grabando...",
+  "playing": "Reproduciendo...",
+  "saving": "Guardando...",
+  
+  "startRecording": "Iniciar Grabación",
+  "stopRecording": "Detener Grabación",
+  "playAudio": "Reproducir",
+  "pauseAudio": "Pausar",
+  
+  "newText": "Nuevo Texto",
+  "newDrawing": "Nuevo Dibujo",
+  "addFile": "Añadir Archivo",
+  
+  "save": "Guardar",
+  "delete": "Eliminar",
+  "edit": "Editar",
+  "cancel": "Cancelar",
+  "ok": "OK",
+  
+  "settingsGeneral": "Configuración General",
+  "settingsAudio": "Configuración de Audio",
+  "settingsWriting": "Configuración de Escritura",
+  "settingsSubscription": "Suscripción",
+  
+  "maxRecordingTime": "Tiempo Máximo de Grabación",
+  "autoSaveInterval": "Intervalo de Guardado Automático",
+  "language": "Idioma",
+  "theme": "Tema",
+  
+  "freeUser": "Usuario Gratuito",
+  "standardUser": "Usuario Estándar",
+  "premiumUser": "Usuario Premium",
+  
+  "upgradeToStandard": "Actualizar a Estándar",
+  "upgradeToPremium": "Actualizar a Premium",
+  
+  "removeAds": "Eliminar Anuncios",
+  "unlimitedFiles": "Archivos Ilimitados",
+  "cloudSync": "Sincronización en la Nube",
+  
+  "subscriptionBenefits": "Beneficios Premium:",
+  "monthlyPrice": "Mensual: $4.99",
+  "cancelAnytime": "Cancelar en cualquier momento",
+  
+  "upgradeNow": "Actualizar Ahora",
+  "maybeLater": "Tal vez más tarde",
+  
+  "errorTitle": "Error",
+  "errorGeneral": "Ocurrió un error. Por favor, inténtalo de nuevo.",
+  "errorNoPermission": "Se requiere permiso para acceder a esta función",
+  "errorFileNotFound": "Archivo no encontrado",
+  "errorNetworkUnavailable": "Red no disponible",
+  
+  "warningTitle": "Advertencia",
+  "warningUnsavedChanges": "Tienes cambios sin guardar",
+  "warningDeleteConfirm": "¿Estás seguro de que quieres eliminar esto?",
+  
+  "infoTitle": "Información",
+  "infoSaveSuccess": "Guardado exitosamente",
+  "infoDeleteSuccess": "Eliminado exitosamente",
+  
+  "themeClassicBlue": "Azul Clásico",
+  "themeDarkMode": "Modo Oscuro", 
+  "themeNatureGreen": "Verde Naturaleza",
+  "themeSunsetOrange": "Naranja Atardecer",
+  "themeMonochromeGrey": "Gris Monocromo",
+  
+  "minutes30": "30 minutos",
+  "hour1": "1 hora",
+  "hours2": "2 horas",
+  
+  "seconds10": "10 segundos",
+  "seconds30": "30 segundos",
+  "minute1": "1 minuto",
+  "minutes3": "3 minutos",
+  "minutes5": "5 minutos",
+  "minutes10": "10 minutos"
+}

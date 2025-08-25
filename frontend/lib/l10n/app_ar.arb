@@ -1,0 +1,97 @@
+{
+  "@@locale": "ar",
+  "appTitle": "ليتن",
+  "appDescription": "الاستماع والكتابة كواحد",
+  
+  "homeTitle": "الرئيسية",
+  "recorderTitle": "الاستماع",
+  "writingTitle": "الكتابة",
+  "settingsTitle": "الإعدادات",
+  
+  "createLitten": "إنشاء ليتن",
+  "selectLitten": "إنشاء أو اختيار ليتن",
+  "noLittensMessage": "لا توجد ليتنز بعد",
+  "noLittensSubtitle": "اضغط على زر إنشاء ليتن للبدء",
+  
+  "audioFiles": "الملفات الصوتية",
+  "textFiles": "الملفات النصية", 
+  "drawingFiles": "ملفات الرسم",
+  
+  "recording": "جارٍ التسجيل...",
+  "playing": "جارٍ التشغيل...",
+  "saving": "جارٍ الحفظ...",
+  
+  "startRecording": "بدء التسجيل",
+  "stopRecording": "إيقاف التسجيل",
+  "playAudio": "تشغيل",
+  "pauseAudio": "إيقاف مؤقت",
+  
+  "newText": "نص جديد",
+  "newDrawing": "رسم جديد",
+  "addFile": "إضافة ملف",
+  
+  "save": "حفظ",
+  "delete": "حذف",
+  "edit": "تعديل",
+  "cancel": "إلغاء",
+  "ok": "موافق",
+  
+  "settingsGeneral": "الإعدادات العامة",
+  "settingsAudio": "إعدادات الصوت",
+  "settingsWriting": "إعدادات الكتابة",
+  "settingsSubscription": "الاشتراك",
+  
+  "maxRecordingTime": "الحد الأقصى لوقت التسجيل",
+  "autoSaveInterval": "فترة الحفظ التلقائي",
+  "language": "اللغة",
+  "theme": "السمة",
+  
+  "freeUser": "مستخدم مجاني",
+  "standardUser": "مستخدم قياسي",
+  "premiumUser": "مستخدم مميز",
+  
+  "upgradeToStandard": "الترقية إلى القياسي",
+  "upgradeToPremium": "الترقية إلى المميز",
+  
+  "removeAds": "إزالة الإعلانات",
+  "unlimitedFiles": "ملفات غير محدودة",
+  "cloudSync": "مزامنة السحابة",
+  
+  "subscriptionBenefits": "فوائد المميز:",
+  "monthlyPrice": "شهرياً: 18 ر.س",
+  "cancelAnytime": "إلغاء في أي وقت",
+  
+  "upgradeNow": "الترقية الآن",
+  "maybeLater": "ربما لاحقاً",
+  
+  "errorTitle": "خطأ",
+  "errorGeneral": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+  "errorNoPermission": "الإذن مطلوب للوصول إلى هذه الميزة",
+  "errorFileNotFound": "الملف غير موجود",
+  "errorNetworkUnavailable": "الشبكة غير متوفرة",
+  
+  "warningTitle": "تحذير",
+  "warningUnsavedChanges": "لديك تغييرات غير محفوظة",
+  "warningDeleteConfirm": "هل أنت متأكد من أنك تريد حذف هذا؟",
+  
+  "infoTitle": "معلومات",
+  "infoSaveSuccess": "تم الحفظ بنجاح",
+  "infoDeleteSuccess": "تم الحذف بنجاح",
+  
+  "themeClassicBlue": "الأزرق الكلاسيكي",
+  "themeDarkMode": "الوضع المظلم", 
+  "themeNatureGreen": "الأخضر الطبيعي",
+  "themeSunsetOrange": "برتقالي الغروب",
+  "themeMonochromeGrey": "الرمادي الأحادي",
+  
+  "minutes30": "30 دقيقة",
+  "hour1": "ساعة واحدة",
+  "hours2": "ساعتان",
+  
+  "seconds10": "10 ثوانٍ",
+  "seconds30": "30 ثانية",
+  "minute1": "دقيقة واحدة",
+  "minutes3": "3 دقائق",
+  "minutes5": "5 دقائق",
+  "minutes10": "10 دقائق"
+}
