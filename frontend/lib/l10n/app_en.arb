@@ -1,0 +1,137 @@
+{
+  "@@locale": "en",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "homeTitle": "Home",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+  
+  "recordingTitle": "Listen",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+  
+  "writingTitle": "Write",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+  
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+  
+  "createLitten": "Create Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+  
+  "emptyLittenTitle": "Create or select a Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+  
+  "emptyLittenDescription": "Use the 'Create Litten' button below to start your first note",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+  
+  "startRecording": "Start Recording",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+  
+  "stopRecording": "Stop Recording",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+  
+  "recording": "Recording...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+  
+  "textWriting": "Text Writing",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+  
+  "handwriting": "Handwriting",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+  
+  "save": "Save",
+  "@save": {
+    "description": "Save button"
+  },
+  
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button"
+  },
+  
+  "upgrade": "Upgrade",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+  
+  "removeAds": "Remove Ads",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+  
+  "freeVersion": "Free",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+  
+  "standardVersion": "Standard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+  
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+  
+  "theme": "Theme",
+  "@theme": {
+    "description": "Theme setting"
+  },
+  
+  "language": "Language",
+  "@language": {
+    "description": "Language setting"
+  },
+  
+  "classicBlue": "Classic Blue",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+  
+  "darkMode": "Dark Mode",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+  
+  "natureGreen": "Nature Green",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+  
+  "sunsetOrange": "Sunset Orange",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+  
+  "monochromeGrey": "Monochrome Grey",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}
