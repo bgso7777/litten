@@ -1,5 +1,6 @@
 
 "./READMD.md ./CLAUDE.md ./1_idea.txt ./2_planning.txt ./3_design_frontend.txt"를 읽고
-1차 버젼을 frontend에 만들어, 특히 아키텍쳐를 반드시 숙지해야해 왜냐하면 개발한 소스로 다음 버젼을 만들거니까.
-
-
+1차 버젼을 frontend에 만들고 ios 에뮬레이터에서 실행해줘 
+개발시 아키텍쳐를 반드시 숙지해야해 왜냐하면 개발한 소스로 다음 버젼을 만들거니까.
+특히 쓰기 기능에 텍스트 쓰기는 html-editor-enhanced 모듈을 사용해야 하고 
+필기는 pdf를 png로 변환하여 flutter_painter_v2 모듈을 사용해서 필기가 가능해야 해.
