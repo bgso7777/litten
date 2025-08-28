@@ -17,12 +17,33 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 화면 로드 후 최신 리튼으로 스크롤
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _showCreateLittenDialog() {
@@ -94,6 +115,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('$title 리튼이 생성되었습니다.')),
                 );
+                // 새로 생성된 리튼(최신)으로 스크롤
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('오류: $e')),
@@ -123,8 +148,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   onAction: _showCreateLittenDialog,
                 )
               : RefreshIndicator(
-                  onRefresh: appState.refreshLittens,
+                  onRefresh: () async {
+                    await appState.refreshLittens();
+                    // 새로고침 후에도 최신 리튼으로 스크롤
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToBottom();
+                    });
+                  },
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: AppSpacing.paddingL,
                     itemCount: appState.littens.length,
                     itemBuilder: (context, index) {
@@ -162,11 +194,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: () async {
               final appState = Provider.of<AppStateProvider>(context, listen: false);
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
               await appState.deleteLitten(littenId);
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$title 리튼이 삭제되었습니다.')),
-              );
+              
+              if (mounted) {
+                navigator.pop();
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text('$title 리튼이 삭제되었습니다.')),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('삭제', style: TextStyle(color: Colors.white)),

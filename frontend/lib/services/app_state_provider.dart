@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
+import '../models/audio_file.dart';
+import '../models/text_file.dart';
 import '../services/litten_service.dart';
 
 class AppStateProvider extends ChangeNotifier {
@@ -61,6 +63,7 @@ class AppStateProvider extends ChangeNotifier {
     if (_isInitialized) return;
 
     await _loadSettings();
+    await _littenService.createDefaultLittensIfNeeded();
     await _loadLittens();
     await _loadSelectedLitten();
     
@@ -209,6 +212,51 @@ class AppStateProvider extends ChangeNotifier {
       _selectedLitten = await _littenService.getLittenById(_selectedLitten!.id);
     }
     notifyListeners();
+  }
+
+  // 선택된 리튼이 있으면 해당 리튼에, 없으면 기본리튼에 파일 저장
+  Future<void> saveAudioFileToCurrentOrDefault(String fileName, String filePath, Duration? duration, int? fileSize) async {
+    final audioFile = AudioFile(
+      fileName: fileName,
+      filePath: filePath,
+      duration: duration,
+      fileSize: fileSize,
+      littenId: _selectedLitten?.id ?? 'temp', // 임시값, 실제 저장할 때 변경
+    );
+
+    if (_selectedLitten != null) {
+      // 선택된 리튼이 있으면 해당 리튼에 저장
+      await _littenService.saveAudioFile(audioFile.copyWith(
+        fileName: fileName,
+        duration: duration,
+        fileSize: fileSize,
+      ));
+    } else {
+      // 선택된 리튼이 없으면 기본리튼에 저장
+      await _littenService.saveAudioFileToDefaultLitten(audioFile);
+    }
+    
+    // 리튼 목록 새로고침
+    await refreshLittens();
+  }
+
+  Future<void> saveTextFileToCurrentOrDefault(String title, String content) async {
+    final textFile = TextFile(
+      title: title,
+      content: content,
+      littenId: _selectedLitten?.id ?? 'temp', // 임시값, 실제 저장할 때 변경
+    );
+
+    if (_selectedLitten != null) {
+      // 선택된 리튼이 있으면 해당 리튼에 저장
+      await _littenService.saveTextFile(textFile);
+    } else {
+      // 선택된 리튼이 없으면 기본리튼에 저장
+      await _littenService.saveTextFileToDefaultLitten(textFile);
+    }
+    
+    // 리튼 목록 새로고침
+    await refreshLittens();
   }
 }
 

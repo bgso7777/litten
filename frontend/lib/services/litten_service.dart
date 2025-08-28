@@ -14,7 +14,12 @@ class LittenService {
   Future<List<Litten>> getAllLittens() async {
     final prefs = await SharedPreferences.getInstance();
     final littensJson = prefs.getStringList(_luttensKey) ?? [];
-    return littensJson.map((json) => Litten.fromJson(jsonDecode(json))).toList();
+    final littens = littensJson.map((json) => Litten.fromJson(jsonDecode(json))).toList();
+    
+    // 최신순으로 정렬 (최신이 아래로)
+    littens.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    
+    return littens;
   }
 
   Future<void> saveLitten(Litten litten) async {
@@ -83,6 +88,21 @@ class LittenService {
     return audioFiles.where((file) => file.littenId == littenId).toList();
   }
 
+  // 선택된 리튼이 없을 때 기본리튼에 오디오 파일 저장
+  Future<void> saveAudioFileToDefaultLitten(AudioFile audioFile) async {
+    final defaultLittenId = await getOrCreateDefaultLittenId();
+    final audioFileWithDefaultLitten = AudioFile(
+      id: audioFile.id,
+      fileName: audioFile.fileName,
+      filePath: audioFile.filePath,
+      duration: audioFile.duration,
+      createdAt: audioFile.createdAt,
+      littenId: defaultLittenId,
+      fileSize: audioFile.fileSize,
+    );
+    await saveAudioFile(audioFileWithDefaultLitten);
+  }
+
   Future<void> saveAudioFile(AudioFile audioFile) async {
     final prefs = await SharedPreferences.getInstance();
     final audioFilesJson = prefs.getStringList(_audioFilesKey) ?? [];
@@ -133,6 +153,20 @@ class LittenService {
     final textFilesJson = prefs.getStringList(_textFilesKey) ?? [];
     final textFiles = textFilesJson.map((json) => TextFile.fromJson(jsonDecode(json))).toList();
     return textFiles.where((file) => file.littenId == littenId).toList();
+  }
+
+  // 선택된 리튼이 없을 때 기본리튼에 텍스트 파일 저장
+  Future<void> saveTextFileToDefaultLitten(TextFile textFile) async {
+    final defaultLittenId = await getOrCreateDefaultLittenId();
+    final textFileWithDefaultLitten = TextFile(
+      id: textFile.id,
+      title: textFile.title,
+      content: textFile.content,
+      createdAt: textFile.createdAt,
+      littenId: defaultLittenId,
+      syncMarkers: textFile.syncMarkers,
+    );
+    await saveTextFile(textFileWithDefaultLitten);
   }
 
   Future<void> saveTextFile(TextFile textFile) async {
@@ -208,5 +242,46 @@ class LittenService {
 
     final updatedLitten = litten.copyWith(textFileIds: textFileIds);
     await saveLitten(updatedLitten);
+  }
+
+  // 기본 리튼들 생성
+  Future<void> createDefaultLittensIfNeeded() async {
+    final littens = await getAllLittens();
+    
+    // 기본 리튼이 이미 존재하는지 확인
+    final defaultTitles = ['기본리튼', '강의', '회의'];
+    final existingTitles = littens.map((l) => l.title).toSet();
+    
+    for (final title in defaultTitles) {
+      if (!existingTitles.contains(title)) {
+        final defaultLitten = Litten(
+          title: title,
+          description: title == '기본리튼' 
+              ? '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.'
+              : '$title에 관련된 파일들을 저장하세요.',
+        );
+        await saveLitten(defaultLitten);
+      }
+    }
+  }
+
+  // 기본리튼 ID 가져오기
+  Future<String?> getDefaultLittenId() async {
+    final littens = await getAllLittens();
+    final defaultLitten = littens.where((l) => l.title == '기본리튼').firstOrNull;
+    return defaultLitten?.id;
+  }
+
+  // 기본리튼이 없으면 생성하고 ID 반환
+  Future<String> getOrCreateDefaultLittenId() async {
+    String? defaultId = await getDefaultLittenId();
+    if (defaultId == null) {
+      await createDefaultLittensIfNeeded();
+      defaultId = await getDefaultLittenId();
+      if (defaultId == null) {
+        throw Exception('기본리튼을 생성할 수 없습니다');
+      }
+    }
+    return defaultId;
   }
 }
