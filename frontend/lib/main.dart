@@ -5,6 +5,7 @@ import 'config/app_localizations_temp.dart';
 
 import 'services/app_state_provider.dart';
 import 'screens/main_tab_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'config/themes.dart';
 
 void main() async {
@@ -78,6 +79,12 @@ class LittenApp extends StatelessWidget {
                   ),
                 );
               }
+              
+              // 첫 실행 시 온보딩 화면 표시
+              if (appState.isFirstLaunch) {
+                return const OnboardingScreen();
+              }
+              
               return const MainTabScreen();
             },
           ),

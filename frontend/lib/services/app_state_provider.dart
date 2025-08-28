@@ -11,6 +11,7 @@ class AppStateProvider extends ChangeNotifier {
   Locale _locale = const Locale('en');
   AppThemeType _themeType = AppThemeType.natureGreen;
   bool _isInitialized = false;
+  bool _isFirstLaunch = true;
   
   // 리튼 관리 상태
   List<Litten> _littens = [];
@@ -25,6 +26,7 @@ class AppStateProvider extends ChangeNotifier {
   AppThemeType get themeType => _themeType;
   ThemeData get theme => ThemeManager.getThemeByType(_themeType);
   bool get isInitialized => _isInitialized;
+  bool get isFirstLaunch => _isFirstLaunch;
   List<Litten> get littens => _littens;
   Litten? get selectedLitten => _selectedLitten;
   int get selectedTabIndex => _selectedTabIndex;
@@ -69,6 +71,9 @@ class AppStateProvider extends ChangeNotifier {
   // 설정 로드
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // 첫 실행 여부 확인
+    _isFirstLaunch = !prefs.containsKey('is_app_initialized');
     
     // 언어 설정 로드
     final languageCode = prefs.getString('language_code') ?? _getSystemLanguage();
@@ -133,6 +138,24 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> _saveThemeType(AppThemeType themeType) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_type', themeType.index);
+  }
+
+  // 온보딩 완료 처리
+  Future<void> completeOnboarding({String? selectedLanguage, AppThemeType? selectedTheme}) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    if (selectedLanguage != null) {
+      await changeLanguage(selectedLanguage);
+    }
+    
+    if (selectedTheme != null) {
+      await changeTheme(selectedTheme);
+    }
+    
+    // 앱 초기화 완료 표시
+    await prefs.setBool('is_app_initialized', true);
+    _isFirstLaunch = false;
+    notifyListeners();
   }
 
   // 구독 상태 변경
