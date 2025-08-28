@@ -1,0 +1,137 @@
+{
+  "@@locale": "mr",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "घर",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "ऐका",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "लिहा",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "सेटिंग्ज",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "लिटन तयार करा",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "लिटन तयार करा किंवा निवडा",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "तुमची पहिली नोट सुरू करण्यासाठी खाली 'लिटन तयार करा' बटन वापरा",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "रेकॉर्डिंग सुरू करा",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "रेकॉर्डिंग थांबवा",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "रेकॉर्डिंग चालू आहे...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "मजकूर लेखन",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "हस्तलेखन",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "जतन करा",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "हटवा",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "अपग्रेड",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "जाहिराती काढा",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "मोफत",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "मानक",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "प्रीमियम",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "थीम",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "भाषा",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "क्लासिक निळा",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "डार्क मोड",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "निसर्ग हिरवा",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "सूर्यास्त केशरी",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "एकरंगी राखाडी",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

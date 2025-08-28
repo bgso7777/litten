@@ -1,0 +1,137 @@
+{
+  "@@locale": "ta",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "முகப்பு",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "கேளுங்கள்",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "எழுதுங்கள்",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "அமைப்புகள்",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "லிட்டன் உருவாக்கவும்",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "ஒரு லிட்டனை உருவாக்கவும் அல்லது தேர்ந்தெடுக்கவும்",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "உங்கள் முதல் குறிப்பைத் தொடங்க கீழே உள்ள 'லிட்டன் உருவாக்கவும்' பட்டனைப் பயன்படுத்தவும்",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "பதிவைத் தொடங்கவும்",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "பதிவை நிறுத்தவும்",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "பதிவு செய்யப்படுகிறது...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "உரை எழுதுதல்",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "கையெழுத்து",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "சேமிக்கவும்",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "நீக்கவும்",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "மேம்படுத்தவும்",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "விளம்பரங்களை அகற்றவும்",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "இலவசம்",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "நிலையானது",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "பிரீமியம்",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "தீம்",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "மொழி",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "கிளாசிக் நீலம்",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "இருள் பயன்முறை",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "இயற்கை பச்சை",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "சூர்யாஸ்தமய ஆரஞ்சு",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "ஒற்றை நிற சாம்பல்",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

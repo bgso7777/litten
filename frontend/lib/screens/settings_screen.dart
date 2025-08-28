@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../config/app_localizations_temp.dart';
+import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../config/themes.dart';
@@ -243,15 +243,35 @@ class SettingsScreen extends StatelessWidget {
   String _getLanguageText(String languageCode) {
     final languageMap = {
       'en': 'English',
-      'ko': '한국어',
       'zh': '中文',
       'hi': 'हिन्दी',
       'es': 'Español',
       'fr': 'Français',
       'ar': 'العربية',
-      'ja': '日本語',
-      'de': 'Deutsch',
+      'bn': 'বাংলা',
       'ru': 'Русский',
+      'pt': 'Português',
+      'ur': 'اردو',
+      'id': 'Bahasa Indonesia',
+      'de': 'Deutsch',
+      'ja': '日本語',
+      'sw': 'Kiswahili',
+      'mr': 'मराठी',
+      'te': 'తెలుగు',
+      'tr': 'Türkçe',
+      'ta': 'தமிழ்',
+      'fa': 'فارسی',
+      'ko': '한국어',
+      'uk': 'Українська',
+      'it': 'Italiano',
+      'tl': 'Filipino',
+      'pl': 'Polski',
+      'ps': 'پښتو',
+      'ms': 'Bahasa Melayu',
+      'ro': 'Română',
+      'nl': 'Nederlands',
+      'ha': 'Hausa',
+      'th': 'ไทย',
     };
     return languageMap[languageCode] ?? languageCode.toUpperCase();
   }
@@ -367,13 +387,35 @@ class SettingsScreen extends StatelessWidget {
   void _showLanguageDialog(BuildContext context, AppStateProvider appState) {
     final languages = [
       {'code': 'en', 'name': 'English'},
-      {'code': 'ko', 'name': '한국어'},
       {'code': 'zh', 'name': '中文'},
-      {'code': 'ja', 'name': '日本語'},
+      {'code': 'hi', 'name': 'हिन्दी'},
       {'code': 'es', 'name': 'Español'},
       {'code': 'fr', 'name': 'Français'},
-      {'code': 'de', 'name': 'Deutsch'},
+      {'code': 'ar', 'name': 'العربية'},
+      {'code': 'bn', 'name': 'বাংলা'},
       {'code': 'ru', 'name': 'Русский'},
+      {'code': 'pt', 'name': 'Português'},
+      {'code': 'ur', 'name': 'اردو'},
+      {'code': 'id', 'name': 'Bahasa Indonesia'},
+      {'code': 'de', 'name': 'Deutsch'},
+      {'code': 'ja', 'name': '日本語'},
+      {'code': 'sw', 'name': 'Kiswahili'},
+      {'code': 'mr', 'name': 'मराठी'},
+      {'code': 'te', 'name': 'తెలుగు'},
+      {'code': 'tr', 'name': 'Türkçe'},
+      {'code': 'ta', 'name': 'தமிழ்'},
+      {'code': 'fa', 'name': 'فارسی'},
+      {'code': 'ko', 'name': '한국어'},
+      {'code': 'uk', 'name': 'Українська'},
+      {'code': 'it', 'name': 'Italiano'},
+      {'code': 'tl', 'name': 'Filipino'},
+      {'code': 'pl', 'name': 'Polski'},
+      {'code': 'ps', 'name': 'پښتو'},
+      {'code': 'ms', 'name': 'Bahasa Melayu'},
+      {'code': 'ro', 'name': 'Română'},
+      {'code': 'nl', 'name': 'Nederlands'},
+      {'code': 'ha', 'name': 'Hausa'},
+      {'code': 'th', 'name': 'ไทย'},
     ];
 
     showDialog(

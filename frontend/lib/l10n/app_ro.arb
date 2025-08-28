@@ -1,0 +1,137 @@
+{
+  "@@locale": "ro",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Acasă",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Ascultă",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Scrie",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Setări",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Creează Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Creează sau selectează un Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Folosește butonul 'Creează Litten' de mai jos pentru a începe prima ta notiță",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Începe înregistrarea",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Oprește înregistrarea",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Se înregistrează...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Scrierea textului",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Scris de mână",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Salvează",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Șterge",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Actualizează",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Elimină reclamele",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Gratuit",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Standard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Temă",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Limbă",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Albastru clasic",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Mod întunecat",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Verde natural",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Portocaliu apus",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Gri monocrom",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

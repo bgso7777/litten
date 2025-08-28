@@ -1,0 +1,137 @@
+{
+  "@@locale": "nl",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Thuis",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Luister",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Schrijf",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Instellingen",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Maak Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Maak of selecteer een Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Gebruik de 'Maak Litten' knop hieronder om je eerste notitie te beginnen",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Start opname",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Stop opname",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Opnemen...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Tekst schrijven",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Handschrift",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Opslaan",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Verwijderen",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Upgraden",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Advertenties verwijderen",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Gratis",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Standaard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Thema",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Taal",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Klassiek blauw",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Donkere modus",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Natuurgroen",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Zonsondergang oranje",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Monochroom grijs",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

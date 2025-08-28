@@ -1,0 +1,137 @@
+{
+  "@@locale": "tr",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Ana Sayfa",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Dinle",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Yaz",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Ayarlar",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Litten Oluştur",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Bir Litten oluşturun veya seçin",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "İlk notunuzu başlatmak için aşağıdaki 'Litten Oluştur' butonunu kullanın",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Kayıt Başlat",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Kaydı Durdur",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Kayıt alınıyor...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Metin Yazma",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "El Yazısı",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Kaydet",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Sil",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Yükselt",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Reklamları Kaldır",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Ücretsiz",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Standart",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Tema",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Dil",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Klasik Mavi",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Karanlık Mod",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Doğa Yeşili",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Gün Batımı Turuncusu",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Tek Renkli Gri",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

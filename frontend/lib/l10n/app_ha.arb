@@ -1,0 +1,137 @@
+{
+  "@@locale": "ha",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Gida",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Saurara",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Rubuta",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Saiti",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Ƙirƙiri Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Ƙirƙiri ko zaɓi Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Yi amfani da maɓallin 'Ƙirƙiri Litten' da ke ƙasa don fara bayanin kanka na farko",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Fara Yin Rikodin",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Dakatar da Rikodin",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Ana yin rikodin...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Rubutun Rubutu",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Rubutun Hannu",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Ajiye",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Share",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Haɓaka",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Cire Tallace-tallace",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Kyauta",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Daidaitaccen",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Jigo",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Harshe",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Shunayya Ta Gargajiya",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Yanayin Duhu",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Koren Dabi'a",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Orange Fadin Rana",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Launin Toka Guda",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

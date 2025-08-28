@@ -8,7 +8,7 @@ import 'package:pdf_render/pdf_render.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
-import '../config/app_localizations_temp.dart';
+import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';

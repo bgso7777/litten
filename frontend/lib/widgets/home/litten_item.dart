@@ -9,6 +9,7 @@ class LittenItem extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onLongPress;
 
   const LittenItem({
     super.key,
@@ -16,6 +17,7 @@ class LittenItem extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.onDelete,
+    this.onLongPress,
   });
 
   @override
@@ -33,6 +35,7 @@ class LittenItem extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: AppSpacing.paddingL,

@@ -1,0 +1,137 @@
+{
+  "@@locale": "th",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "หน้าหลัก",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "ฟัง",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "เขียน",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "การตั้งค่า",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "สร้าง Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "สร้างหรือเลือก Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "ใช้ปุ่ม 'สร้าง Litten' ด้านล่างเพื่อเริ่มบันทึกแรกของคุณ",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "เริ่มบันทึก",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "หยุดบันทึก",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "กำลังบันทึก...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "การเขียนข้อความ",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "ลายมือ",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "บันทึก",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "ลบ",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "อัปเกรด",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "เอาโฆษณาออก",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "ฟรี",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "มาตรฐาน",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "พรีเมียม",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "ธีม",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "ภาษา",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "น้ำเงินคลาสสิก",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "โหมดมืด",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "เขียวธรรมชาติ",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "ส้มพระอาทิตย์ตก",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "เทาโมโนโครม",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

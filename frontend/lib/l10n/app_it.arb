@@ -1,0 +1,137 @@
+{
+  "@@locale": "it",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Home",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Ascolta",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Scrivi",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Impostazioni",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Crea Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Crea o seleziona un Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Usa il pulsante 'Crea Litten' qui sotto per iniziare la tua prima nota",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Inizia Registrazione",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Ferma Registrazione",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Registrando...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Scrittura Testo",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Scrittura a Mano",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Salva",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Elimina",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Aggiorna",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Rimuovi Pubblicità",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Gratuita",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Standard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Tema",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Lingua",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Blu Classico",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Modalità Scura",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Verde Natura",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Arancione Tramonto",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Grigio Monocromatico",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../config/app_localizations_temp.dart';
+import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
@@ -16,13 +16,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -61,33 +59,18 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     _titleController.clear();
-    _descriptionController.clear();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n?.createLitten ?? '리튼 생성'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: '제목',
-                border: OutlineInputBorder(),
-              ),
-              autofocus: true,
-            ),
-            AppSpacing.verticalSpaceM,
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: '설명 (선택사항)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
+        content: TextField(
+          controller: _titleController,
+          decoration: const InputDecoration(
+            labelText: '제목',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
         ),
         actions: [
           TextButton(
@@ -104,25 +87,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
               
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
               try {
-                await appState.createLitten(
-                  title,
-                  description: _descriptionController.text.trim().isEmpty
-                      ? null
-                      : _descriptionController.text.trim(),
-                );
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$title 리튼이 생성되었습니다.')),
-                );
-                // 새로 생성된 리튼(최신)으로 스크롤
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToBottom();
-                });
+                await appState.createLitten(title);
+                if (mounted) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('$title 리튼이 생성되었습니다.')),
+                  );
+                  // 새로 생성된 리튼(최신)으로 스크롤
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollToBottom();
+                  });
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('오류: $e')),
-                );
+                if (mounted) {
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('오류: $e')),
+                  );
+                }
               }
             },
             child: const Text('생성'),
@@ -166,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isSelected: appState.selectedLitten?.id == litten.id,
                         onTap: () => appState.selectLitten(litten),
                         onDelete: () => _showDeleteDialog(litten.id, litten.title),
+                        onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
                       );
                     },
                   ),
@@ -178,6 +164,68 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  void _showRenameLittenDialog(String littenId, String currentTitle) {
+    final TextEditingController renameController = TextEditingController(text: currentTitle);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('리튼 이름 변경'),
+        content: TextField(
+          controller: renameController,
+          decoration: const InputDecoration(
+            labelText: '새 이름',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          onSubmitted: (_) => _performRename(littenId, renameController.text.trim(), renameController, context),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => _performRename(littenId, renameController.text.trim(), renameController, context),
+            child: const Text('변경'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      renameController.dispose();
+    });
+  }
+
+  void _performRename(String littenId, String newTitle, TextEditingController controller, BuildContext dialogContext) async {
+    if (newTitle.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('제목을 입력해주세요.')),
+      );
+      return;
+    }
+    
+    if (newTitle == controller.text) {
+      Navigator.of(dialogContext).pop();
+      return;
+    }
+    
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final navigator = Navigator.of(dialogContext);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    try {
+      await appState.renameLitten(littenId, newTitle);
+      navigator.pop();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('리튼 이름이 \'$newTitle\'로 변경되었습니다.')),
+      );
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('오류: $e')),
+      );
+    }
   }
 
   void _showDeleteDialog(String littenId, String title) {

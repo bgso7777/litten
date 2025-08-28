@@ -50,6 +50,16 @@ class LittenService {
     await _deleteTextFilesByLittenId(littenId);
   }
 
+  Future<void> renameLitten(String littenId, String newTitle) async {
+    final litten = await getLittenById(littenId);
+    if (litten == null) {
+      throw Exception('리튼을 찾을 수 없습니다');
+    }
+    
+    final updatedLitten = litten.copyWith(title: newTitle);
+    await saveLitten(updatedLitten);
+  }
+
   Future<Litten?> getLittenById(String id) async {
     final littens = await getAllLittens();
     try {

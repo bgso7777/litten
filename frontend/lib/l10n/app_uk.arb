@@ -1,0 +1,137 @@
+{
+  "@@locale": "uk",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Головна",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Слухати",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Писати",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Налаштування",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Створити Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Створіть або оберіть Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Використайте кнопку 'Створити Litten' нижче, щоб розпочати свою першу нотатку",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Почати запис",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Зупинити запис",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Записується...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Написання тексту",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Рукопис",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Зберегти",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Видалити",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Оновити",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Прибрати рекламу",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Безкоштовна",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Стандартна",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Преміум",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Тема",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Мова",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Класичний синій",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Темний режим",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Природний зелений",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Помаранчевий захід",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Монохромний сірий",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "@@locale": "ms",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "Utama",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "Dengar",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "Tulis",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "Tetapan",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "Cipta Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "Cipta atau pilih Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "Gunakan butang 'Cipta Litten' di bawah untuk memulakan nota pertama anda",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "Mula Rakaman",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "Henti Rakaman",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "Merakam...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "Penulisan Teks",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "Tulisan Tangan",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "Simpan",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "Padam",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "Naik Taraf",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "Buang Iklan",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "Percuma",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "Standard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "Tema",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "Bahasa",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "Biru Klasik",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "Mod Gelap",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "Hijau Alam",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "Jingga Senja",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "Kelabu Monokrom",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

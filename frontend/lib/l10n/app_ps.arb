@@ -1,0 +1,137 @@
+{
+  "@@locale": "ps",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "کور",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "واورئ",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "وليکئ",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "تنظيمات",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "ليتن جوړ کړئ",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "يو ليتن جوړ کړئ يا غوره کړئ",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "د خپل لومړي نوټ پيل کولو لپاره لاندې د 'ليتن جوړ کړئ' تڼۍ وکاروئ",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "ريکارډنګ پيل کړئ",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "ريکارډنګ بند کړئ",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "ريکارډنګ کوي...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "د متن ليکلو",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "لاسي ليکنه",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "ساتل",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "ړنګول",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "لوړول",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "اعلانات لرې کړئ",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "وړيا",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "معيار",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "پريميم",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "موضوع",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "ژبه",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "کلاسيک شين",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "تور حالت",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "طبيعي شين",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "د لمر ښکته کيدو نارنجي",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "يو رنګ سور",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

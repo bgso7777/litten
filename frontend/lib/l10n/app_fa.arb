@@ -1,0 +1,137 @@
+{
+  "@@locale": "fa",
+  "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+
+  "homeTitle": "خانه",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
+
+  "recordingTitle": "گوش دهید",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
+
+  "writingTitle": "بنویسید",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
+
+  "settingsTitle": "تنظیمات",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
+
+  "createLitten": "ایجاد لیتن",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
+
+  "emptyLittenTitle": "یک لیتن ایجاد کنید یا انتخاب کنید",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
+
+  "emptyLittenDescription": "برای شروع اولین یادداشت خود از دکمه 'ایجاد لیتن' در زیر استفاده کنید",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
+
+  "startRecording": "شروع ضبط",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
+
+  "stopRecording": "توقف ضبط",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
+
+  "recording": "در حال ضبط...",
+  "@recording": {
+    "description": "Recording status text"
+  },
+
+  "textWriting": "نوشتن متن",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
+
+  "handwriting": "دست‌نوشته",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
+
+  "save": "ذخیره",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "delete": "حذف",
+  "@delete": {
+    "description": "Delete button"
+  },
+
+  "upgrade": "ارتقا",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
+
+  "removeAds": "حذف تبلیغات",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
+
+  "freeVersion": "رایگان",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
+
+  "standardVersion": "استاندارد",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
+
+  "premiumVersion": "پریمیوم",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
+
+  "theme": "پوسته",
+  "@theme": {
+    "description": "Theme setting"
+  },
+
+  "language": "زبان",
+  "@language": {
+    "description": "Language setting"
+  },
+
+  "classicBlue": "آبی کلاسیک",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
+
+  "darkMode": "حالت تاریک",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
+
+  "natureGreen": "سبز طبیعی",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
+
+  "sunsetOrange": "نارنجی غروب",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
+
+  "monochromeGrey": "خاکستری تک‌رنگ",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  }
+}

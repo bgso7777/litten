@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'config/app_localizations_temp.dart';
+import 'l10n/app_localizations.dart';
 
 import 'services/app_state_provider.dart';
 import 'screens/main_tab_screen.dart';
@@ -35,38 +35,7 @@ class LittenApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('en'), // English
-            Locale('ko'), // Korean
-            Locale('zh'), // Chinese
-            Locale('hi'), // Hindi
-            Locale('es'), // Spanish
-            Locale('fr'), // French
-            Locale('ar'), // Arabic
-            Locale('bn'), // Bengali
-            Locale('ru'), // Russian
-            Locale('pt'), // Portuguese
-            Locale('ur'), // Urdu
-            Locale('id'), // Indonesian
-            Locale('de'), // German
-            Locale('ja'), // Japanese
-            Locale('sw'), // Swahili
-            Locale('mr'), // Marathi
-            Locale('te'), // Telugu
-            Locale('tr'), // Turkish
-            Locale('ta'), // Tamil
-            Locale('fa'), // Persian
-            Locale('uk'), // Ukrainian
-            Locale('it'), // Italian
-            Locale('tl'), // Tagalog
-            Locale('pl'), // Polish
-            Locale('ps'), // Pashto
-            Locale('ms'), // Malay
-            Locale('ro'), // Romanian
-            Locale('nl'), // Dutch
-            Locale('ha'), // Hausa
-            Locale('th'), // Thai
-          ],
+          supportedLocales: AppLocalizations.supportedLocales,
           home: FutureBuilder(
             future: appState.isInitialized 
                 ? Future.value() 

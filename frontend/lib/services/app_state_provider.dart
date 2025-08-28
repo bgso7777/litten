@@ -200,6 +200,18 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> renameLitten(String littenId, String newTitle) async {
+    await _littenService.renameLitten(littenId, newTitle);
+    await _loadLittens();
+    
+    // 선택된 리튼의 이름이 변경되었다면 새로고침
+    if (_selectedLitten?.id == littenId) {
+      _selectedLitten = await _littenService.getLittenById(littenId);
+    }
+    
+    notifyListeners();
+  }
+
   Future<void> selectLitten(Litten? litten) async {
     _selectedLitten = litten;
     await _littenService.setSelectedLittenId(litten?.id);
