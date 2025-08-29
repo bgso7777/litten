@@ -56,7 +56,7 @@ dependencies:
   # Drawing & PDF
   flutter_painter_v2: ^2.0.0
   pdf: ^3.10.7
-  pdf_render: ^1.4.7
+  # pdf_render: ^1.4.12  # 임시 비활성화 - Kotlin 호환성 문제
   
   # Network & HTTP
   http: ^1.1.2

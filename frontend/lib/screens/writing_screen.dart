@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdf_render/pdf_render.dart';
+// import 'package:pdf_render/pdf_render.dart';  // 임시 비활성화
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
@@ -426,7 +426,9 @@ class _WritingScreenState extends State<WritingScreen>
         print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
         
         final pdfData = result.files.single.bytes!;
-        final document = await PdfDocument.openData(pdfData);
+        // final document = await PdfDocument.openData(pdfData);  // PDF 기능 임시 비활성화
+        throw UnsupportedError('PDF 기능은 현재 비활성화되었습니다.');
+        /*
         print('DEBUG: PDF 문서 열기 성공 - 총 ${document.pageCount}페이지');
         
         List<Uint8List> pages = [];
@@ -451,6 +453,11 @@ class _WritingScreenState extends State<WritingScreen>
             print('DEBUG: 페이지 ${i + 1} 렌더링 완료');
           }
         }
+        */
+        
+        // PDF 기능 임시 비활성화 - 대체 로직
+        List<Uint8List> pages = [];
+        print('DEBUG: PDF 기능이 임시 비활성화되었습니다.');
         
         // 첫 번째 페이지를 배경으로 설정
         if (pages.isNotEmpty) {
@@ -463,12 +470,12 @@ class _WritingScreenState extends State<WritingScreen>
           _backgroundImagePath = null;
         });
         
-        print('DEBUG: PDF→PNG 변환 완료');
+        print('DEBUG: PDF 기능 임시 비활성화');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('PDF 파일 로드 완료 (${pages.length}페이지)'),
-              backgroundColor: Colors.green,
+            const SnackBar(
+              content: Text('PDF 기능은 현재 비활성화되었습니다.'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
