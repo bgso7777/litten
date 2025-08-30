@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!appState.canCreateMoreLittens) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n?.freeVersion ?? '무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다. 업그레이드하여 무제한으로 생성하세요!'),
+          content: Text(l10n?.freeUserLimitMessage ?? '무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다. 업그레이드하여 무제한으로 생성하세요!'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -66,23 +66,23 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(l10n?.createLitten ?? '리튼 생성'),
         content: TextField(
           controller: _titleController,
-          decoration: const InputDecoration(
-            labelText: '제목',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n?.title ?? '제목',
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text(l10n?.cancel ?? '취소'),
           ),
           ElevatedButton(
             onPressed: () async {
               final title = _titleController.text.trim();
               if (title.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('제목을 입력해주세요.')),
+                  SnackBar(content: Text(l10n?.pleaseEnterTitle ?? '제목을 입력해주세요.')),
                 );
                 return;
               }
@@ -105,12 +105,12 @@ class _HomeScreenState extends State<HomeScreen> {
               } catch (e) {
                 if (mounted) {
                   scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('오류: $e')),
+                    SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
                   );
                 }
               }
             },
-            child: const Text('생성'),
+            child: Text(l10n?.create ?? '생성'),
           ),
         ],
       ),
@@ -167,17 +167,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showRenameLittenDialog(String littenId, String currentTitle) {
+    final l10n = AppLocalizations.of(context);
     final TextEditingController renameController = TextEditingController(text: currentTitle);
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('리튼 이름 변경'),
+        title: Text(l10n?.renameLitten ?? '리튼 이름 변경'),
         content: TextField(
           controller: renameController,
-          decoration: const InputDecoration(
-            labelText: '새 이름',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n?.newName ?? '새 이름',
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
           onSubmitted: (_) => _performRename(littenId, renameController.text.trim(), renameController, context),
@@ -185,11 +186,11 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text(l10n?.cancel ?? '취소'),
           ),
           ElevatedButton(
             onPressed: () => _performRename(littenId, renameController.text.trim(), renameController, context),
-            child: const Text('변경'),
+            child: Text(l10n?.change ?? '변경'),
           ),
         ],
       ),
@@ -199,9 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _performRename(String littenId, String newTitle, TextEditingController controller, BuildContext dialogContext) async {
+    final l10n = AppLocalizations.of(context);
     if (newTitle.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('제목을 입력해주세요.')),
+        SnackBar(content: Text(l10n?.pleaseEnterTitle ?? '제목을 입력해주세요.')),
       );
       return;
     }
@@ -223,21 +225,24 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } catch (e) {
       scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('오류: $e')),
+        SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
       );
     }
   }
 
   void _showDeleteDialog(String littenId, String title) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('리튼 삭제'),
-        content: Text('\'$title\' 리튼을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 관련된 모든 파일이 함께 삭제됩니다.'),
+        title: Text(l10n?.deleteLitten ?? '리튼 삭제'),
+        content: Text(l10n?.confirmDeleteLitten != null 
+            ? l10n!.confirmDeleteLitten(title)
+            : '\'$title\' 리튼을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 관련된 모든 파일이 함께 삭제됩니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text(l10n?.cancel ?? '취소'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -255,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+            child: Text(l10n?.delete ?? '삭제', style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

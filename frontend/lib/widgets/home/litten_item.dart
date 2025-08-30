@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/litten.dart';
 import '../../config/themes.dart';
+import '../../l10n/app_localizations.dart';
 
 class LittenItem extends StatelessWidget {
   final Litten litten;
@@ -23,6 +24,7 @@ class LittenItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MM/dd HH:mm');
+    final l10n = AppLocalizations.of(context);
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -124,7 +126,7 @@ class LittenItem extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline),
                 color: Colors.red.shade400,
                 iconSize: 20,
-                tooltip: '삭제',
+                tooltip: l10n?.delete ?? '삭제',
               ),
             ],
           ),

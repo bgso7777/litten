@@ -63,7 +63,7 @@ class AppStateProvider extends ChangeNotifier {
     if (_isInitialized) return;
 
     await _loadSettings();
-    await _littenService.createDefaultLittensIfNeeded();
+    await _createDefaultLittensWithLocalization();
     await _loadLittens();
     await _loadSelectedLitten();
     
@@ -125,10 +125,31 @@ class AppStateProvider extends ChangeNotifier {
 
   // 언어 변경
   Future<void> changeLanguage(String languageCode) async {
+    if (_locale.languageCode == languageCode) return;
+    
     _locale = Locale(languageCode);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language_code', languageCode);
+    await _saveLanguageCode(languageCode);
+    
+    // 언어 변경 시 기본 리튼들을 새로운 언어로 다시 생성
+    await _recreateDefaultLittensWithNewLanguage();
+    
     notifyListeners();
+  }
+
+  // 새로운 언어로 기본 리튼들 재생성
+  Future<void> _recreateDefaultLittensWithNewLanguage() async {
+    // 기존 기본 리튼들을 삭제
+    final littens = await _littenService.getAllLittens();
+    final defaultTitles = ['기본리튼', '강의', '회의', 'Default Litten', 'Lecture', 'Meeting', '默认笔记本', '讲座', '会议'];
+    
+    for (final litten in littens) {
+      if (defaultTitles.contains(litten.title)) {
+        await _littenService.deleteLitten(litten.id);
+      }
+    }
+    
+    // 새로운 언어로 기본 리튼들 생성
+    await _createDefaultLittensWithLocalization();
   }
 
   // 테마 변경
@@ -138,9 +159,128 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 구독 상태 변경
+  Future<void> changeSubscriptionType(SubscriptionType subscriptionType) async {
+    _subscriptionType = subscriptionType;
+    await _saveSubscriptionType(subscriptionType);
+    notifyListeners();
+  }
+
+  // 탭 변경
+  void changeTab(int index) {
+    _selectedTabIndex = index;
+    notifyListeners();
+  }
+
+  // 리튼 선택
+  Future<void> selectLitten(Litten litten) async {
+    _selectedLitten = litten;
+    await _littenService.setSelectedLittenId(litten.id);
+    notifyListeners();
+  }
+
+  // 리튼 생성
+  Future<void> createLitten(String title) async {
+    if (!canCreateMoreLittens) {
+      throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
+    }
+
+    final litten = Litten(title: title);
+    await _littenService.saveLitten(litten);
+    await refreshLittens();
+  }
+
+  // 리튼 이름 변경
+  Future<void> renameLitten(String littenId, String newTitle) async {
+    await _littenService.renameLitten(littenId, newTitle);
+    await refreshLittens();
+    
+    // 선택된 리튼이 변경된 경우 업데이트
+    if (_selectedLitten?.id == littenId) {
+      _selectedLitten = _selectedLitten!.copyWith(title: newTitle);
+    }
+  }
+
+  // 리튼 삭제
+  Future<void> deleteLitten(String littenId) async {
+    await _littenService.deleteLitten(littenId);
+    await refreshLittens();
+    
+    // 선택된 리튼이 삭제된 경우 선택 해제
+    if (_selectedLitten?.id == littenId) {
+      _selectedLitten = null;
+      await _littenService.setSelectedLittenId(null);
+    }
+  }
+
+  // 리튼 목록 새로고침
+  Future<void> refreshLittens() async {
+    _littens = await _littenService.getAllLittens();
+    notifyListeners();
+  }
+
+  // 설정 저장
+  Future<void> _saveLanguageCode(String languageCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language_code', languageCode);
+  }
+
   Future<void> _saveThemeType(AppThemeType themeType) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_type', themeType.index);
+  }
+
+  Future<void> _saveSubscriptionType(SubscriptionType subscriptionType) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('subscription_type', subscriptionType.index);
+  }
+
+  // 현지화된 기본 리튼 생성
+  Future<void> _createDefaultLittensWithLocalization() async {
+    // 현재 언어에 따른 기본 리튼 제목과 설명 결정
+    String defaultLittenTitle, lectureTitle, meetingTitle;
+    String defaultLittenDescription, lectureDescription, meetingDescription;
+    
+    if (_locale.languageCode == 'ko') {
+      defaultLittenTitle = '기본리튼';
+      lectureTitle = '강의';
+      meetingTitle = '회의';
+      defaultLittenDescription = '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.';
+      lectureDescription = '강의에 관련된 파일들을 저장하세요.';
+      meetingDescription = '회의에 관련된 파일들을 저장하세요.';
+    } else if (_locale.languageCode == 'zh') {
+      defaultLittenTitle = '默认笔记本';
+      lectureTitle = '讲座';
+      meetingTitle = '会议';
+      defaultLittenDescription = '未选择笔记本时创建的文件将存储在此默认空间中。';
+      lectureDescription = '在此处存储与讲座相关的文件。';
+      meetingDescription = '在此处存储与会议相关的文件。';
+    } else {
+      defaultLittenTitle = 'Default Litten';
+      lectureTitle = 'Lecture';
+      meetingTitle = 'Meeting';
+      defaultLittenDescription = 'Default space for files created without selecting a litten.';
+      lectureDescription = 'Store files related to lectures here.';
+      meetingDescription = 'Store files related to meetings here.';
+    }
+    
+    await _littenService.createDefaultLittensIfNeeded(
+      defaultLittenTitle: defaultLittenTitle,
+      lectureTitle: lectureTitle,
+      meetingTitle: meetingTitle,
+      defaultLittenDescription: defaultLittenDescription,
+      lectureDescription: lectureDescription,
+      meetingDescription: meetingDescription,
+    );
+  }
+
+  // 기존 코드와의 호환성을 위한 메서드들
+  void changeTabIndex(int index) {
+    changeTab(index);
+  }
+
+  Future<void> updateSubscriptionType(SubscriptionType subscriptionType) async {
+    await changeSubscriptionType(subscriptionType);
   }
 
   // 온보딩 완료 처리
@@ -159,116 +299,6 @@ class AppStateProvider extends ChangeNotifier {
     await prefs.setBool('is_app_initialized', true);
     _isFirstLaunch = false;
     notifyListeners();
-  }
-
-  // 구독 상태 변경
-  Future<void> updateSubscriptionType(SubscriptionType subscriptionType) async {
-    _subscriptionType = subscriptionType;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('subscription_type', subscriptionType.index);
-    notifyListeners();
-  }
-
-  // 탭 인덱스 변경
-  void changeTabIndex(int index) {
-    _selectedTabIndex = index;
-    notifyListeners();
-  }
-
-  // 리튼 관리
-  Future<void> createLitten(String title, {String? description}) async {
-    if (!canCreateMoreLittens) {
-      throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
-    }
-
-    final litten = Litten(title: title, description: description);
-    await _littenService.saveLitten(litten);
-    await _loadLittens();
-    notifyListeners();
-  }
-
-  Future<void> deleteLitten(String littenId) async {
-    await _littenService.deleteLitten(littenId);
-    await _loadLittens();
-    
-    // 삭제된 리튼이 선택된 리튼이었다면 선택 해제
-    if (_selectedLitten?.id == littenId) {
-      _selectedLitten = null;
-      await _littenService.setSelectedLittenId(null);
-    }
-    
-    notifyListeners();
-  }
-
-  Future<void> renameLitten(String littenId, String newTitle) async {
-    await _littenService.renameLitten(littenId, newTitle);
-    await _loadLittens();
-    
-    // 선택된 리튼의 이름이 변경되었다면 새로고침
-    if (_selectedLitten?.id == littenId) {
-      _selectedLitten = await _littenService.getLittenById(littenId);
-    }
-    
-    notifyListeners();
-  }
-
-  Future<void> selectLitten(Litten? litten) async {
-    _selectedLitten = litten;
-    await _littenService.setSelectedLittenId(litten?.id);
-    notifyListeners();
-  }
-
-  Future<void> refreshLittens() async {
-    await _loadLittens();
-    if (_selectedLitten != null) {
-      _selectedLitten = await _littenService.getLittenById(_selectedLitten!.id);
-    }
-    notifyListeners();
-  }
-
-  // 선택된 리튼이 있으면 해당 리튼에, 없으면 기본리튼에 파일 저장
-  Future<void> saveAudioFileToCurrentOrDefault(String fileName, String filePath, Duration? duration, int? fileSize) async {
-    final audioFile = AudioFile(
-      fileName: fileName,
-      filePath: filePath,
-      duration: duration,
-      fileSize: fileSize,
-      littenId: _selectedLitten?.id ?? 'temp', // 임시값, 실제 저장할 때 변경
-    );
-
-    if (_selectedLitten != null) {
-      // 선택된 리튼이 있으면 해당 리튼에 저장
-      await _littenService.saveAudioFile(audioFile.copyWith(
-        fileName: fileName,
-        duration: duration,
-        fileSize: fileSize,
-      ));
-    } else {
-      // 선택된 리튼이 없으면 기본리튼에 저장
-      await _littenService.saveAudioFileToDefaultLitten(audioFile);
-    }
-    
-    // 리튼 목록 새로고침
-    await refreshLittens();
-  }
-
-  Future<void> saveTextFileToCurrentOrDefault(String title, String content) async {
-    final textFile = TextFile(
-      title: title,
-      content: content,
-      littenId: _selectedLitten?.id ?? 'temp', // 임시값, 실제 저장할 때 변경
-    );
-
-    if (_selectedLitten != null) {
-      // 선택된 리튼이 있으면 해당 리튼에 저장
-      await _littenService.saveTextFile(textFile);
-    } else {
-      // 선택된 리튼이 없으면 기본리튼에 저장
-      await _littenService.saveTextFileToDefaultLitten(textFile);
-    }
-    
-    // 리튼 목록 새로고침
-    await refreshLittens();
   }
 }
 

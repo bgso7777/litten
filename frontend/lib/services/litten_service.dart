@@ -255,20 +255,41 @@ class LittenService {
   }
 
   // 기본 리튼들 생성
-  Future<void> createDefaultLittensIfNeeded() async {
+  Future<void> createDefaultLittensIfNeeded({
+    String? defaultLittenTitle,
+    String? lectureTitle,
+    String? meetingTitle,
+    String? defaultLittenDescription,
+    String? lectureDescription,
+    String? meetingDescription,
+  }) async {
     final littens = await getAllLittens();
     
     // 기본 리튼이 이미 존재하는지 확인
-    final defaultTitles = ['기본리튼', '강의', '회의'];
+    final defaultTitles = [
+      defaultLittenTitle ?? '기본리튼',
+      lectureTitle ?? '강의',
+      meetingTitle ?? '회의'
+    ];
     final existingTitles = littens.map((l) => l.title).toSet();
     
-    for (final title in defaultTitles) {
+    for (int i = 0; i < defaultTitles.length; i++) {
+      final title = defaultTitles[i];
       if (!existingTitles.contains(title)) {
+        String description;
+        if (title == (defaultLittenTitle ?? '기본리튼')) {
+          description = defaultLittenDescription ?? '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.';
+        } else if (title == (lectureTitle ?? '강의')) {
+          description = lectureDescription ?? '강의에 관련된 파일들을 저장하세요.';
+        } else if (title == (meetingTitle ?? '회의')) {
+          description = meetingDescription ?? '회의에 관련된 파일들을 저장하세요.';
+        } else {
+          description = '$title에 관련된 파일들을 저장하세요.';
+        }
+        
         final defaultLitten = Litten(
           title: title,
-          description: title == '기본리튼' 
-              ? '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.'
-              : '$title에 관련된 파일들을 저장하세요.',
+          description: description,
         );
         await saveLitten(defaultLitten);
       }

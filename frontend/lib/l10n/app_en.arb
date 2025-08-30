@@ -133,5 +133,426 @@
   "monochromeGrey": "Monochrome Grey",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
+  },
+  
+  "accountAndSubscription": "Account & Subscription",
+  "@accountAndSubscription": {
+    "description": "Account and subscription section title"
+  },
+  
+  "userStatus": "User Status",
+  "@userStatus": {
+    "description": "User status setting"
+  },
+  
+  "usageStatistics": "Usage Statistics",
+  "@usageStatistics": {
+    "description": "Usage statistics setting"
+  },
+  
+  "appSettings": "App Settings",
+  "@appSettings": {
+    "description": "App settings section title"
+  },
+  
+  "startScreen": "Start Screen",
+  "@startScreen": {
+    "description": "Start screen setting"
+  },
+  
+  "recordingSettings": "Recording Settings",
+  "@recordingSettings": {
+    "description": "Recording settings section title"
+  },
+  
+  "maxRecordingTime": "Max Recording Time",
+  "@maxRecordingTime": {
+    "description": "Maximum recording time setting"
+  },
+  
+  "audioQuality": "Audio Quality",
+  "@audioQuality": {
+    "description": "Audio quality setting"
+  },
+  
+  "writingSettings": "Writing Settings",
+  "@writingSettings": {
+    "description": "Writing settings section title"
+  },
+  
+  "autoSaveInterval": "Auto Save Interval",
+  "@autoSaveInterval": {
+    "description": "Auto save interval setting"
+  },
+  
+  "defaultFont": "Default Font",
+  "@defaultFont": {
+    "description": "Default font setting"
+  },
+  
+  "freeWithAds": "Free (with ads)",
+  "@freeWithAds": {
+    "description": "Free version with ads description"
+  },
+  
+  "standardMonthly": "Standard ($4.99/month)",
+  "@standardMonthly": {
+    "description": "Standard version monthly price"
+  },
+  
+  "premiumMonthly": "Premium ($9.99/month)",
+  "@premiumMonthly": {
+    "description": "Premium version monthly price"
+  },
+  
+  "littensCount": "littens",
+  "@littensCount": {
+    "description": "Count of littens"
+  },
+  
+  "filesCount": "files",
+  "@filesCount": {
+    "description": "Count of files"
+  },
+  
+  "removeAdsAndUnlimited": "Remove ads and unlimited features",
+  "@removeAdsAndUnlimited": {
+    "description": "Premium upgrade benefit description"
+  },
+  
+  "maxRecordingTimeValue": "1 hour",
+  "@maxRecordingTimeValue": {
+    "description": "Maximum recording time value"
+  },
+  
+  "standardQuality": "Standard",
+  "@standardQuality": {
+    "description": "Standard audio quality"
+  },
+  
+  "autoSaveIntervalValue": "3 minutes",
+  "@autoSaveIntervalValue": {
+    "description": "Auto save interval value"
+  },
+  
+  "systemFont": "System Font",
+  "@systemFont": {
+    "description": "System font option"
+  },
+  
+  "appVersion": "Litten v1.0.0",
+  "@appVersion": {
+    "description": "App version information"
+  },
+  
+  "appDescription": "Cross-platform integrated note app",
+  "@appDescription": {
+    "description": "App description"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "freeUserLimits": "Free user limits:",
+  "@freeUserLimits": {
+    "description": "Free user limits section title"
+  },
+  
+  "maxLittens": "• Litten",
+  "@maxLittens": {
+    "description": "Maximum littens for free users"
+  },
+  
+  "maxRecordingFiles": "• Recording files",
+  "@maxRecordingFiles": {
+    "description": "Maximum recording files for free users"
+  },
+  
+  "maxTextFiles": "• Text files",
+  "@maxTextFiles": {
+    "description": "Maximum text files for free users"
+  },
+  
+  "maxHandwritingFiles": "• Handwriting files",
+  "@maxHandwritingFiles": {
+    "description": "Maximum handwriting files for free users"
+  },
+  
+  "maxLittensLimit": "Max 5",
+  "@maxLittensLimit": {
+    "description": "Maximum limit for littens"
+  },
+  
+  "maxRecordingFilesLimit": "Max 10",
+  "@maxRecordingFilesLimit": {
+    "description": "Maximum limit for recording files"
+  },
+  
+  "maxTextFilesLimit": "Max 5",
+  "@maxTextFilesLimit": {
+    "description": "Maximum limit for text files"
+  },
+  
+  "maxHandwritingFilesLimit": "Max 5",
+  "@maxHandwritingFilesLimit": {
+    "description": "Maximum limit for handwriting files"
+  },
+  
+  "upgradeToStandard": "Upgrade to Standard Plan?",
+  "@upgradeToStandard": {
+    "description": "Upgrade to standard plan dialog title"
+  },
+  
+  "upgradeBenefits": "• Remove ads\n• Unlimited littens and files\n• $4.99/month",
+  "@upgradeBenefits": {
+    "description": "Upgrade benefits description"
+  },
+  
+  "upgradedToStandard": "Upgraded to Standard Plan! (Simulation)",
+  "@upgradedToStandard": {
+    "description": "Upgrade success message"
+  },
+  
+  "selectTheme": "Select Theme",
+  "@selectTheme": {
+    "description": "Theme selection dialog title"
+  },
+  
+  "selectLanguage": "Select Language",
+  "@selectLanguage": {
+    "description": "Language selection dialog title"
+  },
+  
+  "totalFiles": "Total files",
+  "@totalFiles": {
+    "description": "Total files count"
+  },
+  
+  "noLittenSelected": "Please select a Litten",
+  "@noLittenSelected": {
+    "description": "Message when no litten is selected"
+  },
+  
+  "selectLittenFirst": "To start listening, first select or create a Litten from the Home tab.",
+  "@selectLittenFirst": {
+    "description": "Description when no litten is selected"
+  },
+  
+  "goToHome": "Go to Home",
+  "@goToHome": {
+    "description": "Button to go to home tab"
+  },
+  
+  "noAudioFilesYet": "No audio files yet",
+  "@noAudioFilesYet": {
+    "description": "Title when no audio files exist"
+  },
+  
+  "startFirstRecording": "Click the button below to start your first recording",
+  "@startFirstRecording": {
+    "description": "Description to start first recording"
+  },
+  
+  "selectLittenFirstMessage": "Please select or create a Litten first.",
+  "@selectLittenFirstMessage": {
+    "description": "Message to select litten first"
+  },
+  
+  "recordingStoppedAndSaved": "Recording stopped and file saved.",
+  "@recordingStoppedAndSaved": {
+    "description": "Message when recording is stopped and saved"
+  },
+  
+  "recordingStarted": "Recording started.",
+  "@recordingStarted": {
+    "description": "Message when recording starts"
+  },
+  
+  "recordingFailed": "Failed to start recording. Please check permissions.",
+  "@recordingFailed": {
+    "description": "Message when recording fails"
+  },
+  
+  "playbackFailed": "Playback failed.",
+  "@playbackFailed": {
+    "description": "Message when audio playback fails"
+  },
+  
+  "deleteFile": "Delete File",
+  "@deleteFile": {
+    "description": "Delete file dialog title"
+  },
+  
+  "confirmDeleteFile": "Are you sure you want to delete the file {fileName}?",
+  "@confirmDeleteFile": {
+    "description": "Confirm delete file message",
+    "placeholders": {
+      "fileName": {
+        "type": "String",
+        "example": "recording.m4a"
+      }
+    }
+  },
+  
+  "fileDeleted": "File deleted.",
+  "@fileDeleted": {
+    "description": "Message when file is deleted"
+  },
+  
+  "selectPlaybackSpeed": "Select Playback Speed",
+  "@selectPlaybackSpeed": {
+    "description": "Playback speed selection dialog title"
+  },
+  
+  "playbackSpeed": "Playback Speed",
+  "@playbackSpeed": {
+    "description": "Playback speed tooltip"
+  },
+  
+  "recordingInProgress": "Recording...",
+  "@recordingInProgress": {
+    "description": "Recording in progress text"
+  },
+  
+  "created": "Created",
+  "@created": {
+    "description": "Created date label"
+  },
+  
+  "title": "Title",
+  "@title": {
+    "description": "Title input label"
+  },
+  
+  "create": "Create",
+  "@create": {
+    "description": "Create button"
+  },
+  
+  "pleaseEnterTitle": "Please enter a title.",
+  "@pleaseEnterTitle": {
+    "description": "Message when title is empty"
+  },
+  
+  "littenCreated": "{title} litten has been created.",
+  "@littenCreated": {
+    "description": "Message when litten is created",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  
+  "error": "Error",
+  "@error": {
+    "description": "Error label"
+  },
+  
+  "renameLitten": "Rename Litten",
+  "@renameLitten": {
+    "description": "Rename litten dialog title"
+  },
+  
+  "newName": "New Name",
+  "@newName": {
+    "description": "New name input label"
+  },
+  
+  "change": "Change",
+  "@change": {
+    "description": "Change button"
+  },
+  
+  "littenRenamed": "Litten name has been changed to '{newName}'.",
+  "@littenRenamed": {
+    "description": "Message when litten is renamed",
+    "placeholders": {
+      "newName": {
+        "type": "String",
+        "example": "New Name"
+      }
+    }
+  },
+  
+  "deleteLitten": "Delete Litten",
+  "@deleteLitten": {
+    "description": "Delete litten dialog title"
+  },
+  
+  "confirmDeleteLitten": "'{title}' litten will be deleted.\n\nThis action cannot be undone and all related files will be deleted together.",
+  "@confirmDeleteLitten": {
+    "description": "Confirm delete litten message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  
+  "freeUserLimitMessage": "Free users can only create up to 5 littens. Upgrade to create unlimited!",
+  "@freeUserLimitMessage": {
+    "description": "Message for free user limit"
+  },
+  
+  "littenDeleted": "{title} litten has been deleted.",
+  "@littenDeleted": {
+    "description": "Message when litten is deleted",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  
+  "confirmDeleteLittenMessage": "'{title}' litten will be deleted.\n\nThis action cannot be undone and all related files will be deleted together.",
+  "@confirmDeleteLittenMessage": {
+    "description": "Confirm delete litten message content",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  
+  "defaultLitten": "Default Litten",
+  "@defaultLitten": {
+    "description": "Default litten title for new users"
+  },
+  
+  "lecture": "Lecture",
+  "@lecture": {
+    "description": "Lecture litten title for new users"
+  },
+  
+  "meeting": "Meeting",
+  "@meeting": {
+    "description": "Meeting litten title for new users"
+  },
+  
+  "defaultLittenDescription": "Default space for files created without selecting a litten.",
+  "@defaultLittenDescription": {
+    "description": "Description for default litten"
+  },
+  
+  "lectureDescription": "Store files related to lectures here.",
+  "@lectureDescription": {
+    "description": "Description for lecture litten"
+  },
+  
+  "meetingDescription": "Store files related to meetings here.",
+  "@meetingDescription": {
+    "description": "Description for meeting litten"
   }
 }
