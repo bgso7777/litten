@@ -133,5 +133,22 @@
   "monochromeGrey": "Grigio Monocromatico",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
-  }
+  },
+
+  "welcomeDescription": "App per note intelligente che integra\nascoltare, scrivere e disegnare",
+  "listen": "Ascoltare",
+  "listenDescription": "Registrazione e riproduzione vocale",
+  "write": "Scrivere",
+  "writeDescription": "Creazione e modifica del testo",
+  "draw": "Disegnare",
+  "drawDescription": "Scrittura a mano su immagini",
+  
+  "selectLanguage": "Seleziona lingua",
+  "selectLanguageDescription": "Per favore seleziona la lingua da utilizzare nell'app",
+  "selectTheme": "Seleziona tema",
+  "themeRecommendationMessage": "Il tema raccomandato per la lingua selezionata è stato scelto automaticamente",
+  "recommended": "Raccomandato",
+  "previous": "Precedente",
+  "next": "Successivo",
+  "getStarted": "Inizia"
 }

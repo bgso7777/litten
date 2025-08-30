@@ -339,4 +339,46 @@ class AppLocalizationsPs extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'Please select the language to use in the app';
+
+  @override
+  String get themeRecommendationMessage =>
+      'A recommended theme has been automatically selected based on your chosen language';
+
+  @override
+  String get recommended => 'Recommended';
+
+  @override
+  String get previous => 'Previous';
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get getStarted => 'Get Started';
+
+  @override
+  String get welcomeDescription =>
+      'Smart note app that integrates\nlisten, write, and draw';
+
+  @override
+  String get listen => 'Listen';
+
+  @override
+  String get listenDescription => 'Voice recording and playback';
+
+  @override
+  String get write => 'Write';
+
+  @override
+  String get writeDescription => 'Text creation and editing';
+
+  @override
+  String get draw => 'Draw';
+
+  @override
+  String get drawDescription => 'Handwriting on images';
 }

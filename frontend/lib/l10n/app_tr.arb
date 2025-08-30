@@ -133,5 +133,22 @@
   "monochromeGrey": "Tek Renkli Gri",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
-  }
+  },
+
+  "welcomeDescription": "Dinleme, yazma ve çizimi\nbir araya getiren akıllı not uygulaması",
+  "listen": "Dinle",
+  "listenDescription": "Ses kaydı ve oynatma",
+  "write": "Yaz",
+  "writeDescription": "Metin oluşturma ve düzenleme",
+  "draw": "Çiz",
+  "drawDescription": "Görseller üzerinde el yazısı",
+  
+  "selectLanguage": "Dil seçin",
+  "selectLanguageDescription": "Lütfen uygulamada kullanılacak dili seçin",
+  "selectTheme": "Tema seçin",
+  "themeRecommendationMessage": "Seçilen dil için önerilen tema otomatik olarak seçildi",
+  "recommended": "Önerilen",
+  "previous": "Önceki",
+  "next": "Sonraki",
+  "getStarted": "Başlayın"
 }

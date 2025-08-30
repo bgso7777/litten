@@ -109,5 +109,20 @@
   
   "defaultLittenDescription": "未选择笔记本时创建的文件将存储在此默认空间中。",
   "lectureDescription": "在此处存储与讲座相关的文件。",
-  "meetingDescription": "在此处存储与会议相关的文件。"
+  "meetingDescription": "在此处存储与会议相关的文件。",
+
+  "welcomeDescription": "集成听写、写作和手绘的\n智能笔记应用",
+  "listen": "听写",
+  "listenDescription": "语音录制和回放",
+  "write": "写作",
+  "writeDescription": "文本创建和编辑",
+  "draw": "手绘",
+  "drawDescription": "在图像上手写",
+  
+  "selectLanguageDescription": "请选择应用使用的语言",
+  "themeRecommendationMessage": "已自动选择适合所选语言的推荐主题",
+  "recommended": "推荐",
+  "previous": "上一步",
+  "next": "下一步",
+  "getStarted": "开始使用"
 }

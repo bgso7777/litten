@@ -26,5 +26,22 @@
   "darkMode": "डार्क मोड",
   "natureGreen": "प्रकृति हरा",
   "sunsetOrange": "सूर्यास्त नारंगी",
-  "monochromeGrey": "मोनोक्रोम ग्रे"
+  "monochromeGrey": "मोनोक्रोम ग्रे",
+
+  "welcomeDescription": "सुनना, लिखना और चित्र बनाना\nएकीकृत करने वाला स्मार्ट नोट ऐप",
+  "listen": "सुनना",
+  "listenDescription": "आवाज रिकॉर्डिंग और प्लेबैक",
+  "write": "लिखना",
+  "writeDescription": "पाठ निर्माण और संपादन",
+  "draw": "चित्र बनाना",
+  "drawDescription": "छवियों पर हस्तलेखन",
+  
+  "selectLanguage": "भाषा चुनें",
+  "selectLanguageDescription": "कृपया ऐप में उपयोग करने के लिए भाषा चुनें",
+  "selectTheme": "थीम चुनें",
+  "themeRecommendationMessage": "चयनित भाषा के लिए अनुशंसित थीम स्वचालित रूप से चुनी गई है",
+  "recommended": "अनुशंसित",
+  "previous": "पिछला",
+  "next": "अगला",
+  "getStarted": "शुरू करें"
 }

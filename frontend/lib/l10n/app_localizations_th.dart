@@ -203,10 +203,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'เลือกธีม';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'เลือกภาษา';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,45 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription => 'โปรดเลือกภาษาที่จะใช้ในแอป';
+
+  @override
+  String get themeRecommendationMessage =>
+      'ธีมที่แนะนำสำหรับภาษาที่เลือกถูกเลือกโดยอัตโนมัติ';
+
+  @override
+  String get recommended => 'แนะนำ';
+
+  @override
+  String get previous => 'ก่อนหน้า';
+
+  @override
+  String get next => 'ถัดไป';
+
+  @override
+  String get getStarted => 'เริ่มต้น';
+
+  @override
+  String get welcomeDescription =>
+      'แอปโน้ตอัจฉริยะที่รวม\nการฟัง, การเขียน, และการวาด';
+
+  @override
+  String get listen => 'ฟัง';
+
+  @override
+  String get listenDescription => 'การบันทึกและเล่นเสียง';
+
+  @override
+  String get write => 'เขียน';
+
+  @override
+  String get writeDescription => 'การสร้างและแก้ไขข้อความ';
+
+  @override
+  String get draw => 'วาด';
+
+  @override
+  String get drawDescription => 'การเขียนลายมือบนรูปภาพ';
 }

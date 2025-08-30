@@ -133,5 +133,22 @@
   "monochromeGrey": "یک رنگی سرمئی",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
-  }
+  },
+
+  "welcomeDescription": "سننے، لکھنے اور اروں\nکو مکمل کرنے والا اسمارٹ نوٹ ایپ",
+  "listen": "سُنیں",
+  "listenDescription": "آواز ریکارڈنگ اور پلے بیک",
+  "write": "لکھیں",
+  "writeDescription": "ٹیکسٹ بنانے اور تبدیل کرنے",
+  "draw": "چاریں",
+  "drawDescription": "تصاویر پر ہاتھ سے لکھنا",
+  
+  "selectLanguage": "زبان منتخب کریں",
+  "selectLanguageDescription": "براہ کرم ایپ میں استعمال کے لیے زبان منتخب کریں",
+  "selectTheme": "تھیم منتخب کریں",
+  "themeRecommendationMessage": "منتخب زبان کے لیے تجویز کردہ تھیم اپنے آپ منتخب ہو گیا ہے",
+  "recommended": "تجویز کردہ",
+  "previous": "پہلے",
+  "next": "اگلے",
+  "getStarted": "شروع کریں"
 }

@@ -203,10 +203,10 @@ class AppLocalizationsUr extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'تھیم منتخب کریں';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'زبان منتخب کریں';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,46 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'براہ کرم ایپ میں استعمال کے لیے زبان منتخب کریں';
+
+  @override
+  String get themeRecommendationMessage =>
+      'منتخب زبان کے لیے تجویز کردہ تھیم اپنے آپ منتخب ہو گیا ہے';
+
+  @override
+  String get recommended => 'تجویز کردہ';
+
+  @override
+  String get previous => 'پہلے';
+
+  @override
+  String get next => 'اگلے';
+
+  @override
+  String get getStarted => 'شروع کریں';
+
+  @override
+  String get welcomeDescription =>
+      'سننے، لکھنے اور اروں\nکو مکمل کرنے والا اسمارٹ نوٹ ایپ';
+
+  @override
+  String get listen => 'سُنیں';
+
+  @override
+  String get listenDescription => 'آواز ریکارڈنگ اور پلے بیک';
+
+  @override
+  String get write => 'لکھیں';
+
+  @override
+  String get writeDescription => 'ٹیکسٹ بنانے اور تبدیل کرنے';
+
+  @override
+  String get draw => 'چاریں';
+
+  @override
+  String get drawDescription => 'تصاویر پر ہاتھ سے لکھنا';
 }

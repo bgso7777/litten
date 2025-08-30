@@ -109,5 +109,20 @@
   
   "defaultLittenDescription": "리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.",
   "lectureDescription": "강의에 관련된 파일들을 저장하세요.",
-  "meetingDescription": "회의에 관련된 파일들을 저장하세요."
+  "meetingDescription": "회의에 관련된 파일들을 저장하세요.",
+
+  "selectLanguageDescription": "앱에서 사용할 언어를 선택해주세요",
+  "themeRecommendationMessage": "선택하신 언어에 맞는 추천 테마가 자동으로 선택되었습니다",
+  "recommended": "추천",
+  "previous": "이전",
+  "next": "다음",
+  "getStarted": "시작하기",
+
+  "welcomeDescription": "듣기, 쓰기, 필기를 통합한\n스마트 노트 앱",
+  "listen": "듣기",
+  "listenDescription": "음성 녹음 및 재생",
+  "write": "쓰기", 
+  "writeDescription": "텍스트 작성 및 편집",
+  "draw": "필기",
+  "drawDescription": "이미지 위에 필기"
 }

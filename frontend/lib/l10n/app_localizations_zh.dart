@@ -331,4 +331,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meetingDescription => '在此处存储与会议相关的文件。';
+
+  @override
+  String get selectLanguageDescription => '请选择应用使用的语言';
+
+  @override
+  String get themeRecommendationMessage => '已自动选择适合所选语言的推荐主题';
+
+  @override
+  String get recommended => '推荐';
+
+  @override
+  String get previous => '上一步';
+
+  @override
+  String get next => '下一步';
+
+  @override
+  String get getStarted => '开始使用';
+
+  @override
+  String get welcomeDescription => '集成听写、写作和手绘的\n智能笔记应用';
+
+  @override
+  String get listen => '听写';
+
+  @override
+  String get listenDescription => '语音录制和回放';
+
+  @override
+  String get write => '写作';
+
+  @override
+  String get writeDescription => '文本创建和编辑';
+
+  @override
+  String get draw => '手绘';
+
+  @override
+  String get drawDescription => '在图像上手写';
 }

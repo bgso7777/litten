@@ -26,5 +26,22 @@
   "darkMode": "ダークモード",
   "natureGreen": "ネイチャーグリーン",
   "sunsetOrange": "サンセットオレンジ",
-  "monochromeGrey": "モノクロームグレー"
+  "monochromeGrey": "モノクロームグレー",
+
+  "welcomeDescription": "リスニング、ライティング、描画を統合した\nスマートノートアプリ",
+  "listen": "リスニング",
+  "listenDescription": "音声録音と再生",
+  "write": "ライティング",
+  "writeDescription": "テキスト作成と編集",
+  "draw": "描画",
+  "drawDescription": "画像上での手書き入力",
+  
+  "selectLanguage": "言語を選択",
+  "selectLanguageDescription": "アプリで使用する言語を選択してください",
+  "selectTheme": "テーマを選択",
+  "themeRecommendationMessage": "選択した言語に推奨されるテーマが自動的に選択されました",
+  "recommended": "推奨",
+  "previous": "前へ",
+  "next": "次へ",
+  "getStarted": "始める"
 }

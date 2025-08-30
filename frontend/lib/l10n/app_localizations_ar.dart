@@ -203,10 +203,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'اختيار المظهر';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'اختيار اللغة';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,46 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'يرجى اختيار اللغة المراد استخدامها في التطبيق';
+
+  @override
+  String get themeRecommendationMessage =>
+      'تم اختيار المظهر الموصى به للغة المختارة تلقائياً';
+
+  @override
+  String get recommended => 'موصى به';
+
+  @override
+  String get previous => 'السابق';
+
+  @override
+  String get next => 'التالي';
+
+  @override
+  String get getStarted => 'ابدأ';
+
+  @override
+  String get welcomeDescription =>
+      'تطبيق ملاحظات ذكي يدمج\nالاستماع والكتابة والرسم';
+
+  @override
+  String get listen => 'استماع';
+
+  @override
+  String get listenDescription => 'تسجيل وتشغيل الصوت';
+
+  @override
+  String get write => 'كتابة';
+
+  @override
+  String get writeDescription => 'إنشاء وتحرير النص';
+
+  @override
+  String get draw => 'رسم';
+
+  @override
+  String get drawDescription => 'الكتابة اليدوية على الصور';
 }

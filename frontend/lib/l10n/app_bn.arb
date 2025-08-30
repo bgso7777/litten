@@ -133,5 +133,22 @@
   "monochromeGrey": "একরঙা ধূসর",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
-  }
+  },
+
+  "welcomeDescription": "শোনা, লেখা ও আঁকা\nএকীভূত করে স্মার্ট নোট অ্যাপ",
+  "listen": "শুনুন",
+  "listenDescription": "ভয়েস রেকর্ডিং ও প্লেব্যাক",
+  "write": "লিখুন",
+  "writeDescription": "টেক্সট তৈরি ও সম্পাদনা",
+  "draw": "আঁকুন",
+  "drawDescription": "ছবিতে হাতে লেখা",
+  
+  "selectLanguage": "ভাষা নির্বাচন করুন",
+  "selectLanguageDescription": "অ্যাপে ব্যবহারের জন্য ভাষা নির্বাচন করুন",
+  "selectTheme": "থিম নির্বাচন করুন",
+  "themeRecommendationMessage": "নির্বাচিত ভাষার জন্য সুপারিশকৃত থিম স্বয়ংক্রিয়ভাবে নির্বাচিত হয়েছে",
+  "recommended": "সুপারিশকৃত",
+  "previous": "আগের",
+  "next": "পরের",
+  "getStarted": "শুরু করুন"
 }

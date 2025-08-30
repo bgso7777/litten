@@ -332,4 +332,43 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get meetingDescription => '회의에 관련된 파일들을 저장하세요.';
+
+  @override
+  String get selectLanguageDescription => '앱에서 사용할 언어를 선택해주세요';
+
+  @override
+  String get themeRecommendationMessage => '선택하신 언어에 맞는 추천 테마가 자동으로 선택되었습니다';
+
+  @override
+  String get recommended => '추천';
+
+  @override
+  String get previous => '이전';
+
+  @override
+  String get next => '다음';
+
+  @override
+  String get getStarted => '시작하기';
+
+  @override
+  String get welcomeDescription => '듣기, 쓰기, 필기를 통합한\n스마트 노트 앱';
+
+  @override
+  String get listen => '듣기';
+
+  @override
+  String get listenDescription => '음성 녹음 및 재생';
+
+  @override
+  String get write => '쓰기';
+
+  @override
+  String get writeDescription => '텍스트 작성 및 편집';
+
+  @override
+  String get draw => '필기';
+
+  @override
+  String get drawDescription => '이미지 위에 필기';
 }

@@ -203,10 +203,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'Tema seçin';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'Dil seçin';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,46 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'Lütfen uygulamada kullanılacak dili seçin';
+
+  @override
+  String get themeRecommendationMessage =>
+      'Seçilen dil için önerilen tema otomatik olarak seçildi';
+
+  @override
+  String get recommended => 'Önerilen';
+
+  @override
+  String get previous => 'Önceki';
+
+  @override
+  String get next => 'Sonraki';
+
+  @override
+  String get getStarted => 'Başlayın';
+
+  @override
+  String get welcomeDescription =>
+      'Dinleme, yazma ve çizimi\nbir araya getiren akıllı not uygulaması';
+
+  @override
+  String get listen => 'Dinle';
+
+  @override
+  String get listenDescription => 'Ses kaydı ve oynatma';
+
+  @override
+  String get write => 'Yaz';
+
+  @override
+  String get writeDescription => 'Metin oluşturma ve düzenleme';
+
+  @override
+  String get draw => 'Çiz';
+
+  @override
+  String get drawDescription => 'Görseller üzerinde el yazısı';
 }

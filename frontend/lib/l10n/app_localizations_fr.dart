@@ -203,10 +203,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'Sélectionner le thème';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'Sélectionner la langue';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,46 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'Veuillez sélectionner la langue à utiliser dans l\'application';
+
+  @override
+  String get themeRecommendationMessage =>
+      'Le thème recommandé pour la langue sélectionnée a été automatiquement sélectionné';
+
+  @override
+  String get recommended => 'Recommandé';
+
+  @override
+  String get previous => 'Précédent';
+
+  @override
+  String get next => 'Suivant';
+
+  @override
+  String get getStarted => 'Commencer';
+
+  @override
+  String get welcomeDescription =>
+      'Application de notes intelligente qui intègre\nécouter, écrire et dessiner';
+
+  @override
+  String get listen => 'Écouter';
+
+  @override
+  String get listenDescription => 'Enregistrement et lecture vocale';
+
+  @override
+  String get write => 'Écrire';
+
+  @override
+  String get writeDescription => 'Création et édition de texte';
+
+  @override
+  String get draw => 'Dessiner';
+
+  @override
+  String get drawDescription => 'Écriture à la main sur des images';
 }

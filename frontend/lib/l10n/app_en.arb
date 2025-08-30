@@ -554,5 +554,70 @@
   "meetingDescription": "Store files related to meetings here.",
   "@meetingDescription": {
     "description": "Description for meeting litten"
+  },
+
+  "selectLanguageDescription": "Please select the language to use in the app",
+  "@selectLanguageDescription": {
+    "description": "Language selection description in onboarding"
+  },
+
+  "themeRecommendationMessage": "A recommended theme has been automatically selected based on your chosen language",
+  "@themeRecommendationMessage": {
+    "description": "Theme recommendation message in onboarding"
+  },
+
+  "recommended": "Recommended",
+  "@recommended": {
+    "description": "Recommended label for themes"
+  },
+
+  "previous": "Previous",
+  "@previous": {
+    "description": "Previous button in onboarding"
+  },
+
+  "next": "Next",
+  "@next": {
+    "description": "Next button in onboarding"
+  },
+
+  "getStarted": "Get Started",
+  "@getStarted": {
+    "description": "Get started button in onboarding"
+  },
+
+  "welcomeDescription": "Smart note app that integrates\nlisten, write, and draw",
+  "@welcomeDescription": {
+    "description": "Welcome page description in onboarding"
+  },
+
+  "listen": "Listen",
+  "@listen": {
+    "description": "Listen feature title"
+  },
+
+  "listenDescription": "Voice recording and playback",
+  "@listenDescription": {
+    "description": "Listen feature description"
+  },
+
+  "write": "Write",
+  "@write": {
+    "description": "Write feature title"
+  },
+
+  "writeDescription": "Text creation and editing",
+  "@writeDescription": {
+    "description": "Write feature description"
+  },
+
+  "draw": "Draw",
+  "@draw": {
+    "description": "Draw feature title"
+  },
+
+  "drawDescription": "Handwriting on images",
+  "@drawDescription": {
+    "description": "Draw feature description"
   }
 }

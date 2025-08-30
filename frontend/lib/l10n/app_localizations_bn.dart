@@ -203,10 +203,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'থিম নির্বাচন করুন';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => 'ভাষা নির্বাচন করুন';
 
   @override
   String get totalFiles => 'Total files';
@@ -339,4 +339,46 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription =>
+      'অ্যাপে ব্যবহারের জন্য ভাষা নির্বাচন করুন';
+
+  @override
+  String get themeRecommendationMessage =>
+      'নির্বাচিত ভাষার জন্য সুপারিশকৃত থিম স্বয়ংক্রিয়ভাবে নির্বাচিত হয়েছে';
+
+  @override
+  String get recommended => 'সুপারিশকৃত';
+
+  @override
+  String get previous => 'আগের';
+
+  @override
+  String get next => 'পরের';
+
+  @override
+  String get getStarted => 'শুরু করুন';
+
+  @override
+  String get welcomeDescription =>
+      'শোনা, লেখা ও আঁকা\nএকীভূত করে স্মার্ট নোট অ্যাপ';
+
+  @override
+  String get listen => 'শুনুন';
+
+  @override
+  String get listenDescription => 'ভয়েস রেকর্ডিং ও প্লেব্যাক';
+
+  @override
+  String get write => 'লিখুন';
+
+  @override
+  String get writeDescription => 'টেক্সট তৈরি ও সম্পাদনা';
+
+  @override
+  String get draw => 'আঁকুন';
+
+  @override
+  String get drawDescription => 'ছবিতে হাতে লেখা';
 }

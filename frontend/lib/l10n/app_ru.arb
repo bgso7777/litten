@@ -26,5 +26,22 @@
   "darkMode": "Темный Режим",
   "natureGreen": "Природный Зеленый",
   "sunsetOrange": "Закатный Оранжевый",
-  "monochromeGrey": "Монохромный Серый"
+  "monochromeGrey": "Монохромный Серый",
+
+  "welcomeDescription": "Умное приложение для заметок, которое интегрирует\nслушание, письмо и рисование",
+  "listen": "Слушать",
+  "listenDescription": "Запись и воспроизведение голоса",
+  "write": "Писать",
+  "writeDescription": "Создание и редактирование текста",
+  "draw": "Рисовать",
+  "drawDescription": "Рукописный ввод на изображениях",
+  
+  "selectLanguage": "Выбрать язык",
+  "selectLanguageDescription": "Пожалуйста, выберите язык для использования в приложении",
+  "selectTheme": "Выбрать тему",
+  "themeRecommendationMessage": "Рекомендуемая тема для выбранного языка была выбрана автоматически",
+  "recommended": "Рекомендуется",
+  "previous": "Назад",
+  "next": "Далее",
+  "getStarted": "Начать"
 }

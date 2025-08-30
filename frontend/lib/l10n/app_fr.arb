@@ -26,5 +26,22 @@
   "darkMode": "Mode Sombre",
   "natureGreen": "Vert Nature",
   "sunsetOrange": "Orange Coucher de Soleil",
-  "monochromeGrey": "Gris Monochrome"
+  "monochromeGrey": "Gris Monochrome",
+
+  "welcomeDescription": "Application de notes intelligente qui intègre\nécouter, écrire et dessiner",
+  "listen": "Écouter",
+  "listenDescription": "Enregistrement et lecture vocale",
+  "write": "Écrire",
+  "writeDescription": "Création et édition de texte",
+  "draw": "Dessiner",
+  "drawDescription": "Écriture à la main sur des images",
+
+  "selectLanguage": "Sélectionner la langue",
+  "selectLanguageDescription": "Veuillez sélectionner la langue à utiliser dans l'application",
+  "selectTheme": "Sélectionner le thème",
+  "themeRecommendationMessage": "Le thème recommandé pour la langue sélectionnée a été automatiquement sélectionné",
+  "recommended": "Recommandé",
+  "previous": "Précédent",
+  "next": "Suivant",
+  "getStarted": "Commencer"
 }

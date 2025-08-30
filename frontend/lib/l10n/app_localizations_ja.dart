@@ -202,10 +202,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get upgradedToStandard => 'Upgraded to Standard Plan! (Simulation)';
 
   @override
-  String get selectTheme => 'Select Theme';
+  String get selectTheme => 'テーマを選択';
 
   @override
-  String get selectLanguage => 'Select Language';
+  String get selectLanguage => '言語を選択';
 
   @override
   String get totalFiles => 'Total files';
@@ -338,4 +338,43 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get meetingDescription => 'Store files related to meetings here.';
+
+  @override
+  String get selectLanguageDescription => 'アプリで使用する言語を選択してください';
+
+  @override
+  String get themeRecommendationMessage => '選択した言語に推奨されるテーマが自動的に選択されました';
+
+  @override
+  String get recommended => '推奨';
+
+  @override
+  String get previous => '前へ';
+
+  @override
+  String get next => '次へ';
+
+  @override
+  String get getStarted => '始める';
+
+  @override
+  String get welcomeDescription => 'リスニング、ライティング、描画を統合した\nスマートノートアプリ';
+
+  @override
+  String get listen => 'リスニング';
+
+  @override
+  String get listenDescription => '音声録音と再生';
+
+  @override
+  String get write => 'ライティング';
+
+  @override
+  String get writeDescription => 'テキスト作成と編集';
+
+  @override
+  String get draw => '描画';
+
+  @override
+  String get drawDescription => '画像上での手書き入力';
 }

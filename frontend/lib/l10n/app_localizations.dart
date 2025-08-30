@@ -777,6 +777,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Store files related to meetings here.'**
   String get meetingDescription;
+
+  /// Language selection description in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Please select the language to use in the app'**
+  String get selectLanguageDescription;
+
+  /// Theme recommendation message in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'A recommended theme has been automatically selected based on your chosen language'**
+  String get themeRecommendationMessage;
+
+  /// Recommended label for themes
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get recommended;
+
+  /// Previous button in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get previous;
+
+  /// Next button in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get next;
+
+  /// Get started button in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Get Started'**
+  String get getStarted;
+
+  /// Welcome page description in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Smart note app that integrates\nlisten, write, and draw'**
+  String get welcomeDescription;
+
+  /// Listen feature title
+  ///
+  /// In en, this message translates to:
+  /// **'Listen'**
+  String get listen;
+
+  /// Listen feature description
+  ///
+  /// In en, this message translates to:
+  /// **'Voice recording and playback'**
+  String get listenDescription;
+
+  /// Write feature title
+  ///
+  /// In en, this message translates to:
+  /// **'Write'**
+  String get write;
+
+  /// Write feature description
+  ///
+  /// In en, this message translates to:
+  /// **'Text creation and editing'**
+  String get writeDescription;
+
+  /// Draw feature title
+  ///
+  /// In en, this message translates to:
+  /// **'Draw'**
+  String get draw;
+
+  /// Draw feature description
+  ///
+  /// In en, this message translates to:
+  /// **'Handwriting on images'**
+  String get drawDescription;
 }
 
 class _AppLocalizationsDelegate

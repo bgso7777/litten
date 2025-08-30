@@ -26,5 +26,22 @@
   "darkMode": "الوضع المظلم",
   "natureGreen": "الأخضر الطبيعي",
   "sunsetOrange": "البرتقالي الغروب",
-  "monochromeGrey": "الرمادي الأحادي"
+  "monochromeGrey": "الرمادي الأحادي",
+
+  "welcomeDescription": "تطبيق ملاحظات ذكي يدمج\nالاستماع والكتابة والرسم",
+  "listen": "استماع",
+  "listenDescription": "تسجيل وتشغيل الصوت",
+  "write": "كتابة",
+  "writeDescription": "إنشاء وتحرير النص",
+  "draw": "رسم",
+  "drawDescription": "الكتابة اليدوية على الصور",
+  
+  "selectLanguage": "اختيار اللغة",
+  "selectLanguageDescription": "يرجى اختيار اللغة المراد استخدامها في التطبيق",
+  "selectTheme": "اختيار المظهر",
+  "themeRecommendationMessage": "تم اختيار المظهر الموصى به للغة المختارة تلقائياً",
+  "recommended": "موصى به",
+  "previous": "السابق",
+  "next": "التالي",
+  "getStarted": "ابدأ"
 }

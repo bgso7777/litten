@@ -133,5 +133,22 @@
   "monochromeGrey": "เทาโมโนโครม",
   "@monochromeGrey": {
     "description": "Monochrome Grey theme"
-  }
+  },
+
+  "welcomeDescription": "แอปโน้ตอัจฉริยะที่รวม\nการฟัง, การเขียน, และการวาด",
+  "listen": "ฟัง",
+  "listenDescription": "การบันทึกและเล่นเสียง",
+  "write": "เขียน",
+  "writeDescription": "การสร้างและแก้ไขข้อความ",
+  "draw": "วาด",
+  "drawDescription": "การเขียนลายมือบนรูปภาพ",
+  
+  "selectLanguage": "เลือกภาษา",
+  "selectLanguageDescription": "โปรดเลือกภาษาที่จะใช้ในแอป",
+  "selectTheme": "เลือกธีม",
+  "themeRecommendationMessage": "ธีมที่แนะนำสำหรับภาษาที่เลือกถูกเลือกโดยอัตโนมัติ",
+  "recommended": "แนะนำ",
+  "previous": "ก่อนหน้า",
+  "next": "ถัดไป",
+  "getStarted": "เริ่มต้น"
 }

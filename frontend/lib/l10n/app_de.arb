@@ -26,5 +26,22 @@
   "darkMode": "Dunkler Modus",
   "natureGreen": "Naturgrün",
   "sunsetOrange": "Sonnenuntergang Orange",
-  "monochromeGrey": "Monochrom Grau"
+  "monochromeGrey": "Monochrom Grau",
+
+  "welcomeDescription": "Intelligente Notiz-App, die\nHören, Schreiben und Zeichnen integriert",
+  "listen": "Hören",
+  "listenDescription": "Sprachaufzeichnung und Wiedergabe",
+  "write": "Schreiben",
+  "writeDescription": "Texterstellung und -bearbeitung",
+  "draw": "Zeichnen",
+  "drawDescription": "Handschrift auf Bildern",
+  
+  "selectLanguage": "Sprache auswählen",
+  "selectLanguageDescription": "Bitte wählen Sie die Sprache für die App aus",
+  "selectTheme": "Design auswählen",
+  "themeRecommendationMessage": "Das empfohlene Design für die gewählte Sprache wurde automatisch ausgewählt",
+  "recommended": "Empfohlen",
+  "previous": "Zurück",
+  "next": "Weiter",
+  "getStarted": "Loslegen"
 }
