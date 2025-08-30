@@ -392,6 +392,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
                       ],
                     ),
                     AppSpacing.verticalSpaceM,
+                    // 하단 네비게이션 바와의 간격 확보
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),

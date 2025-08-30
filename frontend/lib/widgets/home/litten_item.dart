@@ -75,22 +75,30 @@ class LittenItem extends StatelessWidget {
                           ),
                         ),
                         AppSpacing.horizontalSpaceS,
-                        // File count badges
+                        // File count badges (녹음, 텍스트, 필기 순서)
                         Row(
                           children: [
                             if (litten.audioCount > 0) ...[
                               _buildFileBadge(
-                                Icons.mic,
+                                Icons.hearing,
                                 litten.audioCount,
                                 AppColors.recordingColor,
                               ),
                               AppSpacing.horizontalSpaceXS,
                             ],
-                            if (litten.textCount + litten.handwritingCount > 0)
+                            if (litten.textCount > 0) ...[
                               _buildFileBadge(
-                                Icons.edit,
-                                litten.textCount + litten.handwritingCount,
+                                Icons.keyboard,
+                                litten.textCount,
                                 AppColors.writingColor,
+                              ),
+                              AppSpacing.horizontalSpaceXS,
+                            ],
+                            if (litten.handwritingCount > 0)
+                              _buildFileBadge(
+                                Icons.draw,
+                                litten.handwritingCount,
+                                AppColors.writingColor.withValues(alpha: 0.8),
                               ),
                           ],
                         ),

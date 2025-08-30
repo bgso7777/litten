@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -16,6 +17,7 @@ import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
+import '../services/file_storage_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -25,7 +27,7 @@ class WritingScreen extends StatefulWidget {
 }
 
 class _WritingScreenState extends State<WritingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late HtmlEditorController _htmlController;
   late PainterController _painterController;
   final AudioService _audioService = AudioService();
@@ -51,6 +53,7 @@ class _WritingScreenState extends State<WritingScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _htmlController = HtmlEditorController();
     _painterController = PainterController();
     
@@ -60,6 +63,15 @@ class _WritingScreenState extends State<WritingScreen>
     _painterController.freeStyleColor = _selectedColor;
     
     _loadFiles();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 앱이 포어그라운드로 돌아왔을 때 파일 목록 재로드
+    if (state == AppLifecycleState.resumed) {
+      _loadFiles();
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -132,8 +144,11 @@ class _WritingScreenState extends State<WritingScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
+  String? _lastLittenId;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +156,17 @@ class _WritingScreenState extends State<WritingScreen>
     
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
+        // 리튼이 변경되었을 때 파일 목록 재로드
+        if (appState.selectedLitten?.id != _lastLittenId) {
+          _lastLittenId = appState.selectedLitten?.id;
+          if (appState.selectedLitten != null) {
+            // 새로운 리튼으로 변경되었으므로 파일 목록 재로드
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadFiles();
+            });
+          }
+        }
+
         if (appState.selectedLitten == null) {
           return EmptyState(
             icon: Icons.edit_note,
@@ -174,9 +200,22 @@ class _WritingScreenState extends State<WritingScreen>
       final selectedLitten = appState.selectedLitten;
       
       if (selectedLitten != null) {
-        // TODO: 실제 파일 로드 로직 구현
-        // 현재는 기존 파일 목록을 유지 (파일이 사라지지 않도록)
-        // 실제 구현 시에는 디스크에서 파일을 로드해야 함
+        // 실제 파일 로드 로직 구현
+        final storage = FileStorageService.instance;
+        
+        // 텍스트 파일 로드
+        final loadedTextFiles = await storage.loadTextFiles(selectedLitten.id);
+        
+        // 필기 파일 로드
+        final loadedHandwritingFiles = await storage.loadHandwritingFiles(selectedLitten.id);
+        
+        setState(() {
+          _textFiles.clear();
+          _textFiles.addAll(loadedTextFiles);
+          _handwritingFiles.clear();
+          _handwritingFiles.addAll(loadedHandwritingFiles);
+        });
+        
         print('디버그: 파일 목록 로드 완료 - 텍스트: ${_textFiles.length}개, 필기: ${_handwritingFiles.length}개');
       }
     } catch (e) {
@@ -228,54 +267,138 @@ class _WritingScreenState extends State<WritingScreen>
                         ],
                       ),
                     )
-                  : SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 텍스트 파일 섹션
-                          if (_textFiles.isNotEmpty) ...[
-                            Padding(
-                              padding: AppSpacing.paddingM,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.text_fields, size: 20, color: Theme.of(context).primaryColor),
-                                  AppSpacing.horizontalSpaceS,
-                                  Text(
-                                    '텍스트 파일 (${_textFiles.length})',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).primaryColor,
-                                    ),
+                  : Column(
+                      children: [
+                        // 텍스트 파일 섹션 (상단 절반)
+                        Expanded(
+                          flex: 1,
+                          child: Column(
+                            children: [
+                              // 텍스트 파일 헤더
+                              Container(
+                                padding: AppSpacing.paddingM,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey.shade200),
                                   ),
-                                ],
-                              ),
-                            ),
-                            ..._textFiles.map((file) => _buildTextFileItem(file)),
-                          ],
-                          // 필기 파일 섹션
-                          if (_handwritingFiles.isNotEmpty) ...[
-                            Padding(
-                              padding: AppSpacing.paddingM,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.draw, size: 20, color: Theme.of(context).primaryColor),
-                                  AppSpacing.horizontalSpaceS,
-                                  Text(
-                                    '필기 파일 (${_handwritingFiles.length})',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).primaryColor,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.keyboard, size: 20, color: Theme.of(context).primaryColor),
+                                    AppSpacing.horizontalSpaceS,
+                                    Text(
+                                      '텍스트 (${_textFiles.length})',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            ..._handwritingFiles.map((file) => _buildHandwritingFileItem(file)),
-                          ],
-                        ],
-                      ),
+                              // 텍스트 파일 리스트
+                              Expanded(
+                                child: _textFiles.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.keyboard,
+                                              size: 48,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            AppSpacing.verticalSpaceS,
+                                            Text(
+                                              '텍스트 파일이 없습니다',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        itemCount: _textFiles.length,
+                                        itemBuilder: (context, index) {
+                                          return _buildTextFileItem(_textFiles[index]);
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // 구분선
+                        Container(
+                          height: 1,
+                          color: Colors.grey.shade200,
+                        ),
+                        // 필기 파일 섹션 (하단 절반)
+                        Expanded(
+                          flex: 1,
+                          child: Column(
+                            children: [
+                              // 필기 파일 헤더
+                              Container(
+                                padding: AppSpacing.paddingM,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey.shade200),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.draw, size: 20, color: Theme.of(context).primaryColor),
+                                    AppSpacing.horizontalSpaceS,
+                                    Text(
+                                      '필기 (${_handwritingFiles.length})',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // 필기 파일 리스트
+                              Expanded(
+                                child: _handwritingFiles.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.draw,
+                                              size: 48,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            AppSpacing.verticalSpaceS,
+                                            Text(
+                                              '필기 파일이 없습니다',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        itemCount: _handwritingFiles.length,
+                                        itemBuilder: (context, index) {
+                                          return _buildHandwritingFileItem(_handwritingFiles[index]);
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
         ),
         // 새로 만들기 버튼 - 하단으로 이동
@@ -287,33 +410,39 @@ class _WritingScreenState extends State<WritingScreen>
               top: BorderSide(color: Colors.grey.shade200),
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _createNewTextFile,
-                  icon: const Icon(Icons.text_fields),
-                  label: Text(l10n?.textWriting ?? '텍스트 쓰기'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _createNewTextFile,
+                      icon: const Icon(Icons.keyboard),
+                      label: Text(l10n?.textWriting ?? '텍스트 쓰기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              AppSpacing.horizontalSpaceM,
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _createNewHandwritingFile,
-                  icon: const Icon(Icons.draw),
-                  label: Text(l10n?.handwriting ?? '필기'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  AppSpacing.horizontalSpaceM,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _createNewHandwritingFile,
+                      icon: const Icon(Icons.draw),
+                      label: Text(l10n?.handwriting ?? '필기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              // 하단 네비게이션 바와의 간격 확보
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -328,7 +457,7 @@ class _WritingScreenState extends State<WritingScreen>
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
-      final defaultTitle = '텍스트${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final defaultTitle = '텍스트 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
       
       final newTextFile = TextFile(
         littenId: selectedLitten.id,
@@ -384,7 +513,7 @@ class _WritingScreenState extends State<WritingScreen>
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
-      final defaultTitle = '필기${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final defaultTitle = '필기 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
       
       // 임시 경로 - 실제로는 제대로 된 경로를 사용해야 함
       final newHandwritingFile = HandwritingFile(
@@ -676,7 +805,7 @@ class _WritingScreenState extends State<WritingScreen>
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-          child: Icon(Icons.text_fields, color: Theme.of(context).primaryColor),
+          child: Icon(Icons.keyboard, color: Theme.of(context).primaryColor),
         ),
         title: Text(
           file.displayTitle,
@@ -812,57 +941,45 @@ class _WritingScreenState extends State<WritingScreen>
             htmlToolbarOptions: const HtmlToolbarOptions(
               toolbarPosition: ToolbarPosition.aboveEditor,
               toolbarType: ToolbarType.nativeGrid,
+              toolbarItemHeight: 22, // 절반으로 줄임 (44 -> 22)
+              gridViewHorizontalSpacing: 2, // 간격도 줄임
+              gridViewVerticalSpacing: 2, // 간격도 줄임
               defaultToolbarButtons: [
-                StyleButtons(style: false),
-                FontSettingButtons(
-                  fontName: false,
-                  fontSize: true,
-                  fontSizeUnit: false,
-                ),
                 FontButtons(
                   bold: true,
                   italic: true,
                   underline: true,
-                  clearAll: false,
-                  strikethrough: false,
-                  subscript: false,
-                  superscript: false,
+                  clearAll: true, // 활성화
+                  strikethrough: true, // 활성화
+                  subscript: true, // 활성화
+                  superscript: true, // 활성화
                 ),
                 ColorButtons(
                   foregroundColor: true,
-                  highlightColor: true,
+                  highlightColor: true, // 활성화
                 ),
                 ParagraphButtons(
-                  textDirection: false,
-                  lineHeight: false,
-                  caseConverter: false,
+                  textDirection: true, // 활성화
+                  lineHeight: true, // 활성화
+                  caseConverter: true, // 활성화
                   alignLeft: true,
                   alignCenter: true,
                   alignRight: true,
-                  alignJustify: false,
-                  decreaseIndent: false,
-                  increaseIndent: false,
+                  alignJustify: true, // 활성화
+                  decreaseIndent: true, // 활성화
+                  increaseIndent: true, // 활성화
                 ),
                 ListButtons(
                   ul: true,
                   ol: true,
-                  listStyles: false,
-                ),
-                InsertButtons(
-                  link: true,
-                  picture: false,
-                  audio: false,
-                  video: false,
-                  otherFile: false,
-                  table: false,
-                  hr: true,
+                  listStyles: true, // 활성화
                 ),
                 OtherButtons(
-                  fullscreen: false,
-                  codeview: false,
+                  fullscreen: true, // 활성화
+                  codeview: true, // 활성화
                   undo: true,
                   redo: true,
-                  help: false,
+                  help: true, // 활성화
                 ),
               ],
             ),
@@ -917,51 +1034,41 @@ class _WritingScreenState extends State<WritingScreen>
             ],
           ),
         ),
-        // 파일 로드 버튼들
+        // 필기 도구 패널 (캔버스 위로 이동)
         Container(
-          padding: AppSpacing.paddingM,
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.shade200),
+            ),
+          ),
+          child: Column(
             children: [
-              ElevatedButton.icon(
-                onPressed: _loadPdfFile,
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('PDF 로드'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(100, 36),
-                ),
+              // 도구바
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
+                  _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
+                  _buildDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
+                  _buildDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
+                  _buildDrawingTool(Icons.clear, '초기화', false),
+                ],
               ),
-              AppSpacing.horizontalSpaceM,
-              ElevatedButton.icon(
-                onPressed: _loadImageFile,
-                icon: const Icon(Icons.image),
-                label: const Text('이미지 로드'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(100, 36),
-                ),
+              AppSpacing.verticalSpaceS,
+              // 색상 팔레트
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildColorOption(Colors.black, _selectedColor == Colors.black),
+                  _buildColorOption(Colors.red, _selectedColor == Colors.red),
+                  _buildColorOption(Colors.blue, _selectedColor == Colors.blue),
+                  _buildColorOption(Colors.green, _selectedColor == Colors.green),
+                  _buildColorOption(Colors.yellow, _selectedColor == Colors.yellow),
+                  _buildColorOption(Colors.orange, _selectedColor == Colors.orange),
+                ],
               ),
-              const Spacer(),
-              if (_pdfPages != null && _pdfPages!.length > 1) ...[
-                Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
-                AppSpacing.horizontalSpaceS,
-                IconButton(
-                  onPressed: _currentPdfPage > 0 ? () async {
-                    setState(() {
-                      _currentPdfPage--;
-                    });
-                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
-                  } : null,
-                  icon: const Icon(Icons.navigate_before),
-                ),
-                IconButton(
-                  onPressed: _currentPdfPage < _pdfPages!.length - 1 ? () async {
-                    setState(() {
-                      _currentPdfPage++;
-                    });
-                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
-                  } : null,
-                  icon: const Icon(Icons.navigate_next),
-                ),
-              ],
             ],
           ),
         ),
@@ -980,50 +1087,63 @@ class _WritingScreenState extends State<WritingScreen>
             ),
           ),
         ),
-        // 필기 도구 패널
+        // 파일 로드 버튼들 (하단으로 이동)
         Container(
-          height: 120,
-          padding: AppSpacing.paddingL,
+          padding: AppSpacing.paddingM,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
+            border: Border(
+              top: BorderSide(color: Colors.grey.shade200),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
           ),
           child: Column(
             children: [
-              // 도구바
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
-                  _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
-                  _buildDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
-                  _buildDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
-                  _buildDrawingTool(Icons.clear, '초기화', false),
+                  ElevatedButton.icon(
+                    onPressed: _loadPdfFile,
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('PDF 로드'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(100, 36),
+                    ),
+                  ),
+                  AppSpacing.horizontalSpaceM,
+                  ElevatedButton.icon(
+                    onPressed: _loadImageFile,
+                    icon: const Icon(Icons.image),
+                    label: const Text('이미지 로드'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(100, 36),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_pdfPages != null && _pdfPages!.length > 1) ...[
+                    Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
+                    AppSpacing.horizontalSpaceS,
+                    IconButton(
+                      onPressed: _currentPdfPage > 0 ? () async {
+                        setState(() {
+                          _currentPdfPage--;
+                        });
+                        await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                      } : null,
+                      icon: const Icon(Icons.navigate_before),
+                    ),
+                    IconButton(
+                      onPressed: _currentPdfPage < _pdfPages!.length - 1 ? () async {
+                        setState(() {
+                          _currentPdfPage++;
+                        });
+                        await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                      } : null,
+                      icon: const Icon(Icons.navigate_next),
+                    ),
+                  ],
                 ],
               ),
-              AppSpacing.verticalSpaceM,
-              // 색상 팔레트
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildColorOption(Colors.black, _selectedColor == Colors.black),
-                  _buildColorOption(Colors.red, _selectedColor == Colors.red),
-                  _buildColorOption(Colors.blue, _selectedColor == Colors.blue),
-                  _buildColorOption(Colors.green, _selectedColor == Colors.green),
-                  _buildColorOption(Colors.yellow, _selectedColor == Colors.yellow),
-                  _buildColorOption(Colors.orange, _selectedColor == Colors.orange),
-                ],
-              ),
+              // 하단 네비게이션 바와의 간격 확보
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1062,13 +1182,42 @@ class _WritingScreenState extends State<WritingScreen>
     _htmlController.setText(file.content);
   }
 
-  void _editHandwritingFile(HandwritingFile file) {
+  void _editHandwritingFile(HandwritingFile file) async {
     setState(() {
       _currentHandwritingFile = file;
       _isEditing = true;
     });
     
-    // TODO: 저장된 필기 데이터 로드
+    // 저장된 필기 이미지 로드
+    await _loadHandwritingImage(file);
+  }
+  
+  Future<void> _loadHandwritingImage(HandwritingFile file) async {
+    try {
+      print('디버그: 필기 이미지 로드 시작 - ${file.displayTitle}');
+      
+      final directory = await getApplicationDocumentsDirectory();
+      final littenDir = Directory('${directory.path}/litten_${file.littenId}');
+      final fileName = '${file.id}.png';
+      final filePath = '${littenDir.path}/$fileName';
+      
+      final imageFile = File(filePath);
+      
+      if (await imageFile.exists()) {
+        final imageBytes = await imageFile.readAsBytes();
+        final image = await decodeImageFromList(imageBytes);
+        
+        // 캔버스를 클리어하고 이미지를 배경으로 설정
+        _painterController.clearDrawables();
+        await _setBackgroundFromBytes(imageBytes);
+        
+        print('디버그: 필기 이미지 로드 완료 - ${file.displayTitle}');
+      } else {
+        print('디버그: 저장된 이미지 파일이 없음 - $filePath');
+      }
+    } catch (e) {
+      print('에러: 필기 이미지 로드 실패 - $e');
+    }
   }
 
   void _handleTextFileAction(String action, TextFile file) {
@@ -1131,12 +1280,22 @@ class _WritingScreenState extends State<WritingScreen>
     try {
       print('디버그: 텍스트 파일 삭제 시작 - ${file.displayTitle}');
       
-      // TODO: 실제 파일 시스템에서 파일 삭제 로직 구현
-      // 현재는 메모리에서만 제거
+      // 실제 파일 시스템에서 파일 삭제
+      final storage = FileStorageService.instance;
+      await storage.deleteTextFile(file);
       
+      // 메모리에서 제거
       setState(() {
         _textFiles.removeWhere((f) => f.id == file.id);
       });
+      
+      // 파일 목록 업데이트하여 SharedPreferences에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+      
+      if (selectedLitten != null) {
+        await storage.saveTextFiles(selectedLitten.id, _textFiles);
+      }
       
       print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
       
@@ -1165,12 +1324,22 @@ class _WritingScreenState extends State<WritingScreen>
     try {
       print('디버그: 필기 파일 삭제 시작 - ${file.displayTitle}');
       
-      // TODO: 실제 파일 시스템에서 이미지 파일 삭제 로직 구현
-      // 현재는 메모리에서만 제거
+      // 실제 파일 시스템에서 이미지 파일 삭제
+      final storage = FileStorageService.instance;
+      await storage.deleteHandwritingFile(file);
       
+      // 메모리에서 제거
       setState(() {
         _handwritingFiles.removeWhere((f) => f.id == file.id);
       });
+      
+      // 파일 목록 업데이트하여 SharedPreferences에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+      
+      if (selectedLitten != null) {
+        await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+      }
       
       print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
       
@@ -1218,8 +1387,19 @@ class _WritingScreenState extends State<WritingScreen>
           print('디버그: 새로운 텍스트 파일 추가됨 - ${updatedFile.displayTitle}');
         }
         
-        // TODO: 실제 파일 시스템에 저장하는 로직 구현
-        // 현재는 메모리에만 저장
+        // 실제 파일 시스템에 저장
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
+        
+        if (selectedLitten != null) {
+          final storage = FileStorageService.instance;
+          
+          // HTML 콘텐츠를 파일로 저장
+          await storage.saveTextFileContent(updatedFile);
+          
+          // 파일 목록을 SharedPreferences에 저장
+          await storage.saveTextFiles(selectedLitten.id, _textFiles);
+        }
         
         setState(() {
           _isEditing = false;
@@ -1252,23 +1432,46 @@ class _WritingScreenState extends State<WritingScreen>
 
   Future<void> _saveCurrentHandwritingFile() async {
     if (_currentHandwritingFile != null) {
+      final String fileTitle = _currentHandwritingFile!.displayTitle; // 파일 제목을 미리 저장
       try {
-        print('디버그: 필기 파일 저장 시작 - ${_currentHandwritingFile!.displayTitle}');
+        print('디버그: 필기 파일 저장 시작 - $fileTitle');
         
-        // TODO: 실제 이미지 저장 로직 구현
-        // 현재는 메모리에만 저장, 실제로는 캔버스를 이미지로 변환하여 파일로 저장해야 함
+        // 캔버스를 이미지로 변환
+        final image = await _painterController.renderImage(Size(800, 600));
         
-        // 업데이트된 시간으로 파일 생성
-        final updatedFile = _currentHandwritingFile!.copyWith();
-        
-        // 파일 목록에 추가 또는 업데이트
-        final existingIndex = _handwritingFiles.indexWhere((f) => f.id == updatedFile.id);
-        if (existingIndex >= 0) {
-          _handwritingFiles[existingIndex] = updatedFile;
-          print('디버그: 기존 필기 파일 업데이트됨 - ${updatedFile.displayTitle}');
-        } else {
-          _handwritingFiles.add(updatedFile);
-          print('디버그: 새로운 필기 파일 추가됨 - ${updatedFile.displayTitle}');
+        if (image != null) {
+          // ui.Image를 PNG bytes로 변환
+          final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+          final imageBytes = byteData?.buffer.asUint8List();
+          
+          if (imageBytes != null) {
+            // 업데이트된 시간으로 파일 생성
+            final updatedFile = _currentHandwritingFile!.copyWith();
+            
+            // 파일 목록에 추가 또는 업데이트
+            final existingIndex = _handwritingFiles.indexWhere((f) => f.id == updatedFile.id);
+            if (existingIndex >= 0) {
+              _handwritingFiles[existingIndex] = updatedFile;
+              print('디버그: 기존 필기 파일 업데이트됨 - ${updatedFile.displayTitle}');
+            } else {
+              _handwritingFiles.add(updatedFile);
+              print('디버그: 새로운 필기 파일 추가됨 - ${updatedFile.displayTitle}');
+            }
+            
+            // 실제 파일 시스템에 저장
+            final appState = Provider.of<AppStateProvider>(context, listen: false);
+            final selectedLitten = appState.selectedLitten;
+            
+            if (selectedLitten != null) {
+              final storage = FileStorageService.instance;
+              
+              // 이미지를 파일로 저장
+              await storage.saveHandwritingImage(updatedFile, imageBytes);
+              
+              // 파일 목록을 SharedPreferences에 저장
+              await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+            }
+          }
         }
         
         setState(() {
@@ -1281,7 +1484,7 @@ class _WritingScreenState extends State<WritingScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${updatedFile.displayTitle} 파일이 저장되었습니다.'),
+              content: Text('$fileTitle 파일이 저장되었습니다.'),
               backgroundColor: Colors.green,
             ),
           );

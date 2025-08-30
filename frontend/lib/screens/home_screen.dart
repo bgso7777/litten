@@ -142,7 +142,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   child: ListView.builder(
                     controller: _scrollController,
-                    padding: AppSpacing.paddingL,
+                    padding: EdgeInsets.only(
+                      left: AppSpacing.paddingL.left,
+                      right: AppSpacing.paddingL.right,
+                      top: AppSpacing.paddingL.top,
+                      bottom: AppSpacing.paddingL.bottom + 96, // FloatingActionButton 공간 확보 (16px 추가)
+                    ),
                     itemCount: appState.littens.length,
                     itemBuilder: (context, index) {
                       final litten = appState.littens[index];
