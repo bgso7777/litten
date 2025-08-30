@@ -33,13 +33,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get emptyLittenDescription => '하단의 \'리튼 생성\' 버튼을 사용해서 첫 번째 노트를 시작하세요';
 
   @override
-  String get startRecording => '녹음 시작';
+  String get startRecording => '듣기 시작';
 
   @override
-  String get stopRecording => '녹음 중지';
+  String get stopRecording => '듣기 중지';
 
   @override
-  String get recording => '녹음 중...';
+  String get recording => '듣기 중...';
 
   @override
   String get textWriting => '텍스트 쓰기';

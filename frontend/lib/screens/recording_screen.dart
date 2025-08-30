@@ -167,6 +167,68 @@ class _RecordingScreenState extends State<RecordingScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  // 음성-쓰기 동기화 상태 표시 위젯
+  Widget _buildSyncStatusBar() {
+    final l10n = AppLocalizations.of(context);
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Row(
+        children: [
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Icon(
+                _audioService.isRecording ? Icons.mic : Icons.sync, 
+                color: Colors.black87, 
+                size: 16
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording 
+                    ? (l10n?.recording ?? '듣기 중...')
+                    : (l10n?.recordingTitle ?? '음성 동기화 준비됨'),
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording 
+                    ? _formatDuration(_audioService.recordingDuration)
+                    : '00:00',
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -187,6 +249,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
           animation: _audioService,
           builder: (context, child) => Column(
             children: [
+              // 음성-쓰기 동기화 상태 표시
+              _buildSyncStatusBar(),
               // 듣기 파일 목록 영역
               Expanded(
                 child: Container(
@@ -304,34 +368,9 @@ class _RecordingScreenState extends State<RecordingScreen> {
                 ),
                 child: Column(
                   children: [
-                    // 듣기 상태 표시
-                    if (_audioService.isRecording) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          AppSpacing.horizontalSpaceS,
-                          Text(
-                            '${l10n?.recordingInProgress ?? '듣기 중...'} ${_formatDuration(_audioService.recordingDuration)}',
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      AppSpacing.verticalSpaceM,
-                    ],
                     // 듣기 버튼
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         ElevatedButton.icon(
                           onPressed: _toggleRecording,
@@ -342,9 +381,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
                                 : l10n?.startRecording ?? '듣기 시작',
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _audioService.isRecording 
-                                ? Colors.red 
-                                : AppColors.recordingColor,
+                            backgroundColor: Theme.of(context).primaryColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24, 
