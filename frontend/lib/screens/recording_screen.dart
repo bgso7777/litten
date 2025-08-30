@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../services/audio_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
+import '../models/audio_file.dart';
 
 class RecordingScreen extends StatefulWidget {
   const RecordingScreen({super.key});
@@ -14,10 +16,28 @@ class RecordingScreen extends StatefulWidget {
 }
 
 class _RecordingScreenState extends State<RecordingScreen> {
-  bool _isRecording = false;
-  Duration _recordingDuration = Duration.zero;
+  final AudioService _audioService = AudioService();
+  List<AudioFile> _audioFiles = [];
 
-  void _toggleRecording() {
+  @override
+  void initState() {
+    super.initState();
+    _loadAudioFiles();
+  }
+
+  Future<void> _loadAudioFiles() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    if (appState.selectedLitten != null) {
+      final files = await _audioService.getAudioFiles(appState.selectedLitten!);
+      if (mounted) {
+        setState(() {
+          _audioFiles = files;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleRecording() async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     
     if (appState.selectedLitten == null) {
@@ -26,42 +46,114 @@ class _RecordingScreenState extends State<RecordingScreen> {
       );
       return;
     }
-    
-    setState(() {
-      _isRecording = !_isRecording;
-      if (!_isRecording) {
-        _recordingDuration = Duration.zero;
+
+    if (_audioService.isRecording) {
+      // 듣기 중지 및 파일 저장
+      final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
+      if (mounted && audioFile != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('듣기가 중지되고 파일이 저장되었습니다.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+        await _loadAudioFiles(); // 목록 새로고침
       }
-    });
-    
-    if (_isRecording) {
-      _startRecordingTimer();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('녹음이 시작되었습니다.'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('녹음이 중지되었습니다.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // 듣기 시작
+      final success = await _audioService.startRecording(appState.selectedLitten!);
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('듣기가 시작되었습니다.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('듣기 시작에 실패했습니다. 권한을 확인해주세요.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
-  void _startRecordingTimer() {
-    if (_isRecording) {
-      Future.delayed(const Duration(seconds: 1), () {
-        if (_isRecording && mounted) {
-          setState(() {
-            _recordingDuration += const Duration(seconds: 1);
-          });
-          _startRecordingTimer();
-        }
-      });
+  Future<void> _playAudio(AudioFile audioFile) async {
+    if (_audioService.currentPlayingFile?.id == audioFile.id && _audioService.isPlaying) {
+      await _audioService.stopAudio();
+    } else {
+      final success = await _audioService.playAudio(audioFile);
+      if (mounted && !success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('재생에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAudio(AudioFile audioFile) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('파일 삭제'),
+        content: Text('${audioFile.fileName} 파일을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await _audioService.deleteAudioFile(audioFile);
+      if (mounted && success) {
+        await _loadAudioFiles(); // 목록 새로고침
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('파일이 삭제되었습니다.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _changePlaybackSpeed() async {
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    final currentSpeed = _audioService.playbackSpeed;
+    
+    final newSpeed = await showDialog<double>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('재생 속도 선택'),
+        children: speeds.map((speed) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, speed),
+          child: Row(
+            children: [
+              if (speed == currentSpeed) const Icon(Icons.check, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text('${speed}x'),
+            ],
+          ),
+        )).toList(),
+      ),
+    );
+
+    if (newSpeed != null) {
+      await _audioService.setPlaybackSpeed(newSpeed);
     }
   }
 
@@ -81,96 +173,189 @@ class _RecordingScreenState extends State<RecordingScreen> {
           return EmptyState(
             icon: Icons.mic_none,
             title: '리튼을 선택해주세요',
-            description: '녹음을 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
+            description: '듣기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
             actionText: '홈으로 이동',
             onAction: () => appState.changeTabIndex(0),
           );
         }
 
-        return Column(
-          children: [
-            // 녹음 파일 목록 영역 (확장 예정)
-            Expanded(
-              child: Container(
+        return AnimatedBuilder(
+          animation: _audioService,
+          builder: (context, child) => Column(
+            children: [
+              // 듣기 파일 목록 영역
+              Expanded(
+                child: Container(
+                  padding: AppSpacing.paddingL,
+                  child: _audioFiles.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.headphones_outlined,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                '아직 듣기 파일이 없습니다\n아래 버튼을 눌러 첫 번째 듣기를 시작하세요',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: _audioFiles.length,
+                          separatorBuilder: (context, index) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final audioFile = _audioFiles[index];
+                            final isCurrentPlaying = _audioService.currentPlayingFile?.id == audioFile.id;
+                            
+                            return ListTile(
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: isCurrentPlaying && _audioService.isPlaying 
+                                      ? Colors.blue 
+                                      : Colors.grey.shade300,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isCurrentPlaying && _audioService.isPlaying 
+                                      ? Icons.pause 
+                                      : Icons.play_arrow,
+                                  color: isCurrentPlaying && _audioService.isPlaying 
+                                      ? Colors.white 
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                              title: Text(
+                                audioFile.fileName,
+                                style: TextStyle(
+                                  fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '생성: ${audioFile.createdAt.month}/${audioFile.createdAt.day} ${audioFile.createdAt.hour}:${audioFile.createdAt.minute.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  if (isCurrentPlaying && _audioService.isPlaying) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${_formatDuration(_audioService.playbackDuration)} / ${_formatDuration(_audioService.totalDuration)}',
+                                          style: const TextStyle(fontSize: 12, color: Colors.blue),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${_audioService.playbackSpeed}x',
+                                          style: const TextStyle(fontSize: 12, color: Colors.blue),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isCurrentPlaying && _audioService.isPlaying) ...[
+                                    IconButton(
+                                      icon: const Icon(Icons.speed),
+                                      onPressed: _changePlaybackSpeed,
+                                      tooltip: '재생 속도',
+                                    ),
+                                  ],
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    onPressed: () => _deleteAudio(audioFile),
+                                    tooltip: '삭제',
+                                  ),
+                                ],
+                              ),
+                              onTap: () => _playAudio(audioFile),
+                            );
+                          },
+                        ),
+                ),
+              ),
+              // 듣기 컨트롤 패널
+              Container(
                 padding: AppSpacing.paddingL,
-                child: const Center(
-                  child: Text(
-                    '녹음 파일 목록\n(구현 예정)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade200),
                   ),
                 ),
-              ),
-            ),
-            // 녹음 컨트롤 패널
-            Container(
-              padding: AppSpacing.paddingL,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // 녹음 상태 표시
-                  if (_isRecording) ...[
+                child: Column(
+                  children: [
+                    // 듣기 상태 표시
+                    if (_audioService.isRecording) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          AppSpacing.horizontalSpaceS,
+                          Text(
+                            '듣기 중... ${_formatDuration(_audioService.recordingDuration)}',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.verticalSpaceM,
+                    ],
+                    // 듣기 버튼
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
+                        ElevatedButton.icon(
+                          onPressed: _toggleRecording,
+                          icon: Icon(_audioService.isRecording ? Icons.stop : Icons.mic),
+                          label: Text(
+                            _audioService.isRecording 
+                                ? l10n?.stopRecording ?? '듣기 중지'
+                                : l10n?.startRecording ?? '듣기 시작',
                           ),
-                        ),
-                        AppSpacing.horizontalSpaceS,
-                        Text(
-                          '녹음 중... ${_formatDuration(_recordingDuration)}',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w500,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _audioService.isRecording 
+                                ? Colors.red 
+                                : AppColors.recordingColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24, 
+                              vertical: 12,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     AppSpacing.verticalSpaceM,
                   ],
-                  // 녹음 버튼
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _toggleRecording,
-                        icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                        label: Text(
-                          _isRecording 
-                              ? (l10n?.stopRecording ?? '녹음 중지')
-                              : (l10n?.startRecording ?? '녹음 시작'),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isRecording 
-                              ? Colors.red 
-                              : AppColors.recordingColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24, 
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.verticalSpaceM,
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

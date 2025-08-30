@@ -19,17 +19,17 @@ class SettingsScreen extends StatelessWidget {
           children: [
             // 계정 및 구독 섹션
             _buildSettingsSection(
-              '계정 및 구독',
+              l10n?.freeVersion ?? '계정 및 구독',
               [
                 _buildSettingsItem(
                   icon: Icons.person,
-                  title: '사용자 상태',
+                  title: l10n?.freeVersion ?? '사용자 상태',
                   subtitle: _getSubscriptionStatusText(appState.subscriptionType),
                   iconColor: _getSubscriptionColor(appState.subscriptionType),
                 ),
                 _buildSettingsItem(
                   icon: Icons.bar_chart,
-                  title: '사용량 통계',
+                  title: l10n?.freeVersion ?? '사용량 통계',
                   subtitle: '${appState.littens.length}개 리튼, ${_getTotalFileCount(appState)}개 파일',
                   iconColor: Colors.blue,
                   onTap: () => _showUsageDialog(context, appState),
@@ -37,7 +37,7 @@ class SettingsScreen extends StatelessWidget {
                 if (appState.subscriptionType == SubscriptionType.free) ...[
                   _buildSettingsItem(
                     icon: Icons.upgrade,
-                    title: '프리미엄 업그레이드',
+                    title: l10n?.upgrade ?? '프리미엄 업그레이드',
                     subtitle: '광고 제거 및 무제한 기능',
                     iconColor: Colors.orange,
                     onTap: () => _showUpgradeDialog(context, appState),
@@ -49,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
             
             // 앱 설정 섹션
             _buildSettingsSection(
-              '앱 설정',
+              l10n?.settingsTitle ?? '앱 설정',
               [
                 _buildSettingsItem(
                   icon: Icons.palette,
@@ -67,8 +67,8 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 _buildSettingsItem(
                   icon: Icons.home,
-                  title: '시작 화면',
-                  subtitle: '홈',
+                  title: l10n?.homeTitle ?? '시작 화면',
+                  subtitle: l10n?.homeTitle ?? '홈',
                   iconColor: Colors.blue,
                 ),
               ],
@@ -77,7 +77,7 @@ class SettingsScreen extends StatelessWidget {
             
             // 녹음 설정 섹션
             _buildSettingsSection(
-              '듣기 설정',
+              l10n?.recordingTitle ?? '듣기 설정',
               [
                 _buildSettingsItem(
                   icon: Icons.timer,
@@ -97,7 +97,7 @@ class SettingsScreen extends StatelessWidget {
             
             // 쓰기 설정 섹션
             _buildSettingsSection(
-              '쓰기 설정',
+              l10n?.writingTitle ?? '쓰기 설정',
               [
                 _buildSettingsItem(
                   icon: Icons.save,
@@ -277,34 +277,35 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showUsageDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('사용량 통계'),
+        title: Text(l10n?.freeVersion ?? '사용량 통계'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUsageRow('리튼 수', '${appState.littens.length}개', 
+            _buildUsageRow(l10n?.createLitten ?? '리튼 수', '${appState.littens.length}개', 
                 appState.subscriptionType == SubscriptionType.free ? '/ 5개' : ''),
             _buildUsageRow('총 파일 수', '${_getTotalFileCount(appState)}개', ''),
             if (appState.subscriptionType == SubscriptionType.free) ...[
               const Divider(),
-              const Text(
-                '무료 사용자 제한:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                l10n?.freeVersion ?? '무료 사용자 제한:',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              _buildUsageRow('• 리튼', '최대 5개', ''),
-              _buildUsageRow('• 녹음 파일', '최대 10개', ''),
-              _buildUsageRow('• 텍스트 파일', '최대 5개', ''),
-              _buildUsageRow('• 필기 파일', '최대 5개', ''),
+              _buildUsageRow('• ${l10n?.createLitten ?? '리튼'}', '최대 5개', ''),
+              _buildUsageRow('• ${l10n?.recordingTitle ?? '녹음'} 파일', '최대 10개', ''),
+              _buildUsageRow('• ${l10n?.textWriting ?? '텍스트'} 파일', '최대 5개', ''),
+              _buildUsageRow('• ${l10n?.handwriting ?? '필기'} 파일', '최대 5개', ''),
             ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
+            child: Text(l10n?.delete ?? '닫기'),
           ),
         ],
       ),
@@ -325,28 +326,29 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showUpgradeDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('프리미엄 업그레이드'),
-        content: const Text('스탠다드 플랜으로 업그레이드하시겠습니까?\n\n• 광고 제거\n• 무제한 리튼 및 파일\n• 월 \$4.99'),
+        title: Text(l10n?.upgrade ?? '프리미엄 업그레이드'),
+        content: Text(l10n?.standardVersion ?? '스탠다드 플랜으로 업그레이드하시겠습니까?\n\n• 광고 제거\n• 무제한 리튼 및 파일\n• 월 \$4.99'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text(l10n?.delete ?? '취소'),
           ),
           ElevatedButton(
             onPressed: () {
               appState.updateSubscriptionType(SubscriptionType.standard);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
+                SnackBar(
+                  content: Text(l10n?.standardVersion ?? '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
                   backgroundColor: Colors.green,
                 ),
               );
             },
-            child: const Text('업그레이드'),
+            child: Text(l10n?.upgrade ?? '업그레이드'),
           ),
         ],
       ),
@@ -354,10 +356,11 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showThemeDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('테마 선택'),
+        title: Text(l10n?.theme ?? '테마 선택'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: AppThemeType.values.map((theme) {
@@ -377,7 +380,7 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
+            child: Text(l10n?.delete ?? '닫기'),
           ),
         ],
       ),
@@ -385,6 +388,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showLanguageDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     final languages = [
       {'code': 'en', 'name': 'English'},
       {'code': 'zh', 'name': '中文'},
@@ -421,7 +425,7 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('언어 선택'),
+        title: Text(l10n?.language ?? '언어 선택'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -446,7 +450,7 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
+            child: Text(l10n?.delete ?? '닫기'),
           ),
         ],
       ),

@@ -72,9 +72,9 @@ class _WritingScreenState extends State<WritingScreen>
         if (appState.selectedLitten == null) {
           return EmptyState(
             icon: Icons.edit_note,
-            title: '리튼을 선택해주세요',
-            description: '쓰기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
-            actionText: '홈으로 이동',
+            title: l10n?.emptyLittenTitle ?? '리튼을 선택해주세요',
+            description: l10n?.emptyLittenDescription ?? '쓰기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
+            actionText: l10n?.homeTitle ?? '홈으로 이동',
             onAction: () => appState.changeTabIndex(0),
           );
         }
@@ -96,7 +96,7 @@ class _WritingScreenState extends State<WritingScreen>
                   Icon(Icons.sync, color: Colors.blue.shade600, size: 16),
                   AppSpacing.horizontalSpaceS,
                   Text(
-                    '음성 동기화 준비됨',
+                    l10n?.recordingTitle ?? '음성 동기화 준비됨',
                     style: TextStyle(
                       color: Colors.blue.shade600,
                       fontSize: 12,
@@ -157,6 +157,7 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Widget _buildTextWritingMode() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         // HTML 에디터
@@ -249,7 +250,7 @@ class _WritingScreenState extends State<WritingScreen>
                 );
               }
             },
-            child: const Text('저장'),
+            child: Text(l10n?.save ?? '저장'),
           ),
         ),
       ],
@@ -257,6 +258,7 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Widget _buildHandwritingMode() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         // 파일 로드 버튼들

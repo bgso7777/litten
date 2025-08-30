@@ -50,8 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
     
     if (!appState.canCreateMoreLittens) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다. 업그레이드하여 무제한으로 생성하세요!'),
+        SnackBar(
+          content: Text(l10n?.freeVersion ?? '무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다. 업그레이드하여 무제한으로 생성하세요!'),
           backgroundColor: Colors.orange,
         ),
       );

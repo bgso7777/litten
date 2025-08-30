@@ -16,12 +16,15 @@ class _AdBannerState extends State<AdBanner> {
   AdState _adState = AdState.loading;
   int _currentAdIndex = 0;
 
-  final List<String> _adMessages = [
-    '✨ 프리미엄으로 업그레이드하고 광고를 제거하세요!',
-    '🎯 스탠다드 플랜으로 무제한 파일을 저장하세요!', 
-    '☁️ 프리미엄 플랜으로 클라우드 동기화를 즐기세요!',
-    '🔥 지금 업그레이드하고 모든 기능을 사용하세요!',
-  ];
+  List<String> get _adMessages {
+    final l10n = AppLocalizations.of(context);
+    return [
+      l10n?.removeAds ?? '✨ 프리미엄으로 업그레이드하고 광고를 제거하세요!',
+      l10n?.standardVersion ?? '🎯 스탠다드 플랜으로 무제한 파일을 저장하세요!', 
+      l10n?.premiumVersion ?? '☁️ 프리미엄 플랜으로 클라우드 동기화를 즐기세요!',
+      l10n?.upgrade ?? '🔥 지금 업그레이드하고 모든 기능을 사용하세요!',
+    ];
+  }
 
   @override
   void initState() {
@@ -85,7 +88,7 @@ class _AdBannerState extends State<AdBanner> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text(l10n?.delete ?? '취소'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -116,11 +119,12 @@ class _AdBannerState extends State<AdBanner> {
   void _simulateUpgrade() {
     // 업그레이드 시뮬레이션
     final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context);
     appState.updateSubscriptionType(SubscriptionType.standard);
     
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
+      SnackBar(
+        content: Text(l10n?.standardVersion ?? '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
         backgroundColor: Colors.green,
       ),
     );
@@ -169,12 +173,13 @@ class _AdBannerState extends State<AdBanner> {
   }
 
   Widget _buildAdContent() {
+    final l10n = AppLocalizations.of(context);
     switch (_adState) {
       case AdState.loading:
-        return const Row(
+        return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
@@ -182,10 +187,10 @@ class _AdBannerState extends State<AdBanner> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
-              '광고 로딩 중...',
-              style: TextStyle(
+              l10n?.freeVersion ?? '광고 로딩 중...',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
               ),
@@ -210,14 +215,14 @@ class _AdBannerState extends State<AdBanner> {
         );
         
       case AdState.error:
-        return const Row(
+        return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, color: Colors.white70, size: 16),
-            SizedBox(width: 8),
+            const Icon(Icons.error_outline, color: Colors.white70, size: 16),
+            const SizedBox(width: 8),
             Text(
-              '광고를 로드할 수 없습니다',
-              style: TextStyle(
+              l10n?.freeVersion ?? '광고를 로드할 수 없습니다',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
               ),

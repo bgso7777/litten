@@ -41,8 +41,8 @@ dependencies:
   provider: ^6.1.1
   shared_preferences: ^2.2.2
 
-  # Audio (임시로 제거, 추후 구현)
-  # record: ^5.0.4
+  # Audio
+  record: ^6.1.1
   audioplayers: ^5.2.1
   permission_handler: ^11.0.1
 
