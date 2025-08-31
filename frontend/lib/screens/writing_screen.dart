@@ -18,6 +18,7 @@ import '../config/themes.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../services/file_storage_service.dart';
+import '../services/litten_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -44,6 +45,8 @@ class _WritingScreenState extends State<WritingScreen>
   int _currentPdfPage = 0;
   String? _backgroundImagePath;
   String _selectedTool = '펜';
+  bool _showAdvancedTools = false;
+  bool _showColorPicker = false;
   
   // 편집 상태
   TextFile? _currentTextFile;
@@ -724,38 +727,161 @@ class _WritingScreenState extends State<WritingScreen>
       
       switch (tool) {
         case '펜':
-          // 자유 그리기 모드 - FreeStyleDrawable 추가 설정
           _painterController.freeStyleMode = FreeStyleMode.draw;
           _painterController.freeStyleStrokeWidth = _strokeWidth;
           _painterController.freeStyleColor = _selectedColor;
           print('DEBUG: 펜 모드 설정 - 색상: $_selectedColor, 두께: $_strokeWidth');
           break;
         case '하이라이터':
-          // 하이라이터 모드
           _painterController.freeStyleMode = FreeStyleMode.draw;
           _painterController.freeStyleStrokeWidth = _strokeWidth * 3;
-          _painterController.freeStyleColor = _selectedColor.withOpacity(0.5);
+          _painterController.freeStyleColor = _selectedColor.withValues(alpha: 0.5);
           print('DEBUG: 하이라이터 모드 설정');
           break;
         case '지우개':
-          // 지우개 모드
           _painterController.freeStyleMode = FreeStyleMode.erase;
           _painterController.freeStyleStrokeWidth = _strokeWidth * 4;
           print('DEBUG: 지우개 모드 설정');
           break;
         case '도형':
-          // 도형 그리기 모드 - ShapeFactory 설정
           _painterController.shapeFactory = RectangleFactory();
           print('DEBUG: 도형 모드 설정');
+          break;
+        case '원형':
+          _painterController.shapeFactory = OvalFactory();
+          print('DEBUG: 원형 모드 설정');
+          break;
+        case '직선':
+          _painterController.shapeFactory = LineFactory();
+          print('DEBUG: 직선 모드 설정');
+          break;
+        case '화살표':
+          _painterController.shapeFactory = ArrowFactory();
+          print('DEBUG: 화살표 모드 설정');
+          break;
+        case '텍스트':
+          _showTextInput();
+          print('DEBUG: 텍스트 모드 설정');
+          break;
+        case '실행취소':
+          _painterController.undo();
+          print('DEBUG: 실행취소');
+          break;
+        case '다시실행':
+          _painterController.redo();
+          print('DEBUG: 다시실행');
           break;
         case '초기화':
           _painterController.clearDrawables();
           print('DEBUG: 캔버스 초기화');
           break;
+        case '줌인':
+          // TODO: flutter_painter_v2에서 줌 기능 구현
+          print('DEBUG: 줌인 - 현재 라이브러리에서 지원되지 않음');
+          break;
+        case '줌아웃':
+          // TODO: flutter_painter_v2에서 줌 기능 구현
+          print('DEBUG: 줌아웃 - 현재 라이브러리에서 지원되지 않음');
+          break;
+        case '선굵기':
+          _showStrokeWidthPicker();
+          break;
+        case '색상':
+          setState(() {
+            _showColorPicker = !_showColorPicker;
+          });
+          break;
+        case '고급도구':
+          setState(() {
+            _showAdvancedTools = !_showAdvancedTools;
+          });
+          break;
       }
     });
     
     print('DEBUG: 그리기 도구 변경됨 - $tool');
+  }
+
+  void _showTextInput() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('텍스트 입력'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '텍스트를 입력하세요',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (text.isNotEmpty) {
+                  _addTextToCanvas(text);
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('추가'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _addTextToCanvas(String text) {
+    // flutter_painter_v2에서 텍스트 추가하는 방법은 다를 수 있음
+    // 임시로 간단한 구현
+    try {
+      // PainterController에 텍스트 관련 메소드가 있는지 확인 필요
+      print('텍스트 추가: $text');
+      // TODO: flutter_painter_v2의 올바른 텍스트 추가 방법으로 수정 필요
+    } catch (e) {
+      print('텍스트 추가 실패: $e');
+    }
+  }
+
+  void _showStrokeWidthPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('선 굵기 선택'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Slider(
+              value: _strokeWidth,
+              min: 1.0,
+              max: 20.0,
+              divisions: 19,
+              label: '${_strokeWidth.round()}px',
+              onChanged: (value) {
+                setState(() {
+                  _strokeWidth = value;
+                  _painterController.freeStyleStrokeWidth = value;
+                });
+              },
+            ),
+            Text('현재 굵기: ${_strokeWidth.round()}px'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildColorOption(Color color, bool isSelected) {
@@ -788,7 +914,7 @@ class _WritingScreenState extends State<WritingScreen>
           _painterController.freeStyleColor = _selectedColor;
           break;
         case '하이라이터':
-          _painterController.freeStyleColor = _selectedColor.withOpacity(0.5);
+          _painterController.freeStyleColor = _selectedColor.withValues(alpha: 0.5);
           break;
         case '도형':
           _painterController.shapeFactory = RectangleFactory();
@@ -1045,7 +1171,7 @@ class _WritingScreenState extends State<WritingScreen>
           ),
           child: Column(
             children: [
-              // 도구바
+              // 기본 도구바
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -1053,11 +1179,53 @@ class _WritingScreenState extends State<WritingScreen>
                   _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
                   _buildDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
                   _buildDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
-                  _buildDrawingTool(Icons.clear, '초기화', false),
+                  _buildDrawingTool(Icons.circle_outlined, '원형', _selectedTool == '원형'),
+                  _buildDrawingTool(Icons.remove, '직선', _selectedTool == '직선'),
                 ],
               ),
+              AppSpacing.verticalSpaceXS,
+              // 두 번째 도구바
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDrawingTool(Icons.arrow_forward, '화살표', _selectedTool == '화살표'),
+                  _buildDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
+                  _buildDrawingTool(Icons.undo, '실행취소', false),
+                  _buildDrawingTool(Icons.redo, '다시실행', false),
+                  _buildDrawingTool(Icons.zoom_in, '줌인', false),
+                  _buildDrawingTool(Icons.zoom_out, '줌아웃', false),
+                ],
+              ),
+              AppSpacing.verticalSpaceXS,
+              // 세 번째 도구바 (설정)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDrawingTool(Icons.line_weight, '선굵기', false),
+                  _buildDrawingTool(Icons.palette, '색상', _showColorPicker),
+                  _buildDrawingTool(Icons.clear, '초기화', false),
+                  _buildDrawingTool(Icons.expand_more, '고급도구', _showAdvancedTools),
+                  Container(width: 40), // 빈 공간
+                  Container(width: 40), // 빈 공간
+                ],
+              ),
+              if (_showAdvancedTools) ...[
+                AppSpacing.verticalSpaceXS,
+                // 고급 도구바
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildDrawingTool(Icons.architecture, '삼각형', false),
+                    _buildDrawingTool(Icons.star_outline, '별모양', false),
+                    _buildDrawingTool(Icons.lens_blur, '원점', false),
+                    _buildDrawingTool(Icons.timeline, '곡선', false),
+                    _buildDrawingTool(Icons.grid_on, '격자', false),
+                    _buildDrawingTool(Icons.straighten, '자', false),
+                  ],
+                ),
+              ],
               AppSpacing.verticalSpaceS,
-              // 색상 팔레트
+              // 기본 색상 팔레트
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1067,7 +1235,75 @@ class _WritingScreenState extends State<WritingScreen>
                   _buildColorOption(Colors.green, _selectedColor == Colors.green),
                   _buildColorOption(Colors.yellow, _selectedColor == Colors.yellow),
                   _buildColorOption(Colors.orange, _selectedColor == Colors.orange),
+                  _buildColorOption(Colors.purple, _selectedColor == Colors.purple),
+                  _buildColorOption(Colors.brown, _selectedColor == Colors.brown),
                 ],
+              ),
+              if (_showColorPicker) ...[
+                AppSpacing.verticalSpaceXS,
+                // 확장 색상 팔레트
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildColorOption(Colors.pink, _selectedColor == Colors.pink),
+                        _buildColorOption(Colors.indigo, _selectedColor == Colors.indigo),
+                        _buildColorOption(Colors.teal, _selectedColor == Colors.teal),
+                        _buildColorOption(Colors.lime, _selectedColor == Colors.lime),
+                        _buildColorOption(Colors.amber, _selectedColor == Colors.amber),
+                        _buildColorOption(Colors.deepOrange, _selectedColor == Colors.deepOrange),
+                        _buildColorOption(Colors.grey, _selectedColor == Colors.grey),
+                        _buildColorOption(Colors.blueGrey, _selectedColor == Colors.blueGrey),
+                      ],
+                    ),
+                    AppSpacing.verticalSpaceXS,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildColorOption(Colors.lightBlue, _selectedColor == Colors.lightBlue),
+                        _buildColorOption(Colors.lightGreen, _selectedColor == Colors.lightGreen),
+                        _buildColorOption(Colors.deepPurple, _selectedColor == Colors.deepPurple),
+                        _buildColorOption(Colors.cyan, _selectedColor == Colors.cyan),
+                        _buildColorOption(Colors.white, _selectedColor == Colors.white),
+                        _buildColorOption(Colors.black87, _selectedColor == Colors.black87),
+                        _buildColorOption(Colors.black54, _selectedColor == Colors.black54),
+                        _buildColorOption(Colors.black38, _selectedColor == Colors.black38),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+              AppSpacing.verticalSpaceXS,
+              // 현재 선택된 도구와 설정 표시
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: _selectedColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade400),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$_selectedTool | ${_strokeWidth.round()}px',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1295,6 +1531,10 @@ class _WritingScreenState extends State<WritingScreen>
       
       if (selectedLitten != null) {
         await storage.saveTextFiles(selectedLitten.id, _textFiles);
+        
+        // 리튼에서 파일 제거
+        final littenService = LittenService();
+        await littenService.removeTextFileFromLitten(selectedLitten.id, file.id);
       }
       
       print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
@@ -1339,6 +1579,10 @@ class _WritingScreenState extends State<WritingScreen>
       
       if (selectedLitten != null) {
         await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+        
+        // 리튼에서 파일 제거
+        final littenService = LittenService();
+        await littenService.removeHandwritingFileFromLitten(selectedLitten.id, file.id);
       }
       
       print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
@@ -1399,6 +1643,15 @@ class _WritingScreenState extends State<WritingScreen>
           
           // 파일 목록을 SharedPreferences에 저장
           await storage.saveTextFiles(selectedLitten.id, _textFiles);
+          
+          // 리튼의 파일 목록 업데이트
+          final littenService = LittenService();
+          if (existingIndex >= 0) {
+            // 기존 파일 업데이트는 추가 작업 불필요
+          } else {
+            // 새 파일 추가
+            await littenService.addTextFileToLitten(selectedLitten.id, updatedFile.id);
+          }
         }
         
         setState(() {
@@ -1407,6 +1660,9 @@ class _WritingScreenState extends State<WritingScreen>
         });
         
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
+        
+        // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
+        await appState.refreshLittens();
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1470,6 +1726,15 @@ class _WritingScreenState extends State<WritingScreen>
               
               // 파일 목록을 SharedPreferences에 저장
               await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+              
+              // 리튼의 파일 목록 업데이트
+              final littenService = LittenService();
+              if (existingIndex >= 0) {
+                // 기존 파일 업데이트는 추가 작업 불필요
+              } else {
+                // 새 파일 추가
+                await littenService.addHandwritingFileToLitten(selectedLitten.id, updatedFile.id);
+              }
             }
           }
         }
@@ -1480,6 +1745,10 @@ class _WritingScreenState extends State<WritingScreen>
         });
         
         print('디버그: 필기 파일 저장 완료 - 총 ${_handwritingFiles.length}개 파일');
+        
+        // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        await appState.refreshLittens();
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

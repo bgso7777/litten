@@ -279,6 +279,12 @@ class AppStateProvider extends ChangeNotifier {
   // 리튼 목록 새로고침
   Future<void> refreshLittens() async {
     _littens = await _littenService.getAllLittens();
+    
+    // 선택된 리튼이 있다면 업데이트된 데이터로 다시 설정
+    if (_selectedLitten != null) {
+      _selectedLitten = _littens.where((l) => l.id == _selectedLitten!.id).firstOrNull;
+    }
+    
     notifyListeners();
   }
 

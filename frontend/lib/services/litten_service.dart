@@ -254,6 +254,46 @@ class LittenService {
     await saveLitten(updatedLitten);
   }
 
+  Future<void> _updateLittenHandwritingFiles(String littenId, String fileId, bool add) async {
+    final litten = await getLittenById(littenId);
+    if (litten == null) return;
+
+    final handwritingFileIds = List<String>.from(litten.handwritingFileIds);
+    if (add && !handwritingFileIds.contains(fileId)) {
+      handwritingFileIds.add(fileId);
+    } else if (!add) {
+      handwritingFileIds.remove(fileId);
+    }
+
+    final updatedLitten = litten.copyWith(handwritingFileIds: handwritingFileIds);
+    await saveLitten(updatedLitten);
+  }
+
+  // 공개 API 메서드들
+  Future<void> addAudioFileToLitten(String littenId, String fileId) async {
+    await _updateLittenAudioFiles(littenId, fileId, true);
+  }
+
+  Future<void> removeAudioFileFromLitten(String littenId, String fileId) async {
+    await _updateLittenAudioFiles(littenId, fileId, false);
+  }
+
+  Future<void> addTextFileToLitten(String littenId, String fileId) async {
+    await _updateLittenTextFiles(littenId, fileId, true);
+  }
+
+  Future<void> removeTextFileFromLitten(String littenId, String fileId) async {
+    await _updateLittenTextFiles(littenId, fileId, false);
+  }
+
+  Future<void> addHandwritingFileToLitten(String littenId, String fileId) async {
+    await _updateLittenHandwritingFiles(littenId, fileId, true);
+  }
+
+  Future<void> removeHandwritingFileFromLitten(String littenId, String fileId) async {
+    await _updateLittenHandwritingFiles(littenId, fileId, false);
+  }
+
   // 기본 리튼들 생성
   Future<void> createDefaultLittensIfNeeded({
     String? defaultLittenTitle,

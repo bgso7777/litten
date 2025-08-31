@@ -75,31 +75,35 @@ class LittenItem extends StatelessWidget {
                           ),
                         ),
                         AppSpacing.horizontalSpaceS,
-                        // File count badges (녹음, 텍스트, 필기 순서)
+                        // File count badges (녹음, 텍스트, 필기 순서 - 항상 표시)
                         Row(
                           children: [
-                            if (litten.audioCount > 0) ...[
-                              _buildFileBadge(
-                                Icons.hearing,
-                                litten.audioCount,
-                                AppColors.recordingColor,
-                              ),
-                              AppSpacing.horizontalSpaceXS,
-                            ],
-                            if (litten.textCount > 0) ...[
-                              _buildFileBadge(
-                                Icons.keyboard,
-                                litten.textCount,
-                                AppColors.writingColor,
-                              ),
-                              AppSpacing.horizontalSpaceXS,
-                            ],
-                            if (litten.handwritingCount > 0)
-                              _buildFileBadge(
-                                Icons.draw,
-                                litten.handwritingCount,
-                                AppColors.writingColor.withValues(alpha: 0.8),
-                              ),
+                            _buildFileBadge(
+                              Icons.hearing,
+                              litten.audioCount,
+                              litten.audioCount > 0 
+                                  ? AppColors.recordingColor 
+                                  : AppColors.recordingColor.withValues(alpha: 0.3),
+                              isActive: litten.audioCount > 0,
+                            ),
+                            AppSpacing.horizontalSpaceXS,
+                            _buildFileBadge(
+                              Icons.keyboard,
+                              litten.textCount,
+                              litten.textCount > 0 
+                                  ? AppColors.writingColor 
+                                  : AppColors.writingColor.withValues(alpha: 0.3),
+                              isActive: litten.textCount > 0,
+                            ),
+                            AppSpacing.horizontalSpaceXS,
+                            _buildFileBadge(
+                              Icons.draw,
+                              litten.handwritingCount,
+                              litten.handwritingCount > 0 
+                                  ? AppColors.writingColor.withValues(alpha: 0.8)
+                                  : AppColors.writingColor.withValues(alpha: 0.2),
+                              isActive: litten.handwritingCount > 0,
+                            ),
                           ],
                         ),
                       ],
@@ -143,7 +147,7 @@ class LittenItem extends StatelessWidget {
     );
   }
 
-  Widget _buildFileBadge(IconData icon, int count, Color color) {
+  Widget _buildFileBadge(IconData icon, int count, Color color, {bool isActive = true}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -156,13 +160,13 @@ class LittenItem extends StatelessWidget {
           Icon(
             icon,
             size: 10,
-            color: Colors.white,
+            color: isActive ? Colors.white : Colors.white70,
           ),
           const SizedBox(width: 2),
           Text(
             count.toString(),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.white70,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),

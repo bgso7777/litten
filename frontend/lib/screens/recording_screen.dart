@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
+import '../services/litten_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/audio_file.dart';
@@ -52,6 +53,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
       // 듣기 중지 및 파일 저장
       final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
       if (mounted && audioFile != null) {
+        // 리튼의 오디오 파일 목록에 추가
+        final littenService = LittenService();
+        await littenService.addAudioFileToLitten(appState.selectedLitten!.id, audioFile.id);
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n?.recordingStoppedAndSaved ?? '듣기가 중지되고 파일이 저장되었습니다.'),
@@ -59,6 +64,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
           ),
         );
         await _loadAudioFiles(); // 목록 새로고침
+        await appState.refreshLittens(); // 파일 수 배지 업데이트
       }
     } else {
       // 듣기 시작
@@ -368,7 +374,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
                 ),
                 child: Column(
                   children: [
-                    // 듣기 버튼
+                    // 듣기 버튼을 메인 메뉴에 더 가깝게 이동
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -391,9 +397,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
                         ),
                       ],
                     ),
-                    AppSpacing.verticalSpaceM,
-                    // 하단 네비게이션 바와의 간격 확보
-                    const SizedBox(height: 16),
+                    // 하단 네비게이션 바와의 간격을 최소화하여 메뉴에 더 가깝게 배치
+                    const SizedBox(height: 4),
                   ],
                 ),
               ),

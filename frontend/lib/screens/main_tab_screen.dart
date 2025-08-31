@@ -110,96 +110,88 @@ class MainTabScreen extends StatelessWidget {
       }
     }
 
-    // 파일이 하나도 없으면 배지를 표시하지 않음
-    if (audioCount == 0 && textCount == 0 && handwritingCount == 0) {
-      return null;
-    }
-
     final badges = <Widget>[];
 
-    // 녹음 파일 배지
-    if (audioCount > 0) {
-      badges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.recordingColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.hearing, size: 12, color: Colors.white),
-              AppSpacing.horizontalSpaceXS,
-              Text(
-                audioCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+    // 녹음 파일 배지 (0개일 때도 표시)
+    badges.add(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: audioCount > 0 ? AppColors.recordingColor : AppColors.recordingColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
-    }
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hearing, size: 12, color: audioCount > 0 ? Colors.white : Colors.white70),
+            AppSpacing.horizontalSpaceXS,
+            Text(
+              audioCount.toString(),
+              style: TextStyle(
+                color: audioCount > 0 ? Colors.white : Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 
-    // 텍스트 파일 배지
-    if (textCount > 0) {
-      badges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.writingColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.keyboard, size: 12, color: Colors.white),
-              AppSpacing.horizontalSpaceXS,
-              Text(
-                textCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+    // 텍스트 파일 배지 (0개일 때도 표시)
+    badges.add(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: textCount > 0 ? AppColors.writingColor : AppColors.writingColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
-    }
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.keyboard, size: 12, color: textCount > 0 ? Colors.white : Colors.white70),
+            AppSpacing.horizontalSpaceXS,
+            Text(
+              textCount.toString(),
+              style: TextStyle(
+                color: textCount > 0 ? Colors.white : Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 
-    // 필기 파일 배지
-    if (handwritingCount > 0) {
-      badges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.writingColor.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.draw, size: 12, color: Colors.white),
-              AppSpacing.horizontalSpaceXS,
-              Text(
-                handwritingCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+    // 필기 파일 배지 (0개일 때도 표시)
+    badges.add(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: handwritingCount > 0 
+              ? AppColors.writingColor.withValues(alpha: 0.8)
+              : AppColors.writingColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
-    }
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.draw, size: 12, color: handwritingCount > 0 ? Colors.white : Colors.white70),
+            AppSpacing.horizontalSpaceXS,
+            Text(
+              handwritingCount.toString(),
+              style: TextStyle(
+                color: handwritingCount > 0 ? Colors.white : Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
 
     // 배지들 사이에 균일한 간격 추가
     final spacedBadges = <Widget>[];
@@ -215,6 +207,6 @@ class MainTabScreen extends StatelessWidget {
       spacedBadges.add(AppSpacing.horizontalSpaceM);
     }
 
-    return spacedBadges.isEmpty ? null : spacedBadges;
+    return spacedBadges;
   }
 }
