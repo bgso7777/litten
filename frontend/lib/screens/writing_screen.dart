@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:file_picker/file_picker.dart';
-// import 'package:pdf_render/pdf_render.dart';  // 임시 비활성화
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
@@ -47,6 +48,8 @@ class _WritingScreenState extends State<WritingScreen>
   String _selectedTool = '펜';
   bool _showAdvancedTools = false;
   bool _showColorPicker = false;
+  bool _showTextToolbar = false; // 텍스트 툴바 표시 상태
+  bool _showDrawingToolbar = false; // 필기 툴바 표시 상태
   
   // 편집 상태
   TextFile? _currentTextFile;
@@ -555,73 +558,214 @@ class _WritingScreenState extends State<WritingScreen>
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
-        withData: true,
+        withData: false, // flutter_pdfview는 파일 경로를 사용
       );
 
-      if (result != null && result.files.single.bytes != null) {
+      if (result != null && result.files.single.path != null) {
         print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
         
-        final pdfData = result.files.single.bytes!;
-        // final document = await PdfDocument.openData(pdfData);  // PDF 기능 임시 비활성화
-        throw UnsupportedError('PDF 기능은 현재 비활성화되었습니다.');
-        /*
-        print('DEBUG: PDF 문서 열기 성공 - 총 ${document.pageCount}페이지');
+        final pdfPath = result.files.single.path!;
         
-        List<Uint8List> pages = [];
+        // 임시 디렉토리에 PDF 파일 복사
+        final tempDir = await getTemporaryDirectory();
+        final tempPdfFile = File('${tempDir.path}/temp_pdf.pdf');
         
-        // 모든 페이지를 Uint8List로 변환
-        for (int i = 0; i < document.pageCount; i++) {
-          final page = await document.getPage(i + 1);
-          final pageImage = await page.render(
-            width: (page.width * 2).toInt(), // 해상도 2배로 향상
-            height: (page.height * 2).toInt(),
-          );
-          
-          // PdfPageImage를 직접 사용하여 ui.Image 생성
-          await pageImage.createImageIfNotAvailable();
-          final uiImage = pageImage.imageIfAvailable;
-          
-          if (uiImage != null) {
-            // ui.Image를 PNG bytes로 변환
-            final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.png);
-            final imageBytes = byteData!.buffer.asUint8List();
-            pages.add(imageBytes);
-            print('DEBUG: 페이지 ${i + 1} 렌더링 완료');
-          }
-        }
-        */
+        // 선택한 파일을 임시 디렉토리로 복사
+        final originalFile = File(pdfPath);
+        await originalFile.copy(tempPdfFile.path);
         
-        // PDF 기능 임시 비활성화 - 대체 로직
-        List<Uint8List> pages = [];
-        print('DEBUG: PDF 기능이 임시 비활성화되었습니다.');
+        print('DEBUG: PDF 파일 임시 디렉토리로 복사됨 - ${tempPdfFile.path}');
         
-        // 첫 번째 페이지를 배경으로 설정
-        if (pages.isNotEmpty) {
-          await _setBackgroundFromBytes(pages.first);
-        }
+        // flutter_pdfview를 사용한 PDF 뷰어 표시
+        await _showPdfViewer(tempPdfFile.path, result.files.single.name ?? 'PDF');
         
-        setState(() {
-          _pdfPages = pages;
-          _currentPdfPage = 0;
-          _backgroundImagePath = null;
-        });
-        
-        print('DEBUG: PDF 기능 임시 비활성화');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('PDF 기능은 현재 비활성화되었습니다.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
       }
     } catch (e) {
       print('ERROR: PDF 로드 실패 - $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF 파일 로드에 실패했습니다.'),
+          SnackBar(
+            content: Text('PDF 파일 로드에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showPdfViewer(String pdfPath, String fileName) async {
+    int totalPages = 1;
+    int currentPage = 0;
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(fileName),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+          body: PDFView(
+            filePath: pdfPath,
+            enableSwipe: true,
+            swipeHorizontal: true,
+            autoSpacing: false,
+            pageSnap: true,
+            onRender: (pages) {
+              print('DEBUG: PDF 렌더링 완료 - 총 $pages 페이지');
+              totalPages = pages ?? 1;
+            },
+            onError: (error) {
+              print('ERROR: PDF 렌더링 에러 - $error');
+            },
+            onPageError: (page, error) {
+              print('ERROR: PDF 페이지 $page 에러 - $error');
+            },
+            onPageChanged: (int? page, int? total) {
+              print('DEBUG: PDF 페이지 변경 - $page/$total');
+              currentPage = page ?? 0;
+            },
+          ),
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _convertPdfToPngAndAddToHandwriting(pdfPath, fileName);
+                        },
+                        icon: const Icon(Icons.draw),
+                        label: const Text('필기용으로 변환'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.visibility),
+                        label: const Text('보기만'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _convertPdfToPngAndAddToHandwriting(String pdfPath, String fileName) async {
+    try {
+      print('DEBUG: PDF를 PNG로 변환 시작 - $fileName');
+      
+      // PDF 파일을 Uint8List로 읽기
+      final pdfFile = File(pdfPath);
+      final pdfBytes = await pdfFile.readAsBytes();
+      
+      // printing 패키지를 사용해서 PDF를 이미지로 변환
+      final List<Uint8List> images = [];
+      await for (final page in Printing.raster(
+        pdfBytes,
+        pages: [0], // 첫 번째 페이지만 변환 (추후 다중 페이지 지원 가능)
+        dpi: 300, // 고화질 변환
+      )) {
+        images.add(await page.toPng());
+      }
+      
+      if (images.isNotEmpty) {
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
+        
+        if (selectedLitten != null) {
+          // PDF 이름에서 확장자 제거하여 필기 파일 제목으로 사용
+          final titleWithoutExtension = fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+          
+          // 새로운 필기 파일 생성
+          final newHandwritingFile = HandwritingFile(
+            littenId: selectedLitten.id,
+            title: titleWithoutExtension, // PDF 이름을 제목으로 사용
+            imagePath: '/temp/pdf_converted.png',
+            type: HandwritingType.pdfConvert,
+          );
+          
+          print('DEBUG: 필기 파일 생성 - 제목: $titleWithoutExtension');
+          
+          // 이미지를 파일로 저장
+          final storage = FileStorageService.instance;
+          await storage.saveHandwritingImage(newHandwritingFile, images.first);
+          
+          // 필기 파일 목록에 추가
+          setState(() {
+            _handwritingFiles.add(newHandwritingFile);
+            _currentHandwritingFile = newHandwritingFile;
+            _isEditing = true;
+          });
+          
+          // 필기 파일 목록을 SharedPreferences에 저장
+          await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+          
+          // 리튼에 필기 파일 추가
+          final littenService = LittenService();
+          await littenService.addHandwritingFileToLitten(selectedLitten.id, newHandwritingFile.id);
+          
+          // 변환된 이미지를 캔버스 배경으로 설정
+          await _setBackgroundFromBytes(images.first);
+          
+          print('DEBUG: PDF to PNG 변환 및 필기 파일 추가 완료');
+          
+          // 성공 메시지 표시
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$titleWithoutExtension이(가) 필기 파일로 추가되었습니다.'),
+                backgroundColor: Colors.green,
+                action: SnackBarAction(
+                  label: '편집',
+                  onPressed: () {
+                    // 이미 편집 모드로 설정됨
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        print('ERROR: PDF 변환 결과 이미지가 없음');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PDF 변환에 실패했습니다.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('ERROR: PDF to PNG 변환 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF 변환 실패: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -694,23 +838,23 @@ class _WritingScreenState extends State<WritingScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 20,
+            height: 20,
             decoration: BoxDecoration(
               color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               icon,
               color: isSelected ? Colors.white : Colors.grey.shade600,
-              size: 20,
+              size: 10,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 8,
               color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
             ),
           ),
@@ -1052,6 +1196,36 @@ class _WritingScreenState extends State<WritingScreen>
             ],
           ),
         ),
+        // 텍스트 툴바 토글 버튼
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.shade200),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showTextToolbar = !_showTextToolbar;
+                  });
+                },
+                icon: Icon(
+                  _showTextToolbar ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 16,
+                ),
+                label: Text(
+                  _showTextToolbar ? '툴바 숨기기' : '툴바 보기',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
         // HTML 에디터
         Expanded(
           child: HtmlEditor(
@@ -1062,15 +1236,15 @@ class _WritingScreenState extends State<WritingScreen>
               initialText: _currentTextFile?.content ?? '',
               adjustHeightForKeyboard: true,
               darkMode: Theme.of(context).brightness == Brightness.dark,
-              autoAdjustHeight: false,
+              autoAdjustHeight: true,
             ),
-            htmlToolbarOptions: const HtmlToolbarOptions(
+            htmlToolbarOptions: HtmlToolbarOptions(
               toolbarPosition: ToolbarPosition.aboveEditor,
               toolbarType: ToolbarType.nativeGrid,
-              toolbarItemHeight: 22, // 절반으로 줄임 (44 -> 22)
-              gridViewHorizontalSpacing: 2, // 간격도 줄임
-              gridViewVerticalSpacing: 2, // 간격도 줄임
-              defaultToolbarButtons: [
+              toolbarItemHeight: _showTextToolbar ? 32 : 32, // 항상 고정값 사용
+              gridViewHorizontalSpacing: 2, 
+              gridViewVerticalSpacing: 2,
+              defaultToolbarButtons: _showTextToolbar ? [
                 FontButtons(
                   bold: true,
                   italic: true,
@@ -1107,11 +1281,9 @@ class _WritingScreenState extends State<WritingScreen>
                   redo: true,
                   help: true, // 활성화
                 ),
-              ],
+              ] : [], // 툴바가 숨겨져 있으면 빈 배열
             ),
-            otherOptions: const OtherOptions(
-              height: 300,
-            ),
+            otherOptions: const OtherOptions(),
           ),
         ),
       ],
@@ -1160,20 +1332,51 @@ class _WritingScreenState extends State<WritingScreen>
             ],
           ),
         ),
-        // 필기 도구 패널 (캔버스 위로 이동)
+        // 필기 도구 패널 토글 버튼
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
               bottom: BorderSide(color: Colors.grey.shade200),
             ),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showDrawingToolbar = !_showDrawingToolbar;
+                  });
+                },
+                icon: Icon(
+                  _showDrawingToolbar ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 16,
+                ),
+                label: Text(
+                  _showDrawingToolbar ? '도구 숨기기' : '도구 보기',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 필기 도구 패널 (조건부 표시)
+        if (_showDrawingToolbar)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Column(
+              children: [
               // 기본 도구바
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
                   _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
@@ -1186,7 +1389,7 @@ class _WritingScreenState extends State<WritingScreen>
               AppSpacing.verticalSpaceXS,
               // 두 번째 도구바
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildDrawingTool(Icons.arrow_forward, '화살표', _selectedTool == '화살표'),
                   _buildDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
@@ -1199,21 +1402,21 @@ class _WritingScreenState extends State<WritingScreen>
               AppSpacing.verticalSpaceXS,
               // 세 번째 도구바 (설정)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildDrawingTool(Icons.line_weight, '선굵기', false),
                   _buildDrawingTool(Icons.palette, '색상', _showColorPicker),
                   _buildDrawingTool(Icons.clear, '초기화', false),
                   _buildDrawingTool(Icons.expand_more, '고급도구', _showAdvancedTools),
-                  Container(width: 40), // 빈 공간
-                  Container(width: 40), // 빈 공간
+                  Container(width: 20), // 빈 공간 줄임
+                  Container(width: 20), // 빈 공간 줄임
                 ],
               ),
               if (_showAdvancedTools) ...[
                 AppSpacing.verticalSpaceXS,
                 // 고급 도구바
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildDrawingTool(Icons.architecture, '삼각형', false),
                     _buildDrawingTool(Icons.star_outline, '별모양', false),
@@ -1389,33 +1592,32 @@ class _WritingScreenState extends State<WritingScreen>
 
   void _loadPdfForNewFile() async {
     await _loadPdfFile();
-    if (_pdfPages != null && _pdfPages!.isNotEmpty) {
-      final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final selectedLitten = appState.selectedLitten;
-      
-      if (selectedLitten != null) {
-        final newHandwritingFile = HandwritingFile(
-          littenId: selectedLitten.id,
-          imagePath: '/temp/pdf_handwriting.png',
-          type: HandwritingType.pdfConvert,
-        );
-        
-        setState(() {
-          _currentHandwritingFile = newHandwritingFile;
-          _isEditing = true;
-        });
-      }
-    }
+    // flutter_pdfview를 사용하므로 PDF 뷰어로만 표시됩니다.
+    // PDF를 필기 배경으로 사용하려면 별도의 PDF to Image 변환이 필요합니다.
   }
 
-  void _editTextFile(TextFile file) {
+  void _editTextFile(TextFile file) async {
     setState(() {
       _currentTextFile = file;
       _isEditing = true;
     });
     
-    // HTML 컨텐츠 로드
-    _htmlController.setText(file.content);
+    // HTML 에디터가 로딩될 때까지 대기
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    try {
+      // HTML 컨텐츠 로드
+      _htmlController.setText(file.content);
+    } catch (e) {
+      print('HTML 에디터 로딩 에러: $e');
+      // 재시도
+      await Future.delayed(const Duration(milliseconds: 1000));
+      try {
+        _htmlController.setText(file.content);
+      } catch (e2) {
+        print('HTML 에디터 로딩 재시도 실패: $e2');
+      }
+    }
   }
 
   void _editHandwritingFile(HandwritingFile file) async {
