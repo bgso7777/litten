@@ -19,6 +19,10 @@ class AppStateProvider extends ChangeNotifier {
   List<Litten> _littens = [];
   Litten? _selectedLitten;
   int _selectedTabIndex = 0;
+  
+  // 캘린더 상태
+  DateTime _selectedDate = DateTime.now();
+  DateTime _focusedDate = DateTime.now();
 
   // 구독 상태
   SubscriptionType _subscriptionType = SubscriptionType.free;
@@ -36,6 +40,27 @@ class AppStateProvider extends ChangeNotifier {
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;
   bool get isStandardUser => _subscriptionType == SubscriptionType.standard;
   bool get isPremiumPlusUser => _subscriptionType == SubscriptionType.premium;
+  
+  // 캘린더 관련 Getters
+  DateTime get selectedDate => _selectedDate;
+  DateTime get focusedDate => _focusedDate;
+  
+  // 선택된 날짜의 리튼들
+  List<Litten> get littensForSelectedDate {
+    return _littens.where((litten) {
+      final littenDate = DateTime(
+        litten.createdAt.year,
+        litten.createdAt.month,
+        litten.createdAt.day,
+      );
+      final selected = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      );
+      return littenDate.isAtSameMomentAs(selected);
+    }).toList();
+  }
 
   // 사용 제한 확인
   bool get canCreateMoreLittens {
@@ -65,7 +90,13 @@ class AppStateProvider extends ChangeNotifier {
     await _loadSettings();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
-    await _loadSelectedLitten();
+    // 앱 시작 시에는 아무 리튼도 선택하지 않음
+    _selectedLitten = null;
+    
+    // 캘린더를 오늘 날짜로 초기화
+    final today = DateTime.now();
+    _selectedDate = today;
+    _focusedDate = today;
     
     _isInitialized = true;
     notifyListeners();
@@ -248,7 +279,23 @@ class AppStateProvider extends ChangeNotifier {
       throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
     }
 
-    final litten = Litten(title: title);
+    // 선택된 날짜에 현재 시간을 조합하여 생성
+    final selectedDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      DateTime.now().hour,
+      DateTime.now().minute,
+      DateTime.now().second,
+      DateTime.now().millisecond,
+      DateTime.now().microsecond,
+    );
+
+    final litten = Litten(
+      title: title, 
+      createdAt: selectedDateTime,
+      updatedAt: selectedDateTime,
+    );
     await _littenService.saveLitten(litten);
     await refreshLittens();
   }
@@ -274,6 +321,37 @@ class AppStateProvider extends ChangeNotifier {
       _selectedLitten = null;
       await _littenService.setSelectedLittenId(null);
     }
+  }
+
+  // 리튼 날짜 이동
+  Future<void> moveLittenToDate(String littenId, DateTime targetDate) async {
+    final litten = _littens.firstWhere((l) => l.id == littenId);
+    
+    // 기존 시간을 유지하면서 날짜만 변경
+    final newDateTime = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+      litten.createdAt.hour,
+      litten.createdAt.minute,
+      litten.createdAt.second,
+      litten.createdAt.millisecond,
+      litten.createdAt.microsecond,
+    );
+    
+    final newLitten = Litten(
+      id: litten.id,
+      title: litten.title,
+      description: litten.description,
+      createdAt: newDateTime,
+      updatedAt: DateTime.now(),
+      audioFileIds: litten.audioFileIds,
+      textFileIds: litten.textFileIds,
+      handwritingFileIds: litten.handwritingFileIds,
+    );
+    
+    await _littenService.saveLitten(newLitten);
+    await refreshLittens();
   }
 
   // 리튼 목록 새로고침
@@ -593,6 +671,34 @@ class AppStateProvider extends ChangeNotifier {
     await prefs.setBool('is_app_initialized', true);
     _isFirstLaunch = false;
     notifyListeners();
+  }
+  
+  // 캘린더 관련 메서드들
+  void selectDate(DateTime date) {
+    if (_selectedDate != date) {
+      _selectedDate = date;
+      notifyListeners();
+    }
+  }
+  
+  void changeFocusedDate(DateTime date) {
+    if (_focusedDate != date) {
+      _focusedDate = date;
+      notifyListeners();
+    }
+  }
+  
+  // 특정 날짜에 생성된 리튼들의 개수
+  int getLittenCountForDate(DateTime date) {
+    final targetDate = DateTime(date.year, date.month, date.day);
+    return _littens.where((litten) {
+      final littenDate = DateTime(
+        litten.createdAt.year,
+        litten.createdAt.month,
+        litten.createdAt.day,
+      );
+      return littenDate.isAtSameMomentAs(targetDate);
+    }).length;
   }
 }
 

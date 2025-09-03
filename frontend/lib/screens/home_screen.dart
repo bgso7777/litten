@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -124,43 +126,59 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return Scaffold(
-          body: appState.littens.isEmpty
-              ? EmptyState(
-                  icon: Icons.note_add,
-                  title: l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
-                  description: l10n?.emptyLittenDescription ?? '하단의 \'리튼 생성\' 버튼을 사용해서 첫 번째 노트를 시작하세요',
-                  actionText: l10n?.createLitten ?? '리튼 생성',
-                  onAction: _showCreateLittenDialog,
-                )
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    await appState.refreshLittens();
-                    // 새로고침 후에도 최신 리튼으로 스크롤
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _scrollToBottom();
-                    });
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: EdgeInsets.only(
-                      left: AppSpacing.paddingL.left,
-                      right: AppSpacing.paddingL.right,
-                      top: AppSpacing.paddingL.top,
-                      bottom: AppSpacing.paddingL.bottom + 96, // FloatingActionButton 공간 확보 (16px 추가)
+          appBar: AppBar(
+            title: Row(
+              children: [
+                if (appState.selectedLitten != null) ...[
+                  // 리튼이 선택된 경우: 선택된 리튼 이름 표시
+                  Expanded(
+                    child: Text(
+                      appState.selectedLitten!.title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    itemCount: appState.littens.length,
-                    itemBuilder: (context, index) {
-                      final litten = appState.littens[index];
-                      return LittenItem(
-                        litten: litten,
-                        isSelected: appState.selectedLitten?.id == litten.id,
-                        onTap: () => appState.selectLitten(litten),
-                        onDelete: () => _showDeleteDialog(litten.id, litten.title),
-                        onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
-                      );
-                    },
                   ),
-                ),
+                ] else ...[
+                  // 리튼이 선택되지 않은 경우: 전체 리튼 수 표시
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      '${appState.littens.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+          ),
+          body: Column(
+            children: [
+              // 상단 50% - 캘린더
+              Expanded(
+                flex: 1,
+                child: _buildCalendarSection(appState, l10n),
+              ),
+              // 하단 50% - 선택된 날짜의 리튼 리스트
+              Expanded(
+                flex: 1,
+                child: _buildLittenListSection(appState, l10n),
+              ),
+            ],
+          ),
           floatingActionButton: FloatingActionButton(
             onPressed: _showCreateLittenDialog,
             tooltip: l10n?.createLitten ?? '리튼 생성',
@@ -233,6 +251,276 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
       );
     }
+  }
+
+  // 캘린더 섹션 빌드
+  Widget _buildCalendarSection(AppStateProvider appState, AppLocalizations? l10n) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.paddingM.left),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 월 네비게이션 헤더
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: () {
+                  final previousMonth = DateTime(
+                    appState.focusedDate.year,
+                    appState.focusedDate.month - 1,
+                  );
+                  appState.changeFocusedDate(previousMonth);
+                },
+                icon: const Icon(Icons.chevron_left),
+                tooltip: '이전 달',
+              ),
+              Text(
+                DateFormat.yMMMM(appState.locale.languageCode).format(appState.focusedDate),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  final nextMonth = DateTime(
+                    appState.focusedDate.year,
+                    appState.focusedDate.month + 1,
+                  );
+                  appState.changeFocusedDate(nextMonth);
+                },
+                icon: const Icon(Icons.chevron_right),
+                tooltip: '다음 달',
+              ),
+            ],
+          ),
+          // 캘린더
+          Expanded(
+            child: TableCalendar<dynamic>(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: appState.focusedDate,
+              selectedDayPredicate: (day) {
+                return isSameDay(appState.selectedDate, day);
+              },
+              onDaySelected: (selectedDay, focusedDay) {
+                appState.selectDate(selectedDay);
+                appState.changeFocusedDate(focusedDay);
+              },
+              onPageChanged: (focusedDay) {
+                appState.changeFocusedDate(focusedDay);
+              },
+              calendarFormat: CalendarFormat.month,
+              availableCalendarFormats: const {
+                CalendarFormat.month: 'Month',
+              },
+              headerVisible: false, // 커스텀 헤더를 사용하므로 기본 헤더 숨김
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                weekendTextStyle: TextStyle(color: Colors.red[400]),
+                holidayTextStyle: TextStyle(color: Colors.red[400]),
+                selectedDecoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                ),
+                markersMaxCount: 3,
+              ),
+              eventLoader: (day) {
+                // 해당 날짜에 생성된 리튼이 있으면 마커 표시
+                final count = appState.getLittenCountForDate(day);
+                return List.generate(count > 3 ? 3 : count, (index) => 'litten');
+              },
+              locale: appState.locale.languageCode,
+              calendarBuilders: CalendarBuilders(
+                defaultBuilder: (context, day, focusedDay) {
+                  return DragTarget<String>(
+                    onAcceptWithDetails: (details) async {
+                      // 리튼을 해당 날짜로 이동
+                      await appState.moveLittenToDate(details.data, day);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    onWillAcceptWithDetails: (details) => true,
+                    builder: (context, candidateData, rejectedData) {
+                      final isHovered = candidateData.isNotEmpty;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isHovered 
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                              : null,
+                          shape: BoxShape.circle,
+                          border: isHovered 
+                              ? Border.all(
+                                  color: Theme.of(context).primaryColor, 
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: isHovered 
+                                  ? Theme.of(context).primaryColor
+                                  : null,
+                              fontWeight: isHovered ? FontWeight.bold : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                selectedBuilder: (context, day, focusedDay) {
+                  return DragTarget<String>(
+                    onAcceptWithDetails: (details) async {
+                      await appState.moveLittenToDate(details.data, day);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    onWillAcceptWithDetails: (details) => true,
+                    builder: (context, candidateData, rejectedData) {
+                      final isHovered = candidateData.isNotEmpty;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isHovered 
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
+                              : Theme.of(context).primaryColor,
+                          shape: BoxShape.circle,
+                          border: isHovered 
+                              ? Border.all(color: Colors.white, width: 2)
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                todayBuilder: (context, day, focusedDay) {
+                  return DragTarget<String>(
+                    onAcceptWithDetails: (details) async {
+                      await appState.moveLittenToDate(details.data, day);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    onWillAcceptWithDetails: (details) => true,
+                    builder: (context, candidateData, rejectedData) {
+                      final isHovered = candidateData.isNotEmpty;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isHovered 
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
+                              : Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                          border: isHovered 
+                              ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 리튼 리스트 섹션 빌드
+  Widget _buildLittenListSection(AppStateProvider appState, AppLocalizations? l10n) {
+    final selectedDateLittens = appState.littensForSelectedDate;
+    
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.paddingM.left),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 리튼 리스트
+          Expanded(
+            child: selectedDateLittens.isEmpty
+                ? EmptyState(
+                    icon: Icons.calendar_today,
+                    title: '선택한 날짜에 생성된 리튼이 없습니다',
+                    description: '이 날짜에 첫 번째 리튼을 생성해보세요',
+                    actionText: l10n?.createLitten ?? '리튼 생성',
+                    onAction: _showCreateLittenDialog,
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await appState.refreshLittens();
+                    },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: selectedDateLittens.length,
+                      itemBuilder: (context, index) {
+                        final litten = selectedDateLittens[index];
+                        return LittenItem(
+                          litten: litten,
+                          isSelected: appState.selectedLitten?.id == litten.id,
+                          onTap: () => appState.selectLitten(litten),
+                          onDelete: () => _showDeleteDialog(litten.id, litten.title),
+                          onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDeleteDialog(String littenId, String title) {
