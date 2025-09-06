@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../utils/responsive_utils.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
@@ -456,7 +457,7 @@ class _WritingScreenState extends State<WritingScreen>
     );
   }
 
-  void _createNewTextFile() {
+  void _createNewTextFile() async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
     
@@ -477,6 +478,17 @@ class _WritingScreenState extends State<WritingScreen>
         _currentTextFile = newTextFile;
         _isEditing = true;
       });
+      
+      // 새 텍스트 파일이므로 포커스 및 커서 위치 설정
+      await Future.delayed(const Duration(milliseconds: 800));
+      try {
+        _htmlController.setFocus();
+        // 새 파일이므로 커서를 1행1열에 위치
+        await Future.delayed(const Duration(milliseconds: 200));
+        _positionCursorForContent(''); // 빈 내용이므로 1행1열로
+      } catch (e) {
+        print('새 텍스트 파일 포커스 설정 실패: $e');
+      }
     }
   }
 
@@ -1236,38 +1248,47 @@ class _WritingScreenState extends State<WritingScreen>
               initialText: _currentTextFile?.content ?? '',
               adjustHeightForKeyboard: true,
               darkMode: Theme.of(context).brightness == Brightness.dark,
-              autoAdjustHeight: true,
+              autoAdjustHeight: false, // 자동 높이 조정 비활성화하여 최대 크기 사용
+              spellCheck: true,
+              characterLimit: null, // 글자 수 제한 없음
             ),
             htmlToolbarOptions: HtmlToolbarOptions(
               toolbarPosition: ToolbarPosition.aboveEditor,
-              toolbarType: ToolbarType.nativeGrid,
-              toolbarItemHeight: _showTextToolbar ? 32 : 32, // 항상 고정값 사용
-              gridViewHorizontalSpacing: 2, 
-              gridViewVerticalSpacing: 2,
+              toolbarType: ToolbarType.nativeExpandable,
+              toolbarItemHeight: 40,
+              buttonColor: Theme.of(context).primaryColor,
+              buttonSelectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+              buttonBorderColor: Colors.grey.withValues(alpha: 0.3),
+              buttonBorderWidth: 1,
+              buttonBorderRadius: BorderRadius.circular(8),
+              buttonFillColor: Colors.grey.withValues(alpha: 0.1),
+              dropdownBackgroundColor: Theme.of(context).cardColor,
+              gridViewHorizontalSpacing: 4,
+              gridViewVerticalSpacing: 4,
               defaultToolbarButtons: _showTextToolbar ? [
                 FontButtons(
                   bold: true,
                   italic: true,
                   underline: true,
-                  clearAll: true, // 활성화
-                  strikethrough: true, // 활성화
-                  subscript: true, // 활성화
-                  superscript: true, // 활성화
+                  clearAll: true,
+                  strikethrough: false, // 간소화
+                  subscript: false, // 간소화
+                  superscript: false, // 간소화
                 ),
                 ColorButtons(
                   foregroundColor: true,
-                  highlightColor: true, // 활성화
+                  highlightColor: true,
                 ),
                 ParagraphButtons(
-                  textDirection: true, // 활성화
-                  lineHeight: true, // 활성화
-                  caseConverter: true, // 활성화
+                  textDirection: false, // 간소화
+                  lineHeight: true,
+                  caseConverter: false, // 간소화
                   alignLeft: true,
                   alignCenter: true,
                   alignRight: true,
-                  alignJustify: true, // 활성화
-                  decreaseIndent: true, // 활성화
-                  increaseIndent: true, // 활성화
+                  alignJustify: false, // 간소화
+                  decreaseIndent: true,
+                  increaseIndent: true,
                 ),
                 ListButtons(
                   ul: true,
@@ -1596,6 +1617,25 @@ class _WritingScreenState extends State<WritingScreen>
     // PDF를 필기 배경으로 사용하려면 별도의 PDF to Image 변환이 필요합니다.
   }
 
+  /// 텍스트 내용에 따라 커서 위치를 설정하는 메서드
+  void _positionCursorForContent(String content) async {
+    try {
+      if (content.isEmpty) {
+        // 내용이 없으면 1행1열로
+        _htmlController.execCommand('selectAll');
+        _htmlController.execCommand('collapseToStart');
+      } else {
+        // 내용이 있으면 마지막 라인의 다음 라인 1열로
+        _htmlController.execCommand('selectAll');
+        _htmlController.execCommand('collapseToEnd');
+        // 추가 줄바꿈을 위해 Enter 키 입력
+        _htmlController.insertText('\n');
+      }
+    } catch (e) {
+      print('커서 위치 설정 실패: $e');
+    }
+  }
+
   void _editTextFile(TextFile file) async {
     setState(() {
       _currentTextFile = file;
@@ -1608,12 +1648,22 @@ class _WritingScreenState extends State<WritingScreen>
     try {
       // HTML 컨텐츠 로드
       _htmlController.setText(file.content);
+      
+      // 에디터에 포커스 설정 및 커서를 1행1열로 위치
+      await Future.delayed(const Duration(milliseconds: 300));
+      _htmlController.setFocus();
+      
+      // 파일 내용에 따라 커서 위치 설정
+      await Future.delayed(const Duration(milliseconds: 200));
+      _positionCursorForContent(file.content);
+      
     } catch (e) {
       print('HTML 에디터 로딩 에러: $e');
       // 재시도
       await Future.delayed(const Duration(milliseconds: 1000));
       try {
         _htmlController.setText(file.content);
+        _htmlController.setFocus();
       } catch (e2) {
         print('HTML 에디터 로딩 재시도 실패: $e2');
       }

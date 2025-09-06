@@ -8,6 +8,7 @@ import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/home/litten_item.dart';
 import '../config/themes.dart';
+import '../utils/responsive_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -142,22 +143,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ] else ...[
-                  // 리튼이 선택되지 않은 경우: 전체 리튼 수 표시
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      '${appState.littens.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  // 리튼이 선택되지 않은 경우: 빈 공간
+                  const SizedBox.shrink(),
                 ],
               ],
             ),
@@ -308,6 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
               firstDay: DateTime.utc(2020, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
               focusedDay: appState.focusedDate,
+              daysOfWeekHeight: ResponsiveUtils.getCalendarDaysOfWeekHeight(context),
+              rowHeight: ResponsiveUtils.getCalendarRowHeight(context),
               selectedDayPredicate: (day) {
                 return isSameDay(appState.selectedDate, day);
               },

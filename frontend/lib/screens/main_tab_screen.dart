@@ -9,6 +9,7 @@ import 'recording_screen.dart';
 import 'writing_screen.dart';
 import 'settings_screen.dart';
 import '../config/themes.dart';
+import '../utils/responsive_utils.dart';
 
 class MainTabScreen extends StatelessWidget {
   const MainTabScreen({super.key});
@@ -45,7 +46,7 @@ class MainTabScreen extends StatelessWidget {
                     l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
                     style: const TextStyle(fontSize: 14),
                   ),
-            actions: _buildFileCountBadges(appState),
+            actions: _buildFileCountBadges(appState, context),
           ),
           body: Column(
             children: [
@@ -91,7 +92,7 @@ class MainTabScreen extends StatelessWidget {
     );
   }
 
-  List<Widget>? _buildFileCountBadges(AppStateProvider appState) {
+  List<Widget>? _buildFileCountBadges(AppStateProvider appState, BuildContext context) {
     int audioCount = 0;
     int textCount = 0;
     int handwritingCount = 0;
@@ -112,24 +113,57 @@ class MainTabScreen extends StatelessWidget {
 
     final badges = <Widget>[];
 
-    // 녹음 파일 배지 (0개일 때도 표시)
+    // 전체 리튼 수 배지 (가장 앞에 추가)
+    final littenCount = appState.littens.length;
     badges.add(
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: ResponsiveUtils.getBadgePadding(context),
         decoration: BoxDecoration(
-          color: audioCount > 0 ? AppColors.recordingColor : AppColors.recordingColor.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          color: littenCount > 0 
+              ? Theme.of(context).primaryColor
+              : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hearing, size: 12, color: audioCount > 0 ? Colors.white : Colors.white70),
+            Icon(Icons.folder, 
+                size: ResponsiveUtils.getBadgeIconSize(context), 
+                color: littenCount > 0 ? Colors.white : Colors.white70),
+            AppSpacing.horizontalSpaceXS,
+            Text(
+              littenCount.toString(),
+              style: TextStyle(
+                color: littenCount > 0 ? Colors.white : Colors.white70,
+                fontSize: ResponsiveUtils.getBadgeFontSize(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 녹음 파일 배지 (0개일 때도 표시)
+    badges.add(
+      Container(
+        padding: ResponsiveUtils.getBadgePadding(context),
+        decoration: BoxDecoration(
+          color: audioCount > 0 ? AppColors.recordingColor : AppColors.recordingColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hearing, 
+                size: ResponsiveUtils.getBadgeIconSize(context), 
+                color: audioCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
               audioCount.toString(),
               style: TextStyle(
                 color: audioCount > 0 ? Colors.white : Colors.white70,
-                fontSize: 10,
+                fontSize: ResponsiveUtils.getBadgeFontSize(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -141,21 +175,23 @@ class MainTabScreen extends StatelessWidget {
     // 텍스트 파일 배지 (0개일 때도 표시)
     badges.add(
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
         decoration: BoxDecoration(
           color: textCount > 0 ? AppColors.writingColor : AppColors.writingColor.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.keyboard, size: 12, color: textCount > 0 ? Colors.white : Colors.white70),
+            Icon(Icons.keyboard, 
+                size: ResponsiveUtils.getBadgeIconSize(context), 
+                color: textCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
               textCount.toString(),
               style: TextStyle(
                 color: textCount > 0 ? Colors.white : Colors.white70,
-                fontSize: 10,
+                fontSize: ResponsiveUtils.getBadgeFontSize(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -167,23 +203,25 @@ class MainTabScreen extends StatelessWidget {
     // 필기 파일 배지 (0개일 때도 표시)
     badges.add(
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
         decoration: BoxDecoration(
           color: handwritingCount > 0 
               ? AppColors.writingColor.withValues(alpha: 0.8)
               : AppColors.writingColor.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.draw, size: 12, color: handwritingCount > 0 ? Colors.white : Colors.white70),
+            Icon(Icons.draw, 
+                size: ResponsiveUtils.getBadgeIconSize(context), 
+                color: handwritingCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
               handwritingCount.toString(),
               style: TextStyle(
                 color: handwritingCount > 0 ? Colors.white : Colors.white70,
-                fontSize: 10,
+                fontSize: ResponsiveUtils.getBadgeFontSize(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
