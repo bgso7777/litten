@@ -137,14 +137,11 @@ class _AdBannerState extends State<AdBanner> {
     return Container(
       height: 50,
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-        ),
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
         ),
       ),
       child: Padding(

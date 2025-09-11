@@ -9,7 +9,9 @@ import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
+import 'dart:async';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -49,7 +51,7 @@ class _WritingScreenState extends State<WritingScreen>
   String _selectedTool = '펜';
   bool _showAdvancedTools = false;
   bool _showColorPicker = false;
-  bool _showTextToolbar = false; // 텍스트 툴바 표시 상태
+  
   bool _showDrawingToolbar = false; // 필기 툴바 표시 상태
   
   // 편집 상태
@@ -70,6 +72,40 @@ class _WritingScreenState extends State<WritingScreen>
     _painterController.freeStyleColor = _selectedColor;
     
     _loadFiles();
+  }
+
+  Future<void> _focusEditorAndShowKeyboard() async {
+    try {
+      _htmlController.setFocus();
+      await SystemChannels.textInput.invokeMethod('TextInput.show');
+    } catch (e) {
+      if (kDebugMode) {
+        print('키보드 표시 실패 또는 포커스 실패: $e');
+      }
+    }
+  }
+
+  Timer? _focusTimer;
+
+  void _maintainFocus() {
+    // 기존 타이머가 있으면 취소
+    _focusTimer?.cancel();
+    
+    // 안드로이드에서 더 자주 포커스 확인 및 유지 (500ms마다)
+    _focusTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (_isEditing && _currentTextFile != null) {
+        try {
+          _htmlController.setFocus();
+          // 키보드도 계속 표시하도록 유지
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        } catch (e) {
+          print('포커스 유지 실패: $e');
+        }
+      } else {
+        // 편집 모드가 아니면 타이머 중지
+        timer.cancel();
+      }
+    });
   }
 
   @override
@@ -152,6 +188,7 @@ class _WritingScreenState extends State<WritingScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _focusTimer?.cancel();
     super.dispose();
   }
 
@@ -482,10 +519,13 @@ class _WritingScreenState extends State<WritingScreen>
       // 새 텍스트 파일이므로 포커스 및 커서 위치 설정
       await Future.delayed(const Duration(milliseconds: 800));
       try {
-        _htmlController.setFocus();
+        await _focusEditorAndShowKeyboard();
         // 새 파일이므로 커서를 1행1열에 위치
         await Future.delayed(const Duration(milliseconds: 200));
         _positionCursorForContent(''); // 빈 내용이므로 1행1열로
+        
+        // 포커스 유지 시작
+        _maintainFocus();
       } catch (e) {
         print('새 텍스트 파일 포커스 설정 실패: $e');
       }
@@ -1189,6 +1229,8 @@ class _WritingScreenState extends State<WritingScreen>
                     _isEditing = false;
                     _currentTextFile = null;
                   });
+                  // 포커스 유지 타이머 정리
+                  _focusTimer?.cancel();
                 },
                 icon: const Icon(Icons.arrow_back),
               ),
@@ -1208,103 +1250,157 @@ class _WritingScreenState extends State<WritingScreen>
             ],
           ),
         ),
-        // 텍스트 툴바 토글 버튼
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              bottom: BorderSide(color: Colors.grey.shade200),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showTextToolbar = !_showTextToolbar;
-                  });
-                },
-                icon: Icon(
-                  _showTextToolbar ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 16,
-                ),
-                label: Text(
-                  _showTextToolbar ? '툴바 숨기기' : '툴바 보기',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // HTML 에디터
+        
+        // HTML 에디터 - 툴바 바로 아래부터 키보드까지 또는 하단 메인 메뉴까지
         Expanded(
-          child: HtmlEditor(
-            controller: _htmlController,
-            htmlEditorOptions: HtmlEditorOptions(
-              hint: '여기에 텍스트를 입력하세요...\n\n🎙️ 음성 동기화 마커를 사용할 수 있습니다.',
-              shouldEnsureVisible: true,
-              initialText: _currentTextFile?.content ?? '',
-              adjustHeightForKeyboard: true,
-              darkMode: Theme.of(context).brightness == Brightness.dark,
-              autoAdjustHeight: false, // 자동 높이 조정 비활성화하여 최대 크기 사용
-              spellCheck: true,
-              characterLimit: null, // 글자 수 제한 없음
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.blue, width: 3),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            htmlToolbarOptions: HtmlToolbarOptions(
-              toolbarPosition: ToolbarPosition.aboveEditor,
-              toolbarType: ToolbarType.nativeExpandable,
-              toolbarItemHeight: 40,
-              buttonColor: Theme.of(context).primaryColor,
-              buttonSelectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.8),
-              buttonBorderColor: Colors.grey.withValues(alpha: 0.3),
-              buttonBorderWidth: 1,
-              buttonBorderRadius: BorderRadius.circular(8),
-              buttonFillColor: Colors.grey.withValues(alpha: 0.1),
-              dropdownBackgroundColor: Theme.of(context).cardColor,
-              gridViewHorizontalSpacing: 4,
-              gridViewVerticalSpacing: 4,
-              defaultToolbarButtons: _showTextToolbar ? [
-                FontButtons(
-                  bold: true,
-                  italic: true,
-                  underline: true,
-                  clearAll: true,
-                  strikethrough: false, // 간소화
-                  subscript: false, // 간소화
-                  superscript: false, // 간소화
-                ),
-                ColorButtons(
-                  foregroundColor: true,
-                  highlightColor: true,
-                ),
-                ParagraphButtons(
-                  textDirection: false, // 간소화
-                  lineHeight: true,
-                  caseConverter: false, // 간소화
-                  alignLeft: true,
-                  alignCenter: true,
-                  alignRight: true,
-                  alignJustify: false, // 간소화
-                  decreaseIndent: true,
-                  increaseIndent: true,
-                ),
-                ListButtons(
-                  ul: true,
-                  ol: true,
-                  listStyles: true, // 활성화
-                ),
-                OtherButtons(
-                  fullscreen: true, // 활성화
-                  codeview: true, // 활성화
-                  undo: true,
-                  redo: true,
-                  help: true, // 활성화
-                ),
-              ] : [], // 툴바가 숨겨져 있으면 빈 배열
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GestureDetector(
+                    onTap: () {
+                      // 터치 시 포커스 설정
+                      _htmlController.setFocus();
+                      SystemChannels.textInput.invokeMethod('TextInput.show');
+                    },
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: HtmlEditor(
+                        controller: _htmlController,
+                        htmlEditorOptions: HtmlEditorOptions(
+                          hint: '여기에 텍스트를 입력하세요...\n\n🎙️ 음성 동기화 마커를 사용할 수 있습니다.',
+                          shouldEnsureVisible: true,
+                          initialText: _currentTextFile?.content ?? '',
+                          adjustHeightForKeyboard: true,
+                          darkMode: Theme.of(context).brightness == Brightness.dark,
+                          autoAdjustHeight: true,
+                          spellCheck: true,
+                          characterLimit: null,
+                        ),
+              htmlToolbarOptions: HtmlToolbarOptions(
+                toolbarPosition: ToolbarPosition.aboveEditor,
+                toolbarType: ToolbarType.nativeScrollable,
+                toolbarItemHeight: 32,
+                buttonColor: Theme.of(context).primaryColor,
+                buttonSelectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                buttonBorderColor: Colors.grey.withValues(alpha: 0.3),
+                buttonBorderWidth: 0.5,
+                buttonBorderRadius: BorderRadius.circular(6),
+                buttonFillColor: Colors.grey.withValues(alpha: 0.06),
+                dropdownBackgroundColor: Theme.of(context).cardColor,
+                gridViewHorizontalSpacing: 2,
+                gridViewVerticalSpacing: 0,
+                defaultToolbarButtons: [
+                  FontButtons(
+                    bold: true,
+                    italic: true,
+                    underline: true,
+                    clearAll: false,
+                    strikethrough: false,
+                    subscript: false,
+                    superscript: false,
+                  ),
+                  ListButtons(
+                    ul: true,
+                    ol: true,
+                    listStyles: false,
+                  ),
+                  ParagraphButtons(
+                    textDirection: false,
+                    lineHeight: false,
+                    caseConverter: false,
+                    alignLeft: true,
+                    alignCenter: true,
+                    alignRight: true,
+                    alignJustify: false,
+                    decreaseIndent: false,
+                    increaseIndent: false,
+                  ),
+                  OtherButtons(
+                    fullscreen: true,
+                    codeview: false,
+                    undo: true,
+                    redo: true,
+                    help: false,
+                  ),
+                ],
+              ),
+              otherOptions: const OtherOptions(),
+              callbacks: Callbacks(
+                onFocus: () async {
+                  print('HTML 에디터 포커스됨');
+                  // 안드로이드에서 키보드 표시 강화
+                  await SystemChannels.textInput.invokeMethod('TextInput.show');
+                  // 포커스 유지 타이머 시작
+                  _maintainFocus();
+                },
+                onBlur: () async {
+                  print('HTML 에디터 포커스 아웃됨 - 재포커스 시도');
+                  // 포커스가 벗어났을 때 즉시 재포커스 (안드로이드에서 더 빠른 응답)
+                  try {
+                    _htmlController.setFocus();
+                    await SystemChannels.textInput.invokeMethod('TextInput.show');
+                  } catch (e) {
+                    print('재포커스 실패: $e');
+                    // 실패 시 약간의 지연 후 재시도
+                    await Future.delayed(const Duration(milliseconds: 200));
+                    try {
+                      _htmlController.setFocus();
+                      await SystemChannels.textInput.invokeMethod('TextInput.show');
+                    } catch (e2) {
+                      print('재포커스 재시도 실패: $e2');
+                    }
+                  }
+                },
+                onInit: () async {
+                  print('HTML 에디터 초기화 완료');
+                  // 초기화 후 포커스 설정 (안드로이드에서 더 긴 지연)
+                  await Future.delayed(const Duration(milliseconds: 800));
+                  try {
+                    _htmlController.setFocus();
+                    await SystemChannels.textInput.invokeMethod('TextInput.show');
+                    // 포커스 유지 타이머 시작
+                    _maintainFocus();
+                  } catch (e) {
+                    print('초기 포커스 설정 실패: $e');
+                    // 실패 시 재시도
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    try {
+                      _htmlController.setFocus();
+                      await SystemChannels.textInput.invokeMethod('TextInput.show');
+                      _maintainFocus();
+                    } catch (e2) {
+                      print('초기 포커스 재시도 실패: $e2');
+                    }
+                  }
+                },
+              ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            otherOptions: const OtherOptions(),
           ),
         ),
       ],
@@ -1643,19 +1739,22 @@ class _WritingScreenState extends State<WritingScreen>
     });
     
     // HTML 에디터가 로딩될 때까지 대기
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 800));
     
     try {
       // HTML 컨텐츠 로드
       _htmlController.setText(file.content);
       
       // 에디터에 포커스 설정 및 커서를 1행1열로 위치
-      await Future.delayed(const Duration(milliseconds: 300));
-      _htmlController.setFocus();
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _focusEditorAndShowKeyboard();
       
       // 파일 내용에 따라 커서 위치 설정
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 300));
       _positionCursorForContent(file.content);
+      
+      // 추가 포커스 유지를 위한 타이머 설정
+      _maintainFocus();
       
     } catch (e) {
       print('HTML 에디터 로딩 에러: $e');
@@ -1663,7 +1762,8 @@ class _WritingScreenState extends State<WritingScreen>
       await Future.delayed(const Duration(milliseconds: 1000));
       try {
         _htmlController.setText(file.content);
-        _htmlController.setFocus();
+        await _focusEditorAndShowKeyboard();
+        _maintainFocus();
       } catch (e2) {
         print('HTML 에디터 로딩 재시도 실패: $e2');
       }
@@ -1910,6 +2010,9 @@ class _WritingScreenState extends State<WritingScreen>
           _isEditing = false;
           _currentTextFile = null;
         });
+        
+        // 포커스 유지 타이머 정리
+        _focusTimer?.cancel();
         
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
         

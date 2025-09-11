@@ -127,31 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              children: [
-                if (appState.selectedLitten != null) ...[
-                  // 리튼이 선택된 경우: 선택된 리튼 이름 표시
-                  Expanded(
-                    child: Text(
-                      appState.selectedLitten!.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ] else ...[
-                  // 리튼이 선택되지 않은 경우: 빈 공간
-                  const SizedBox.shrink(),
-                ],
-              ],
-            ),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-          ),
+          appBar: null,
           body: Column(
             children: [
               // 상단 50% - 캘린더
@@ -159,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 flex: 1,
                 child: _buildCalendarSection(appState, l10n),
               ),
-              // 하단 50% - 선택된 날짜의 리튼 리스트
+              // 하단 50% - 리튼 리스트
               Expanded(
                 flex: 1,
                 child: _buildLittenListSection(appState, l10n),
@@ -243,15 +219,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // 캘린더 섹션 빌드
   Widget _buildCalendarSection(AppStateProvider appState, AppLocalizations? l10n) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.paddingM.left),
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingM.left,
+        right: AppSpacing.paddingM.left,
+        top: 0,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
-        ),
       ),
       child: Column(
         children: [
@@ -473,7 +447,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final selectedDateLittens = appState.littensForSelectedDate;
     
     return Container(
-      padding: EdgeInsets.all(AppSpacing.paddingM.left),
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingM.left,
+        right: AppSpacing.paddingM.left,
+        bottom: AppSpacing.paddingM.left,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -487,23 +465,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     actionText: l10n?.createLitten ?? '리튼 생성',
                     onAction: _showCreateLittenDialog,
                   )
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      await appState.refreshLittens();
-                    },
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      itemCount: selectedDateLittens.length,
-                      itemBuilder: (context, index) {
-                        final litten = selectedDateLittens[index];
-                        return LittenItem(
-                          litten: litten,
-                          isSelected: appState.selectedLitten?.id == litten.id,
-                          onTap: () => appState.selectLitten(litten),
-                          onDelete: () => _showDeleteDialog(litten.id, litten.title),
-                          onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
-                        );
+                : Scrollbar(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        await appState.refreshLittens();
                       },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: selectedDateLittens.length,
+                        itemBuilder: (context, index) {
+                          final litten = selectedDateLittens[index];
+                          return LittenItem(
+                            litten: litten,
+                            isSelected: appState.selectedLitten?.id == litten.id,
+                            onTap: () => appState.selectLitten(litten),
+                            onDelete: () => _showDeleteDialog(litten.id, litten.title),
+                            onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
+                          );
+                        },
+                      ),
                     ),
                   ),
           ),

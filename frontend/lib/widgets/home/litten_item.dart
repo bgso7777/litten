@@ -50,10 +50,10 @@ class LittenItem extends StatelessWidget {
       childWhenDragging: Opacity(
         opacity: 0.5,
         child: Card(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: EdgeInsets.only(bottom: AppSpacing.s),
           elevation: 1,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             side: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           child: InkWell(
@@ -61,21 +61,21 @@ class LittenItem extends StatelessWidget {
             onLongPress: onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: AppSpacing.paddingL,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
               child: Row(
                 children: [
                   // Leading icon
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
                       Icons.folder_outlined,
                       color: Colors.grey.shade400,
-                      size: 24,
+                      size: 20,
                     ),
                   ),
                   AppSpacing.horizontalSpaceM,
@@ -169,10 +169,10 @@ class LittenItem extends StatelessWidget {
         ),
       ),
       child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: AppSpacing.s),
         elevation: isSelected ? 4 : 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           side: isSelected
               ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
               : BorderSide.none,
@@ -182,21 +182,21 @@ class LittenItem extends StatelessWidget {
           onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: AppSpacing.paddingL,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
             child: Row(
             children: [
               // Leading icon
               Container(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(
                   Icons.folder_outlined,
                   color: Theme.of(context).primaryColor,
-                  size: 24,
+                  size: 20,
                 ),
               ),
               AppSpacing.horizontalSpaceM,
