@@ -12,6 +12,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'dart:collection';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -86,26 +87,11 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Timer? _focusTimer;
+  bool _isInitialFocusSet = false;
 
   void _maintainFocus() {
-    // 기존 타이머가 있으면 취소
-    _focusTimer?.cancel();
-    
-    // 안드로이드에서 더 자주 포커스 확인 및 유지 (500ms마다)
-    _focusTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (_isEditing && _currentTextFile != null) {
-        try {
-          _htmlController.setFocus();
-          // 키보드도 계속 표시하도록 유지
-          SystemChannels.textInput.invokeMethod('TextInput.show');
-        } catch (e) {
-          print('포커스 유지 실패: $e');
-        }
-      } else {
-        // 편집 모드가 아니면 타이머 중지
-        timer.cancel();
-      }
-    });
+    // 포커스 유지 로직 단순화 - 불안정한 타이머 제거
+    print('포커스 유지 메서드 호출됨 (단순화된 버전)');
   }
 
   @override
@@ -514,6 +500,7 @@ class _WritingScreenState extends State<WritingScreen>
       setState(() {
         _currentTextFile = newTextFile;
         _isEditing = true;
+        _isInitialFocusSet = false; // 새 파일이므로 포커스 상태 초기화
       });
       
       // 새 텍스트 파일이므로 포커스 및 커서 위치 설정
@@ -1228,6 +1215,7 @@ class _WritingScreenState extends State<WritingScreen>
                   setState(() {
                     _isEditing = false;
                     _currentTextFile = null;
+                    _isInitialFocusSet = false; // 포커스 상태 초기화
                   });
                   // 포커스 유지 타이머 정리
                   _focusTimer?.cancel();
@@ -1275,10 +1263,22 @@ class _WritingScreenState extends State<WritingScreen>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return GestureDetector(
-                    onTap: () {
-                      // 터치 시 포커스 설정
-                      _htmlController.setFocus();
-                      SystemChannels.textInput.invokeMethod('TextInput.show');
+                    onTap: () async {
+                      // 터치 시 포커스 설정 및 입력 활성화
+                      print('에디터 터치됨 - 포커스 설정 시작');
+                      try {
+                        _htmlController.setFocus();
+                        await SystemChannels.textInput.invokeMethod('TextInput.show');
+                        // 추가적인 입력 활성화
+                        await Future.delayed(const Duration(milliseconds: 100));
+                        await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {
+                          'inputType': {'name': 'TextInputType.text'},
+                          'inputAction': 'TextInputAction.done',
+                        }]);
+                        print('포커스 및 입력 활성화 완료');
+                      } catch (e) {
+                        print('터치 포커스 설정 실패: $e');
+                      }
                     },
                     child: SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
@@ -1295,6 +1295,44 @@ class _WritingScreenState extends State<WritingScreen>
                           autoAdjustHeight: true,
                           spellCheck: true,
                           characterLimit: null,
+                          // 실제 디바이스에서 입력 이벤트 처리를 위한 추가 설정
+                          webInitialScripts: UnmodifiableListView([
+                            WebScript(
+                              name: 'inputEnhancement',
+                              script: '''
+                                // 포커스 및 입력 이벤트 강화
+                                document.addEventListener('DOMContentLoaded', function() {
+                                  const editor = document.querySelector('.ql-editor');
+                                  if (editor) {
+                                    // 입력 이벤트 리스너 강화
+                                    editor.addEventListener('input', function(e) {
+                                      console.log('Input event triggered:', e.data);
+                                    });
+                                    
+                                    // 키보드 이벤트 리스너 추가
+                                    editor.addEventListener('keydown', function(e) {
+                                      console.log('Keydown event:', e.key);
+                                    });
+                                    
+                                    // 터치 이벤트로 포커스 강제 설정
+                                    editor.addEventListener('touchstart', function() {
+                                      editor.focus();
+                                      console.log('Touch focus set');
+                                    });
+                                    
+                                    // IME 입력 지원
+                                    editor.addEventListener('compositionstart', function() {
+                                      console.log('Composition start');
+                                    });
+                                    
+                                    editor.addEventListener('compositionend', function() {
+                                      console.log('Composition end');
+                                    });
+                                  }
+                                });
+                              ''',
+                            ),
+                          ]),
                         ),
               htmlToolbarOptions: HtmlToolbarOptions(
                 toolbarPosition: ToolbarPosition.aboveEditor,
@@ -1348,49 +1386,47 @@ class _WritingScreenState extends State<WritingScreen>
               callbacks: Callbacks(
                 onFocus: () async {
                   print('HTML 에디터 포커스됨');
-                  // 안드로이드에서 키보드 표시 강화
-                  await SystemChannels.textInput.invokeMethod('TextInput.show');
-                  // 포커스 유지 타이머 시작
-                  _maintainFocus();
+                  _isInitialFocusSet = true;
+                  // 실제 디바이스에서 키보드 표시 및 입력 활성화
+                  try {
+                    await SystemChannels.textInput.invokeMethod('TextInput.show');
+                    // 추가적인 키보드 활성화 시도
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {}]);
+                  } catch (e) {
+                    print('키보드 표시 실패: $e');
+                  }
                 },
                 onBlur: () async {
-                  print('HTML 에디터 포커스 아웃됨 - 재포커스 시도');
-                  // 포커스가 벗어났을 때 즉시 재포커스 (안드로이드에서 더 빠른 응답)
-                  try {
-                    _htmlController.setFocus();
-                    await SystemChannels.textInput.invokeMethod('TextInput.show');
-                  } catch (e) {
-                    print('재포커스 실패: $e');
-                    // 실패 시 약간의 지연 후 재시도
-                    await Future.delayed(const Duration(milliseconds: 200));
+                  print('HTML 에디터 포커스 아웃됨');
+                  _isInitialFocusSet = false;
+                  // 실제 디바이스에서 포커스 복구
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  if (_isEditing && _currentTextFile != null) {
                     try {
                       _htmlController.setFocus();
                       await SystemChannels.textInput.invokeMethod('TextInput.show');
-                    } catch (e2) {
-                      print('재포커스 재시도 실패: $e2');
+                    } catch (e) {
+                      print('포커스 복구 실패: $e');
                     }
                   }
                 },
                 onInit: () async {
                   print('HTML 에디터 초기화 완료');
-                  // 초기화 후 포커스 설정 (안드로이드에서 더 긴 지연)
-                  await Future.delayed(const Duration(milliseconds: 800));
+                  // 초기화 후 포커스 설정
+                  await Future.delayed(const Duration(milliseconds: 1500));
                   try {
                     _htmlController.setFocus();
                     await SystemChannels.textInput.invokeMethod('TextInput.show');
-                    // 포커스 유지 타이머 시작
-                    _maintainFocus();
+                    // 입력 클라이언트 설정
+                    await Future.delayed(const Duration(milliseconds: 200));
+                    await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {
+                      'inputType': {'name': 'TextInputType.text'},
+                      'inputAction': 'TextInputAction.done',
+                    }]);
+                    _maintainFocus(); // 포커스 유지 타이머 시작
                   } catch (e) {
                     print('초기 포커스 설정 실패: $e');
-                    // 실패 시 재시도
-                    await Future.delayed(const Duration(milliseconds: 500));
-                    try {
-                      _htmlController.setFocus();
-                      await SystemChannels.textInput.invokeMethod('TextInput.show');
-                      _maintainFocus();
-                    } catch (e2) {
-                      print('초기 포커스 재시도 실패: $e2');
-                    }
                   }
                 },
               ),
@@ -1736,6 +1772,7 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() {
       _currentTextFile = file;
       _isEditing = true;
+      _isInitialFocusSet = false; // 기존 파일 편집 시에도 포커스 상태 초기화
     });
     
     // HTML 에디터가 로딩될 때까지 대기
@@ -1965,8 +2002,15 @@ class _WritingScreenState extends State<WritingScreen>
       try {
         print('디버그: 텍스트 파일 저장 시작 - ${_currentTextFile!.displayTitle}');
         
-        final htmlContent = await _htmlController.getText();
-        print('디버그: HTML 내용 로드됨 - 길이: ${htmlContent.length}자');
+        // HTML 콘텐츠 가져오기 - 실패 시 현재 저장된 콘텐츠 사용
+        String htmlContent = '';
+        try {
+          htmlContent = await _htmlController.getText();
+          print('디버그: HTML 내용 로드됨 - 길이: ${htmlContent.length}자');
+        } catch (e) {
+          print('경고: HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
+          htmlContent = _currentTextFile?.content ?? '';
+        }
         
         // 빈 내용이어도 저장 가능하도록 수정
         final updatedFile = _currentTextFile!.copyWith(
@@ -2009,6 +2053,7 @@ class _WritingScreenState extends State<WritingScreen>
         setState(() {
           _isEditing = false;
           _currentTextFile = null;
+          _isInitialFocusSet = false; // 저장 시 포커스 상태 초기화
         });
         
         // 포커스 유지 타이머 정리

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(flutter clean:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(export:*)",
+      "Bash(flutter:*)",
+      "Bash(/mnt/c/src/flutter/bin/flutter --version)",
+      "Bash(\"/mnt/c/src/flutter/bin/flutter.exe\" doctor)",
+      "Read(//mnt/c/**)",
+      "Bash(/mnt/c/src/flutter/bin/flutter doctor -v)",
+      "Bash(cmd.exe /c \"cd /d C:\\work\\litten\\3.development\\litten\\frontend && C:\\src\\flutter\\bin\\flutter.bat doctor\")",
+      "Bash(cmd.exe /c \"cd /d C:\\work\\litten\\3.development\\litten\\frontend && C:\\src\\flutter\\bin\\flutter.bat clean\")",
+      "Bash(cmd.exe:*)",
+      "Bash(/mnt/c/src/flutter/bin/flutter devices)",
+      "Bash(/mnt/c/src/flutter/bin/flutter emulators)",
+      "Bash(git checkout:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

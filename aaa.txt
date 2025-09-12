@@ -1,135 +1,666 @@
-에뮬레이터에서 실행된 앱이 있으면 죽이고
-재빌드하고 aos, ios 에뮬레이터에서 실행해줘.
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
+import 'package:html_editor_enhanced/html_editor.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:pdf_render/pdf_render.dart';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:io';
+import '../config/app_localizations_temp.dart';
 
-aos, ios 에뮬레이터에서 실행된 앱 죽이고 
-새 기능이 추가된 버젼의 앱으로 다시 실행해줘
+import '../services/app_state_provider.dart';
+import '../widgets/common/empty_state.dart';
+import '../config/themes.dart';
 
-===================================================================
-===================================================================
-===================================================================
+class WritingScreen extends StatefulWidget {
+  const WritingScreen({super.key});
 
-/session-start
-/session-current
+  @override
+  State<WritingScreen> createState() => _WritingScreenState();
+}
 
-9
----------------------------------------
-주석 처리된 pdf_render를 flutter_pdfview로 대체해줘 참고 url은 
-https://pub.dev/packages/flutter_pdfview
+class _WritingScreenState extends State<WritingScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late HtmlEditorController _htmlController;
+  late PainterController _painterController;
+  WritingMode _currentMode = WritingMode.text;
+  
+  // 필기 모드 관련 상태
+  Color _selectedColor = Colors.black;
+  double _strokeWidth = 2.0;
+  List<Uint8List>? _pdfPages;
+  int _currentPdfPage = 0;
+  String? _backgroundImagePath;
+  String _selectedTool = '펜';
 
+  @override
+  void initState() {
+    super.initState();
+    _htmlController = HtmlEditorController();
+    _painterController = PainterController();
+    
+    // 초기 펜 모드 설정
+    _painterController.freeStyleMode = FreeStyleMode.draw;
+    _painterController.freeStyleStrokeWidth = _strokeWidth;
+    _painterController.freeStyleColor = _selectedColor;
+    
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index != _currentMode.index) {
+        setState(() {
+          _currentMode = WritingMode.values[_tabController.index];
+        });
+      }
+    });
+  }
 
-91 
----------------------------------------
-언어 선택 시 각 버튼의 언어 확인
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-92
----------------------------------------
-admob 
-ca-app-pub-1275753776511005~7110423892
-ca-app-pub-1275753776511005/3011396787
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    
+    return Consumer<AppStateProvider>(
+      builder: (context, appState, child) {
+        if (appState.selectedLitten == null) {
+          return EmptyState(
+            icon: Icons.edit_note,
+            title: '리튼을 선택해주세요',
+            description: '쓰기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
+            actionText: '홈으로 이동',
+            onAction: () => appState.changeTabIndex(0),
+          );
+        }
 
+        return Column(
+          children: [
+            // 음성-쓰기 동기화 상태 표시
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                border: Border(
+                  bottom: BorderSide(color: Colors.blue.shade100),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.sync, color: Colors.blue.shade600, size: 16),
+                  AppSpacing.horizontalSpaceS,
+                  Text(
+                    '음성 동기화 준비됨',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '00:00',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 모드 선택 탭
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade200),
+                ),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Theme.of(context).primaryColor,
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.text_fields),
+                    text: l10n?.textWriting ?? '텍스트 쓰기',
+                  ),
+                  Tab(
+                    icon: const Icon(Icons.draw),
+                    text: l10n?.handwriting ?? '필기',
+                  ),
+                ],
+              ),
+            ),
+            // 콘텐츠 영역
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTextWritingMode(),
+                  _buildHandwritingMode(),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-/session-update
-/session-end
+  Widget _buildTextWritingMode() {
+    return Column(
+      children: [
+        // HTML 에디터
+        Expanded(
+          child: HtmlEditor(
+            controller: _htmlController,
+            htmlEditorOptions: HtmlEditorOptions(
+              hint: '여기에 텍스트를 입력하세요...\n\n🎙️ 음성 동기화 마커를 사용할 수 있습니다.',
+              shouldEnsureVisible: true,
+              initialText: "",
+              adjustHeightForKeyboard: true,
+              darkMode: Theme.of(context).brightness == Brightness.dark,
+              autoAdjustHeight: false,
+            ),
+            htmlToolbarOptions: const HtmlToolbarOptions(
+              toolbarPosition: ToolbarPosition.aboveEditor,
+              toolbarType: ToolbarType.nativeExpandable,
+              defaultToolbarButtons: [
+                StyleButtons(style: false),
+                FontSettingButtons(
+                  fontName: false,
+                  fontSize: true,
+                  fontSizeUnit: false,
+                ),
+                FontButtons(
+                  bold: true,
+                  italic: true,
+                  underline: true,
+                  clearAll: false,
+                  strikethrough: false,
+                  subscript: false,
+                  superscript: false,
+                ),
+                ColorButtons(
+                  foregroundColor: true,
+                  highlightColor: true,
+                ),
+                ParagraphButtons(
+                  textDirection: false,
+                  lineHeight: false,
+                  caseConverter: false,
+                  alignLeft: true,
+                  alignCenter: true,
+                  alignRight: true,
+                  alignJustify: false,
+                  decreaseIndent: false,
+                  increaseIndent: false,
+                ),
+                ListButtons(
+                  ul: true,
+                  ol: true,
+                  listStyles: false,
+                ),
+                InsertButtons(
+                  link: true,
+                  picture: false,
+                  audio: false,
+                  video: false,
+                  otherFile: false,
+                  table: false,
+                  hr: true,
+                ),
+                OtherButtons(
+                  fullscreen: false,
+                  codeview: false,
+                  undo: true,
+                  redo: true,
+                  help: false,
+                ),
+              ],
+            ),
+            otherOptions: const OtherOptions(
+              height: 300,
+            ),
+          ),
+        ),
+        // 저장 버튼
+        Container(
+          padding: AppSpacing.paddingL,
+          child: ElevatedButton(
+            onPressed: () async {
+              final htmlText = await _htmlController.getText();
+              if (htmlText.isNotEmpty) {
+                _saveTextContent(htmlText);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('텍스트가 저장되었습니다.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('저장'),
+          ),
+        ),
+      ],
+    );
+  }
 
-git commit push ""
+  Widget _buildHandwritingMode() {
+    return Column(
+      children: [
+        // 파일 로드 버튼들
+        Container(
+          padding: AppSpacing.paddingM,
+          child: Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: _loadPdfFile,
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('PDF 로드'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(100, 36),
+                ),
+              ),
+              AppSpacing.horizontalSpaceM,
+              ElevatedButton.icon(
+                onPressed: _loadImageFile,
+                icon: const Icon(Icons.image),
+                label: const Text('이미지 로드'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(100, 36),
+                ),
+              ),
+              const Spacer(),
+              if (_pdfPages != null && _pdfPages!.length > 1) ...[
+                Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
+                AppSpacing.horizontalSpaceS,
+                IconButton(
+                  onPressed: _currentPdfPage > 0 ? () async {
+                    setState(() {
+                      _currentPdfPage--;
+                    });
+                    // 새 페이지를 배경으로 설정
+                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                    print('DEBUG: PDF 페이지 변경 - ${_currentPdfPage + 1}/${_pdfPages!.length}');
+                  } : null,
+                  icon: const Icon(Icons.navigate_before),
+                ),
+                IconButton(
+                  onPressed: _currentPdfPage < _pdfPages!.length - 1 ? () async {
+                    setState(() {
+                      _currentPdfPage++;
+                    });
+                    // 새 페이지를 배경으로 설정
+                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                    print('DEBUG: PDF 페이지 변경 - ${_currentPdfPage + 1}/${_pdfPages!.length}');
+                  } : null,
+                  icon: const Icon(Icons.navigate_next),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // 캔버스 영역
+        Expanded(
+          child: Container(
+            margin: AppSpacing.paddingL,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _buildPainterWidget(),
+            ),
+          ),
+        ),
+        // 필기 도구 패널
+        Container(
+          height: 120,
+          padding: AppSpacing.paddingL,
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // 도구바
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
+                  _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
+                  _buildDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
+                  _buildDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
+                  _buildDrawingTool(Icons.clear, '초기화', false),
+                ],
+              ),
+              AppSpacing.verticalSpaceM,
+              // 색상 팔레트
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildColorOption(Colors.black, _selectedColor == Colors.black),
+                  _buildColorOption(Colors.red, _selectedColor == Colors.red),
+                  _buildColorOption(Colors.blue, _selectedColor == Colors.blue),
+                  _buildColorOption(Colors.green, _selectedColor == Colors.green),
+                  _buildColorOption(Colors.yellow, _selectedColor == Colors.yellow),
+                  _buildColorOption(Colors.orange, _selectedColor == Colors.orange),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
+  Widget _buildPainterWidget() {
+    return Container(
+      color: Colors.white,
+      child: FlutterPainter(
+        controller: _painterController,
+      ),
+    );
+  }
 
+  Future<void> _saveTextContent(String htmlContent) async {
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+      
+      if (selectedLitten != null) {
+        // TODO: 실제 파일 저장 로직 구현
+        // 현재는 시뮬레이션으로 처리
+        print('DEBUG: 텍스트 파일 저장 - Litten: ${selectedLitten.title}');
+        print('DEBUG: HTML 콘텐츠 길이: ${htmlContent.length}');
+        print('DEBUG: HTML 콘텐츠 미리보기: ${htmlContent.substring(0, htmlContent.length > 100 ? 100 : htmlContent.length)}...');
+        
+        // 향후 TextFile 모델에 저장하는 로직으로 교체 예정
+      }
+    } catch (e) {
+      print('ERROR: 텍스트 저장 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('텍스트 저장에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-===================================================================
-===================================================================
-===================================================================
+  Future<void> _loadPdfFile() async {
+    try {
+      print('DEBUG: PDF 파일 선택 시작');
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
 
+      if (result != null && result.files.single.bytes != null) {
+        print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
+        
+        final pdfData = result.files.single.bytes!;
+        final document = await PdfDocument.openData(pdfData);
+        print('DEBUG: PDF 문서 열기 성공 - 총 ${document.pageCount}페이지');
+        
+        List<Uint8List> pages = [];
+        
+        // 모든 페이지를 Uint8List로 변환
+        for (int i = 0; i < document.pageCount; i++) {
+          final page = await document.getPage(i + 1);
+          final pageImage = await page.render(
+            width: (page.width * 2).toInt(), // 해상도 2배로 향상
+            height: (page.height * 2).toInt(),
+          );
+          
+          // PdfPageImage를 직접 사용하여 ui.Image 생성
+          await pageImage.createImageIfNotAvailable();
+          final uiImage = pageImage.imageIfAvailable;
+          
+          if (uiImage != null) {
+            // ui.Image를 PNG bytes로 변환
+            final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.png);
+            final imageBytes = byteData!.buffer.asUint8List();
+            pages.add(imageBytes);
+            print('DEBUG: 페이지 ${i + 1} 렌더링 완료');
+          }
+        }
+        
+        // 첫 번째 페이지를 배경으로 설정
+        if (pages.isNotEmpty) {
+          await _setBackgroundFromBytes(pages.first);
+        }
+        
+        setState(() {
+          _pdfPages = pages;
+          _currentPdfPage = 0;
+          _backgroundImagePath = null;
+        });
+        
+        print('DEBUG: PDF→PNG 변환 완료');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('PDF 파일 로드 완료 (${pages.length}페이지)'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('ERROR: PDF 로드 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF 파일 로드에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-8
----------------------------------------
-쓰기탭에서는 텍스트 쓰기 필기에서 저장한 파일 목록이 나와야해.
-상하로 구분해서 텍스트 쓰기, 필기 파일들이 나와야 해
-그리고 텍스트 쓰기 버튼과 필기 버튼이 있어야 하고 텍스트 쓰기 
-버튼을 누르면 텍스트 쓰기 창이 나와야 하고, 필기 버튼을 누르면
-로컬에 있는 pdf파일을 png로 변환하는 기능이 있어야 하고 변환 후
-해당 파일을 선택할 수 있게 목록에 나와야해.  
+  Future<void> _setBackgroundFromBytes(Uint8List imageBytes) async {
+    try {
+      // Uint8List를 ui.Image로 변환 후 배경으로 설정
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final frameInfo = await codec.getNextFrame();
+      final uiImage = frameInfo.image;
+      
+      // 배경으로 설정
+      _painterController.background = uiImage.backgroundDrawable;
+      print('DEBUG: 배경 이미지 설정 완료');
+    } catch (e) {
+      print('ERROR: 배경 이미지 설정 실패 - $e');
+    }
+  }
 
-듣기탭에서 "녹음 시작"을 "듣기 시작"으로 바꿔줘.
-"녹음 중지"는 "듣기 중지"로 바꿔줘.
-듣기 파일 이름을 "듣기1", "듣기2" .... 에서 
-"듣기"+년월일시분 으로 바꿔줘.
+  Future<void> _loadImageFile() async {
+    try {
+      print('DEBUG: 이미지 파일 선택 시작');
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
 
-듣기중 일때 나오는 hh:mm이 쓰기탭의 상위에 있는 동기화 듣기
-hh:mm에도 동일하게 나와야해. 
+      if (result != null && result.files.single.bytes != null) {
+        final imageBytes = result.files.single.bytes!;
+        print('DEBUG: 이미지 파일 선택됨 - ${result.files.single.name}');
+        
+        // 배경으로 설정
+        await _setBackgroundFromBytes(imageBytes);
+        
+        setState(() {
+          _backgroundImagePath = null;
+          _pdfPages = null;
+          _currentPdfPage = 0;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미지 파일 로드 완료'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('ERROR: 이미지 로드 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지 파일 로드에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-듣기 동기화 부분은 듣기탭에도 쓰기 탭과 동일하게 나오게 해줘.
-쓰기탭의 "텍스트 쓰기", "필기" 버튼을 아래로 배치해주고. 
-텍스트 쓰기의 툴바가 펼치기를 없애주고 2라인에 모두 표시되게 해줘.
+  Widget _buildDrawingTool(IconData icon, String label, bool isSelected) {
+    return GestureDetector(
+      onTap: () => _selectDrawingTool(label),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.grey.shade600,
+              size: 20,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-듣기탭의 "듣기 시작" "듣기 중지" 버튼의 색을 쓰기탭의 버튼과 동일한 색으로 바꿔줘.
-"듣기 시작" "듣기 중지" 위치를 홈탭의 "+" 처럼 우측으로 배치해줘.
-듣기중일때 "듣기 중... hh:mm" 삭제해도 되.
-듣기 동기화 부분도 검은색으로 바꿔줘.
+  void _selectDrawingTool(String tool) {
+    print('DEBUG: 그리기 도구 선택 - $tool');
+    
+    setState(() {
+      _selectedTool = tool;
+      
+      switch (tool) {
+        case '펜':
+          // 자유 그리기 모드 - FreeStyleDrawable 추가 설정
+          _painterController.freeStyleMode = FreeStyleMode.draw;
+          _painterController.freeStyleStrokeWidth = _strokeWidth;
+          _painterController.freeStyleColor = _selectedColor;
+          print('DEBUG: 펜 모드 설정 - 색상: $_selectedColor, 두께: $_strokeWidth');
+          break;
+        case '하이라이터':
+          // 하이라이터 모드
+          _painterController.freeStyleMode = FreeStyleMode.draw;
+          _painterController.freeStyleStrokeWidth = _strokeWidth * 3;
+          _painterController.freeStyleColor = _selectedColor.withOpacity(0.5);
+          print('DEBUG: 하이라이터 모드 설정');
+          break;
+        case '지우개':
+          // 지우개 모드
+          _painterController.freeStyleMode = FreeStyleMode.erase;
+          _painterController.freeStyleStrokeWidth = _strokeWidth * 4;
+          print('DEBUG: 지우개 모드 설정');
+          break;
+        case '도형':
+          // 도형 그리기 모드 - ShapeFactory 설정
+          _painterController.shapeFactory = RectangleFactory();
+          print('DEBUG: 도형 모드 설정');
+          break;
+        case '초기화':
+          _painterController.clearDrawables();
+          print('DEBUG: 캔버스 초기화');
+          break;
+      }
+    });
+    
+    print('DEBUG: 그리기 도구 변경됨 - $tool');
+  }
 
-쓰기 탭으로 되돌아 왔을 때 파일 리스트가 보여야 하는데 모두 사라져 
-파일이 사라지는게 아닌지 체크하고 삭제 버튼을 누르기 전까지 삭제되면 안되.
+  Widget _buildColorOption(Color color, bool isSelected) {
+    return GestureDetector(
+      onTap: () => _selectColor(color),
+      child: Container(
+        width: 24,
+        height: 24,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: isSelected
+              ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+              : Border.all(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
 
-"텍스트 쓰기" "필기" 후 저장 버튼을 누르면 해당 내용이 저장되어야 해. 
-어떤 탭을 갔다가 오더라고 해당 필일이 지워지면 안되.
+  void _selectColor(Color color) {
+    print('DEBUG: 색상 선택 - $color');
+    
+    setState(() {
+      _selectedColor = color;
+      
+      // 현재 선택된 도구에 새 색상 적용
+      switch (_selectedTool) {
+        case '펜':
+          _painterController.freeStyleColor = _selectedColor;
+          break;
+        case '하이라이터':
+          _painterController.freeStyleColor = _selectedColor.withOpacity(0.5);
+          break;
+        case '도형':
+          _painterController.shapeFactory = RectangleFactory();
+          break;
+      }
+    });
+    
+    print('DEBUG: 색상 변경됨 - $color, 도구: $_selectedTool');
+  }
+}
 
-
-7
----------------------------------------
-온보드에서 언어 선택 후 테마 화면에는 선택된 언어로 나와야지 
-보드에서 언어 선택 후 테마 화면이 선택된 언어로 나와야 하는데 한글로 나오는 버그. 기본 리튼들이 영어로 선택했을 때 해당 언어로 나오는데 다른 언어 프랑스로 선택했을 때 해당 언으로 나오지 않음. 온보의 테마와 홈탭의 기본리튼들을 해당 선택 언어에 따라 처리해줘
-온보딩 화면에서 첫 화면이 시스템에 설정된 언어로 되있어야 해 정의되어 있지 않을 경우는 영어이고, 언어를 바꿨을 때 첫 화면으로 가지 말고 그냥 바로 테마 선택으로 넘어가고
-온보딩 화면에서 언어를 바꿨을 때 첫 화면으로 가는데 그 첫 화면이 선택된 언어로 표시해야해 그래야 어떤 앱인지 사용자들이 이해할 수 있지.
-어 한국어 프랑스 어만 제대로 나오거든 나머지 언어들도 27개 언어들도 처리해줘야지
-남은 16개 언어도 해야지.
-기본 리튼 만드는 시점을 테마 선택 완료 시점으로 바꿔줘
-온보드 언어 선택 화면에서는 선택된 언어가 가장 위로 와야해.
-
-6
----------------------------------------
-듣기탭의 녹음 시작 버튼을 듣기 시작으로 바꿔줘. 녹음 중지 버튼을 듣기 중지로 바꾸고. 
-듣기 중 다른 탭에나 다른앱으로 이동했을 때에도 중단되지 말고 사용자가 듣기 중지 버튼을 누를 때만 중지해야 해. 
-듣기 중지 버튼을 누르면 해당 파일이 저장되게 하고 듣기 목록에서 선택해서 다시 듣기가 가능해야 해.
-듣기 목록의 파일명은 듣기1, 듣기2 .... 순서대로 해주고 재생 중에는 중지하거나 다른 배속으로 듣기가 가능해야 하고.
-
-아직도 해결 안된 문제 및 버그 
-듣기탭의 녹음 시작 버튼을 듣기 시작으로 바꿔줘. 녹음 중지 버튼을 듣기 중지로 바꾸고. 
-ios에서 "듣기 시작에 실패 했습니다. 권한을 확인해주세요." 메시지
-
-설정에서 언어를 바꾸면 앱내 모든 버튼들도 해당 언어로 바꿔줘.
-
-5
----------------------------------------
-그럼 pdf_render 관련된 부분만 주석처리하고 다시 빌드
-
-4
----------------------------------------
-홈탭에서 +버튼으로 리튼 생성할 때 설명은 입력 안받아도되.
-홈탭에서 리튼을 길게 누르면 해당 리튼의 이름을 바꿀 수 있도록 해줘.
-설정탭에서 언어를 선택하면 앱에 표시되는 문자들이 해당 언어로
-안바뀌고 한글로 되어있는데. 언어를 선택하면 해당 언어로 앱내에
-모두 표시해줘.
-
-3
----------------------------------------
-첫 사용자들이 보고 사용법을 익힐 수 있도록 하게 하려고 하거든
-홈 화면에 기본리튼, 강의, 회의을 디폴트로 만들어줘. 순서도 
-기본리튼, 강의, 회의 순서이고 리튼의 리스트는 최근 것이 제일 
-아래로 와야해 즉 홈, 듣기, 쓰기 설정이 있는 곳이 리튼이 최신
-이야. 그리고 리튼의 수가 한페이지를 넘어가면 자동으로 스크롤이
-생기게하고 최근 것을 보여 줘야해. 기본리튼은 리튼을 선택하지 
-않고 생성하는 듣기나, 쓰기를했을 때 그 파일들을 기본리튼으로 
-저장 시켜줘.  
-
-2
----------------------------------------
-첫 실행이면 온보드 화면에서 언어와 테마를 선택할 수 있게 해줘.
-온보드 화면에서의 언어는 그 시스템에 설정된 언어로 해주고
-개발 다 됐으면 재빌드하고 ios 에뮬레이터에서 실행해줘.
-
-1
----------------------------------------
-"./READMD.md ./CLAUDE.md ./1_idea.txt ./2_planning.txt ./3_design_frontend.txt"를 읽고
-1차 버젼을 frontend에 만들고 ios 에뮬레이터에서 실행해줘 
-개발시 아키텍쳐를 반드시 숙지해야해 왜냐하면 개발한 소스로 다음 버젼을 만들거니까.
-특히 쓰기 기능에 텍스트 쓰기는 html-editor-enhanced 모듈을 사용해야 하고 
-필기는 pdf를 png로 변환하여 flutter_painter_v2 모듈을 사용해서 필기가 가능해야 해.
+enum WritingMode {
+  text,
+  handwriting,
+}
