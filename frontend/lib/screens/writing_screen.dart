@@ -48,6 +48,11 @@ class _WritingScreenState extends State<WritingScreen>
   double _strokeWidth = 2.0;
   List<Uint8List>? _pdfPages;
   int _currentPdfPage = 0;
+  
+  // 툴바 상태 관리
+  bool _isBoldActive = false;
+  bool _isItalicActive = false;
+  bool _isUnderlineActive = false;
   String? _backgroundImagePath;
   String _selectedTool = '펜';
   bool _showAdvancedTools = false;
@@ -75,24 +80,7 @@ class _WritingScreenState extends State<WritingScreen>
     _loadFiles();
   }
 
-  Future<void> _focusEditorAndShowKeyboard() async {
-    try {
-      _htmlController.setFocus();
-      await SystemChannels.textInput.invokeMethod('TextInput.show');
-    } catch (e) {
-      if (kDebugMode) {
-        print('키보드 표시 실패 또는 포커스 실패: $e');
-      }
-    }
-  }
-
   Timer? _focusTimer;
-  bool _isInitialFocusSet = false;
-
-  void _maintainFocus() {
-    // 포커스 유지 로직 단순화 - 불안정한 타이머 제거
-    print('포커스 유지 메서드 호출됨 (단순화된 버전)');
-  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -500,22 +488,7 @@ class _WritingScreenState extends State<WritingScreen>
       setState(() {
         _currentTextFile = newTextFile;
         _isEditing = true;
-        _isInitialFocusSet = false; // 새 파일이므로 포커스 상태 초기화
       });
-      
-      // 새 텍스트 파일이므로 포커스 및 커서 위치 설정
-      await Future.delayed(const Duration(milliseconds: 800));
-      try {
-        await _focusEditorAndShowKeyboard();
-        // 새 파일이므로 커서를 1행1열에 위치
-        await Future.delayed(const Duration(milliseconds: 200));
-        _positionCursorForContent(''); // 빈 내용이므로 1행1열로
-        
-        // 포커스 유지 시작
-        _maintainFocus();
-      } catch (e) {
-        print('새 텍스트 파일 포커스 설정 실패: $e');
-      }
     }
   }
 
@@ -1215,9 +1188,7 @@ class _WritingScreenState extends State<WritingScreen>
                   setState(() {
                     _isEditing = false;
                     _currentTextFile = null;
-                    _isInitialFocusSet = false; // 포커스 상태 초기화
                   });
-                  // 포커스 유지 타이머 정리
                   _focusTimer?.cancel();
                 },
                 icon: const Icon(Icons.arrow_back),
@@ -1285,151 +1256,51 @@ class _WritingScreenState extends State<WritingScreen>
                       child: SizedBox(
                         height: constraints.maxHeight,
                         child: HtmlEditor(
-                        controller: _htmlController,
-                        htmlEditorOptions: HtmlEditorOptions(
-                          hint: '여기에 텍스트를 입력하세요...\n\n🎙️ 음성 동기화 마커를 사용할 수 있습니다.',
-                          shouldEnsureVisible: true,
-                          initialText: _currentTextFile?.content ?? '',
-                          adjustHeightForKeyboard: true,
-                          darkMode: Theme.of(context).brightness == Brightness.dark,
-                          autoAdjustHeight: true,
-                          spellCheck: true,
-                          characterLimit: null,
-                          // 실제 디바이스에서 입력 이벤트 처리를 위한 추가 설정
-                          webInitialScripts: UnmodifiableListView([
-                            WebScript(
-                              name: 'inputEnhancement',
-                              script: '''
-                                // 포커스 및 입력 이벤트 강화
-                                document.addEventListener('DOMContentLoaded', function() {
-                                  const editor = document.querySelector('.ql-editor');
-                                  if (editor) {
-                                    // 입력 이벤트 리스너 강화
-                                    editor.addEventListener('input', function(e) {
-                                      console.log('Input event triggered:', e.data);
-                                    });
-                                    
-                                    // 키보드 이벤트 리스너 추가
-                                    editor.addEventListener('keydown', function(e) {
-                                      console.log('Keydown event:', e.key);
-                                    });
-                                    
-                                    // 터치 이벤트로 포커스 강제 설정
-                                    editor.addEventListener('touchstart', function() {
-                                      editor.focus();
-                                      console.log('Touch focus set');
-                                    });
-                                    
-                                    // IME 입력 지원
-                                    editor.addEventListener('compositionstart', function() {
-                                      console.log('Composition start');
-                                    });
-                                    
-                                    editor.addEventListener('compositionend', function() {
-                                      console.log('Composition end');
-                                    });
-                                  }
-                                });
-                              ''',
+                            controller: _htmlController,
+                            htmlEditorOptions: HtmlEditorOptions(
+                              hint: '여기에 텍스트를 입력하세요...',
+                              shouldEnsureVisible: true,
+                              initialText: _currentTextFile?.content ?? '',
+                              adjustHeightForKeyboard: true,
+                              darkMode: false,
+                              autoAdjustHeight: false,
+                              spellCheck: false,
+                              characterLimit: null,
                             ),
-                          ]),
-                        ),
-              htmlToolbarOptions: HtmlToolbarOptions(
-                toolbarPosition: ToolbarPosition.aboveEditor,
-                toolbarType: ToolbarType.nativeScrollable,
-                toolbarItemHeight: 32,
-                buttonColor: Theme.of(context).primaryColor,
-                buttonSelectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.8),
-                buttonBorderColor: Colors.grey.withValues(alpha: 0.3),
-                buttonBorderWidth: 0.5,
-                buttonBorderRadius: BorderRadius.circular(6),
-                buttonFillColor: Colors.grey.withValues(alpha: 0.06),
-                dropdownBackgroundColor: Theme.of(context).cardColor,
-                gridViewHorizontalSpacing: 2,
-                gridViewVerticalSpacing: 0,
-                defaultToolbarButtons: [
-                  FontButtons(
-                    bold: true,
-                    italic: true,
-                    underline: true,
-                    clearAll: false,
-                    strikethrough: false,
-                    subscript: false,
-                    superscript: false,
+                htmlToolbarOptions: HtmlToolbarOptions(
+                  toolbarPosition: ToolbarPosition.aboveEditor,
+                  toolbarType: ToolbarType.nativeScrollable,
+                  renderBorder: true,
+                  toolbarItemHeight: 32,
+                  renderSeparatorWidget: true,
+                  separatorWidget: Container(
+                    width: 1,
+                    height: 24,
+                    color: Colors.grey.shade400,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
                   ),
-                  ListButtons(
-                    ul: true,
-                    ol: true,
-                    listStyles: false,
-                  ),
-                  ParagraphButtons(
-                    textDirection: false,
-                    lineHeight: false,
-                    caseConverter: false,
-                    alignLeft: true,
-                    alignCenter: true,
-                    alignRight: true,
-                    alignJustify: false,
-                    decreaseIndent: false,
-                    increaseIndent: false,
-                  ),
-                  OtherButtons(
-                    fullscreen: true,
-                    codeview: false,
-                    undo: true,
-                    redo: true,
-                    help: false,
-                  ),
-                ],
-              ),
-              otherOptions: const OtherOptions(),
-              callbacks: Callbacks(
-                onFocus: () async {
-                  print('HTML 에디터 포커스됨');
-                  _isInitialFocusSet = true;
-                  // 실제 디바이스에서 키보드 표시 및 입력 활성화
-                  try {
-                    await SystemChannels.textInput.invokeMethod('TextInput.show');
-                    // 추가적인 키보드 활성화 시도
-                    await Future.delayed(const Duration(milliseconds: 100));
-                    await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {}]);
-                  } catch (e) {
-                    print('키보드 표시 실패: $e');
-                  }
-                },
-                onBlur: () async {
-                  print('HTML 에디터 포커스 아웃됨');
-                  _isInitialFocusSet = false;
-                  // 실제 디바이스에서 포커스 복구
-                  await Future.delayed(const Duration(milliseconds: 100));
-                  if (_isEditing && _currentTextFile != null) {
-                    try {
-                      _htmlController.setFocus();
-                      await SystemChannels.textInput.invokeMethod('TextInput.show');
-                    } catch (e) {
-                      print('포커스 복구 실패: $e');
-                    }
-                  }
-                },
-                onInit: () async {
-                  print('HTML 에디터 초기화 완료');
-                  // 초기화 후 포커스 설정
-                  await Future.delayed(const Duration(milliseconds: 1500));
-                  try {
-                    _htmlController.setFocus();
-                    await SystemChannels.textInput.invokeMethod('TextInput.show');
-                    // 입력 클라이언트 설정
-                    await Future.delayed(const Duration(milliseconds: 200));
-                    await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {
-                      'inputType': {'name': 'TextInputType.text'},
-                      'inputAction': 'TextInputAction.done',
-                    }]);
-                    _maintainFocus(); // 포커스 유지 타이머 시작
-                  } catch (e) {
-                    print('초기 포커스 설정 실패: $e');
-                  }
-                },
-              ),
+                  buttonColor: Colors.grey.shade400,
+                  buttonSelectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                  buttonBorderColor: Colors.grey.shade700,
+                  buttonBorderWidth: 2.0,
+                  defaultToolbarButtons: const [
+                    FontButtons(bold: true, italic: true, underline: true),
+                    ColorButtons(),
+                    ListButtons(listStyles: true),
+                    ParagraphButtons(textDirection: false, lineHeight: false, caseConverter: false),
+                  ],
+                ),
+                otherOptions: const OtherOptions(
+                  height: 350,
+                ),
+                callbacks: Callbacks(
+                  onInit: () {
+                    print('HTML 에디터 초기화 완료');
+                  },
+                  onFocus: () {
+                    print('HTML 에디터 포커스됨');
+                  },
+                ),
                         ),
                       ),
                     ),
@@ -1772,38 +1643,16 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() {
       _currentTextFile = file;
       _isEditing = true;
-      _isInitialFocusSet = false; // 기존 파일 편집 시에도 포커스 상태 초기화
     });
     
     // HTML 에디터가 로딩될 때까지 대기
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 500));
     
     try {
       // HTML 컨텐츠 로드
       _htmlController.setText(file.content);
-      
-      // 에디터에 포커스 설정 및 커서를 1행1열로 위치
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _focusEditorAndShowKeyboard();
-      
-      // 파일 내용에 따라 커서 위치 설정
-      await Future.delayed(const Duration(milliseconds: 300));
-      _positionCursorForContent(file.content);
-      
-      // 추가 포커스 유지를 위한 타이머 설정
-      _maintainFocus();
-      
     } catch (e) {
       print('HTML 에디터 로딩 에러: $e');
-      // 재시도
-      await Future.delayed(const Duration(milliseconds: 1000));
-      try {
-        _htmlController.setText(file.content);
-        await _focusEditorAndShowKeyboard();
-        _maintainFocus();
-      } catch (e2) {
-        print('HTML 에디터 로딩 재시도 실패: $e2');
-      }
     }
   }
 
@@ -2053,10 +1902,8 @@ class _WritingScreenState extends State<WritingScreen>
         setState(() {
           _isEditing = false;
           _currentTextFile = null;
-          _isInitialFocusSet = false; // 저장 시 포커스 상태 초기화
         });
         
-        // 포커스 유지 타이머 정리
         _focusTimer?.cancel();
         
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
