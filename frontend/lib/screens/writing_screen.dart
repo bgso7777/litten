@@ -81,6 +81,8 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Timer? _focusTimer;
+  bool _isKeyboardVisible = false;
+  bool _hasAutoFocused = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -88,6 +90,113 @@ class _WritingScreenState extends State<WritingScreen>
     // 앱이 포어그라운드로 돌아왔을 때 파일 목록 재로드
     if (state == AppLifecycleState.resumed) {
       _loadFiles();
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    
+    // 키보드 표시/숨김 감지
+    final bottomInset = View.of(context).viewInsets.bottom;
+    final newKeyboardVisible = bottomInset > 0;
+    
+    if (newKeyboardVisible != _isKeyboardVisible) {
+      setState(() {
+        _isKeyboardVisible = newKeyboardVisible;
+      });
+      
+      print('키보드 상태 변경: ${_isKeyboardVisible ? "표시됨" : "숨겨짐"}');
+      
+      // 키보드가 숨겨졌을 때만 처리 (키보드가 표시될 때는 불필요한 포커스 해제 안 함)
+      if (!_isKeyboardVisible && _isEditing && _currentTextFile != null) {
+        // 키보드가 사용자에 의해 숨겨진 경우 포커스 해제는 하지 않음
+        // HTML 에디터 자체의 포커스 관리에 맡김
+        print('키보드 숨김 감지 - 자연스러운 포커스 관리');
+      }
+    }
+  }
+
+  /// 자동 포커스 및 키보드 표시 함수
+  Future<void> _autoFocusAndShowKeyboard() async {
+    if (!_hasAutoFocused) {
+      _hasAutoFocused = true;
+      print('자동 포커스 및 키보드 표시 시작');
+      
+      try {
+        // HTML 에디터가 완전히 로딩될 때까지 더 긴 지연 시간 설정
+        await Future.delayed(const Duration(milliseconds: 800));
+        
+        // HTML 에디터 로딩 상태 확인
+        bool isReady = false;
+        int attempts = 0;
+        while (!isReady && attempts < 10) {
+          try {
+            await _htmlController.getText();
+            isReady = true;
+            print('HTML 에디터 로딩 확인 완료');
+          } catch (e) {
+            print('HTML 에디터 로딩 대기 중... ${attempts + 1}/10');
+            await Future.delayed(const Duration(milliseconds: 200));
+            attempts++;
+          }
+        }
+        
+        if (isReady) {
+          // 포커스 설정
+          _htmlController.setFocus();
+          
+          // 키보드 표시 요청 (더 안정적인 방법)
+          await Future.delayed(const Duration(milliseconds: 100));
+          await SystemChannels.textInput.invokeMethod('TextInput.show');
+          
+          setState(() {
+            _isKeyboardVisible = true;
+          });
+          
+          print('자동 포커스 및 키보드 표시 완료');
+        } else {
+          print('HTML 에디터 로딩 실패 - 자동 포커스 취소');
+        }
+      } catch (e) {
+        print('자동 포커스 실패: $e');
+      }
+    }
+  }
+
+  /// 수동 포커스 및 키보드 표시 함수
+  Future<void> _focusAndShowKeyboard() async {
+    print('수동 포커스 및 키보드 표시 시작');
+    
+    try {
+      _htmlController.setFocus();
+      await SystemChannels.textInput.invokeMethod('TextInput.show');
+      
+      setState(() {
+        _isKeyboardVisible = true;
+      });
+      
+      print('수동 포커스 및 키보드 표시 완료');
+    } catch (e) {
+      print('수동 포커스 실패: $e');
+    }
+  }
+
+  /// 키보드 숨김 및 포커스 해제 함수
+  Future<void> _hideKeyboardAndClearFocus() async {
+    print('키보드 숨김 및 포커스 해제 시작');
+    
+    try {
+      _htmlController.clearFocus();
+      await SystemChannels.textInput.invokeMethod('TextInput.hide');
+      
+      setState(() {
+        _isKeyboardVisible = false;
+      });
+      
+      print('키보드 숨김 및 포커스 해제 완료');
+    } catch (e) {
+      print('키보드 숨김 실패: $e');
     }
   }
 
@@ -488,7 +597,12 @@ class _WritingScreenState extends State<WritingScreen>
       setState(() {
         _currentTextFile = newTextFile;
         _isEditing = true;
+        _hasAutoFocused = false; // 자동 포커스 플래그 리셋
       });
+      
+      // 새 파일 생성 시 자동 포커스와 키보드 표시
+      await Future.delayed(const Duration(milliseconds: 800));
+      await _autoFocusAndShowKeyboard();
     }
   }
 
@@ -1184,10 +1298,12 @@ class _WritingScreenState extends State<WritingScreen>
           child: Row(
             children: [
               IconButton(
-                onPressed: () {
+                onPressed: () async {
+                  await _hideKeyboardAndClearFocus();
                   setState(() {
                     _isEditing = false;
                     _currentTextFile = null;
+                    _hasAutoFocused = false;
                   });
                   _focusTimer?.cancel();
                 },
@@ -1235,21 +1351,8 @@ class _WritingScreenState extends State<WritingScreen>
                 builder: (context, constraints) {
                   return GestureDetector(
                     onTap: () async {
-                      // 터치 시 포커스 설정 및 입력 활성화
-                      print('에디터 터치됨 - 포커스 설정 시작');
-                      try {
-                        _htmlController.setFocus();
-                        await SystemChannels.textInput.invokeMethod('TextInput.show');
-                        // 추가적인 입력 활성화
-                        await Future.delayed(const Duration(milliseconds: 100));
-                        await SystemChannels.textInput.invokeMethod('TextInput.setClient', [1, {
-                          'inputType': {'name': 'TextInputType.text'},
-                          'inputAction': 'TextInputAction.done',
-                        }]);
-                        print('포커스 및 입력 활성화 완료');
-                      } catch (e) {
-                        print('터치 포커스 설정 실패: $e');
-                      }
+                      // 터치 시 포커스 설정 및 키보드 표시
+                      await _focusAndShowKeyboard();
                     },
                     child: SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
@@ -1294,11 +1397,24 @@ class _WritingScreenState extends State<WritingScreen>
                   height: 350,
                 ),
                 callbacks: Callbacks(
-                  onInit: () {
+                  onInit: () async {
                     print('HTML 에디터 초기화 완료');
+                    
+                    // 새 파일이고 아직 자동 포커스가 안 되었다면 자동 포커스
+                    if (!_hasAutoFocused && _currentTextFile?.content.isEmpty == true) {
+                      // HTML 에디터 초기화 완료 후 즉시 자동 포커스 시도
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      await _autoFocusAndShowKeyboard();
+                    }
                   },
                   onFocus: () {
                     print('HTML 에디터 포커스됨');
+                    setState(() {
+                      _isKeyboardVisible = true;
+                    });
+                  },
+                  onBlur: () {
+                    print('HTML 에디터 포커스 해제됨');
                   },
                 ),
                         ),
@@ -1643,6 +1759,7 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() {
       _currentTextFile = file;
       _isEditing = true;
+      _hasAutoFocused = false; // 자동 포커스 플래그 리셋
     });
     
     // HTML 에디터가 로딩될 때까지 대기
@@ -1651,6 +1768,9 @@ class _WritingScreenState extends State<WritingScreen>
     try {
       // HTML 컨텐츠 로드
       _htmlController.setText(file.content);
+      
+      // 자동 포커스와 키보드 표시 (한 번만)
+      await _autoFocusAndShowKeyboard();
     } catch (e) {
       print('HTML 에디터 로딩 에러: $e');
     }
