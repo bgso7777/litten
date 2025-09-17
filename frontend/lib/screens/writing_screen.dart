@@ -57,6 +57,7 @@ class _WritingScreenState extends State<WritingScreen>
   double? _backgroundImageAspectRatio;
 
   bool _showDrawingToolbar = false; // 필기 툴바 표시 상태
+  Size? _canvasSize; // 실제 캔버스 크기 저장
 
   // PDF 변환 진행 상태
   bool _isConverting = false;
@@ -658,6 +659,7 @@ class _WritingScreenState extends State<WritingScreen>
         title: defaultTitle,
         imagePath: '/temp/new_handwriting.png',
         type: HandwritingType.drawing,
+        aspectRatio: _backgroundImageAspectRatio ?? (3.0 / 4.0), // 현재 비율 또는 기본 3:4 비율
       );
       
       print('디버그: 새로운 필기 파일 생성 - $defaultTitle');
@@ -678,9 +680,28 @@ class _WritingScreenState extends State<WritingScreen>
       color: Colors.white,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final aspectRatio = _getCanvasAspectRatio();
+          final maxWidth = constraints.maxWidth;
+          final maxHeight = constraints.maxHeight;
+
+          // 실제 캔버스 크기 계산
+          double canvasWidth, canvasHeight;
+          if (maxWidth / maxHeight > aspectRatio) {
+            // 높이 기준으로 크기 결정
+            canvasHeight = maxHeight;
+            canvasWidth = canvasHeight * aspectRatio;
+          } else {
+            // 너비 기준으로 크기 결정
+            canvasWidth = maxWidth;
+            canvasHeight = canvasWidth / aspectRatio;
+          }
+
+          // 실제 캔버스 크기 저장
+          _canvasSize = Size(canvasWidth, canvasHeight);
+
           return Center(
             child: AspectRatio(
-              aspectRatio: _getCanvasAspectRatio(),
+              aspectRatio: aspectRatio,
               child: FlutterPainter(
                 controller: _painterController,
               ),
@@ -2144,8 +2165,11 @@ class _WritingScreenState extends State<WritingScreen>
   Future<void> _saveCurrentPageDrawing() async {
     if (_currentHandwritingFile != null && _painterController != null) {
       try {
-        // 현재 캔버스의 내용을 이미지로 렌더링
-        final ui.Image renderedImage = await _painterController!.renderImage(const Size(800, 600));
+        // 실제 캔버스 크기를 사용하여 렌더링 (비율 유지)
+        final renderSize = _canvasSize ?? const Size(800, 600); // 기본값으로 800x600 사용
+        print('DEBUG: 필기 저장 시 사용할 크기 - ${renderSize.width}x${renderSize.height}');
+
+        final ui.Image renderedImage = await _painterController!.renderImage(renderSize);
         final ByteData? byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
 
         if (byteData != null) {
@@ -2496,18 +2520,34 @@ class _WritingScreenState extends State<WritingScreen>
         // 다중 페이지인 경우 현재 페이지만 저장
         await _saveCurrentPageDrawing();
 
-        // 파일 목록에서 현재 파일의 페이지 정보 업데이트
-        final updatedFile = _currentHandwritingFile!.copyWith();
+        // 파일 목록에서 현재 파일의 페이지 정보 업데이트 (비율 정보 포함)
+        final currentAspectRatio = _getCanvasAspectRatio();
+        final updatedFile = _currentHandwritingFile!.copyWith(
+          aspectRatio: currentAspectRatio,
+        );
+        print('DEBUG: 필기 파일 저장 - 비율 정보 업데이트: $currentAspectRatio');
         final existingIndex = _handwritingFiles.indexWhere((f) => f.id == updatedFile.id);
+
+        // appState를 미리 가져옴
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
 
         if (existingIndex >= 0) {
           _handwritingFiles[existingIndex] = updatedFile;
           print('디버그: 기존 필기 파일 페이지 정보 업데이트됨 - ${updatedFile.displayTitle} ${updatedFile.pageInfo}');
+        } else {
+          // 새로운 파일인 경우 목록에 추가
+          _handwritingFiles.add(updatedFile);
+          print('디버그: 새로운 필기 파일 목록에 추가됨 - ${updatedFile.displayTitle} ${updatedFile.pageInfo}');
+
+          // 리튼에 필기 파일 추가
+          if (selectedLitten != null) {
+            final littenService = LittenService();
+            await littenService.addHandwritingFileToLitten(selectedLitten.id, updatedFile.id);
+          }
         }
 
         // SharedPreferences에 파일 목록 저장
-        final appState = Provider.of<AppStateProvider>(context, listen: false);
-        final selectedLitten = appState.selectedLitten;
 
         if (selectedLitten != null) {
           final storage = FileStorageService.instance;
