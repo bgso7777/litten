@@ -56,7 +56,7 @@ class _WritingScreenState extends State<WritingScreen>
   bool _showColorPicker = false;
   double? _backgroundImageAspectRatio;
 
-  bool _showDrawingToolbar = false; // 필기 툴바 표시 상태
+  bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
 
   // PDF 변환 진행 상태
@@ -1482,6 +1482,55 @@ class _WritingScreenState extends State<WritingScreen>
     print('DEBUG: 색상 변경됨 - $color, 도구: $_selectedTool');
   }
 
+  // 컴팩트한 드로잉 도구 위젯 (한 줄 레이아웃용)
+  Widget _buildCompactDrawingTool(IconData icon, String label, bool isSelected) {
+    return GestureDetector(
+      onTap: () => _selectDrawingTool(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: isSelected ? Border.all(color: Theme.of(context).primaryColor, width: 1) : null,
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  // 컴팩트한 색상 옵션 위젯 (한 줄 레이아웃용)
+  Widget _buildCompactColorOption(Color color, bool isSelected) {
+    return GestureDetector(
+      onTap: () => _selectColor(color),
+      child: Container(
+        width: 28,
+        height: 28,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: isSelected
+              ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+              : Border.all(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
+  // 도구 구분선 위젯
+  Widget _buildToolSeparator() {
+    return Container(
+      width: 1,
+      height: 20,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.grey.shade300,
+    );
+  }
+
   Widget _buildTextFileItem(TextFile file) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -1811,185 +1860,106 @@ class _WritingScreenState extends State<WritingScreen>
             ],
           ),
         ),
-        // 필기 도구 패널 토글 버튼
+        // 필기 도구 패널 (한 줄 스크롤 가능 레이아웃)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          height: 44,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
               bottom: BorderSide(color: Colors.grey.shade200),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showDrawingToolbar = !_showDrawingToolbar;
-                  });
-                },
-                icon: Icon(
-                  _showDrawingToolbar ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 16,
-                ),
-                label: Text(
-                  _showDrawingToolbar ? '도구 숨기기' : '도구 보기',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                // 기본 그리기 도구들
+                _buildCompactDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.circle_outlined, '원형', _selectedTool == '원형'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.remove, '직선', _selectedTool == '직선'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.arrow_forward, '화살표', _selectedTool == '화살표'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
+                _buildToolSeparator(),
+
+                // 액션 도구들
+                _buildCompactDrawingTool(Icons.undo, '실행취소', false),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.redo, '다시실행', false),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.clear, '초기화', false),
+                _buildToolSeparator(),
+
+                // 설정 도구들
+                _buildCompactDrawingTool(Icons.line_weight, '선굵기', false),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.palette, '색상', _showColorPicker),
+                _buildToolSeparator(),
+
+                // 기본 색상 옵션들
+                _buildCompactColorOption(Colors.black, _selectedColor == Colors.black),
+                _buildCompactColorOption(Colors.red, _selectedColor == Colors.red),
+                _buildCompactColorOption(Colors.blue, _selectedColor == Colors.blue),
+                _buildCompactColorOption(Colors.green, _selectedColor == Colors.green),
+                _buildCompactColorOption(Colors.yellow, _selectedColor == Colors.yellow),
+                _buildCompactColorOption(Colors.orange, _selectedColor == Colors.orange),
+                _buildCompactColorOption(Colors.purple, _selectedColor == Colors.purple),
+                _buildCompactColorOption(Colors.brown, _selectedColor == Colors.brown),
+                _buildToolSeparator(),
+
+                // 확장 도구들
+                _buildCompactDrawingTool(Icons.zoom_in, '줌인', false),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.zoom_out, '줌아웃', false),
+              ],
+            ),
           ),
         ),
-        // 필기 도구 패널 (조건부 표시)
-        if (_showDrawingToolbar)
+        // 확장 색상 팔레트 (조건부 표시)
+        if (_showColorPicker)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            height: 48,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               border: Border(
                 bottom: BorderSide(color: Colors.grey.shade200),
               ),
             ),
-            child: Column(
-              children: [
-              // 기본 도구바
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
                 children: [
-                  _buildDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
-                  _buildDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
-                  _buildDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
-                  _buildDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
-                  _buildDrawingTool(Icons.circle_outlined, '원형', _selectedTool == '원형'),
-                  _buildDrawingTool(Icons.remove, '직선', _selectedTool == '직선'),
+                  _buildCompactColorOption(Colors.pink, _selectedColor == Colors.pink),
+                  _buildCompactColorOption(Colors.indigo, _selectedColor == Colors.indigo),
+                  _buildCompactColorOption(Colors.teal, _selectedColor == Colors.teal),
+                  _buildCompactColorOption(Colors.lime, _selectedColor == Colors.lime),
+                  _buildCompactColorOption(Colors.amber, _selectedColor == Colors.amber),
+                  _buildCompactColorOption(Colors.deepOrange, _selectedColor == Colors.deepOrange),
+                  _buildCompactColorOption(Colors.grey, _selectedColor == Colors.grey),
+                  _buildCompactColorOption(Colors.blueGrey, _selectedColor == Colors.blueGrey),
+                  _buildCompactColorOption(Colors.lightBlue, _selectedColor == Colors.lightBlue),
+                  _buildCompactColorOption(Colors.lightGreen, _selectedColor == Colors.lightGreen),
+                  _buildCompactColorOption(Colors.deepPurple, _selectedColor == Colors.deepPurple),
+                  _buildCompactColorOption(Colors.cyan, _selectedColor == Colors.cyan),
+                  _buildCompactColorOption(Colors.white, _selectedColor == Colors.white),
+                  _buildCompactColorOption(Colors.black87, _selectedColor == Colors.black87),
+                  _buildCompactColorOption(Colors.black54, _selectedColor == Colors.black54),
+                  _buildCompactColorOption(Colors.black38, _selectedColor == Colors.black38),
                 ],
               ),
-              AppSpacing.verticalSpaceXS,
-              // 두 번째 도구바
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildDrawingTool(Icons.arrow_forward, '화살표', _selectedTool == '화살표'),
-                  _buildDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
-                  _buildDrawingTool(Icons.undo, '실행취소', false),
-                  _buildDrawingTool(Icons.redo, '다시실행', false),
-                  _buildDrawingTool(Icons.zoom_in, '줌인', false),
-                  _buildDrawingTool(Icons.zoom_out, '줌아웃', false),
-                ],
-              ),
-              AppSpacing.verticalSpaceXS,
-              // 세 번째 도구바 (설정)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildDrawingTool(Icons.line_weight, '선굵기', false),
-                  _buildDrawingTool(Icons.palette, '색상', _showColorPicker),
-                  _buildDrawingTool(Icons.clear, '초기화', false),
-                  _buildDrawingTool(Icons.expand_more, '고급도구', _showAdvancedTools),
-                  Container(width: 20), // 빈 공간 줄임
-                  Container(width: 20), // 빈 공간 줄임
-                ],
-              ),
-              if (_showAdvancedTools) ...[
-                AppSpacing.verticalSpaceXS,
-                // 고급 도구바
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildDrawingTool(Icons.architecture, '삼각형', false),
-                    _buildDrawingTool(Icons.star_outline, '별모양', false),
-                    _buildDrawingTool(Icons.lens_blur, '원점', false),
-                    _buildDrawingTool(Icons.timeline, '곡선', false),
-                    _buildDrawingTool(Icons.grid_on, '격자', false),
-                    _buildDrawingTool(Icons.straighten, '자', false),
-                  ],
-                ),
-              ],
-              AppSpacing.verticalSpaceS,
-              // 기본 색상 팔레트
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildColorOption(Colors.black, _selectedColor == Colors.black),
-                  _buildColorOption(Colors.red, _selectedColor == Colors.red),
-                  _buildColorOption(Colors.blue, _selectedColor == Colors.blue),
-                  _buildColorOption(Colors.green, _selectedColor == Colors.green),
-                  _buildColorOption(Colors.yellow, _selectedColor == Colors.yellow),
-                  _buildColorOption(Colors.orange, _selectedColor == Colors.orange),
-                  _buildColorOption(Colors.purple, _selectedColor == Colors.purple),
-                  _buildColorOption(Colors.brown, _selectedColor == Colors.brown),
-                ],
-              ),
-              if (_showColorPicker) ...[
-                AppSpacing.verticalSpaceXS,
-                // 확장 색상 팔레트
-                Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildColorOption(Colors.pink, _selectedColor == Colors.pink),
-                        _buildColorOption(Colors.indigo, _selectedColor == Colors.indigo),
-                        _buildColorOption(Colors.teal, _selectedColor == Colors.teal),
-                        _buildColorOption(Colors.lime, _selectedColor == Colors.lime),
-                        _buildColorOption(Colors.amber, _selectedColor == Colors.amber),
-                        _buildColorOption(Colors.deepOrange, _selectedColor == Colors.deepOrange),
-                        _buildColorOption(Colors.grey, _selectedColor == Colors.grey),
-                        _buildColorOption(Colors.blueGrey, _selectedColor == Colors.blueGrey),
-                      ],
-                    ),
-                    AppSpacing.verticalSpaceXS,
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildColorOption(Colors.lightBlue, _selectedColor == Colors.lightBlue),
-                        _buildColorOption(Colors.lightGreen, _selectedColor == Colors.lightGreen),
-                        _buildColorOption(Colors.deepPurple, _selectedColor == Colors.deepPurple),
-                        _buildColorOption(Colors.cyan, _selectedColor == Colors.cyan),
-                        _buildColorOption(Colors.white, _selectedColor == Colors.white),
-                        _buildColorOption(Colors.black87, _selectedColor == Colors.black87),
-                        _buildColorOption(Colors.black54, _selectedColor == Colors.black54),
-                        _buildColorOption(Colors.black38, _selectedColor == Colors.black38),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-              AppSpacing.verticalSpaceXS,
-              // 현재 선택된 도구와 설정 표시
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: _selectedColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade400),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$_selectedTool | ${_strokeWidth.round()}px',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
         // 캔버스 영역
         Expanded(
           child: Container(
@@ -2018,23 +1988,6 @@ class _WritingScreenState extends State<WritingScreen>
             children: [
               Row(
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _loadPdfFile,
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('PDF 로드'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(100, 36),
-                    ),
-                  ),
-                  AppSpacing.horizontalSpaceM,
-                  ElevatedButton.icon(
-                    onPressed: _loadImageFile,
-                    icon: const Icon(Icons.image),
-                    label: const Text('이미지 로드'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(100, 36),
-                    ),
-                  ),
                   const Spacer(),
                   if (_pdfPages != null && _pdfPages!.length > 1) ...[
                     Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
