@@ -55,9 +55,15 @@ class _WritingScreenState extends State<WritingScreen>
   bool _showAdvancedTools = false;
   bool _showColorPicker = false;
   double? _backgroundImageAspectRatio;
+  Size? _backgroundImageOriginalSize;
 
   bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
+
+  // 줌 기능 관련
+  late TransformationController _transformationController;
+  static const double _minScale = 0.3;
+  static const double _maxScale = 8.0;
 
   // PDF 변환 진행 상태
   bool _isConverting = false;
@@ -77,13 +83,32 @@ class _WritingScreenState extends State<WritingScreen>
     WidgetsBinding.instance.addObserver(this);
     _htmlController = HtmlEditorController();
     _painterController = PainterController();
-    
+    _transformationController = TransformationController();
+
     // 초기 펜 모드 설정
     _painterController.freeStyleMode = FreeStyleMode.draw;
     _painterController.freeStyleStrokeWidth = _strokeWidth;
     _painterController.freeStyleColor = _selectedColor;
     
     _loadFiles();
+  }
+
+  // 캔버스를 좌상단으로 초기화하는 함수 (중복 호출 방지)
+  bool _isResettingCanvas = false;
+
+  void _resetCanvasToTopLeft() {
+    if (_isResettingCanvas) return; // 이미 진행 중이면 무시
+
+    _isResettingCanvas = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        if (mounted && _transformationController.value != Matrix4.identity()) {
+          _transformationController.value = Matrix4.identity();
+        }
+      } finally {
+        _isResettingCanvas = false;
+      }
+    });
   }
 
   Timer? _focusTimer;
@@ -276,8 +301,11 @@ class _WritingScreenState extends State<WritingScreen>
 
   @override
   void dispose() {
+    // 메모리 누수 방지를 위한 리소스 정리
     WidgetsBinding.instance.removeObserver(this);
     _focusTimer?.cancel();
+    _transformationController.dispose();
+    _htmlController.disable();
     super.dispose();
   }
 
@@ -324,39 +352,56 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Future<void> _loadFiles() async {
+    if (!mounted) return; // 위젯이 dispose된 경우 return
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final selectedLitten = appState.selectedLitten;
-      
+
       if (selectedLitten != null) {
-        // 실제 파일 로드 로직 구현
         final storage = FileStorageService.instance;
-        
-        // 텍스트 파일 로드
-        final loadedTextFiles = await storage.loadTextFiles(selectedLitten.id);
-        
-        // 필기 파일 로드
-        final loadedHandwritingFiles = await storage.loadHandwritingFiles(selectedLitten.id);
-        
-        setState(() {
-          _textFiles.clear();
-          _textFiles.addAll(loadedTextFiles);
-          _handwritingFiles.clear();
-          _handwritingFiles.addAll(loadedHandwritingFiles);
-        });
-        
+
+        // 텍스트 파일과 필기 파일을 병렬로 로드하여 성능 향상
+        final textFilesFuture = storage.loadTextFiles(selectedLitten.id);
+        final handwritingFilesFuture = storage.loadHandwritingFiles(selectedLitten.id);
+
+        final results = await Future.wait([textFilesFuture, handwritingFilesFuture]);
+
+        final loadedTextFiles = results[0] as List<TextFile>;
+        final loadedHandwritingFiles = results[1] as List<HandwritingFile>;
+
+        // 한 번의 setState로 모든 상태 업데이트
+        if (mounted) {
+          setState(() {
+            _textFiles
+              ..clear()
+              ..addAll(loadedTextFiles);
+            _handwritingFiles
+              ..clear()
+              ..addAll(loadedHandwritingFiles);
+            _isLoading = false;
+          });
+        }
+
         print('디버그: 파일 목록 로드 완료 - 텍스트: ${_textFiles.length}개, 필기: ${_handwritingFiles.length}개');
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       print('에러: 파일 로드 실패 - $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -667,9 +712,13 @@ class _WritingScreenState extends State<WritingScreen>
       setState(() {
         _currentHandwritingFile = newHandwritingFile;
         _isEditing = true;
-        // 캔버스 초기화
+        // 캔버스 및 배경 이미지 정보 초기화
         _painterController.clearDrawables();
+        _backgroundImageOriginalSize = null;
       });
+
+      // 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
     }
   }
 
@@ -699,11 +748,22 @@ class _WritingScreenState extends State<WritingScreen>
           // 실제 캔버스 크기 저장
           _canvasSize = Size(canvasWidth, canvasHeight);
 
-          return Center(
-            child: AspectRatio(
-              aspectRatio: aspectRatio,
-              child: FlutterPainter(
-                controller: _painterController,
+          return InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: _minScale,
+            maxScale: _maxScale,
+            constrained: false,
+            boundaryMargin: const EdgeInsets.all(4),
+            child: Container(
+              width: maxWidth,
+              height: maxHeight,
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: canvasWidth,
+                height: canvasHeight,
+                child: FlutterPainter(
+                  controller: _painterController,
+                ),
               ),
             ),
           );
@@ -949,8 +1009,8 @@ class _WritingScreenState extends State<WritingScreen>
 
       print('DEBUG: 총 $totalPages개 페이지 감지됨');
 
-      // 메모리 최적화를 위한 배치 단위 변환 (5페이지씩)
-      const int batchSize = 5;
+      // 메모리 최적화를 위한 배치 단위 변환 (2페이지씩 - 에뮬레이터 최적화)
+      const int batchSize = 2;
       final List<Uint8List> allImages = [];
       final storage = FileStorageService.instance;
       final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1000,7 +1060,7 @@ class _WritingScreenState extends State<WritingScreen>
         await for (final page in Printing.raster(
           pdfBytes,
           pages: pageIndices,
-          dpi: 300, // 고해상도로 변환하여 글씨 선명도 유지
+          dpi: 300, // 표준 인쇄 품질 DPI (메모리 최적화)
         )) {
           if (_conversionCancelled) {
             throw Exception('변환이 취소되었습니다.');
@@ -1183,19 +1243,24 @@ class _WritingScreenState extends State<WritingScreen>
       // 원본 이미지 크기 정보 로그 및 비율 계산
       print('DEBUG: 배경 이미지 원본 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}');
 
-      // 이미지 비율 저장
+      // 이미지 비율과 원본 크기 저장
       if (uiImage.width > 0 && uiImage.height > 0) {
         _backgroundImageAspectRatio = uiImage.width / uiImage.height;
-        print('DEBUG: 배경 이미지 비율 저장 - $_backgroundImageAspectRatio');
+        _backgroundImageOriginalSize = Size(uiImage.width.toDouble(), uiImage.height.toDouble());
+        print('DEBUG: 배경 이미지 정보 저장 - 비율: $_backgroundImageAspectRatio, 크기: ${uiImage.width}x${uiImage.height}');
       }
 
-      // 배경으로 설정
+      // 배경으로 직접 설정 (리사이즈 없이)
       _painterController.background = uiImage.backgroundDrawable;
 
       // UI 업데이트 (캔버스 비율 재계산)
       setState(() {});
 
+      // 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
+
       print('DEBUG: 배경 이미지 설정 완료');
+
     } catch (e) {
       print('ERROR: 배경 이미지 설정 실패 - $e');
     }
@@ -1333,12 +1398,12 @@ class _WritingScreenState extends State<WritingScreen>
           print('DEBUG: 캔버스 초기화');
           break;
         case '줌인':
-          // TODO: flutter_painter_v2에서 줌 기능 구현
-          print('DEBUG: 줌인 - 현재 라이브러리에서 지원되지 않음');
+          _zoomIn();
+          print('DEBUG: 줌인 실행');
           break;
         case '줌아웃':
-          // TODO: flutter_painter_v2에서 줌 기능 구현
-          print('DEBUG: 줌아웃 - 현재 라이브러리에서 지원되지 않음');
+          _zoomOut();
+          print('DEBUG: 줌아웃 실행');
           break;
         case '선굵기':
           _showStrokeWidthPicker();
@@ -1357,6 +1422,54 @@ class _WritingScreenState extends State<WritingScreen>
     });
     
     print('DEBUG: 그리기 도구 변경됨 - $tool');
+  }
+
+  // 줌인 기능
+  void _zoomIn() {
+    final Matrix4 currentTransform = _transformationController.value.clone();
+    final double currentScale = currentTransform.getMaxScaleOnAxis();
+
+    if (currentScale < _maxScale) {
+      final double newScale = (currentScale * 1.2).clamp(_minScale, _maxScale);
+      final double scaleDelta = newScale / currentScale;
+
+      // 현재 뷰포트 중심점 계산
+      final Size viewportSize = _canvasSize ?? const Size(300, 400);
+      final Offset center = Offset(viewportSize.width / 2, viewportSize.height / 2);
+
+      // 중심점을 기준으로 확대
+      final Matrix4 matrix = Matrix4.identity()
+        ..translate(center.dx, center.dy)
+        ..scale(scaleDelta)
+        ..translate(-center.dx, -center.dy);
+
+      _transformationController.value = matrix * currentTransform;
+      print('DEBUG: 줌인 - 현재 스케일: ${currentScale.toStringAsFixed(2)} -> ${newScale.toStringAsFixed(2)}');
+    }
+  }
+
+  // 줌아웃 기능
+  void _zoomOut() {
+    final Matrix4 currentTransform = _transformationController.value.clone();
+    final double currentScale = currentTransform.getMaxScaleOnAxis();
+
+    if (currentScale > _minScale) {
+      final double newScale = (currentScale / 1.2).clamp(_minScale, _maxScale);
+      final double scaleDelta = newScale / currentScale;
+
+      // 현재 뷰포트 중심점 계산
+      final Size viewportSize = _canvasSize ?? const Size(300, 400);
+      final Offset center = Offset(viewportSize.width / 2, viewportSize.height / 2);
+
+      // 중심점을 기준으로 축소
+      final Matrix4 matrix = Matrix4.identity()
+        ..translate(center.dx, center.dy)
+        ..scale(scaleDelta)
+        ..translate(-center.dx, -center.dy);
+
+      _transformationController.value = matrix * currentTransform;
+      print('DEBUG: 줌아웃 - 현재 스케일: ${currentScale.toStringAsFixed(2)} -> ${newScale.toStringAsFixed(2)}');
+    }
   }
 
   void _showTextInput() {
@@ -1796,7 +1909,7 @@ class _WritingScreenState extends State<WritingScreen>
         _buildSyncStatusBar(),
         // 상단 헤더
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
@@ -1810,6 +1923,8 @@ class _WritingScreenState extends State<WritingScreen>
                   setState(() {
                     _isEditing = false;
                     _currentHandwritingFile = null;
+                    // 배경 이미지 정보 초기화
+                    _backgroundImageOriginalSize = null;
                   });
                 },
                 icon: const Icon(Icons.arrow_back),
@@ -1862,7 +1977,7 @@ class _WritingScreenState extends State<WritingScreen>
         ),
         // 필기 도구 패널 (한 줄 스크롤 가능 레이아웃)
         Container(
-          height: 44,
+          height: 40,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
@@ -1963,7 +2078,7 @@ class _WritingScreenState extends State<WritingScreen>
         // 캔버스 영역
         Expanded(
           child: Container(
-            margin: AppSpacing.paddingL,
+            margin: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: Colors.grey.shade300),
@@ -1975,49 +2090,42 @@ class _WritingScreenState extends State<WritingScreen>
             ),
           ),
         ),
-        // 파일 로드 버튼들 (하단으로 이동)
-        Container(
-          padding: AppSpacing.paddingM,
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              top: BorderSide(color: Colors.grey.shade200),
+        // PDF 페이지 네비게이션 (필요시에만 표시)
+        if (_pdfPages != null && _pdfPages!.length > 1)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
+                AppSpacing.horizontalSpaceS,
+                IconButton(
+                  onPressed: _currentPdfPage > 0 ? () async {
+                    setState(() {
+                      _currentPdfPage--;
+                    });
+                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                  } : null,
+                  icon: const Icon(Icons.navigate_before),
+                ),
+                IconButton(
+                  onPressed: _currentPdfPage < _pdfPages!.length - 1 ? () async {
+                    setState(() {
+                      _currentPdfPage++;
+                    });
+                    await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
+                  } : null,
+                  icon: const Icon(Icons.navigate_next),
+                ),
+              ],
             ),
           ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Spacer(),
-                  if (_pdfPages != null && _pdfPages!.length > 1) ...[
-                    Text('${_currentPdfPage + 1}/${_pdfPages!.length}'),
-                    AppSpacing.horizontalSpaceS,
-                    IconButton(
-                      onPressed: _currentPdfPage > 0 ? () async {
-                        setState(() {
-                          _currentPdfPage--;
-                        });
-                        await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
-                      } : null,
-                      icon: const Icon(Icons.navigate_before),
-                    ),
-                    IconButton(
-                      onPressed: _currentPdfPage < _pdfPages!.length - 1 ? () async {
-                        setState(() {
-                          _currentPdfPage++;
-                        });
-                        await _setBackgroundFromBytes(_pdfPages![_currentPdfPage]);
-                      } : null,
-                      icon: const Icon(Icons.navigate_next),
-                    ),
-                  ],
-                ],
-              ),
-              // 하단 네비게이션 바와의 간격 확보
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -2069,13 +2177,27 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   void _editHandwritingFile(HandwritingFile file) async {
+    // UI를 즉시 편집 모드로 전환
     setState(() {
       _currentHandwritingFile = file;
       _isEditing = true;
     });
 
-    // 저장된 필기 이미지 로드
-    await _loadHandwritingImage(file);
+    // 이미지 로딩을 비동기로 처리하여 UI 블로킹 방지
+    _loadHandwritingImageAsync(file);
+  }
+
+  // 비동기 이미지 로딩 함수
+  void _loadHandwritingImageAsync(HandwritingFile file) async {
+    try {
+      // 저장된 필기 이미지 로드
+      await _loadHandwritingImage(file);
+
+      // 로딩 완료 후 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
+    } catch (e) {
+      print('ERROR: 필기 이미지 비동기 로딩 실패 - $e');
+    }
   }
 
   // 페이지 네비게이션 메서드들
@@ -2118,9 +2240,20 @@ class _WritingScreenState extends State<WritingScreen>
   Future<void> _saveCurrentPageDrawing() async {
     if (_currentHandwritingFile != null && _painterController != null) {
       try {
-        // 실제 캔버스 크기를 사용하여 렌더링 (비율 유지)
-        final renderSize = _canvasSize ?? const Size(800, 600); // 기본값으로 800x600 사용
-        print('DEBUG: 필기 저장 시 사용할 크기 - ${renderSize.width}x${renderSize.height}');
+        // 고해상도 렌더링을 위한 크기 계산
+        Size renderSize;
+        if (_backgroundImageOriginalSize != null) {
+          // 배경 이미지가 있는 경우 원본 크기 사용
+          renderSize = _backgroundImageOriginalSize!;
+          print('DEBUG: 배경 이미지 원본 크기로 렌더링 - ${renderSize.width}x${renderSize.height}');
+        } else {
+          // 배경 이미지가 없는 경우 고해상도 사용 (비율 유지)
+          final aspectRatio = _backgroundImageAspectRatio ?? 1.414; // A4 비율 기본값
+          const double targetWidth = 1200; // 고해상도
+          final double targetHeight = targetWidth / aspectRatio;
+          renderSize = Size(targetWidth, targetHeight);
+          print('DEBUG: 고해상도로 렌더링 - ${renderSize.width}x${renderSize.height}');
+        }
 
         final ui.Image renderedImage = await _painterController!.renderImage(renderSize);
         final ByteData? byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
@@ -2204,11 +2337,23 @@ class _WritingScreenState extends State<WritingScreen>
       if (await imageFile.exists()) {
         final imageBytes = await imageFile.readAsBytes();
 
-        // 캔버스를 클리어하고 이미지를 배경으로 설정
+        // 캔버스를 클리어
         _painterController.clearDrawables();
-        await _setBackgroundFromBytes(imageBytes);
 
-        print('디버그: 필기 이미지 로드 완료 - ${file.displayTitle} ${file.pageInfo}');
+        // 파일에 저장된 비율 정보를 먼저 복원
+        if (file.aspectRatio != null) {
+          _backgroundImageAspectRatio = file.aspectRatio;
+          print('DEBUG: 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
+        }
+
+        // UI 업데이트로 _canvasSize 계산
+        setState(() {});
+
+        // 다음 프레임에서 저장된 이미지를 로드해서 표시 (배경 + 필기 내역이 포함된 이미지)
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await _loadSavedDrawingImage(imageBytes, file);
+          print('디버그: 필기 이미지 로드 완료 - ${file.displayTitle} ${file.pageInfo}');
+        });
       } else {
         print('디버그: 저장된 이미지 파일이 없음 - $targetPath');
 
@@ -2224,6 +2369,43 @@ class _WritingScreenState extends State<WritingScreen>
       print('에러: 필기 이미지 로드 실패 - $e');
     }
   }
+
+  Future<void> _loadSavedDrawingImage(Uint8List imageBytes, HandwritingFile file) async {
+    try {
+      // Uint8List를 ui.Image로 변환
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final frameInfo = await codec.getNextFrame();
+      final uiImage = frameInfo.image;
+
+      // 원본 이미지 크기 정보 및 비율 계산
+      print('DEBUG: 배경 이미지 원본 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}');
+
+      // 이미지 비율과 원본 크기 저장
+      if (uiImage.width > 0 && uiImage.height > 0) {
+        _backgroundImageAspectRatio = uiImage.width / uiImage.height;
+        _backgroundImageOriginalSize = Size(uiImage.width.toDouble(), uiImage.height.toDouble());
+        print('DEBUG: 저장된 이미지 정보 - 비율: $_backgroundImageAspectRatio, 크기: ${uiImage.width}x${uiImage.height}');
+      } else if (file.aspectRatio != null) {
+        _backgroundImageAspectRatio = file.aspectRatio;
+        print('DEBUG: 파일 저장된 비율 사용 - ${file.aspectRatio}');
+      }
+
+      // 저장된 이미지를 배경으로 직접 설정 (리사이즈 없이)
+      // Flutter Painter가 자동으로 캔버스 크기에 맞춰 스케일링 처리함
+      _painterController.background = uiImage.backgroundDrawable;
+
+      // UI 업데이트
+      setState(() {});
+
+      // 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
+
+      print('DEBUG: 배경 이미지 설정 완료');
+    } catch (e) {
+      print('ERROR: 저장된 필기 이미지 로드 실패 - $e');
+    }
+  }
+
 
   void _handleTextFileAction(String action, TextFile file) {
     switch (action) {
@@ -2509,10 +2691,20 @@ class _WritingScreenState extends State<WritingScreen>
 
         print('디버그: 필기 파일 저장 완료 - $fileTitle ${_currentHandwritingFile!.pageInfo}');
 
-        setState(() {
-          _isEditing = false;
-          _currentHandwritingFile = null;
-        });
+        // 저장 완료 알림을 위한 간단한 피드백 (선택사항)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('저장되었습니다'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+
+        // 편집 모드를 유지하고 화면 전환하지 않음
+        // setState(() {
+        //   _isEditing = false;
+        //   _currentHandwritingFile = null;
+        //   _backgroundImageOriginalSize = null;
+        // });
 
       } catch (e) {
         print('에러: 필기 파일 저장 실패 - $e');
