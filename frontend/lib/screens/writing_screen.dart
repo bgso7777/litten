@@ -57,6 +57,16 @@ class _WritingScreenState extends State<WritingScreen>
   double? _backgroundImageAspectRatio;
   Size? _backgroundImageOriginalSize;
 
+  // 제스처 및 애니메이션 관련
+  late AnimationController _zoomAnimationController;
+  Animation<Matrix4>? _zoomAnimation;
+
+  // 캔버스 내 텍스트 입력 관련
+  bool _isTextInputMode = false;
+  TextEditingController? _canvasTextController;
+  FocusNode? _canvasTextFocusNode;
+  Offset? _textInputPosition;
+
   bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
 
@@ -85,6 +95,16 @@ class _WritingScreenState extends State<WritingScreen>
     _painterController = PainterController();
     _transformationController = TransformationController();
 
+    // 애니메이션 컨트롤러 초기화
+    _zoomAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    // 텍스트 입력 컨트롤러 초기화
+    _canvasTextController = TextEditingController();
+    _canvasTextFocusNode = FocusNode();
+
     // 초기 펜 모드 설정
     _painterController.freeStyleMode = FreeStyleMode.draw;
     _painterController.freeStyleStrokeWidth = _strokeWidth;
@@ -109,6 +129,28 @@ class _WritingScreenState extends State<WritingScreen>
         _isResettingCanvas = false;
       }
     });
+  }
+
+  // 부드러운 애니메이션으로 변환 매트릭스 적용
+  void _animateToTransform(Matrix4 targetMatrix) {
+    final Matrix4 startMatrix = _transformationController.value.clone();
+
+    _zoomAnimation = Matrix4Tween(
+      begin: startMatrix,
+      end: targetMatrix,
+    ).animate(CurvedAnimation(
+      parent: _zoomAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _zoomAnimation!.addListener(() {
+      if (mounted) {
+        _transformationController.value = _zoomAnimation!.value;
+      }
+    });
+
+    _zoomAnimationController.reset();
+    _zoomAnimationController.forward();
   }
 
   Timer? _focusTimer;
@@ -305,6 +347,9 @@ class _WritingScreenState extends State<WritingScreen>
     WidgetsBinding.instance.removeObserver(this);
     _focusTimer?.cancel();
     _transformationController.dispose();
+    _zoomAnimationController.dispose();
+    _canvasTextController?.dispose();
+    _canvasTextFocusNode?.dispose();
     _htmlController.disable();
     super.dispose();
   }
@@ -752,19 +797,65 @@ class _WritingScreenState extends State<WritingScreen>
             transformationController: _transformationController,
             minScale: _minScale,
             maxScale: _maxScale,
-            constrained: false,
-            boundaryMargin: const EdgeInsets.all(4),
-            child: Container(
-              width: maxWidth,
-              height: maxHeight,
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: canvasWidth,
-                height: canvasHeight,
-                child: FlutterPainter(
-                  controller: _painterController,
+            constrained: true,
+            boundaryMargin: const EdgeInsets.all(20),
+            // 제스처 기능 활성화
+            panEnabled: true,           // 팬(이동) 제스처 항상 활성화
+            scaleEnabled: true,         // 스케일(확대/축소) 제스처 항상 활성화
+            // 클립 비활성화로 경계 밖에서도 제스처 가능
+            clipBehavior: Clip.none,
+            // 더블 탭으로 줌인/줌아웃
+            onInteractionStart: (details) {
+              print('DEBUG: 제스처 시작 - 포인터 수: ${details.pointerCount}');
+            },
+            onInteractionUpdate: (details) {
+              // 현재 변환 상태 업데이트
+              final Matrix4 matrix = _transformationController.value;
+              final double scale = matrix.getMaxScaleOnAxis();
+              print('DEBUG: 제스처 업데이트 - 스케일: ${scale.toStringAsFixed(2)}');
+            },
+            onInteractionEnd: (details) {
+              print('DEBUG: 제스처 종료');
+              // 스케일 범위 체크 및 조정
+              final Matrix4 matrix = _transformationController.value;
+              final double scale = matrix.getMaxScaleOnAxis();
+              if (scale < _minScale || scale > _maxScale) {
+                final double clampedScale = scale.clamp(_minScale, _maxScale);
+                final double scaleFactor = clampedScale / scale;
+                _transformationController.value = matrix.scaled(scaleFactor);
+              }
+            },
+            child: Stack(
+              children: [
+                // 메인 캔버스 - InteractiveViewer의 제스처가 작동하도록 직접 배치
+                SizedBox(
+                  width: canvasWidth,
+                  height: canvasHeight,
+                  child: IgnorePointer(
+                    ignoring: _isTextInputMode, // 텍스트 입력 모드에서만 포인터 무시
+                    child: FlutterPainter(
+                      controller: _painterController,
+                    ),
+                  ),
                 ),
-              ),
+                // 텍스트 입력 전용 제스처 감지 레이어
+                if (_isTextInputMode)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapDown: (details) {
+                        setState(() {
+                          _textInputPosition = details.localPosition;
+                        });
+                        _showCanvasTextInput();
+                      },
+                      child: Container(),
+                    ),
+                  ),
+                // 텍스트 입력 오버레이
+                if (_isTextInputMode && _textInputPosition != null)
+                  _buildCanvasTextInput(),
+              ],
             ),
           );
         },
@@ -1424,13 +1515,13 @@ class _WritingScreenState extends State<WritingScreen>
     print('DEBUG: 그리기 도구 변경됨 - $tool');
   }
 
-  // 줌인 기능
+  // 줌인 기능 (애니메이션 포함)
   void _zoomIn() {
     final Matrix4 currentTransform = _transformationController.value.clone();
     final double currentScale = currentTransform.getMaxScaleOnAxis();
 
     if (currentScale < _maxScale) {
-      final double newScale = (currentScale * 1.2).clamp(_minScale, _maxScale);
+      final double newScale = (currentScale * 1.5).clamp(_minScale, _maxScale);
       final double scaleDelta = newScale / currentScale;
 
       // 현재 뷰포트 중심점 계산
@@ -1443,18 +1534,21 @@ class _WritingScreenState extends State<WritingScreen>
         ..scale(scaleDelta)
         ..translate(-center.dx, -center.dy);
 
-      _transformationController.value = matrix * currentTransform;
+      // 부드러운 애니메이션으로 변환
+      final Matrix4 targetMatrix = matrix * currentTransform;
+      _animateToTransform(targetMatrix);
+
       print('DEBUG: 줌인 - 현재 스케일: ${currentScale.toStringAsFixed(2)} -> ${newScale.toStringAsFixed(2)}');
     }
   }
 
-  // 줌아웃 기능
+  // 줌아웃 기능 (애니메이션 포함)
   void _zoomOut() {
     final Matrix4 currentTransform = _transformationController.value.clone();
     final double currentScale = currentTransform.getMaxScaleOnAxis();
 
     if (currentScale > _minScale) {
-      final double newScale = (currentScale / 1.2).clamp(_minScale, _maxScale);
+      final double newScale = (currentScale / 1.5).clamp(_minScale, _maxScale);
       final double scaleDelta = newScale / currentScale;
 
       // 현재 뷰포트 중심점 계산
@@ -1467,56 +1561,145 @@ class _WritingScreenState extends State<WritingScreen>
         ..scale(scaleDelta)
         ..translate(-center.dx, -center.dy);
 
-      _transformationController.value = matrix * currentTransform;
+      // 부드러운 애니메이션으로 변환
+      final Matrix4 targetMatrix = matrix * currentTransform;
+      _animateToTransform(targetMatrix);
+
       print('DEBUG: 줌아웃 - 현재 스케일: ${currentScale.toStringAsFixed(2)} -> ${newScale.toStringAsFixed(2)}');
     }
   }
 
   void _showTextInput() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('텍스트 입력'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: '텍스트를 입력하세요',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 3,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final text = controller.text.trim();
-                if (text.isNotEmpty) {
-                  _addTextToCanvas(text);
-                }
-                Navigator.pop(context);
-              },
-              child: const Text('추가'),
+    setState(() {
+      _isTextInputMode = true;
+      _selectedTool = '텍스트';
+      // 기본 텍스트 입력 위치를 캔버스 중앙으로 설정
+      final Size canvasSize = _canvasSize ?? const Size(300, 400);
+      _textInputPosition = Offset(canvasSize.width / 4, canvasSize.height / 4);
+    });
+    print('DEBUG: 캔버스 내 텍스트 입력 모드 활성화');
+  }
+
+  void _showCanvasTextInput() {
+    _canvasTextController!.clear();
+    _canvasTextFocusNode!.requestFocus();
+    print('DEBUG: 텍스트 입력 필드 활성화 - 위치: $_textInputPosition');
+  }
+
+  Widget _buildCanvasTextInput() {
+    return Positioned(
+      left: _textInputPosition!.dx,
+      top: _textInputPosition!.dy,
+      child: Container(
+        constraints: const BoxConstraints(
+          minWidth: 200,
+          maxWidth: 300,
+          minHeight: 40,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Theme.of(context).primaryColor, width: 2),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
-        );
-      },
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 텍스트 입력 필드
+            TextField(
+              controller: _canvasTextController,
+              focusNode: _canvasTextFocusNode,
+              style: TextStyle(
+                color: _selectedColor,
+                fontSize: 16,
+              ),
+              decoration: const InputDecoration(
+                hintText: '텍스트를 입력하세요',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(12),
+              ),
+              maxLines: null,
+              autofocus: true,
+              onSubmitted: (text) => _confirmTextInput(),
+              onTapOutside: (event) => _cancelTextInput(),
+            ),
+            // 버튼들
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: _cancelTextInput,
+                    child: const Text('취소'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _confirmTextInput,
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
+  void _confirmTextInput() {
+    final text = _canvasTextController!.text.trim();
+    if (text.isNotEmpty) {
+      _addTextToCanvas(text);
+    }
+    _cancelTextInput();
+  }
+
+  void _cancelTextInput() {
+    setState(() {
+      _isTextInputMode = false;
+      _textInputPosition = null;
+      _selectedTool = '펜'; // 기본 도구로 돌아가기
+    });
+    _canvasTextFocusNode!.unfocus();
+    print('DEBUG: 텍스트 입력 모드 종료');
+  }
+
   void _addTextToCanvas(String text) {
-    // flutter_painter_v2에서 텍스트 추가하는 방법은 다를 수 있음
-    // 임시로 간단한 구현
     try {
-      // PainterController에 텍스트 관련 메소드가 있는지 확인 필요
-      print('텍스트 추가: $text');
-      // TODO: flutter_painter_v2의 올바른 텍스트 추가 방법으로 수정 필요
+      if (_textInputPosition != null) {
+        // FlutterPainter의 올바른 텍스트 추가 방법
+        _painterController.textSettings = TextSettings(
+          textStyle: TextStyle(
+            color: _selectedColor,
+            fontSize: 16,
+            fontWeight: FontWeight.normal,
+          ),
+        );
+
+        // 텍스트 drawable 생성하여 추가
+        final textDrawable = TextDrawable(
+          text: text,
+          position: _textInputPosition!,
+          style: TextStyle(
+            color: _selectedColor,
+            fontSize: 16,
+          ),
+        );
+
+        _painterController.addDrawables([textDrawable]);
+        print('DEBUG: 텍스트 추가 완료 - "$text" at ${_textInputPosition!}');
+      }
     } catch (e) {
-      print('텍스트 추가 실패: $e');
+      print('DEBUG: 텍스트 추가 실패 - $e');
+      // 간단한 fallback: 텍스트 위치를 로그로만 기록
+      print('DEBUG: 텍스트 "$text"를 위치 ${_textInputPosition!}에 추가하려 했음');
     }
   }
 
