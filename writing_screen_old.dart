@@ -52,7 +52,6 @@ class _WritingScreenState extends State<WritingScreen>
   bool _isUnderlineActive = false;
   String? _backgroundImagePath;
   String _selectedTool = '펜';
-  bool _isGestureMode = false; // 제스처 모드 (확대/축소/이동)
   bool _showAdvancedTools = false;
   bool _showColorPicker = false;
   double? _backgroundImageAspectRatio;
@@ -758,8 +757,6 @@ class _WritingScreenState extends State<WritingScreen>
       setState(() {
         _currentHandwritingFile = newHandwritingFile;
         _isEditing = true;
-        _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-        _isGestureMode = true; // 제스처 모드 활성화
         // 캔버스 및 배경 이미지 정보 초기화
         _painterController.clearDrawables();
         _backgroundImageOriginalSize = null;
@@ -781,14 +778,14 @@ class _WritingScreenState extends State<WritingScreen>
           final maxWidth = constraints.maxWidth;
           final maxHeight = constraints.maxHeight;
 
-          // 실제 캔버스 크기 계산 - 비율 유지하면서 최대한 큰 크기로
+          // 실제 캔버스 크기 계산
           double canvasWidth, canvasHeight;
           if (maxWidth / maxHeight > aspectRatio) {
-            // 높이 기준으로 크기 결정 (위아래 여백 없음)
+            // 높이 기준으로 크기 결정
             canvasHeight = maxHeight;
             canvasWidth = canvasHeight * aspectRatio;
           } else {
-            // 너비 기준으로 크기 결정 (좌우 여백 없음)
+            // 너비 기준으로 크기 결정
             canvasWidth = maxWidth;
             canvasHeight = canvasWidth / aspectRatio;
           }
@@ -828,39 +825,37 @@ class _WritingScreenState extends State<WritingScreen>
                 _transformationController.value = matrix.scaled(scaleFactor);
               }
             },
-            child: Center(
-              child: Stack(
-                children: [
-                  // 메인 캔버스 - 비율 유지하며 중앙 배치
-                  SizedBox(
-                    width: canvasWidth,
-                    height: canvasHeight,
-                    child: IgnorePointer(
-                      ignoring: _isTextInputMode || _isGestureMode, // 텍스트 입력 모드나 제스처 모드에서 포인터 무시
-                      child: FlutterPainter(
-                        controller: _painterController,
-                      ),
+            child: Stack(
+              children: [
+                // 메인 캔버스 - InteractiveViewer의 제스처가 작동하도록 직접 배치
+                SizedBox(
+                  width: canvasWidth,
+                  height: canvasHeight,
+                  child: IgnorePointer(
+                    ignoring: _isTextInputMode, // 텍스트 입력 모드에서만 포인터 무시
+                    child: FlutterPainter(
+                      controller: _painterController,
                     ),
                   ),
-                  // 텍스트 입력 전용 제스처 감지 레이어
-                  if (_isTextInputMode)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTapDown: (details) {
-                          setState(() {
-                            _textInputPosition = details.localPosition;
-                          });
-                          _showCanvasTextInput();
-                        },
-                        child: Container(),
-                      ),
+                ),
+                // 텍스트 입력 전용 제스처 감지 레이어
+                if (_isTextInputMode)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapDown: (details) {
+                        setState(() {
+                          _textInputPosition = details.localPosition;
+                        });
+                        _showCanvasTextInput();
+                      },
+                      child: Container(),
                     ),
-                  // 텍스트 입력 오버레이
-                  if (_isTextInputMode && _textInputPosition != null)
-                    _buildCanvasTextInput(),
-                ],
-              ),
+                  ),
+                // 텍스트 입력 오버레이
+                if (_isTextInputMode && _textInputPosition != null)
+                  _buildCanvasTextInput(),
+              ],
             ),
           );
         },
@@ -1228,8 +1223,6 @@ class _WritingScreenState extends State<WritingScreen>
           _currentHandwritingFile = newHandwritingFile;
           _isEditing = true;
           _isConverting = false;
-          _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-          _isGestureMode = true; // 제스처 모드 활성화
         });
 
         // 필기 파일 목록을 SharedPreferences에 저장
@@ -1441,18 +1434,10 @@ class _WritingScreenState extends State<WritingScreen>
 
   void _selectDrawingTool(String tool) {
     print('DEBUG: 그리기 도구 선택 - $tool');
-
+    
     setState(() {
       _selectedTool = tool;
-
-      // 제스처 모드 설정
-      if (tool == '제스처') {
-        _isGestureMode = true;
-        print('DEBUG: 제스처 모드 활성화 - 확대/축소/이동 가능');
-      } else {
-        _isGestureMode = false;
-      }
-
+      
       switch (tool) {
         case '펜':
           _painterController.freeStyleMode = FreeStyleMode.draw;
@@ -2187,24 +2172,22 @@ class _WritingScreenState extends State<WritingScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                // 사용 빈도 순서로 배열
-                _buildCompactDrawingTool(Icons.pan_tool, '제스처', _selectedTool == '제스처'),
-                _buildToolSeparator(),
+                // 기본 그리기 도구들
                 _buildCompactDrawingTool(Icons.edit, '펜', _selectedTool == '펜'),
-                _buildToolSeparator(),
-                _buildCompactDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
                 _buildToolSeparator(),
                 _buildCompactDrawingTool(Icons.highlight, '하이라이터', _selectedTool == '하이라이터'),
                 _buildToolSeparator(),
-                _buildCompactDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
+                _buildCompactDrawingTool(Icons.cleaning_services, '지우개', _selectedTool == '지우개'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
+                _buildToolSeparator(),
+                _buildCompactDrawingTool(Icons.circle_outlined, '원형', _selectedTool == '원형'),
                 _buildToolSeparator(),
                 _buildCompactDrawingTool(Icons.remove, '직선', _selectedTool == '직선'),
                 _buildToolSeparator(),
                 _buildCompactDrawingTool(Icons.arrow_forward, '화살표', _selectedTool == '화살표'),
                 _buildToolSeparator(),
-                _buildCompactDrawingTool(Icons.crop_square, '도형', _selectedTool == '도형'),
-                _buildToolSeparator(),
-                _buildCompactDrawingTool(Icons.circle_outlined, '원형', _selectedTool == '원형'),
+                _buildCompactDrawingTool(Icons.text_fields, '텍스트', _selectedTool == '텍스트'),
                 _buildToolSeparator(),
 
                 // 액션 도구들
@@ -2377,18 +2360,14 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   void _editHandwritingFile(HandwritingFile file) async {
-    // UI를 즉시 편집 모드로 전환하고 제스처 도구를 기본으로 선택
+    // UI를 즉시 편집 모드로 전환
     setState(() {
       _currentHandwritingFile = file;
       _isEditing = true;
-      _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-      _isGestureMode = true; // 제스처 모드 활성화
     });
 
     // 이미지 로딩을 비동기로 처리하여 UI 블로킹 방지
     _loadHandwritingImageAsync(file);
-
-    print('DEBUG: 필기 편집 시작 - 제스처 모드로 기본 설정');
   }
 
   // 비동기 이미지 로딩 함수
@@ -2444,16 +2423,10 @@ class _WritingScreenState extends State<WritingScreen>
   Future<void> _saveCurrentPageDrawing() async {
     if (_currentHandwritingFile != null && _painterController != null) {
       try {
-        // 필기 내용이 있는지 확인 (drawables 목록으로 체크)
-        if (_painterController.drawables.isEmpty) {
-          print('DEBUG: 필기 내용이 없어서 저장하지 않음 (원본 배경 이미지 품질 보존)');
-          return;
-        }
-
-        // Old 파일 방식: 배경 이미지 원본 크기로 렌더링
+        // 고해상도 렌더링을 위한 크기 계산
         Size renderSize;
         if (_backgroundImageOriginalSize != null) {
-          // 배경 이미지가 있는 경우 원본 크기 사용 (품질 보존)
+          // 배경 이미지가 있는 경우 원본 크기 사용
           renderSize = _backgroundImageOriginalSize!;
           print('DEBUG: 배경 이미지 원본 크기로 렌더링 - ${renderSize.width}x${renderSize.height}');
         } else {
@@ -2464,8 +2437,8 @@ class _WritingScreenState extends State<WritingScreen>
           renderSize = Size(targetWidth, targetHeight);
           print('DEBUG: 고해상도로 렌더링 - ${renderSize.width}x${renderSize.height}');
         }
-        final ui.Image renderedImage = await _painterController!.renderImage(renderSize);
 
+        final ui.Image renderedImage = await _painterController!.renderImage(renderSize);
         final ByteData? byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
 
         if (byteData != null) {
@@ -2477,13 +2450,20 @@ class _WritingScreenState extends State<WritingScreen>
 
           String fileName;
           if (_currentHandwritingFile!.isMultiPage && _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
-            // 다중 페이지인 경우 필기 레이어 파일명 생성
-            fileName = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
-            print('DEBUG: 다중 페이지 필기 레이어 저장 - $fileName');
+            // 다중 페이지인 경우 현재 페이지 파일명 사용
+            if (_currentHandwritingFile!.currentPageIndex < _currentHandwritingFile!.pageImagePaths.length) {
+              fileName = _currentHandwritingFile!.pageImagePaths[_currentHandwritingFile!.currentPageIndex];
+            } else {
+              fileName = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}.png';
+            }
+
+            // 파일명이 실제 파일명이 아닌 경우 변환
+            if (!fileName.contains('_page_')) {
+              fileName = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}.png';
+            }
           } else {
-            // 단일 페이지인 경우 필기 레이어 파일명 생성
-            fileName = '${_currentHandwritingFile!.id}_drawing.png';
-            print('DEBUG: 단일 페이지 필기 레이어 저장 - $fileName');
+            // 단일 페이지인 경우
+            fileName = '${_currentHandwritingFile!.id}.png';
           }
 
           final pageFile = File('${littenDir.path}/$fileName');
@@ -2537,75 +2517,39 @@ class _WritingScreenState extends State<WritingScreen>
 
       final imageFile = File(targetPath);
 
-      // 필기 레이어 파일 확인 및 로드
-      String drawingFileName;
-      if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-        drawingFileName = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
-      } else {
-        drawingFileName = '${file.id}_drawing.png';
-      }
+      if (await imageFile.exists()) {
+        final imageBytes = await imageFile.readAsBytes();
 
-      final drawingFile = File('${littenDir.path}/$drawingFileName');
+        // 캔버스를 클리어
+        _painterController.clearDrawables();
 
-      // 캔버스를 클리어
-      _painterController.clearDrawables();
-
-      // 파일에 저장된 비율 정보를 먼저 복원
-      if (file.aspectRatio != null) {
-        _backgroundImageAspectRatio = file.aspectRatio;
-        print('DEBUG: 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
-      }
-
-      // UI 업데이트로 _canvasSize 계산
-      setState(() {});
-
-      // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
-      if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-        final backgroundFileName = file.pageImagePaths[file.currentPageIndex];
-        final backgroundFile = File('${littenDir.path}/$backgroundFileName');
-
-        if (await backgroundFile.exists()) {
-          final backgroundBytes = await backgroundFile.readAsBytes();
-          await _setBackgroundFromBytes(backgroundBytes);
-          print('DEBUG: 배경 이미지 로드 완료 - $backgroundFileName');
+        // 파일에 저장된 비율 정보를 먼저 복원
+        if (file.aspectRatio != null) {
+          _backgroundImageAspectRatio = file.aspectRatio;
+          print('DEBUG: 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
         }
-      }
 
-      // 2. 필기 레이어 로드 (있으면)
-      if (await drawingFile.exists()) {
-        final drawingBytes = await drawingFile.readAsBytes();
+        // UI 업데이트로 _canvasSize 계산
+        setState(() {});
 
+        // 다음 프레임에서 저장된 이미지를 로드해서 표시 (배경 + 필기 내역이 포함된 이미지)
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await _loadDrawingLayer(drawingBytes);
-          print('DEBUG: 필기 레이어 로드 완료 - $drawingFileName');
+          await _loadSavedDrawingImage(imageBytes, file);
+          print('디버그: 필기 이미지 로드 완료 - ${file.displayTitle} ${file.pageInfo}');
         });
       } else {
-        print('DEBUG: 필기 레이어 파일 없음 - $drawingFileName (새로운 필기 가능)');
+        print('디버그: 저장된 이미지 파일이 없음 - $targetPath');
+
+        // 파일이 없는 경우 캔버스를 클리어하고 비율 정보만 복원
+        _painterController.clearDrawables();
+        if (file.aspectRatio != null) {
+          _backgroundImageAspectRatio = file.aspectRatio;
+          setState(() {}); // UI 업데이트
+          print('DEBUG: 파일 저장된 비율 정보 복원 - ${file.aspectRatio}');
+        }
       }
     } catch (e) {
       print('에러: 필기 이미지 로드 실패 - $e');
-    }
-  }
-
-  // 필기 레이어만 로드하는 함수
-  Future<void> _loadDrawingLayer(Uint8List drawingBytes) async {
-    try {
-      // Uint8List를 ui.Image로 변환
-      final codec = await ui.instantiateImageCodec(drawingBytes);
-      final frameInfo = await codec.getNextFrame();
-      final uiImage = frameInfo.image;
-
-      print('DEBUG: 필기 레이어 이미지 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}');
-
-      // 필기 레이어를 FlutterPainter에 추가 (배경 위에 오버레이)
-      // 이 부분은 FlutterPainter의 API에 따라 구현 방식이 달라질 수 있습니다
-      // 임시로 배경으로 설정하되, 실제로는 레이어로 추가해야 합니다
-      _painterController.background = uiImage.backgroundDrawable;
-
-      // UI 업데이트
-      setState(() {});
-    } catch (e) {
-      print('ERROR: 필기 레이어 로드 실패 - $e');
     }
   }
 
@@ -2619,19 +2563,14 @@ class _WritingScreenState extends State<WritingScreen>
       // 원본 이미지 크기 정보 및 비율 계산
       print('DEBUG: 배경 이미지 원본 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}');
 
-      // 파일에 저장된 비율 정보를 절대 우선으로 사용 (이미지 크기는 무시)
-      if (file.aspectRatio != null) {
-        _backgroundImageAspectRatio = file.aspectRatio;
-        print('DEBUG: 파일 저장된 비율 정보 강제 적용 - ${file.aspectRatio} (이미지 크기 ${uiImage.width}x${uiImage.height} 무시)');
-      } else if (uiImage.width > 0 && uiImage.height > 0) {
-        _backgroundImageAspectRatio = uiImage.width / uiImage.height;
-        print('DEBUG: 비율 정보가 없어서 이미지에서 계산 - $_backgroundImageAspectRatio');
-      }
-
-      // 이미지 크기 정보 저장 (표시용, 비율 계산에는 사용 안 함)
+      // 이미지 비율과 원본 크기 저장
       if (uiImage.width > 0 && uiImage.height > 0) {
+        _backgroundImageAspectRatio = uiImage.width / uiImage.height;
         _backgroundImageOriginalSize = Size(uiImage.width.toDouble(), uiImage.height.toDouble());
-        print('DEBUG: 저장된 이미지 크기 - ${uiImage.width}x${uiImage.height} (표시용)');
+        print('DEBUG: 저장된 이미지 정보 - 비율: $_backgroundImageAspectRatio, 크기: ${uiImage.width}x${uiImage.height}');
+      } else if (file.aspectRatio != null) {
+        _backgroundImageAspectRatio = file.aspectRatio;
+        print('DEBUG: 파일 저장된 비율 사용 - ${file.aspectRatio}');
       }
 
       // 저장된 이미지를 배경으로 직접 설정 (리사이즈 없이)
@@ -2896,13 +2835,8 @@ class _WritingScreenState extends State<WritingScreen>
       try {
         print('디버그: 필기 파일 저장 시작 - $fileTitle ${_currentHandwritingFile!.pageInfo}');
 
-        // 필기 내용이 있을 때만 저장
-        if (_painterController.drawables.isNotEmpty) {
-          await _saveCurrentPageDrawing();
-          print('DEBUG: 필기 내용 있어서 저장함');
-        } else {
-          print('DEBUG: 필기 내용 없어서 저장 건너뜀');
-        }
+        // 다중 페이지인 경우 현재 페이지만 저장
+        await _saveCurrentPageDrawing();
 
         // 파일 목록에서 현재 파일의 페이지 정보 업데이트 (비율 정보 포함)
         final currentAspectRatio = _getCanvasAspectRatio();
