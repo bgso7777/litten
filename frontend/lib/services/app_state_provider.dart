@@ -385,247 +385,247 @@ class AppStateProvider extends ChangeNotifier {
   // 현지화된 기본 리튼 생성
   Future<void> _createDefaultLittensWithLocalization() async {
     // 현재 언어에 따른 기본 리튼 제목과 설명 결정
-    String defaultLittenTitle, lectureTitle, meetingTitle;
-    String defaultLittenDescription, lectureDescription, meetingDescription;
-    
+    String? defaultLittenTitle, lectureTitle, meetingTitle;
+    String? defaultLittenDescription, lectureDescription, meetingDescription;
+
     switch (_locale.languageCode) {
       case 'ko':
-        defaultLittenTitle = '기본리튼';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = '강의';
         meetingTitle = '회의';
-        defaultLittenDescription = '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.';
+        defaultLittenDescription = null;
         lectureDescription = '강의에 관련된 파일들을 저장하세요.';
         meetingDescription = '회의에 관련된 파일들을 저장하세요.';
         break;
       case 'zh':
-        defaultLittenTitle = '默认笔记本';
+        defaultLittenTitle = null; // 基本默认笔记本 제거
         lectureTitle = '讲座';
         meetingTitle = '会议';
-        defaultLittenDescription = '未选择笔记本时创建的文件将存储在此默认空间中。';
+        defaultLittenDescription = null;
         lectureDescription = '在此处存储与讲座相关的文件。';
         meetingDescription = '在此处存储与会议相关的文件。';
         break;
       case 'hi':
-        defaultLittenTitle = 'डिफ़ॉल्ट लिट्टेन';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'व्याख्यान';
         meetingTitle = 'मीटिंग';
-        defaultLittenDescription = 'लिट्टेन चुने बिना बनाई गई फ़ाइलों के लिए डिफ़ॉल्ट स्थान।';
+        defaultLittenDescription = null;
         lectureDescription = 'व्याख्यान से संबंधित फ़ाइलें यहाँ संग्रहीत करें।';
         meetingDescription = 'मीटिंग से संबंधित फ़ाइलें यहाँ संग्रहीत करें।';
         break;
       case 'es':
-        defaultLittenTitle = 'Litten Predeterminado';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Conferencia';
         meetingTitle = 'Reunión';
-        defaultLittenDescription = 'Espacio predeterminado para archivos creados sin seleccionar un litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Almacena archivos relacionados con conferencias aquí.';
         meetingDescription = 'Almacena archivos relacionados con reuniones aquí.';
         break;
       case 'fr':
-        defaultLittenTitle = 'Litten par Défaut';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Conférence';
         meetingTitle = 'Réunion';
-        defaultLittenDescription = 'Espace par défaut pour les fichiers créés sans sélectionner un litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Stockez les fichiers liés aux conférences ici.';
         meetingDescription = 'Stockez les fichiers liés aux réunions ici.';
         break;
       case 'ar':
-        defaultLittenTitle = 'ليتن افتراضي';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'محاضرة';
         meetingTitle = 'اجتماع';
-        defaultLittenDescription = 'مساحة افتراضية للملفات المنشأة بدون تحديد ليتن.';
+        defaultLittenDescription = null;
         lectureDescription = 'احفظ الملفات المتعلقة بالمحاضرات هنا.';
         meetingDescription = 'احفظ الملفات المتعلقة بالاجتماعات هنا.';
         break;
       case 'bn':
-        defaultLittenTitle = 'ডিফল্ট লিটেন';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'লেকচার';
         meetingTitle = 'মিটিং';
-        defaultLittenDescription = 'লিটেন নির্বাচন ছাড়াই তৈরি ফাইলের জন্য ডিফল্ট স্থান।';
+        defaultLittenDescription = null;
         lectureDescription = 'লেকচার সম্পর্কিত ফাইল এখানে সংরক্ষণ করুন।';
         meetingDescription = 'মিটিং সম্পর্কিত ফাইল এখানে সংরক্ষণ করুন।';
         break;
       case 'ru':
-        defaultLittenTitle = 'Литтен по умолчанию';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Лекция';
         meetingTitle = 'Встреча';
-        defaultLittenDescription = 'Пространство по умолчанию для файлов, созданных без выбора литтена.';
+        defaultLittenDescription = null;
         lectureDescription = 'Сохраняйте файлы, связанные с лекциями, здесь.';
         meetingDescription = 'Сохраняйте файлы, связанные с встречами, здесь.';
         break;
       case 'pt':
-        defaultLittenTitle = 'Litten Padrão';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Palestra';
         meetingTitle = 'Reunião';
-        defaultLittenDescription = 'Espaço padrão para arquivos criados sem selecionar um litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Armazene arquivos relacionados a palestras aqui.';
         meetingDescription = 'Armazene arquivos relacionados a reuniões aqui.';
         break;
       case 'ur':
-        defaultLittenTitle = 'ڈیفالٹ لٹن';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'لیکچر';
         meetingTitle = 'میٹنگ';
-        defaultLittenDescription = 'لٹن منتخب کیے بغیر بنائی گئی فائلوں کے لیے ڈیفالٹ جگہ۔';
+        defaultLittenDescription = null;
         lectureDescription = 'لیکچر سے متعلق فائلیں یہاں محفوظ کریں۔';
         meetingDescription = 'میٹنگ سے متعلق فائلیں یہاں محفوظ کریں۔';
         break;
       case 'id':
-        defaultLittenTitle = 'Litten Default';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Kuliah';
         meetingTitle = 'Rapat';
-        defaultLittenDescription = 'Ruang default untuk file yang dibuat tanpa memilih litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Simpan file terkait kuliah di sini.';
         meetingDescription = 'Simpan file terkait rapat di sini.';
         break;
       case 'de':
-        defaultLittenTitle = 'Standard-Litten';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Vorlesung';
         meetingTitle = 'Besprechung';
-        defaultLittenDescription = 'Standardbereich für Dateien, die ohne Auswahl eines Littens erstellt wurden.';
+        defaultLittenDescription = null;
         lectureDescription = 'Speichern Sie vorlesungsbezogene Dateien hier.';
         meetingDescription = 'Speichern Sie besprechungsbezogene Dateien hier.';
         break;
       case 'ja':
-        defaultLittenTitle = 'デフォルトリッテン';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = '講義';
         meetingTitle = 'ミーティング';
-        defaultLittenDescription = 'リッテンを選択せずに作成されたファイルのデフォルト領域。';
+        defaultLittenDescription = null;
         lectureDescription = '講義関連のファイルをここに保存してください。';
         meetingDescription = 'ミーティング関連のファイルをここに保存してください。';
         break;
       case 'sw':
-        defaultLittenTitle = 'Litten Chaguo-msingi';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Hotuba';
         meetingTitle = 'Mkutano';
-        defaultLittenDescription = 'Nafasi chaguo-msingi ya faili zilizoundwa bila kuchagua litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Hifadhi faili zinazohusiana na hotuba hapa.';
         meetingDescription = 'Hifadhi faili zinazohusiana na mikutano hapa.';
         break;
       case 'mr':
-        defaultLittenTitle = 'डिफॉल्ट लिट्टन';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'व्याख्यान';
         meetingTitle = 'सभा';
-        defaultLittenDescription = 'लिट्टन निवडल्याशिवाय तयार केलेल्या फाइलींसाठी डिफॉल्ट जागा.';
+        defaultLittenDescription = null;
         lectureDescription = 'व्याख्यानाशी संबंधित फाइली येथे साठवा.';
         meetingDescription = 'सभाशी संबंधित फाइली येथे साठवा.';
         break;
       case 'te':
-        defaultLittenTitle = 'డిఫాల్ట్ లిట్టెన్';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'ఉపన్యాసం';
         meetingTitle = 'సమావేశం';
-        defaultLittenDescription = 'లిట్టెన్ ఎంచుకోకుండా సృష్టించబడిన ఫైల్‌ల కోసం డిఫాల్ట్ స్థలం.';
+        defaultLittenDescription = null;
         lectureDescription = 'ఉపన్యాసాలకు సంబంధించిన ఫైల్‌లను ఇక్కడ నిల్వ చేయండి.';
         meetingDescription = 'సమావేశాలకు సంబంధించిన ఫైల్‌లను ఇక్కడ నిల్వ చేయండి.';
         break;
       case 'tr':
-        defaultLittenTitle = 'Varsayılan Litten';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Ders';
         meetingTitle = 'Toplantı';
-        defaultLittenDescription = 'Litten seçilmeden oluşturulan dosyalar için varsayılan alan.';
+        defaultLittenDescription = null;
         lectureDescription = 'Dersle ilgili dosyaları burada saklayın.';
         meetingDescription = 'Toplantıyla ilgili dosyaları burada saklayın.';
         break;
       case 'ta':
-        defaultLittenTitle = 'இயல்புநிலை லிட்டன்';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'விரிவுரை';
         meetingTitle = 'கூட்டம்';
-        defaultLittenDescription = 'லிட்டன் தேர்ந்தெடுக்காமல் உருவாக்கப்பட்ட கோப்புகளுக்கான இயல்புநிலை இடம்.';
+        defaultLittenDescription = null;
         lectureDescription = 'விரிவுரை தொடர்பான கோப்புகளை இங்கே சேமிக்கவும்.';
         meetingDescription = 'கூட்டம் தொடர்பான கோப்புகளை இங்கே சேமிக்கவும்.';
         break;
       case 'fa':
-        defaultLittenTitle = 'لیتن پیش‌فرض';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'سخنرانی';
         meetingTitle = 'جلسه';
-        defaultLittenDescription = 'فضای پیش‌فرض برای فایل‌های ایجاد شده بدون انتخاب لیتن.';
+        defaultLittenDescription = null;
         lectureDescription = 'فایل‌های مربوط به سخنرانی را اینجا ذخیره کنید.';
         meetingDescription = 'فایل‌های مربوط به جلسه را اینجا ذخیره کنید.';
         break;
       case 'uk':
-        defaultLittenTitle = 'Літтен за замовчуванням';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Лекція';
         meetingTitle = 'Зустріч';
-        defaultLittenDescription = 'Простір за замовчуванням для файлів, створених без вибору літтена.';
+        defaultLittenDescription = null;
         lectureDescription = 'Зберігайте файли, пов\'язані з лекціями, тут.';
         meetingDescription = 'Зберігайте файли, пов\'язані зі зустрічами, тут.';
         break;
       case 'it':
-        defaultLittenTitle = 'Litten Predefinito';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Lezione';
         meetingTitle = 'Riunione';
-        defaultLittenDescription = 'Spazio predefinito per i file creati senza selezionare un litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Memorizza qui i file relativi alle lezioni.';
         meetingDescription = 'Memorizza qui i file relativi alle riunioni.';
         break;
       case 'tl':
-        defaultLittenTitle = 'Default na Litten';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Lektura';
         meetingTitle = 'Pulong';
-        defaultLittenDescription = 'Default na lugar para sa mga file na ginawa nang walang pagpili ng litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Mag-imbak ng mga file na may kaugnayan sa lektura dito.';
         meetingDescription = 'Mag-imbak ng mga file na may kaugnayan sa pulong dito.';
         break;
       case 'pl':
-        defaultLittenTitle = 'Domyślny Litten';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Wykład';
         meetingTitle = 'Spotkanie';
-        defaultLittenDescription = 'Domyślne miejsce dla plików utworzonych bez wyboru littena.';
+        defaultLittenDescription = null;
         lectureDescription = 'Przechowuj tutaj pliki związane z wykładami.';
         meetingDescription = 'Przechowuj tutaj pliki związane ze spotkaniami.';
         break;
       case 'ps':
-        defaultLittenTitle = 'د پیل لیټن';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'لیکچر';
         meetingTitle = 'غونډه';
-        defaultLittenDescription = 'د هغه فایلونو لپاره چې د لیټن د ټاکلو پرته رامینځته شوي.';
+        defaultLittenDescription = null;
         lectureDescription = 'د لیکچر پورې اړوند فایلونه دلته خوندي کړئ.';
         meetingDescription = 'د غونډې پورې اړوند فایلونه دلته خوندي کړئ.';
         break;
       case 'ms':
-        defaultLittenTitle = 'Litten Lalai';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Kuliah';
         meetingTitle = 'Mesyuarat';
-        defaultLittenDescription = 'Ruang lalai untuk fail yang dibuat tanpa memilih litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Simpan fail berkaitan kuliah di sini.';
         meetingDescription = 'Simpan fail berkaitan mesyuarat di sini.';
         break;
       case 'ro':
-        defaultLittenTitle = 'Litten Implicit';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Prelegere';
         meetingTitle = 'Întâlnire';
-        defaultLittenDescription = 'Spațiul implicit pentru fișierele create fără selectarea unui litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Stocați aici fișierele legate de prelegeri.';
         meetingDescription = 'Stocați aici fișierele legate de întâlniri.';
         break;
       case 'nl':
-        defaultLittenTitle = 'Standaard Litten';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Lezing';
         meetingTitle = 'Vergadering';
-        defaultLittenDescription = 'Standaardruimte voor bestanden die zijn gemaakt zonder een litten te selecteren.';
+        defaultLittenDescription = null;
         lectureDescription = 'Sla lezinggerelateerde bestanden hier op.';
         meetingDescription = 'Sla vergaderinggerelateerde bestanden hier op.';
         break;
       case 'ha':
-        defaultLittenTitle = 'Litten na Asali';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'Lacca';
         meetingTitle = 'Taro';
-        defaultLittenDescription = 'Wurin asali na fayiloli da aka kirkira ba tare da zabar litten ba.';
+        defaultLittenDescription = null;
         lectureDescription = 'Ajiye fayiloli masu alaka da lacca a nan.';
         meetingDescription = 'Ajiye fayiloli masu alaka da taro a nan.';
         break;
       case 'th':
-        defaultLittenTitle = 'ลิทเทนเริ่มต้น';
+        defaultLittenTitle = null; // 기본리튼 제거
         lectureTitle = 'การบรรยาย';
         meetingTitle = 'การประชุม';
-        defaultLittenDescription = 'พื้นที่เริ่มต้นสำหรับไฟล์ที่สร้างโดยไม่ได้เลือกลิทเทน';
+        defaultLittenDescription = null;
         lectureDescription = 'เก็บไฟล์ที่เกี่ยวข้องกับการบรรยายไว้ที่นี่';
         meetingDescription = 'เก็บไฟล์ที่เกี่ยวข้องกับการประชุมไว้ที่นี่';
         break;
       default:
-        defaultLittenTitle = 'Default Litten';
+        defaultLittenTitle = null; // Default Litten 제거
         lectureTitle = 'Lecture';
         meetingTitle = 'Meeting';
-        defaultLittenDescription = 'Default space for files created without selecting a litten.';
+        defaultLittenDescription = null;
         lectureDescription = 'Store files related to lectures here.';
         meetingDescription = 'Store files related to meetings here.';
         break;

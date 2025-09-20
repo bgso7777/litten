@@ -62,11 +62,28 @@ class _WritingScreenState extends State<WritingScreen>
   late AnimationController _zoomAnimationController;
   Animation<Matrix4>? _zoomAnimation;
 
+  // 페이지 네비게이션을 위한 수평 스크롤 감지 변수들
+  Offset? _panStartPosition;
+  Offset? _lastFocalPoint;
+  bool _isPanningHorizontally = false;
+  static const double _panThreshold = 100.0; // 페이지 전환을 위한 최소 거리
+  static const double _panVelocityThreshold = 500.0; // 페이지 전환을 위한 최소 속도
+  static const double _edgeThreshold = 50.0; // 스크롤 경계 감지 임계값
+  bool _hasReachedLeftEdge = false;
+  bool _hasReachedRightEdge = false;
+
+  // 더블 탭 페이지 네비게이션 관련
+  DateTime? _lastTapTime;
+  Offset? _lastTapPosition;
+  static const Duration _doubleTapTimeout = Duration(milliseconds: 500);
+  static const double _doubleTapDistanceThreshold = 50.0;
+
   // 캔버스 내 텍스트 입력 관련
   bool _isTextInputMode = false;
   TextEditingController? _canvasTextController;
   FocusNode? _canvasTextFocusNode;
   Offset? _textInputPosition;
+  Offset? _screenTextInputPosition; // 화면 좌표계 위치
 
   bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
@@ -462,38 +479,9 @@ class _WritingScreenState extends State<WritingScreen>
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : (_textFiles.isEmpty && _handwritingFiles.isEmpty)
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.note_add,
-                            size: 64,
-                            color: Colors.grey.shade400,
-                          ),
-                          AppSpacing.verticalSpaceM,
-                          Text(
-                            '아직 작성된 파일이 없습니다',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          AppSpacing.verticalSpaceS,
-                          Text(
-                            '아래 버튼을 눌러 새로운 파일을 만들어보세요',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Column(
+              : Column(
                       children: [
-                        // 텍스트 파일 섹션 (상단 절반)
+                        // 텍스트 파일 섹션 (상단 50%)
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -524,33 +512,56 @@ class _WritingScreenState extends State<WritingScreen>
                               ),
                               // 텍스트 파일 리스트
                               Expanded(
-                                child: _textFiles.isEmpty
-                                    ? Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.keyboard,
-                                              size: 48,
-                                              color: Colors.grey.shade400,
+                                child: Stack(
+                                  children: [
+                                    _textFiles.isEmpty
+                                        ? Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.keyboard,
+                                                  size: 48,
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                                AppSpacing.verticalSpaceS,
+                                                Text(
+                                                  '텍스트 파일이 없습니다',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey.shade500,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            AppSpacing.verticalSpaceS,
-                                            Text(
-                                              '텍스트 파일이 없습니다',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                              ),
-                                            ),
+                                          )
+                                        : ListView.builder(
+                                            itemCount: _textFiles.length,
+                                            itemBuilder: (context, index) {
+                                              return _buildTextFileItem(_textFiles[index]);
+                                            },
+                                          ),
+                                    // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
+                                    Positioned(
+                                      right: 16,
+                                      bottom: 16,
+                                      child: FloatingActionButton(
+                                        onPressed: _createNewTextFile,
+                                        backgroundColor: Theme.of(context).primaryColor,
+                                        foregroundColor: Colors.white,
+                                        mini: true,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Icon(Icons.keyboard, size: 16),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.add, size: 16),
                                           ],
                                         ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: _textFiles.length,
-                                        itemBuilder: (context, index) {
-                                          return _buildTextFileItem(_textFiles[index]);
-                                        },
                                       ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -560,7 +571,7 @@ class _WritingScreenState extends State<WritingScreen>
                           height: 1,
                           color: Colors.grey.shade200,
                         ),
-                        // 필기 파일 섹션 (하단 절반)
+                        // 필기 파일 섹션 (하단 50%)
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -591,84 +602,62 @@ class _WritingScreenState extends State<WritingScreen>
                               ),
                               // 필기 파일 리스트
                               Expanded(
-                                child: _handwritingFiles.isEmpty
-                                    ? Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.draw,
-                                              size: 48,
-                                              color: Colors.grey.shade400,
+                                child: Stack(
+                                  children: [
+                                    _handwritingFiles.isEmpty
+                                        ? Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.draw,
+                                                  size: 48,
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                                AppSpacing.verticalSpaceS,
+                                                Text(
+                                                  '필기 파일이 없습니다',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey.shade500,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            AppSpacing.verticalSpaceS,
-                                            Text(
-                                              '필기 파일이 없습니다',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                              ),
-                                            ),
+                                          )
+                                        : ListView.builder(
+                                            itemCount: _handwritingFiles.length,
+                                            itemBuilder: (context, index) {
+                                              return _buildHandwritingFileItem(_handwritingFiles[index]);
+                                            },
+                                          ),
+                                    // FloatingActionButton 추가
+                                    Positioned(
+                                      right: 16,
+                                      bottom: 16,
+                                      child: FloatingActionButton(
+                                        onPressed: _createNewHandwritingFile,
+                                        backgroundColor: Theme.of(context).primaryColor,
+                                        foregroundColor: Colors.white,
+                                        mini: true,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Icon(Icons.draw, size: 16),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.add, size: 16),
                                           ],
                                         ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: _handwritingFiles.length,
-                                        itemBuilder: (context, index) {
-                                          return _buildHandwritingFileItem(_handwritingFiles[index]);
-                                        },
                                       ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-        ),
-        // 새로 만들기 버튼 - 하단으로 이동
-        Container(
-          padding: AppSpacing.paddingM,
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              top: BorderSide(color: Colors.grey.shade200),
-            ),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _createNewTextFile,
-                      icon: const Icon(Icons.keyboard),
-                      label: Text(l10n?.textWriting ?? '텍스트 쓰기'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  AppSpacing.horizontalSpaceM,
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _createNewHandwritingFile,
-                      icon: const Icon(Icons.draw),
-                      label: Text(l10n?.handwriting ?? '필기'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              // 하단 네비게이션 바와의 간격 확보
-              const SizedBox(height: 16),
-            ],
-          ),
         ),
       ],
     );
@@ -762,7 +751,9 @@ class _WritingScreenState extends State<WritingScreen>
         _isGestureMode = true; // 제스처 모드 활성화
         // 캔버스 및 배경 이미지 정보 초기화
         _painterController.clearDrawables();
+        _painterController.background = null; // 배경 이미지도 완전히 초기화
         _backgroundImageOriginalSize = null;
+        _backgroundImageAspectRatio = null; // 배경 이미지 비율도 초기화
       });
 
       // 캔버스를 좌상단으로 초기화
@@ -796,7 +787,20 @@ class _WritingScreenState extends State<WritingScreen>
           // 실제 캔버스 크기 저장
           _canvasSize = Size(canvasWidth, canvasHeight);
 
-          return InteractiveViewer(
+          return GestureDetector(
+            onTap: () {
+              // RenderBox를 통해 정확한 탭 위치 계산
+              final RenderBox box = context.findRenderObject() as RenderBox;
+              final Offset localPosition = box.globalToLocal(Offset.zero);
+              // 현재 위치를 화면 중앙 기준으로 계산
+              final screenCenter = MediaQuery.of(context).size.center(Offset.zero);
+              _handleTap(screenCenter);
+            },
+            onTapDown: (TapDownDetails details) {
+              // 더 정확한 탭 위치 사용
+              _handleTap(details.localPosition);
+            },
+            child: InteractiveViewer(
             transformationController: _transformationController,
             minScale: _minScale,
             maxScale: _maxScale,
@@ -810,15 +814,61 @@ class _WritingScreenState extends State<WritingScreen>
             // 더블 탭으로 줌인/줌아웃
             onInteractionStart: (details) {
               print('DEBUG: 제스처 시작 - 포인터 수: ${details.pointerCount}');
+
+              // 페이지 네비게이션용 시작 위치 저장 (제스처 모드이고 단일 포인터인 경우만)
+              if (_isGestureMode &&
+                  details.pointerCount == 1 &&
+                  _currentHandwritingFile?.isMultiPage == true) {
+                _panStartPosition = details.focalPoint;
+                print('DEBUG: 페이지 네비게이션 시작 위치 저장: $_panStartPosition');
+              }
             },
             onInteractionUpdate: (details) {
-              // 현재 변환 상태 업데이트
-              final Matrix4 matrix = _transformationController.value;
-              final double scale = matrix.getMaxScaleOnAxis();
-              print('DEBUG: 제스처 업데이트 - 스케일: ${scale.toStringAsFixed(2)}');
+              // 페이지 네비게이션을 위해 마지막 위치 추적
+              if (_isGestureMode && _panStartPosition != null) {
+                _lastFocalPoint = details.focalPoint;
+                final double deltaX = details.focalPoint.dx - _panStartPosition!.dx;
+                if (deltaX.abs() > 50) {
+                  print('DEBUG: 제스처 업데이트 - deltaX: ${deltaX.toStringAsFixed(1)}');
+                }
+              }
             },
             onInteractionEnd: (details) {
               print('DEBUG: 제스처 종료');
+
+              // 수평 스크롤로 페이지 네비게이션 처리 (간단한 거리 기반)
+              if (_isGestureMode &&
+                  _panStartPosition != null &&
+                  _lastFocalPoint != null &&
+                  _currentHandwritingFile?.isMultiPage == true) {
+
+                // 마지막 기록된 위치와 시작 위치 비교
+                final double deltaX = _lastFocalPoint!.dx - _panStartPosition!.dx;
+                final double deltaY = _lastFocalPoint!.dy - _panStartPosition!.dy;
+
+                print('DEBUG: 제스처 종료 - deltaX: ${deltaX.toStringAsFixed(1)}, deltaY: ${deltaY.toStringAsFixed(1)}');
+
+                // 수평 이동이 수직 이동보다 크고, 최소 거리 이상 이동한 경우
+                if (deltaX.abs() > deltaY.abs() && deltaX.abs() > 100) {
+                  if (deltaX > 0) {
+                    // 오른쪽으로 스와이프 -> 이전 페이지
+                    print('DEBUG: 오른쪽 스와이프 -> 이전 페이지로 이동');
+                    if (_currentHandwritingFile!.canGoPreviousPage) {
+                      _goToPreviousPage();
+                    }
+                  } else {
+                    // 왼쪽으로 스와이프 -> 다음 페이지
+                    print('DEBUG: 왼쪽 스와이프 -> 다음 페이지로 이동');
+                    if (_currentHandwritingFile!.canGoNextPage) {
+                      _goToNextPage();
+                    }
+                  }
+                }
+              }
+
+              // 변수 초기화
+              _panStartPosition = null;
+
               // 스케일 범위 체크 및 조정
               final Matrix4 matrix = _transformationController.value;
               final double scale = matrix.getMaxScaleOnAxis();
@@ -848,21 +898,28 @@ class _WritingScreenState extends State<WritingScreen>
                       child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
                         onTapDown: (details) {
+                          // 터치 좌표를 캔버스 좌표로 변환
+                          final canvasPosition = _transformLocalToCanvasCoordinates(details.localPosition);
+                          print('DEBUG: 터치 좌표 변환 - 로컬: ${details.localPosition}, 캔버스: $canvasPosition');
+
+                          // 전체 Stack에서의 위치 계산 (헤더, 툴바 높이 고려)
+                          final globalPosition = _calculateGlobalTextInputPosition(details.localPosition);
+
                           setState(() {
-                            _textInputPosition = details.localPosition;
+                            _textInputPosition = canvasPosition;
+                            _screenTextInputPosition = globalPosition;
                           });
                           _showCanvasTextInput();
                         },
                         child: Container(),
                       ),
                     ),
-                  // 텍스트 입력 오버레이
-                  if (_isTextInputMode && _textInputPosition != null)
-                    _buildCanvasTextInput(),
+                  // 텍스트 입력 오버레이는 InteractiveViewer 외부로 이동
                 ],
               ),
             ),
-          );
+          ),
+        );
         },
       ),
     );
@@ -1588,11 +1645,11 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() {
       _isTextInputMode = true;
       _selectedTool = '텍스트';
-      // 기본 텍스트 입력 위치를 캔버스 중앙으로 설정
-      final Size canvasSize = _canvasSize ?? const Size(300, 400);
-      _textInputPosition = Offset(canvasSize.width / 4, canvasSize.height / 4);
+      // 텍스트 입력 위치는 캔버스를 터치했을 때 설정
+      _textInputPosition = null;
+      _screenTextInputPosition = null; // 화면 위치도 초기화
     });
-    print('DEBUG: 캔버스 내 텍스트 입력 모드 활성화');
+    print('DEBUG: 텍스트 입력 모드 활성화 - 캔버스를 터치하여 입력 위치를 선택하세요');
   }
 
   void _showCanvasTextInput() {
@@ -1641,8 +1698,14 @@ class _WritingScreenState extends State<WritingScreen>
               ),
               maxLines: null,
               autofocus: true,
-              onSubmitted: (text) => _confirmTextInput(),
-              onTapOutside: (event) => _cancelTextInput(),
+              onSubmitted: (text) {
+                print('DEBUG: TextField onSubmitted 호출됨 - 텍스트: "$text"');
+                _confirmTextInput();
+              },
+              onTapOutside: (event) {
+                print('DEBUG: TextField onTapOutside 호출됨');
+                _handleTextInputFocusOut();
+              },
             ),
             // 버튼들
             Container(
@@ -1651,12 +1714,18 @@ class _WritingScreenState extends State<WritingScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton(
-                    onPressed: _cancelTextInput,
+                    onPressed: () {
+                      print('DEBUG: 취소 버튼 클릭됨 - onPressed 호출');
+                      _cancelTextInput();
+                    },
                     child: const Text('취소'),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _confirmTextInput,
+                    onPressed: () {
+                      print('DEBUG: 확인 버튼 클릭됨 - onPressed 호출');
+                      _confirmTextInput();
+                    },
                     child: const Text('확인'),
                   ),
                 ],
@@ -1669,27 +1738,129 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   void _confirmTextInput() {
-    final text = _canvasTextController!.text.trim();
-    if (text.isNotEmpty) {
-      _addTextToCanvas(text);
+    print('DEBUG: _confirmTextInput 호출됨');
+
+    try {
+      if (_canvasTextController == null) {
+        print('DEBUG: _canvasTextController가 null임');
+        return;
+      }
+
+      final text = _canvasTextController!.text.trim();
+      print('DEBUG: 입력된 텍스트: "$text"');
+
+      if (text.isNotEmpty) {
+        print('DEBUG: 텍스트가 비어있지 않음 - 캔버스에 추가 시도');
+        _addTextToCanvas(text);
+      } else {
+        print('DEBUG: 입력된 텍스트가 비어있음');
+      }
+
+      print('DEBUG: 텍스트 입력 모드 종료 시작');
+      _cancelTextInput();
+      print('DEBUG: _confirmTextInput 완료');
+    } catch (e) {
+      print('DEBUG: _confirmTextInput에서 오류 발생 - $e');
     }
-    _cancelTextInput();
   }
 
   void _cancelTextInput() {
+    print('DEBUG: _cancelTextInput 시작');
     setState(() {
       _isTextInputMode = false;
       _textInputPosition = null;
+      _screenTextInputPosition = null; // 화면 위치도 초기화
       _selectedTool = '펜'; // 기본 도구로 돌아가기
     });
     _canvasTextFocusNode!.unfocus();
-    print('DEBUG: 텍스트 입력 모드 종료');
+    print('DEBUG: 텍스트 입력 모드 종료 완료');
+  }
+
+  void _handleTextInputFocusOut() {
+    print('DEBUG: _handleTextInputFocusOut 호출됨');
+
+    if (_canvasTextController != null) {
+      final text = _canvasTextController!.text.trim();
+      print('DEBUG: 포커스 아웃 시 텍스트 내용: "$text"');
+
+      if (text.isNotEmpty) {
+        print('DEBUG: 텍스트가 있음 - 자동 확인 액션 실행');
+        _confirmTextInput();
+      } else {
+        print('DEBUG: 텍스트가 없음 - 자동 취소 액션 실행');
+        _cancelTextInput();
+      }
+    } else {
+      print('DEBUG: _canvasTextController가 null - 취소 액션 실행');
+      _cancelTextInput();
+    }
+  }
+
+  /// 로컬 터치 좌표를 캔버스 좌표계로 변환
+  Offset _transformLocalToCanvasCoordinates(Offset localPosition) {
+    try {
+      // InteractiveViewer의 현재 변환 매트릭스 가져오기
+      final Matrix4 matrix = _transformationController.value;
+
+      // 스케일 및 변환 값 추출
+      final double scaleX = matrix.entry(0, 0);
+      final double scaleY = matrix.entry(1, 1);
+      final double translateX = matrix.entry(0, 3);
+      final double translateY = matrix.entry(1, 3);
+
+      // 역변환 적용: (localPosition - translation) / scale
+      final double canvasX = (localPosition.dx - translateX) / scaleX;
+      final double canvasY = (localPosition.dy - translateY) / scaleY;
+
+      final Offset canvasPosition = Offset(canvasX, canvasY);
+
+      print('DEBUG: 좌표 변환 상세 - 로컬: $localPosition');
+      print('DEBUG: 스케일 X/Y: ${scaleX.toStringAsFixed(3)}/${scaleY.toStringAsFixed(3)}');
+      print('DEBUG: 변환 X/Y: ${translateX.toStringAsFixed(1)}/${translateY.toStringAsFixed(1)}');
+      print('DEBUG: 변환된 캔버스 좌표: $canvasPosition');
+
+      return canvasPosition;
+    } catch (e) {
+      print('DEBUG: 좌표 변환 실패 - $e, 원본 좌표 반환');
+      return localPosition;
+    }
+  }
+
+  /// 터치 위치를 전체 Stack에서의 위치로 계산 (헤더, 툴바 높이 고려)
+  Offset _calculateGlobalTextInputPosition(Offset localPosition) {
+    try {
+      // 헤더 높이 (AppBar와 상단 헤더)
+      const double headerHeight = kToolbarHeight + 56; // AppBar + 상단 헤더
+      // 필기 도구 패널 높이
+      const double toolbarHeight = 40;
+      // 동기화 상태 바 높이 (있는 경우)
+      const double syncBarHeight = 0; // 현재는 별도 높이 없음
+
+      // 전체 오프셋 계산
+      final double totalTopOffset = headerHeight + toolbarHeight + syncBarHeight;
+
+      // InteractiveViewer 내의 로컬 좌표를 전체 Stack 좌표로 변환
+      final double globalX = localPosition.dx;
+      final double globalY = localPosition.dy + totalTopOffset;
+
+      final Offset globalPosition = Offset(globalX, globalY);
+
+      print('DEBUG: 전체 위치 계산 - 로컬: $localPosition → 전체: $globalPosition');
+      print('DEBUG: 상단 오프셋: ${totalTopOffset}px (헤더: ${headerHeight}px + 툴바: ${toolbarHeight}px)');
+
+      return globalPosition;
+    } catch (e) {
+      print('DEBUG: 전체 위치 계산 실패 - $e, 원본 좌표 반환');
+      return localPosition;
+    }
   }
 
   void _addTextToCanvas(String text) {
     try {
       if (_textInputPosition != null) {
-        // FlutterPainter의 올바른 텍스트 추가 방법
+        print('DEBUG: 텍스트 추가 시작 - "$text" at ${_textInputPosition!}');
+
+        // flutter_painter_v2의 올바른 텍스트 추가 방법
         _painterController.textSettings = TextSettings(
           textStyle: TextStyle(
             color: _selectedColor,
@@ -1698,22 +1869,30 @@ class _WritingScreenState extends State<WritingScreen>
           ),
         );
 
-        // 텍스트 drawable 생성하여 추가
+        // 텍스트를 직접 추가하는 방법 시도
         final textDrawable = TextDrawable(
           text: text,
           position: _textInputPosition!,
           style: TextStyle(
             color: _selectedColor,
             fontSize: 16,
+            fontWeight: FontWeight.normal,
           ),
         );
 
+        // addDrawables 메서드로 텍스트 추가
         _painterController.addDrawables([textDrawable]);
+        print('DEBUG: addDrawables 메서드로 텍스트 추가 완료');
+
+        // 캔버스 강제 새로고침
+        setState(() {});
+
         print('DEBUG: 텍스트 추가 완료 - "$text" at ${_textInputPosition!}');
+      } else {
+        print('DEBUG: 텍스트 입력 위치가 null임');
       }
     } catch (e) {
       print('DEBUG: 텍스트 추가 실패 - $e');
-      // 간단한 fallback: 텍스트 위치를 로그로만 기록
       print('DEBUG: 텍스트 "$text"를 위치 ${_textInputPosition!}에 추가하려 했음');
     }
   }
@@ -1850,11 +2029,7 @@ class _WritingScreenState extends State<WritingScreen>
           backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
           child: Icon(Icons.keyboard, color: Theme.of(context).primaryColor),
         ),
-        title: Text(
-          file.displayTitle,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (file.shortPreview.isNotEmpty)
@@ -1896,6 +2071,8 @@ class _WritingScreenState extends State<WritingScreen>
         title: Text(
           file.displayTitle,
           style: const TextStyle(fontWeight: FontWeight.w500),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1903,7 +2080,7 @@ class _WritingScreenState extends State<WritingScreen>
             Row(
               children: [
                 Text(
-                  file.isFromPdf ? 'PDF에서 변환됨' : '직접 작성',
+                  file.isFromPdf ? 'PDF 작성' : '직접 작성',
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
                 if (file.isMultiPage) ...[
@@ -2101,7 +2278,9 @@ class _WritingScreenState extends State<WritingScreen>
 
   Widget _buildHandwritingEditor() {
     final l10n = AppLocalizations.of(context);
-    return Column(
+    return Stack(
+      children: [
+        Column(
       children: [
         // 음성-쓰기 동기화 상태 표시
         _buildSyncStatusBar(),
@@ -2128,42 +2307,47 @@ class _WritingScreenState extends State<WritingScreen>
                 icon: const Icon(Icons.arrow_back),
               ),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _currentHandwritingFile?.displayTitle ?? '새 필기',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (_currentHandwritingFile?.isMultiPage == true)
-                      Text(
-                        _currentHandwritingFile!.pageInfo,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  _currentHandwritingFile?.displayTitle ?? '새 필기',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
               // 페이지 네비게이션 (다중 페이지인 경우)
               if (_currentHandwritingFile?.isMultiPage == true) ...[
-                IconButton(
-                  onPressed: _currentHandwritingFile!.canGoPreviousPage
-                      ? _goToPreviousPage
-                      : null,
-                  icon: const Icon(Icons.keyboard_arrow_left),
-                  tooltip: '이전 페이지',
-                ),
-                IconButton(
-                  onPressed: _currentHandwritingFile!.canGoNextPage
-                      ? _goToNextPage
-                      : null,
-                  icon: const Icon(Icons.keyboard_arrow_right),
-                  tooltip: '다음 페이지',
+                Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: _currentHandwritingFile!.canGoPreviousPage
+                              ? _goToPreviousPage
+                              : null,
+                          icon: const Icon(Icons.keyboard_arrow_left),
+                          tooltip: '이전 페이지',
+                        ),
+                        IconButton(
+                          onPressed: _currentHandwritingFile!.canGoNextPage
+                              ? _goToNextPage
+                              : null,
+                          icon: const Icon(Icons.keyboard_arrow_right),
+                          tooltip: '다음 페이지',
+                        ),
+                      ],
+                    ),
+                    Text(
+                      _currentHandwritingFile!.pageInfo,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
               TextButton(
@@ -2327,7 +2511,60 @@ class _WritingScreenState extends State<WritingScreen>
             ),
           ),
       ],
-    );
+    ),
+    // 텍스트 입력 오버레이 - 즉시 타이핑 가능한 인라인 입력
+    if (_isTextInputMode && _screenTextInputPosition != null)
+      Positioned(
+        left: _screenTextInputPosition!.dx,
+        top: _screenTextInputPosition!.dy,
+        child: Container(
+          constraints: const BoxConstraints(
+            minWidth: 50,
+            maxWidth: 300,
+            minHeight: 25,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.95),
+            border: Border.all(color: _selectedColor, width: 2),
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _canvasTextController,
+            focusNode: _canvasTextFocusNode,
+            autofocus: true,
+            style: TextStyle(
+              color: _selectedColor,
+              fontSize: 16,
+              fontWeight: FontWeight.normal,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              hintText: '입력...',
+              hintStyle: TextStyle(fontSize: 14),
+              isDense: true,
+            ),
+            maxLines: null,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (text) {
+              print('DEBUG: 인라인 텍스트 onSubmitted: "$text"');
+              _confirmTextInput();
+            },
+            onTapOutside: (event) {
+              print('DEBUG: 인라인 텍스트 onTapOutside');
+              _handleTextInputFocusOut();
+            },
+          ),
+        ),
+      ),
+    ]);
   }
 
   void _loadPdfForNewFile() async {
@@ -2438,6 +2675,110 @@ class _WritingScreenState extends State<WritingScreen>
       await _loadHandwritingImage(previousPageFile);
 
       print('DEBUG: 이전 페이지로 이동 - ${previousPageFile.pageInfo}');
+    }
+  }
+
+  /// 더블 탭 처리 (좌측/우측 화면 절반에 따른 페이지 이동)
+  void _handleDoubleTap(Offset position) {
+    print('DEBUG: 더블 탭 감지 - 위치: $position');
+
+    // 제스처 모드가 아닌 경우에만 동작
+    if (_selectedTool != '제스처') {
+      print('DEBUG: 제스처 모드가 아니므로 더블 탭 무시');
+      return;
+    }
+
+    // 다중 페이지 파일이 아닌 경우 무시
+    if (_currentHandwritingFile?.isMultiPage != true) {
+      print('DEBUG: 단일 페이지 파일이므로 더블 탭 무시');
+      return;
+    }
+
+    // 화면 너비의 절반을 기준으로 좌측/우측 판단
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLeftSide = position.dx < screenWidth / 2;
+
+    print('DEBUG: 더블 탭 위치 판단 - ${isLeftSide ? '좌측' : '우측'} (${position.dx}/${screenWidth})');
+
+    if (isLeftSide) {
+      // 좌측 더블 탭 -> 이전 페이지로 이동
+      if (_currentHandwritingFile!.canGoPreviousPage) {
+        print('DEBUG: 좌측 더블 탭 -> 이전 페이지로 이동');
+        _goToPreviousPage();
+      } else {
+        print('DEBUG: 이전 페이지가 없음');
+      }
+    } else {
+      // 우측 더블 탭 -> 다음 페이지로 이동
+      if (_currentHandwritingFile!.canGoNextPage) {
+        print('DEBUG: 우측 더블 탭 -> 다음 페이지로 이동');
+        _goToNextPage();
+      } else {
+        print('DEBUG: 다음 페이지가 없음');
+      }
+    }
+  }
+
+  /// 탭 이벤트 처리 (더블 탭 감지)
+  void _handleTap(Offset position) {
+    final now = DateTime.now();
+
+    // 텍스트 도구가 선택된 경우 즉시 텍스트 입력 모드 시작
+    if (_selectedTool == '텍스트') {
+      print('DEBUG: 텍스트 도구 선택됨 - 즉시 입력 모드 시작');
+      _handleTextToolTap(position);
+      return;
+    }
+
+    // 이전 탭 시간과 위치 확인
+    if (_lastTapTime != null && _lastTapPosition != null) {
+      final timeDiff = now.difference(_lastTapTime!);
+      final positionDiff = (position - _lastTapPosition!).distance;
+
+      // 더블 탭 조건 확인
+      if (timeDiff <= _doubleTapTimeout && positionDiff <= _doubleTapDistanceThreshold) {
+        print('DEBUG: 더블 탭 조건 만족 - 시간차: ${timeDiff.inMilliseconds}ms, 거리차: ${positionDiff.toStringAsFixed(1)}px');
+        _handleDoubleTap(position);
+
+        // 더블 탭 처리 후 초기화
+        _lastTapTime = null;
+        _lastTapPosition = null;
+        return;
+      }
+    }
+
+    // 단일 탭으로 처리 (더블 탭 대기를 위한 정보 저장)
+    _lastTapTime = now;
+    _lastTapPosition = position;
+    print('DEBUG: 단일 탭 감지 - 더블 탭 대기 중');
+  }
+
+  void _handleTextToolTap(Offset position) {
+    try {
+      print('DEBUG: 텍스트 도구 탭 처리 시작 - 위치: $position');
+
+      // 터치 위치를 캔버스 좌표계로 변환
+      final canvasPosition = _transformLocalToCanvasCoordinates(position);
+
+      // 캔버스 좌표 저장
+      _textInputPosition = canvasPosition;
+
+      // 화면 좌표 계산 (UI 배치용)
+      final screenPosition = _calculateGlobalTextInputPosition(position);
+
+      // 텍스트 컨트롤러 초기화
+      _canvasTextController?.clear();
+
+      setState(() {
+        _screenTextInputPosition = screenPosition;
+        _isTextInputMode = true;
+      });
+
+      print('DEBUG: 텍스트 입력 모드 즉시 시작 완료');
+      print('DEBUG: 캔버스 위치: $canvasPosition');
+      print('DEBUG: 화면 위치: $screenPosition');
+    } catch (e) {
+      print('DEBUG: 텍스트 도구 탭 처리 중 오류 - $e');
     }
   }
 
@@ -2597,10 +2938,9 @@ class _WritingScreenState extends State<WritingScreen>
 
       print('DEBUG: 필기 레이어 이미지 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}');
 
-      // 필기 레이어를 FlutterPainter에 추가 (배경 위에 오버레이)
-      // 이 부분은 FlutterPainter의 API에 따라 구현 방식이 달라질 수 있습니다
-      // 임시로 배경으로 설정하되, 실제로는 레이어로 추가해야 합니다
-      _painterController.background = uiImage.backgroundDrawable;
+      // 필기 레이어를 배경으로 설정 (원래 방식)
+      _painterController.background = ImageBackgroundDrawable(image: uiImage);
+      print('DEBUG: 필기 레이어를 배경으로 로드 완료');
 
       // UI 업데이트
       setState(() {});

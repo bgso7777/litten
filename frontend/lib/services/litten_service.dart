@@ -304,20 +304,26 @@ class LittenService {
     String? meetingDescription,
   }) async {
     final littens = await getAllLittens();
-    
+
     // 기본 리튼이 이미 존재하는지 확인
-    final defaultTitles = [
-      defaultLittenTitle ?? '기본리튼',
-      lectureTitle ?? '강의',
-      meetingTitle ?? '회의'
-    ];
+    final defaultTitles = <String>[];
+
+    // defaultLittenTitle이 null이 아닌 경우에만 추가 (기본리튼 제거)
+    if (defaultLittenTitle != null) {
+      defaultTitles.add(defaultLittenTitle);
+    }
+
+    // 강의와 회의는 항상 추가
+    defaultTitles.add(lectureTitle ?? '강의');
+    defaultTitles.add(meetingTitle ?? '회의');
+
     final existingTitles = littens.map((l) => l.title).toSet();
-    
+
     for (int i = 0; i < defaultTitles.length; i++) {
       final title = defaultTitles[i];
       if (!existingTitles.contains(title)) {
         String description;
-        if (title == (defaultLittenTitle ?? '기본리튼')) {
+        if (defaultLittenTitle != null && title == defaultLittenTitle) {
           description = defaultLittenDescription ?? '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.';
         } else if (title == (lectureTitle ?? '강의')) {
           description = lectureDescription ?? '강의에 관련된 파일들을 저장하세요.';
@@ -326,7 +332,7 @@ class LittenService {
         } else {
           description = '$title에 관련된 파일들을 저장하세요.';
         }
-        
+
         final defaultLitten = Litten(
           title: title,
           description: description,

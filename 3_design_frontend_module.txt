@@ -1,0 +1,411 @@
+
+=====================================================================
+=====================================================================
+flutter_painter_v2 모듈에서 제공하는 모든 툴바 기능들을 정리해드렸습니다.
+
+  📝 현재 프로젝트에서 사용 중인 기능 (15개)
+
+  Drawing Tools (3개)
+
+  - ✅ 펜 (FreeStyleMode.draw) - 일반 그리기
+  - ✅ 하이라이터 - 반투명 펜 효과
+  - ✅ 지우개 (FreeStyleMode.erase) - 지우기 모드
+
+  Shape Tools (4개)
+
+  - ✅ 직선 (LineFactory) - 직선 그리기
+  - ✅ 화살표 (ArrowFactory) - 화살표 그리기
+  - ✅ 사각형 (RectangleFactory) - 직사각형 그리기
+  - ✅ 원형 (OvalFactory) - 타원/원 그리기
+
+  Text Tools (1개)
+
+  - ✅ 텍스트 입력 - 기본 텍스트 추가
+
+  Color/Style Tools (2개)
+
+  - ✅ 색상 선택 - 기본 색상 설정
+  - ✅ 선 굵기 조절 - 기본 선 굵기 설정
+
+  Action Tools (3개)
+
+  - ✅ 실행취소/다시실행 (undo/redo)
+  - ✅ 초기화 (clearDrawables)
+  - ✅ 제스처 (확대/축소/이동)
+
+  Transform Tools (2개)
+
+  - ✅ 줌인/줌아웃
+  - ✅ 제스처 기반 변형
+
+  ❌ 사용하지 않는 기능들 (20+개)
+
+  1. 추가 Shape Tools
+
+  - DoubleArrowFactory: 양방향 화살표 (양쪽 끝에 화살표)
+
+  2. 고급 Drawing Tools
+
+  - FreeStyleMode.none: 그리기 완전 비활성화
+  - 브러시 스타일 변경: 다양한 브러시 모양
+  - 선 끝 스타일: 둥근 끝, 평면 끝 등
+  - 선 조인 스타일: 선이 만나는 지점의 모양
+
+  3. ImageDrawable 기능
+
+  - 이미지 추가: 배경이 아닌 객체로서의 이미지
+  - 이미지 플립: 이미지 좌우/상하 반전
+  - 이미지 객체 조작: 이미지 이동, 크기 조절, 회전
+
+  4. 고급 Text Tools
+
+  - 고급 TextStyle 설정: 폰트, 크기, 굵기, 기울임 등 세부 설정
+  - 텍스트 포커스 관리: 텍스트 편집 시작/종료 감지
+  - 텍스트 객체 조작: 텍스트 이동, 크기 조절, 회전
+
+  5. 고급 Color Tools
+
+  - 색상 팔레트 확장: 더 다양한 색상 옵션
+  - 그라디언트 색상: 그라디언트 브러시
+  - 투명도 세부 조절: 알파 값 정밀 조절
+
+  6. 객체 선택/조작 Tools
+
+  - 객체 선택: 개별 객체 선택/해제
+  - 객체 이동: 드래그로 객체 위치 변경
+  - 객체 크기 조절: 핸들을 통한 크기 조절
+  - 객체 회전: 회전 핸들을 통한 회전
+  - 객체 잠금: 객체 편집 방지
+  - 다중 선택: 여러 객체 동시 선택
+  - 영역 선택: 사각형 영역으로 객체들 선택
+
+  7. Layer Management
+
+  - 레이어 관리: 드로어블의 순서 변경
+  - 레이어 표시/숨김: 개별 드로어블 표시 상태 제어
+
+  8. Export/Import Tools
+
+  - 커스텀 크기 렌더링: 지정된 크기로 이미지 출력
+  - 부분 영역 렌더링: 특정 영역만 이미지로 출력
+  - 배경 제외 렌더링: 투명 배경으로 출력
+  - 드로어블 직렬화: 그림 데이터를 JSON 등으로 저장
+  - 드로어블 복원: 저장된 데이터에서 그림 복원
+
+  9. Background Management
+
+  - ImageBackgroundDrawable: 이미지 배경 설정
+  - ColorBackgroundDrawable: 색상 배경 설정
+  - 배경 변경: 런타임에 배경 변경
+
+  10. 프로그래밍 조작 Tools
+
+  - addDrawable(): 코드로 드로어블 추가
+  - insertDrawable(): 특정 위치에 드로어블 삽입
+  - replaceDrawable(): 기존 드로어블 교체
+  - removeDrawable(): 특정 드로어블 제거
+
+  🎯 리튼 앱에 추가 권장하는 기능들
+
+  우선순위 높음:
+  - DoubleArrowFactory: 양방향 화살표 (다이어그램용)
+  - 객체 선택/이동/크기조절: 그린 후 수정 기능
+  - 고급 텍스트 설정: 폰트 크기, 색상 조절
+
+  우선순위 중간:
+  - ImageDrawable: 스티커/도장 기능
+  - 레이어 관리: 객체 순서 변경
+  - 커스텀 렌더링: 특정 영역 내보내기
+
+  고급 기능:
+  - 그라디언트 색상: 고급 색상 효과
+  - 드로어블 직렬화: 그림 저장/불러오기
+  - 이벤트 콜백: 사용자 행동 분석
+
+  현재 약 35개 기능 중 15개만 사용하고 있어서, 20개 이상의 추가 기능을 활용할
+  수 있습니다!
+
+  -------------------------------------------------------------------
+  📂 필기 저장 위치와 파일 이름
+
+  💾 저장 위치
+
+  1. 메타데이터 저장
+  - 위치: SharedPreferences
+  - 키: handwriting_files_{littenId}
+  - 내용: 필기 파일 목록의 JSON 데이터
+
+  2. 실제 이미지 파일 저장
+  - 위치: {Application Documents 
+  Directory}/litten_{littenId}/
+  - 경로 예시:
+  /Users/사용자명/Library/Application 
+  Support/앱명/litten_12345/
+
+  📄 파일 이름 규칙
+
+  단일 페이지 필기
+  {파일ID}_drawing.png
+  예시: handwriting_abc123_drawing.png
+
+  다중 페이지 필기
+  {파일ID}_page_{페이지번호}_drawing.png
+  예시: handwriting_abc123_page_1_drawing.png
+
+  🔄 저장 프로세스
+
+  1. 저장 버튼 클릭 시
+  - _saveCurrentHandwritingFile() 메서드 호출
+  - 필기 내용이 있으면 _saveCurrentPageDrawing()
+  실행
+
+  2. 실제 저장 과정
+  1. 필기 내용 확인
+  (_painterController.drawables.isEmpty)
+  2. 렌더링 크기 결정 (배경 이미지 원본 크기 또는
+   기본 크기)
+  3. PNG 이미지로 렌더링
+  4. 파일명 생성 (단일/다중 페이지 구분)
+  5. 파일 저장 (litten_{littenId} 폴더)
+  6. 메타데이터 업데이트 (SharedPreferences)
+
+  3. 저장 완료 알림
+  - "저장되었습니다" 스낵바 표시
+
+  📁 전체 구조 예시
+
+  Application Documents Directory/
+  └── litten_12345/
+      ├── handwriting_abc123_drawing.png         
+    (단일 페이지)
+      ├── handwriting_def456_page_1_drawing.png  
+    (다중 페이지 1)
+      ├── handwriting_def456_page_2_drawing.png  
+    (다중 페이지 2)
+      └── handwriting_ghi789_drawing.png         
+    (단일 페이지)
+
+  SharedPreferences:
+  - Key: "handwriting_files_12345"
+  - Value: JSON 배열 (파일 목록 메타데이터)
+
+  ⚠️ 중요 사항
+
+  - 필기 내용이 없으면 저장하지 않음 (원본 배경 이미지 품질 보존)
+  - 각 리튼별로 별도 폴더에 저장됨
+  - PNG 형식으로 저장되어 투명도 지원
+
+=====================================================================
+=====================================================================
+html-editor-enhanced 모듈에서 제공하는 모든 툴바 기능들을 정리해드렸습니다.
+
+  📝 현재 프로젝트에서 사용 중인 기능 (9개)
+
+  FontButtons (3개)
+  - ✅ bold (굵게)
+  - ✅ italic (기울임)
+  - ✅ underline (밑줄)
+
+  ColorButtons (2개)
+  - ✅ foregroundColor (글자 색상)
+  - ✅ highlightColor (배경 색상/형광펜)
+
+  ListButtons (1개)
+  - ✅ listStyles (목록 스타일 드롭다운)
+
+  ParagraphButtons (일부)
+  - ✅ alignLeft, alignCenter, alignRight, alignJustify, increaseIndent,
+  decreaseIndent
+  - ❌ textDirection, lineHeight, caseConverter (false로 설정됨)
+
+  ❌ 사용하지 않는 기능들 (25개)
+
+  StyleButtons (1개)
+
+  - style: 스타일 드롭다운 (Normal, Quote, Code, Header 1-6)
+
+  FontSettingButtons (3개)
+
+  - fontName: 폰트 이름 선택
+  - fontSize: 폰트 크기 선택
+  - fontSizeUnit: 폰트 크기 단위 선택
+
+  FontButtons (4개 추가)
+
+  - clearAll: 서식 지우기
+  - strikethrough: 취소선
+  - superscript: 위첨자 (x²)
+  - subscript: 아래첨자 (H₂O)
+
+  ListButtons (2개 추가)
+
+  - ul: 글머리 기호 목록
+  - ol: 번호 목록
+
+  InsertButtons (7개)
+
+  - link: 링크 삽입
+  - picture: 이미지 삽입
+  - audio: 오디오 삽입
+  - video: 비디오 삽입
+  - otherFile: 기타 파일 삽입
+  - table: 표 삽입
+  - hr: 수평선 삽입
+
+  OtherButtons (7개)
+
+  - fullscreen: 전체화면
+  - codeview: 코드 보기
+  - undo: 실행 취소
+  - redo: 다시 실행
+  - help: 도움말
+  - copy: 복사
+  - paste: 붙여넣기
+
+  🎯 리튼 앱에 추가 권장하는 기능들
+
+  우선순위 높음:
+  - undo/redo (실행 취소/다시 실행)
+  - clearAll (서식 지우기)
+  - strikethrough (취소선)
+
+  우선순위 중간:
+  - link/picture (링크/이미지 삽입)
+  - fontSize (폰트 크기)
+  - ul/ol (기본 목록 버튼)
+
+  고급 기능:
+  - table/hr (표/구분선)
+  - style (제목/인용문 스타일)
+  - fullscreen (전체화면 편집)
+
+  현재 약 34개 기능 중 9개만 사용하고 있어서, 25개의 추가 기능을 활용할 수
+  있습니다!
+
+  -------------------------------------------------------------------
+  📝 텍스트 쓰기 저장 파일 이름
+
+  💾 저장 위치
+
+  1. 메타데이터 저장
+  - 위치: SharedPreferences
+  - 키: text_files_{littenId}
+  - 내용: 텍스트 파일 목록의 JSON 데이터
+
+  2. 실제 HTML 파일 저장
+  - 위치: {Application Documents 
+  Directory}/litten_{littenId}/
+  - 경로 예시: /Users/사용자명/Library/Application 
+  Support/앱명/litten_12345/
+
+  📄 파일 이름 규칙
+
+  텍스트 파일
+  {UUID}.html
+
+  UUID 생성
+  - UUID v4 형식 (예:
+  550e8400-e29b-41d4-a716-446655440000)
+  - const Uuid().v4() 메서드로 생성
+
+  실제 파일명 예시
+  550e8400-e29b-41d4-a716-446655440000.html
+  a1b2c3d4-e5f6-7890-abcd-ef1234567890.html
+  12345678-9abc-def0-1234-56789abcdef0.html
+
+  🔄 저장 프로세스
+
+  1. 저장 버튼 클릭 시
+  - _saveCurrentTextFile() 메서드 호출
+
+  2. 실제 저장 과정
+  1. HTML 에디터에서 내용 가져오기
+  (_htmlController.getText())
+  2. TextFile 객체 업데이트 (내용, 수정 시간)
+  3. HTML 파일로 저장 (saveTextFileContent)
+  4. 파일 목록 메타데이터 업데이트 
+  (SharedPreferences)
+  5. 리튼 파일 목록 업데이트
+
+  3. 저장 완료 알림
+  - "{파일제목} 파일이 저장되었습니다." 스낵바 표시
+
+  📁 전체 구조 예시
+
+  Application Documents Directory/
+  └── litten_12345/
+      ├── 550e8400-e29b-41d4-a716-446655440000.html
+      ├── a1b2c3d4-e5f6-7890-abcd-ef1234567890.html
+      └── 12345678-9abc-def0-1234-56789abcdef0.html
+
+  SharedPreferences:
+  - Key: "text_files_12345"  
+  - Value: JSON 배열 (파일 목록 메타데이터)
+
+  📋 메타데이터에 포함되는 정보
+
+  - id: UUID (파일명과 동일)
+  - littenId: 소속 리튼 ID
+  - title: 파일 제목 (자동 생성 또는 사용자 입력)
+  - content: HTML 내용
+  - createdAt: 생성 시간
+  - updatedAt: 수정 시간
+  - syncMarkers: 오디오 동기화 마커 (향후 기능)
+
+  요약: 텍스트 파일은 {UUID}.html 형식으로
+  저장됩니다!
+
+
+=====================================================================
+=====================================================================
+table_calendar: ^3.0.9 패키지의 주요 기능들입니다:
+
+  핵심 기능
+
+  1. 캘린더 표시 형식
+
+  - 월별 보기 (Month View): 기본 월 단위 캘린더
+  - 2주 보기 (2-Week View): 2주간 표시
+  - 주별 보기 (Week View): 주 단위 표시
+
+  2. 이벤트 관리
+
+  - 이벤트 마커: 특정 날짜에 이벤트 표시
+  - 다중 이벤트: 하루에 여러 이벤트 지원
+  - 이벤트 목록: 선택된 날짜의 이벤트 리스트 표시
+
+  3. 날짜 선택
+
+  - 단일 선택: 하나의 날짜 선택
+  - 다중 선택: 여러 날짜 동시 선택
+  - 범위 선택: 시작일~종료일 범위 선택
+
+  4. 커스터마이징
+
+  - 테마 설정: 색상, 폰트, 스타일 커스터마이징
+  - 헤더 커스터마이징: 월/년 표시 영역 수정
+  - 셀 데코레이션: 개별 날짜 셀 스타일링
+  - 로케일 지원: 다국어 및 지역별 날짜 형식
+
+  5. 콜백 함수
+
+  - onDaySelected: 날짜 선택 시 호출
+  - onPageChanged: 월 변경 시 호출
+  - onFormatChanged: 표시 형식 변경 시 호출
+  - onCalendarCreated: 캘린더 생성 완료 시 호출
+
+  6. 고급 기능
+
+  - 주 시작일 설정: 월요일/일요일 시작 선택
+  - 범위 제한: 표시할 날짜 범위 제한
+  - 휴일 표시: 공휴일 및 특별일 마킹
+  - 애니메이션: 부드러운 전환 효과
+
+  7. 접근성
+
+  - 시맨틱 라벨: 스크린 리더 지원
+  - 키보드 내비게이션: 키보드로 날짜 이동
+  - 포커스 관리: 접근성 향상을 위한 포커스 처리
+
+  이 패키지는 Flutter에서 가장 인기 있는 캘린더 위젯 중 하나로, 유연한
+   커스터마이징과 풍부한 기능을 제공합니다.

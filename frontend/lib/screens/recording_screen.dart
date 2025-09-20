@@ -253,8 +253,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
 
         return AnimatedBuilder(
           animation: _audioService,
-          builder: (context, child) => Column(
+          builder: (context, child) => Stack(
             children: [
+              Column(
+                children: [
               // 음성-쓰기 동기화 상태 표시
               _buildSyncStatusBar(),
               // 듣기 파일 목록 영역
@@ -363,43 +365,27 @@ class _RecordingScreenState extends State<RecordingScreen> {
                         ),
                 ),
               ),
-              // 듣기 컨트롤 패널
-              Container(
-                padding: AppSpacing.paddingL,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  border: Border(
-                    top: BorderSide(color: Colors.grey.shade200),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // 듣기 버튼을 메인 메뉴에 더 가깝게 이동
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _toggleRecording,
-                          icon: Icon(_audioService.isRecording ? Icons.stop : Icons.mic),
-                          label: Text(
-                            _audioService.isRecording 
-                                ? l10n?.stopRecording ?? '듣기 중지'
-                                : l10n?.startRecording ?? '듣기 시작',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24, 
-                              vertical: 12,
-                            ),
-                          ),
+                ],
+              ),
+              // 홈탭과 동일한 FloatingActionButton 위치와 크기
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: FloatingActionButton(
+                  onPressed: _toggleRecording,
+                  tooltip: _audioService.isRecording
+                      ? l10n?.stopRecording ?? '듣기 중지'
+                      : l10n?.recordingTitle ?? '듣기 시작',
+                  child: _audioService.isRecording
+                      ? const Icon(Icons.stop)
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.mic, size: 16),
+                            SizedBox(width: 2),
+                            Icon(Icons.add, size: 16),
+                          ],
                         ),
-                      ],
-                    ),
-                    // 하단 네비게이션 바와의 간격을 최소화하여 메뉴에 더 가깝게 배치
-                    const SizedBox(height: 4),
-                  ],
                 ),
               ),
             ],

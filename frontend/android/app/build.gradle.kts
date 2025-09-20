@@ -39,14 +39,15 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String?
-            keyPassword = keystoreProperties["keyPassword"] as String?
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String?
-        }
-    }
+    // 임시로 signingConfigs 주석 처리 (키스토어 설정 없음)
+    // signingConfigs {
+    //     create("release") {
+    //         keyAlias = keystoreProperties["keyAlias"] as String?
+    //         keyPassword = keystoreProperties["keyPassword"] as String?
+    //         storeFile = file(keystoreProperties["storeFile"] as String)
+    //         storePassword = keystoreProperties["storePassword"] as String?
+    //     }
+    // }
 
     buildTypes {
         getByName("release") {
