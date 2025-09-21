@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import 'litten_service.dart';
@@ -109,21 +110,31 @@ class FileStorageService {
   Future<String?> saveTextFileContent(TextFile textFile) async {
     try {
       print('디버그: 텍스트 파일 콘텐츠 저장 시작 - ${textFile.displayTitle}');
-      
-      final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_${textFile.littenId}');
-      
-      if (!await littenDir.exists()) {
-        await littenDir.create(recursive: true);
+
+      if (kIsWeb) {
+        // 웹에서는 SharedPreferences에 직접 저장
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'text_content_${textFile.id}';
+        await prefs.setString(key, textFile.content);
+        print('디버그: 웹에서 텍스트 파일 콘텐츠 저장 완료 - 키: $key');
+        return key; // 웹에서는 키를 반환
+      } else {
+        // 모바일에서는 기존 파일 시스템 사용
+        final directory = await getApplicationDocumentsDirectory();
+        final littenDir = Directory('${directory.path}/litten_${textFile.littenId}');
+
+        if (!await littenDir.exists()) {
+          await littenDir.create(recursive: true);
+        }
+
+        final fileName = '${textFile.id}.html';
+        final file = File('${littenDir.path}/$fileName');
+
+        await file.writeAsString(textFile.content);
+
+        print('디버그: 텍스트 파일 콘텐츠 저장 완료 - 경로: ${file.path}');
+        return file.path;
       }
-      
-      final fileName = '${textFile.id}.html';
-      final file = File('${littenDir.path}/$fileName');
-      
-      await file.writeAsString(textFile.content);
-      
-      print('디버그: 텍스트 파일 콘텐츠 저장 완료 - 경로: ${file.path}');
-      return file.path;
     } catch (e) {
       print('에러: 텍스트 파일 콘텐츠 저장 실패 - $e');
       return null;
@@ -133,15 +144,28 @@ class FileStorageService {
   /// 텍스트 파일 콘텐츠 로드
   Future<String?> loadTextFileContent(String filePath) async {
     try {
-      final file = File(filePath);
-      
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        print('디버그: 텍스트 파일 콘텐츠 로드 완료 - 길이: ${content.length}자');
+      if (kIsWeb) {
+        // 웹에서는 SharedPreferences에서 로드
+        final prefs = await SharedPreferences.getInstance();
+        final content = prefs.getString(filePath); // filePath는 실제로는 키
+        if (content != null) {
+          print('디버그: 웹에서 텍스트 파일 콘텐츠 로드 완료 - 길이: ${content.length}자');
+        } else {
+          print('에러: 웹에서 텍스트 파일을 찾을 수 없음 - 키: $filePath');
+        }
         return content;
       } else {
-        print('에러: 텍스트 파일이 존재하지 않음 - 경로: $filePath');
-        return null;
+        // 모바일에서는 기존 파일 시스템 사용
+        final file = File(filePath);
+
+        if (await file.exists()) {
+          final content = await file.readAsString();
+          print('디버그: 텍스트 파일 콘텐츠 로드 완료 - 길이: ${content.length}자');
+          return content;
+        } else {
+          print('에러: 텍스트 파일이 존재하지 않음 - 경로: $filePath');
+          return null;
+        }
       }
     } catch (e) {
       print('에러: 텍스트 파일 콘텐츠 로드 실패 - $e');
@@ -153,21 +177,34 @@ class FileStorageService {
   Future<String?> saveHandwritingImage(HandwritingFile handwritingFile, Uint8List imageBytes) async {
     try {
       print('디버그: 필기 파일 이미지 저장 시작 - ${handwritingFile.displayTitle}');
-      
-      final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_${handwritingFile.littenId}');
-      
-      if (!await littenDir.exists()) {
-        await littenDir.create(recursive: true);
+
+      if (kIsWeb) {
+        // 웹에서는 SharedPreferences에 base64로 저장
+        final key = '${handwritingFile.id}.png';
+        final success = await saveImageBytesToWeb(key, imageBytes);
+        if (success) {
+          print('디버그: 웹에서 필기 파일 이미지 저장 완료 - 키: $key');
+          return key; // 웹에서는 키를 반환
+        } else {
+          return null;
+        }
+      } else {
+        // 모바일에서는 기존 파일 시스템 사용
+        final directory = await getApplicationDocumentsDirectory();
+        final littenDir = Directory('${directory.path}/litten_${handwritingFile.littenId}');
+
+        if (!await littenDir.exists()) {
+          await littenDir.create(recursive: true);
+        }
+
+        final fileName = '${handwritingFile.id}.png';
+        final file = File('${littenDir.path}/$fileName');
+
+        await file.writeAsBytes(imageBytes);
+
+        print('디버그: 필기 파일 이미지 저장 완료 - 경로: ${file.path}');
+        return file.path;
       }
-      
-      final fileName = '${handwritingFile.id}.png';
-      final file = File('${littenDir.path}/$fileName');
-      
-      await file.writeAsBytes(imageBytes);
-      
-      print('디버그: 필기 파일 이미지 저장 완료 - 경로: ${file.path}');
-      return file.path;
     } catch (e) {
       print('에러: 필기 파일 이미지 저장 실패 - $e');
       return null;
@@ -177,15 +214,21 @@ class FileStorageService {
   /// 필기 파일 이미지 로드
   Future<Uint8List?> loadHandwritingImage(String filePath) async {
     try {
-      final file = File(filePath);
-      
-      if (await file.exists()) {
-        final imageBytes = await file.readAsBytes();
-        print('디버그: 필기 파일 이미지 로드 완료 - 크기: ${imageBytes.length} bytes');
-        return imageBytes;
+      if (kIsWeb) {
+        // 웹에서는 SharedPreferences에서 base64로 로드
+        return await getImageBytesFromWeb(filePath); // filePath는 실제로는 키
       } else {
-        print('에러: 필기 파일이 존재하지 않음 - 경로: $filePath');
-        return null;
+        // 모바일에서는 기존 파일 시스템 사용
+        final file = File(filePath);
+
+        if (await file.exists()) {
+          final imageBytes = await file.readAsBytes();
+          print('디버그: 필기 파일 이미지 로드 완료 - 크기: ${imageBytes.length} bytes');
+          return imageBytes;
+        } else {
+          print('에러: 필기 파일이 존재하지 않음 - 경로: $filePath');
+          return null;
+        }
       }
     } catch (e) {
       print('에러: 필기 파일 이미지 로드 실패 - $e');
@@ -259,6 +302,57 @@ class FileStorageService {
       return true;
     } catch (e) {
       print('에러: 필기 파일 삭제 실패 - $e');
+      return false;
+    }
+  }
+
+  /// 웹 전용: 이미지 바이트를 SharedPreferences에 base64로 저장
+  Future<bool> saveImageBytesToWeb(String key, Uint8List imageBytes) async {
+    try {
+      print('디버그: 웹 이미지 저장 시작 - 키: $key, 크기: ${imageBytes.length} bytes');
+
+      final prefs = await SharedPreferences.getInstance();
+      final base64String = base64Encode(imageBytes);
+
+      final success = await prefs.setString('image_$key', base64String);
+
+      print('디버그: 웹 이미지 저장 완료 - 성공: $success');
+      return success;
+    } catch (e) {
+      print('에러: 웹 이미지 저장 실패 - $e');
+      return false;
+    }
+  }
+
+  /// 웹 전용: SharedPreferences에서 base64 이미지를 로드
+  Future<Uint8List?> getImageBytesFromWeb(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final base64String = prefs.getString('image_$key');
+
+      if (base64String == null) {
+        print('에러: 웹 이미지를 찾을 수 없음 - 키: $key');
+        return null;
+      }
+
+      final imageBytes = base64Decode(base64String);
+      print('디버그: 웹 이미지 로드 완료 - 키: $key, 크기: ${imageBytes.length} bytes');
+      return imageBytes;
+    } catch (e) {
+      print('에러: 웹 이미지 로드 실패 - $e');
+      return null;
+    }
+  }
+
+  /// 웹 전용: 특정 키의 이미지 삭제
+  Future<bool> removeImageFromWeb(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final success = await prefs.remove('image_$key');
+      print('디버그: 웹 이미지 삭제 완료 - 키: $key, 성공: $success');
+      return success;
+    } catch (e) {
+      print('에러: 웹 이미지 삭제 실패 - $e');
       return false;
     }
   }

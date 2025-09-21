@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -948,30 +949,13 @@ class _WritingScreenState extends State<WritingScreen>
   Future<void> _loadPdfFile() async {
     try {
       print('DEBUG: PDF 파일 선택 시작');
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withData: false, // flutter_pdfview는 파일 경로를 사용
-      );
 
-      if (result != null && result.files.single.path != null) {
-        print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
-        
-        final pdfPath = result.files.single.path!;
-        
-        // 임시 디렉토리에 PDF 파일 복사
-        final tempDir = await getTemporaryDirectory();
-        final tempPdfFile = File('${tempDir.path}/temp_pdf.pdf');
-        
-        // 선택한 파일을 임시 디렉토리로 복사
-        final originalFile = File(pdfPath);
-        await originalFile.copy(tempPdfFile.path);
-        
-        print('DEBUG: PDF 파일 임시 디렉토리로 복사됨 - ${tempPdfFile.path}');
-        
-        // flutter_pdfview를 사용한 PDF 뷰어 표시
-        await _showPdfViewer(tempPdfFile.path, result.files.single.name ?? 'PDF');
-        
+      if (kIsWeb) {
+        // 웹 전용 처리
+        await _loadPdfFileForWeb();
+      } else {
+        // 모바일 기존 처리
+        await _loadPdfFileForMobile();
       }
     } catch (e) {
       print('ERROR: PDF 로드 실패 - $e');
@@ -984,6 +968,82 @@ class _WritingScreenState extends State<WritingScreen>
         );
       }
     }
+  }
+
+  Future<void> _loadPdfFileForWeb() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true, // 웹에서는 파일 데이터를 직접 사용
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      print('DEBUG: PDF 파일 선택됨 (웹) - ${result.files.single.name}');
+
+      final pdfBytes = result.files.single.bytes!;
+      final fileName = result.files.single.name ?? 'PDF';
+
+      // 웹에서는 바로 PDF 변환 다이얼로그 표시
+      await _showWebPdfConversionDialog(pdfBytes, fileName);
+    }
+  }
+
+  Future<void> _loadPdfFileForMobile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: false, // flutter_pdfview는 파일 경로를 사용
+    );
+
+    if (result != null && result.files.single.path != null) {
+      print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
+
+      final pdfPath = result.files.single.path!;
+
+      // 임시 디렉토리에 PDF 파일 복사
+      final tempDir = await getTemporaryDirectory();
+      final tempPdfFile = File('${tempDir.path}/temp_pdf.pdf');
+
+      // 선택한 파일을 임시 디렉토리로 복사
+      final originalFile = File(pdfPath);
+      await originalFile.copy(tempPdfFile.path);
+
+      print('DEBUG: PDF 파일 임시 디렉토리로 복사됨 - ${tempPdfFile.path}');
+
+      // flutter_pdfview를 사용한 PDF 뷰어 표시
+      await _showPdfViewer(tempPdfFile.path, result.files.single.name ?? 'PDF');
+    }
+  }
+
+  Future<void> _showWebPdfConversionDialog(Uint8List pdfBytes, String fileName) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('PDF 변환 - $fileName'),
+        content: const Text(
+          '웹에서는 PDF를 직접 필기용으로 변환할 수 있습니다.\n'
+          '변환 후 각 페이지를 배경으로 하여 필기할 수 있습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _convertWebPdfToPngAndAddToHandwriting(pdfBytes, fileName);
+            },
+            icon: const Icon(Icons.draw),
+            label: const Text('필기용으로 변환'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showPdfViewer(String pdfPath, String fileName) async {
@@ -1357,6 +1417,241 @@ class _WritingScreenState extends State<WritingScreen>
       }
 
       print('ERROR: PDF to PNG 변환 실패 - $e');
+
+      String errorMessage;
+      if (e.toString().contains('변환이 취소되었습니다')) {
+        errorMessage = '변환이 취소되었습니다.';
+      } else if (e.toString().contains('메모리')) {
+        errorMessage = '메모리 부족으로 변환에 실패했습니다. 페이지 수가 너무 많을 수 있습니다.';
+      } else if (e.toString().contains('리튼이 선택되지 않았습니다')) {
+        errorMessage = '리튼을 먼저 선택해주세요.';
+      } else {
+        errorMessage = 'PDF 변환 실패: 파일이 손상되었거나 지원되지 않는 형식일 수 있습니다.';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _convertWebPdfToPngAndAddToHandwriting(Uint8List pdfBytes, String fileName) async {
+    try {
+      print('DEBUG: 웹에서 PDF를 PNG로 변환 시작 - $fileName');
+
+      // 변환 상태 초기화
+      setState(() {
+        _isConverting = true;
+        _convertedPages = 0;
+        _totalPagesToConvert = 0;
+        _conversionStatus = '페이지 수 확인 중...';
+        _conversionCancelled = false;
+      });
+
+      // 진행률 다이얼로그 표시
+      _showConversionProgressDialog();
+
+      // 먼저 총 페이지 수만 확인
+      int totalPages = 0;
+      await for (final _ in Printing.raster(pdfBytes, dpi: 150)) {
+        totalPages++;
+        if (totalPages % 10 == 0) {
+          setState(() {
+            _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
+          });
+        }
+        if (_conversionCancelled) {
+          throw Exception('변환이 취소되었습니다.');
+        }
+      }
+
+      setState(() {
+        _totalPagesToConvert = totalPages;
+        _conversionStatus = '변환 시작...';
+      });
+
+      print('DEBUG: 총 $totalPages개 페이지 감지됨');
+
+      // 리튼 선택 확인
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten == null) {
+        throw Exception('리튼이 선택되지 않았습니다.');
+      }
+
+      final storage = FileStorageService.instance;
+
+      // 웹에서는 브라우저의 로컬 스토리지를 사용하므로 디렉토리 경로 대신 키를 사용
+      final titleWithoutExtension = fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+      final List<String> pageImagePaths = [];
+
+      // 메인 다중 페이지 필기 파일을 먼저 생성
+      final mainHandwritingFile = HandwritingFile(
+        littenId: selectedLitten.id,
+        title: titleWithoutExtension,
+        imagePath: '/temp/placeholder.png', // 임시 값
+        type: HandwritingType.pdfConvert,
+      );
+
+      print('DEBUG: 메인 필기 파일 생성 - ID: ${mainHandwritingFile.id}');
+
+      // 메모리 최적화를 위한 배치 단위 변환 (웹에서는 1페이지씩)
+      const int batchSize = 1;
+      double? aspectRatio;
+
+      for (int startPage = 0; startPage < totalPages; startPage += batchSize) {
+        if (_conversionCancelled) {
+          throw Exception('변환이 취소되었습니다.');
+        }
+
+        final int endPage = (startPage + batchSize).clamp(0, totalPages);
+        final List<int> pageIndices = List.generate(endPage - startPage, (index) => startPage + index);
+
+        setState(() {
+          _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
+        });
+
+        print('DEBUG: 배치 변환 시작 - 페이지 ${startPage + 1} - $endPage');
+
+        // 현재 배치의 페이지들 변환
+        await for (final page in Printing.raster(
+          pdfBytes,
+          pages: pageIndices,
+          dpi: 200, // 웹 최적화 DPI
+        )) {
+          if (_conversionCancelled) {
+            throw Exception('변환이 취소되었습니다.');
+          }
+
+          // PNG 변환
+          final imageBytes = await page.toPng();
+
+          // 첫 번째 페이지에서 종횡비 계산
+          if (aspectRatio == null) {
+            final codec = await ui.instantiateImageCodec(imageBytes);
+            final frame = await codec.getNextFrame();
+            aspectRatio = frame.image.width / frame.image.height;
+            setState(() {
+              _backgroundImageAspectRatio = aspectRatio;
+            });
+            print('DEBUG: PDF 종횡비 계산됨 - $aspectRatio');
+          }
+
+          // 웹에서는 브라우저 메모리에 저장
+          final pageKey = '${mainHandwritingFile.id}_page_${_convertedPages + 1}.png';
+          await storage.saveImageBytesToWeb(pageKey, imageBytes);
+          pageImagePaths.add(pageKey);
+
+          setState(() {
+            _convertedPages++;
+            _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+          });
+
+          print('DEBUG: 페이지 $_convertedPages 변환 완료');
+
+          // UI 업데이트를 위한 짧은 대기
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      }
+
+      // 변환 결과 확인
+      if (pageImagePaths.isNotEmpty) {
+        // 다중 페이지 필기 파일로 생성
+        final newHandwritingFile = mainHandwritingFile.copyWith(
+          imagePath: pageImagePaths[0], // 첫 번째 페이지 키
+          pageImagePaths: pageImagePaths, // 모든 페이지 키들
+          totalPages: totalPages, // 총 페이지 수
+          currentPageIndex: 0, // 첫 번째 페이지부터 시작
+          aspectRatio: aspectRatio, // 변환된 PDF의 비율 정보 저장
+        );
+
+        print('DEBUG: 다중 페이지 필기 파일 생성 - 제목: $titleWithoutExtension, 페이지 수: $totalPages');
+
+        // 필기 파일 목록에 추가
+        setState(() {
+          _handwritingFiles.add(newHandwritingFile);
+          _currentHandwritingFile = newHandwritingFile;
+          _isEditing = true;
+          _isConverting = false;
+          _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
+          _isGestureMode = true; // 제스처 모드 활성화
+        });
+
+        // 필기 파일 목록을 저장
+        await storage.saveHandwritingFiles(selectedLitten.id, _handwritingFiles);
+
+        // 리튼에 필기 파일 추가
+        final littenService = LittenService();
+        await littenService.addHandwritingFileToLitten(selectedLitten.id, newHandwritingFile.id);
+
+        // 첫 번째 페이지를 배경으로 설정
+        final firstPageBytes = await storage.getImageBytesFromWeb(pageImagePaths[0]);
+        if (firstPageBytes != null) {
+          await _setBackgroundFromBytes(firstPageBytes);
+        }
+
+        print('DEBUG: 웹 PDF to PNG 변환 및 다중 페이지 필기 파일 추가 완료');
+
+        // 진행률 다이얼로그 닫기
+        Navigator.of(context).pop();
+
+        // 성공 메시지 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$titleWithoutExtension ($totalPages페이지)이(가) 필기 파일로 추가되었습니다.'),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: '편집',
+                onPressed: () {
+                  // 이미 편집 모드로 설정됨
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        // 진행률 다이얼로그 닫기
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
+
+        print('ERROR: 웹 PDF 변환 결과 이미지가 없음');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PDF 변환에 실패했습니다. 페이지가 없거나 파일이 손상되었을 수 있습니다.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isConverting = false;
+      });
+
+      // 진행률 다이얼로그 닫기
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+
+      print('ERROR: 웹 PDF to PNG 변환 실패 - $e');
 
       String errorMessage;
       if (e.toString().contains('변환이 취소되었습니다')) {
@@ -2812,119 +3107,211 @@ class _WritingScreenState extends State<WritingScreen>
         if (byteData != null) {
           final Uint8List pngBytes = byteData.buffer.asUint8List();
 
-          // 현재 페이지의 이미지를 직접 파일로 저장
-          final directory = await getApplicationDocumentsDirectory();
-          final littenDir = Directory('${directory.path}/litten_${_currentHandwritingFile!.littenId}');
-
-          String fileName;
-          if (_currentHandwritingFile!.isMultiPage && _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
-            // 다중 페이지인 경우 필기 레이어 파일명 생성
-            fileName = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
-            print('DEBUG: 다중 페이지 필기 레이어 저장 - $fileName');
+          if (kIsWeb) {
+            await _saveCurrentPageDrawingForWeb(pngBytes);
           } else {
-            // 단일 페이지인 경우 필기 레이어 파일명 생성
-            fileName = '${_currentHandwritingFile!.id}_drawing.png';
-            print('DEBUG: 단일 페이지 필기 레이어 저장 - $fileName');
+            await _saveCurrentPageDrawingForMobile(pngBytes);
           }
-
-          final pageFile = File('${littenDir.path}/$fileName');
-          await pageFile.writeAsBytes(pngBytes);
-
-          print('DEBUG: 현재 페이지 필기 내용 저장 완료 - ${_currentHandwritingFile!.pageInfo}, 파일: $fileName');
         }
       } catch (e) {
         print('ERROR: 페이지 필기 내용 저장 실패 - $e');
       }
     }
   }
+
+  Future<void> _saveCurrentPageDrawingForWeb(Uint8List pngBytes) async {
+    final storage = FileStorageService.instance;
+
+    String drawingKey;
+    if (_currentHandwritingFile!.isMultiPage && _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
+      // 다중 페이지인 경우 필기 레이어 키 생성
+      drawingKey = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
+      print('DEBUG: 웹 - 다중 페이지 필기 레이어 저장 - $drawingKey');
+    } else {
+      // 단일 페이지인 경우 필기 레이어 키 생성
+      drawingKey = '${_currentHandwritingFile!.id}_drawing.png';
+      print('DEBUG: 웹 - 단일 페이지 필기 레이어 저장 - $drawingKey');
+    }
+
+    final success = await storage.saveImageBytesToWeb(drawingKey, pngBytes);
+    if (success) {
+      print('DEBUG: 웹 - 현재 페이지 필기 내용 저장 완료 - ${_currentHandwritingFile!.pageInfo}, 키: $drawingKey');
+    } else {
+      print('ERROR: 웹 - 현재 페이지 필기 내용 저장 실패 - $drawingKey');
+    }
+  }
+
+  Future<void> _saveCurrentPageDrawingForMobile(Uint8List pngBytes) async {
+    // 현재 페이지의 이미지를 직접 파일로 저장
+    final directory = await getApplicationDocumentsDirectory();
+    final littenDir = Directory('${directory.path}/litten_${_currentHandwritingFile!.littenId}');
+
+    String fileName;
+    if (_currentHandwritingFile!.isMultiPage && _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
+      // 다중 페이지인 경우 필기 레이어 파일명 생성
+      fileName = '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
+      print('DEBUG: 모바일 - 다중 페이지 필기 레이어 저장 - $fileName');
+    } else {
+      // 단일 페이지인 경우 필기 레이어 파일명 생성
+      fileName = '${_currentHandwritingFile!.id}_drawing.png';
+      print('DEBUG: 모바일 - 단일 페이지 필기 레이어 저장 - $fileName');
+    }
+
+    final pageFile = File('${littenDir.path}/$fileName');
+    await pageFile.writeAsBytes(pngBytes);
+
+    print('DEBUG: 모바일 - 현재 페이지 필기 내용 저장 완료 - ${_currentHandwritingFile!.pageInfo}, 파일: $fileName');
+  }
   
   Future<void> _loadHandwritingImage(HandwritingFile file) async {
     try {
       print('디버그: 필기 이미지 로드 시작 - ${file.displayTitle} ${file.pageInfo}');
 
-      final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_${file.littenId}');
-
-      // 다중 페이지인 경우 현재 페이지의 이미지 경로를 사용
-      String targetPath;
-      String fileName;
-
-      if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-        // 새로운 파일명 구조: {mainFileId}_page_{pageNumber}.png
-        if (file.currentPageIndex < file.pageImagePaths.length) {
-          fileName = file.pageImagePaths[file.currentPageIndex];
-        } else {
-          // 페이지 인덱스가 범위를 벗어나는 경우 첫 번째 페이지로 폴백
-          fileName = file.pageImagePaths.first;
-        }
-
-        // fileName이 이미 실제 파일명인지 확인 (예: "abc123_page_1.png")
-        if (fileName.contains('_page_')) {
-          targetPath = '${littenDir.path}/$fileName';
-          print('디버그: 다중 페이지 - 페이지 ${file.currentPageIndex + 1} 파일 로드: $fileName');
-        } else {
-          // 기존 가상 경로 형태인 경우 새 파일명 구조로 변환
-          final pageNumber = file.currentPageIndex + 1;
-          fileName = '${file.id}_page_$pageNumber.png';
-          targetPath = '${littenDir.path}/$fileName';
-          print('디버그: 다중 페이지 - 페이지 $pageNumber 파일 로드 (변환됨): $fileName');
-        }
+      if (kIsWeb) {
+        await _loadHandwritingImageForWeb(file);
       } else {
-        // 단일 페이지인 경우 기존 방식 사용
-        fileName = '${file.id}.png';
-        targetPath = '${littenDir.path}/$fileName';
-        print('디버그: 단일 페이지 파일 로드: $fileName');
-      }
-
-      final imageFile = File(targetPath);
-
-      // 필기 레이어 파일 확인 및 로드
-      String drawingFileName;
-      if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-        drawingFileName = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
-      } else {
-        drawingFileName = '${file.id}_drawing.png';
-      }
-
-      final drawingFile = File('${littenDir.path}/$drawingFileName');
-
-      // 캔버스를 클리어
-      _painterController.clearDrawables();
-
-      // 파일에 저장된 비율 정보를 먼저 복원
-      if (file.aspectRatio != null) {
-        _backgroundImageAspectRatio = file.aspectRatio;
-        print('DEBUG: 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
-      }
-
-      // UI 업데이트로 _canvasSize 계산
-      setState(() {});
-
-      // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
-      if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-        final backgroundFileName = file.pageImagePaths[file.currentPageIndex];
-        final backgroundFile = File('${littenDir.path}/$backgroundFileName');
-
-        if (await backgroundFile.exists()) {
-          final backgroundBytes = await backgroundFile.readAsBytes();
-          await _setBackgroundFromBytes(backgroundBytes);
-          print('DEBUG: 배경 이미지 로드 완료 - $backgroundFileName');
-        }
-      }
-
-      // 2. 필기 레이어 로드 (있으면)
-      if (await drawingFile.exists()) {
-        final drawingBytes = await drawingFile.readAsBytes();
-
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await _loadDrawingLayer(drawingBytes);
-          print('DEBUG: 필기 레이어 로드 완료 - $drawingFileName');
-        });
-      } else {
-        print('DEBUG: 필기 레이어 파일 없음 - $drawingFileName (새로운 필기 가능)');
+        await _loadHandwritingImageForMobile(file);
       }
     } catch (e) {
       print('에러: 필기 이미지 로드 실패 - $e');
+    }
+  }
+
+  Future<void> _loadHandwritingImageForWeb(HandwritingFile file) async {
+    final storage = FileStorageService.instance;
+
+    // 캔버스를 클리어
+    _painterController.clearDrawables();
+
+    // 파일에 저장된 비율 정보를 먼저 복원
+    if (file.aspectRatio != null) {
+      _backgroundImageAspectRatio = file.aspectRatio;
+      print('DEBUG: 웹 - 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
+    }
+
+    // UI 업데이트로 _canvasSize 계산
+    setState(() {});
+
+    // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      String backgroundKey;
+      if (file.currentPageIndex < file.pageImagePaths.length) {
+        backgroundKey = file.pageImagePaths[file.currentPageIndex];
+      } else {
+        backgroundKey = file.pageImagePaths.first;
+      }
+
+      print('DEBUG: 웹 - 배경 이미지 로드 시도 - 키: $backgroundKey');
+      final backgroundBytes = await storage.getImageBytesFromWeb(backgroundKey);
+
+      if (backgroundBytes != null) {
+        await _setBackgroundFromBytes(backgroundBytes);
+        print('DEBUG: 웹 - 배경 이미지 로드 완료 - $backgroundKey');
+      } else {
+        print('ERROR: 웹 - 배경 이미지 로드 실패 - $backgroundKey');
+      }
+    }
+
+    // 2. 필기 레이어 로드 (있으면)
+    String drawingKey;
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      drawingKey = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+    } else {
+      drawingKey = '${file.id}_drawing.png';
+    }
+
+    final drawingBytes = await storage.getImageBytesFromWeb(drawingKey);
+    if (drawingBytes != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadDrawingLayer(drawingBytes);
+        print('DEBUG: 웹 - 필기 레이어 로드 완료 - $drawingKey');
+      });
+    } else {
+      print('DEBUG: 웹 - 필기 레이어 파일 없음 - $drawingKey (새로운 필기 가능)');
+    }
+  }
+
+  Future<void> _loadHandwritingImageForMobile(HandwritingFile file) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final littenDir = Directory('${directory.path}/litten_${file.littenId}');
+
+    // 다중 페이지인 경우 현재 페이지의 이미지 경로를 사용
+    String targetPath;
+    String fileName;
+
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      // 새로운 파일명 구조: {mainFileId}_page_{pageNumber}.png
+      if (file.currentPageIndex < file.pageImagePaths.length) {
+        fileName = file.pageImagePaths[file.currentPageIndex];
+      } else {
+        // 페이지 인덱스가 범위를 벗어나는 경우 첫 번째 페이지로 폴백
+        fileName = file.pageImagePaths.first;
+      }
+
+      // fileName이 이미 실제 파일명인지 확인 (예: "abc123_page_1.png")
+      if (fileName.contains('_page_')) {
+        targetPath = '${littenDir.path}/$fileName';
+        print('디버그: 모바일 - 다중 페이지 - 페이지 ${file.currentPageIndex + 1} 파일 로드: $fileName');
+      } else {
+        // 기존 가상 경로 형태인 경우 새 파일명 구조로 변환
+        final pageNumber = file.currentPageIndex + 1;
+        fileName = '${file.id}_page_$pageNumber.png';
+        targetPath = '${littenDir.path}/$fileName';
+        print('디버그: 모바일 - 다중 페이지 - 페이지 $pageNumber 파일 로드 (변환됨): $fileName');
+      }
+    } else {
+      // 단일 페이지인 경우 기존 방식 사용
+      fileName = '${file.id}.png';
+      targetPath = '${littenDir.path}/$fileName';
+      print('디버그: 모바일 - 단일 페이지 파일 로드: $fileName');
+    }
+
+    final imageFile = File(targetPath);
+
+    // 필기 레이어 파일 확인 및 로드
+    String drawingFileName;
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      drawingFileName = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+    } else {
+      drawingFileName = '${file.id}_drawing.png';
+    }
+
+    final drawingFile = File('${littenDir.path}/$drawingFileName');
+
+    // 캔버스를 클리어
+    _painterController.clearDrawables();
+
+    // 파일에 저장된 비율 정보를 먼저 복원
+    if (file.aspectRatio != null) {
+      _backgroundImageAspectRatio = file.aspectRatio;
+      print('DEBUG: 모바일 - 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
+    }
+
+    // UI 업데이트로 _canvasSize 계산
+    setState(() {});
+
+    // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      final backgroundFileName = file.pageImagePaths[file.currentPageIndex];
+      final backgroundFile = File('${littenDir.path}/$backgroundFileName');
+
+      if (await backgroundFile.exists()) {
+        final backgroundBytes = await backgroundFile.readAsBytes();
+        await _setBackgroundFromBytes(backgroundBytes);
+        print('DEBUG: 모바일 - 배경 이미지 로드 완료 - $backgroundFileName');
+      }
+    }
+
+    // 2. 필기 레이어 로드 (있으면)
+    if (await drawingFile.exists()) {
+      final drawingBytes = await drawingFile.readAsBytes();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadDrawingLayer(drawingBytes);
+        print('DEBUG: 모바일 - 필기 레이어 로드 완료 - $drawingFileName');
+      });
+    } else {
+      print('DEBUG: 모바일 - 필기 레이어 파일 없음 - $drawingFileName (새로운 필기 가능)');
     }
   }
 
