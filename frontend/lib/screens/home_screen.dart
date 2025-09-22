@@ -7,8 +7,10 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/home/litten_item.dart';
+import '../widgets/home/schedule_picker.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
+import '../models/litten.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _titleController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  LittenSchedule? _selectedSchedule;
 
   @override
   void dispose() {
@@ -31,16 +34,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // 화면 로드 후 최신 리튼으로 스크롤
+    // 화면 로드 후 최신 리튼으로 스크롤 (최신이 맨 위에 있으므로 맨 위로)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
+      _scrollToTop();
     });
   }
 
-  void _scrollToBottom() {
+  void _scrollToTop() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
@@ -62,20 +65,41 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     _titleController.clear();
-    
+    _selectedSchedule = null;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n?.createLitten ?? '리튼 생성'),
-        content: TextField(
-          controller: _titleController,
-          decoration: InputDecoration(
-            labelText: l10n?.title ?? '제목',
-            border: const OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(l10n?.createLitten ?? '리튼 생성'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    decoration: InputDecoration(
+                      labelText: l10n?.title ?? '제목',
+                      border: const OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 16),
+                  SchedulePicker(
+                    defaultDate: appState.selectedDate,
+                    onScheduleChanged: (schedule) {
+                      setState(() {
+                        _selectedSchedule = schedule;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-          autofocus: true,
-        ),
-        actions: [
+          actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(l10n?.cancel ?? '취소'),
@@ -94,15 +118,18 @@ class _HomeScreenState extends State<HomeScreen> {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               
               try {
-                await appState.createLitten(title);
+                await appState.createLitten(title, schedule: _selectedSchedule);
                 if (mounted) {
                   navigator.pop();
+                  final scheduleText = _selectedSchedule != null
+                      ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(context)})'
+                      : '';
                   scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('$title 리튼이 생성되었습니다.')),
+                    SnackBar(content: Text('$title 리튼이 생성되었습니다.$scheduleText')),
                   );
                   // 새로 생성된 리튼(최신)으로 스크롤
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToBottom();
+                    _scrollToTop();
                   });
                 }
               } catch (e) {
@@ -116,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(l10n?.create ?? '생성'),
           ),
         ],
+        ),
       ),
     );
   }
@@ -128,7 +156,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, appState, child) {
         return Scaffold(
           appBar: null,
-          body: Column(
+          body: Stack(
+            children: [
+              Column(
             children: [
               // 상단 50% - 캘린더
               Expanded(
@@ -140,6 +170,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 flex: 1,
                 child: _buildLittenListSection(appState, l10n),
               ),
+            ],
+          ),
+              // 알림 배지
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -445,7 +478,39 @@ class _HomeScreenState extends State<HomeScreen> {
   // 리튼 리스트 섹션 빌드
   Widget _buildLittenListSection(AppStateProvider appState, AppLocalizations? l10n) {
     final selectedDateLittens = appState.littensForSelectedDate;
-    
+
+    // 알림이 있는 리튼과 없는 리튼을 구분하여 정렬
+    final littensWithNotifications = <Litten>[];
+    final littensWithoutNotifications = <Litten>[];
+
+    for (final litten in selectedDateLittens) {
+      final hasNotifications = appState.notificationService.firedNotifications
+          .any((notification) => notification.littenId == litten.id);
+
+      if (hasNotifications) {
+        littensWithNotifications.add(litten);
+      } else {
+        littensWithoutNotifications.add(litten);
+      }
+    }
+
+    // 알림이 있는 리튼들은 알림 시간 순으로 정렬
+    littensWithNotifications.sort((a, b) {
+      final aNotifications = appState.notificationService.firedNotifications
+          .where((n) => n.littenId == a.id);
+      final bNotifications = appState.notificationService.firedNotifications
+          .where((n) => n.littenId == b.id);
+
+      if (aNotifications.isEmpty && bNotifications.isEmpty) return 0;
+      if (aNotifications.isEmpty) return 1;
+      if (bNotifications.isEmpty) return -1;
+
+      return aNotifications.first.triggerTime.compareTo(bNotifications.first.triggerTime);
+    });
+
+    // 알림이 없는 리튼들은 생성 순으로 정렬 (최신순)
+    littensWithoutNotifications.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
     return Container(
       padding: EdgeInsets.only(
         left: AppSpacing.paddingM.left,
@@ -470,20 +535,51 @@ class _HomeScreenState extends State<HomeScreen> {
                       onRefresh: () async {
                         await appState.refreshLittens();
                       },
-                      child: ListView.builder(
+                      child: ListView(
                         controller: _scrollController,
                         physics: const BouncingScrollPhysics(),
-                        itemCount: selectedDateLittens.length,
-                        itemBuilder: (context, index) {
-                          final litten = selectedDateLittens[index];
-                          return LittenItem(
+                        children: [
+                          // 알림이 있는 리튼들
+                          if (littensWithNotifications.isNotEmpty) ...[
+                            ...littensWithNotifications.map((litten) => LittenItem(
+                              litten: litten,
+                              isSelected: appState.selectedLitten?.id == litten.id,
+                              onTap: () => appState.selectLitten(litten),
+                              onDelete: () => _showDeleteDialog(litten.id, litten.title),
+                              onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
+                            )),
+                            // 구분선
+                            if (littensWithoutNotifications.isNotEmpty)
+                              Container(
+                                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text(
+                                        '알림 없음',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          // 알림이 없는 리튼들
+                          ...littensWithoutNotifications.map((litten) => LittenItem(
                             litten: litten,
                             isSelected: appState.selectedLitten?.id == litten.id,
                             onTap: () => appState.selectLitten(litten),
                             onDelete: () => _showDeleteDialog(litten.id, litten.title),
                             onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
-                          );
-                        },
+                          )),
+                        ],
                       ),
                     ),
                   ),

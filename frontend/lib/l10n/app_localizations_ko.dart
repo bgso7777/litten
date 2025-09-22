@@ -165,6 +165,54 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cancel => '취소';
 
   @override
+  String get addSchedule => '일정 추가';
+
+  @override
+  String get selectDate => '날짜 선택';
+
+  @override
+  String get selectStartTime => '시작 시간 선택';
+
+  @override
+  String get selectEndTime => '종료 시간 선택';
+
+  @override
+  String get startTime => '시작 시간';
+
+  @override
+  String get endTime => '종료 시간';
+
+  @override
+  String get date => '날짜';
+
+  @override
+  String get notes => '메모';
+
+  @override
+  String get scheduleNotesHint => '일정에 대한 메모를 입력하세요 (선택사항)';
+
+  @override
+  String get confirm => '확인';
+
+  @override
+  String get enableNotifications => '알림 설정';
+
+  @override
+  String get frequency => '빈도';
+
+  @override
+  String get enabledNotifications => '활성화된 알림';
+
+  @override
+  String get notifications => '알림';
+
+  @override
+  String get noNotifications => '알림이 없습니다';
+
+  @override
+  String get clearAll => '모두 지우기';
+
+  @override
   String get freeUserLimits => '무료 사용자 제한:';
 
   @override

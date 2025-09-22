@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/litten.dart';
 import '../../config/themes.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/app_state_provider.dart';
 
-class LittenItem extends StatelessWidget {
+class LittenItem extends StatefulWidget {
   final Litten litten;
   final bool isSelected;
   final VoidCallback onTap;
@@ -22,12 +24,82 @@ class LittenItem extends StatelessWidget {
   });
 
   @override
+  State<LittenItem> createState() => _LittenItemState();
+}
+
+class _LittenItemState extends State<LittenItem> {
+  bool _isHighlighted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 알림이 있는지 확인하고 강조 표시 상태 설정
+    _checkNotificationStatus();
+  }
+
+  void _checkNotificationStatus() {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final hasNotifications = appState.notificationService.firedNotifications
+        .any((notification) => notification.littenId == widget.litten.id);
+
+    if (hasNotifications && !_isHighlighted) {
+      setState(() {
+        _isHighlighted = true;
+      });
+    }
+  }
+
+  void _handleTap() {
+    if (_isHighlighted) {
+      // 강조 표시된 상태에서 터치하면 원래 색으로 복원
+      setState(() {
+        _isHighlighted = false;
+      });
+
+      // 해당 리튼의 알림도 제거
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final notificationsToRemove = appState.notificationService.firedNotifications
+          .where((notification) => notification.littenId == widget.litten.id)
+          .toList();
+
+      for (final notification in notificationsToRemove) {
+        appState.notificationService.dismissNotification(notification);
+      }
+    }
+
+    // 원래 onTap 콜백 호출
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('HH:mm');
     final l10n = AppLocalizations.of(context);
+
+    // 알림 상태 실시간 체크
+    return Consumer<AppStateProvider>(
+      builder: (context, appState, child) {
+        final hasNotifications = appState.notificationService.firedNotifications
+            .any((notification) => notification.littenId == widget.litten.id);
+
+        // 새로운 알림이 발생했을 때 강조 표시 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (hasNotifications && !_isHighlighted) {
+            setState(() {
+              _isHighlighted = true;
+            });
+          }
+        });
+
+        return _buildLittenItem(context, timeFormat, l10n);
+      },
+    );
+  }
+
+  Widget _buildLittenItem(BuildContext context, DateFormat timeFormat, l10n) {
     
     return Draggable<String>(
-      data: litten.id,
+      data: widget.litten.id,
       feedback: Material(
         elevation: 8,
         child: Container(
@@ -57,8 +129,8 @@ class LittenItem extends StatelessWidget {
             side: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           child: InkWell(
-            onTap: onTap,
-            onLongPress: onLongPress,
+            onTap: _handleTap,
+            onLongPress: widget.onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
@@ -92,7 +164,7 @@ class LittenItem extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      litten.title,
+                                      widget.litten.title,
                                       style: AppTextStyles.headline3.copyWith(
                                         color: Colors.grey.shade400,
                                       ),
@@ -103,7 +175,7 @@ class LittenItem extends StatelessWidget {
                                   AppSpacing.horizontalSpaceS,
                                   // Time
                                   Text(
-                                    timeFormat.format(litten.updatedAt),
+                                    timeFormat.format(widget.litten.updatedAt),
                                     style: AppTextStyles.caption.copyWith(
                                       color: Colors.grey.shade300,
                                     ),
@@ -117,21 +189,21 @@ class LittenItem extends StatelessWidget {
                               children: [
                                 _buildFileBadge(
                                   Icons.hearing,
-                                  litten.audioCount,
+                                  widget.litten.audioCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
                                 AppSpacing.horizontalSpaceXS,
                                 _buildFileBadge(
                                   Icons.keyboard,
-                                  litten.textCount,
+                                  widget.litten.textCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
                                 AppSpacing.horizontalSpaceXS,
                                 _buildFileBadge(
                                   Icons.draw,
-                                  litten.handwritingCount,
+                                  widget.litten.handwritingCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
@@ -139,11 +211,52 @@ class LittenItem extends StatelessWidget {
                             ),
                           ],
                         ),
+                        // Schedule information
+                        if (widget.litten.schedule != null) ...[
+                          AppSpacing.verticalSpaceXS,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.schedule,
+                                  size: 16,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${widget.litten.schedule!.startTime.format(context)} - ${widget.litten.schedule!.endTime.format(context)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (widget.litten.schedule!.notes != null && widget.litten.schedule!.notes!.isNotEmpty) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.note,
+                                    size: 14,
+                                    color: Theme.of(context).primaryColor.withOpacity(0.7),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                         // Description
-                        if (litten.description != null && litten.description!.isNotEmpty) ...[
+                        if (widget.litten.description != null && widget.litten.description!.isNotEmpty) ...[
                           AppSpacing.verticalSpaceXS,
                           Text(
-                            litten.description!,
+                            widget.litten.description!,
                             style: AppTextStyles.bodyText2.copyWith(
                               color: Colors.grey.shade300,
                             ),
@@ -170,16 +283,19 @@ class LittenItem extends StatelessWidget {
       ),
       child: Card(
         margin: EdgeInsets.only(bottom: AppSpacing.s),
-        elevation: isSelected ? 4 : 2,
+        elevation: widget.isSelected ? 4 : (_isHighlighted ? 6 : 2),
+        color: _isHighlighted ? Colors.orange.shade50 : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: isSelected
+          side: widget.isSelected
               ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
-              : BorderSide.none,
+              : _isHighlighted
+                  ? BorderSide(color: Colors.orange, width: 2)
+                  : BorderSide.none,
         ),
         child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
+          onTap: _handleTap,
+          onLongPress: widget.onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
@@ -213,7 +329,7 @@ class LittenItem extends StatelessWidget {
                             children: [
                               Flexible(
                                 child: Text(
-                                  litten.title,
+                                  widget.litten.title,
                                   style: AppTextStyles.headline3,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -222,7 +338,7 @@ class LittenItem extends StatelessWidget {
                               AppSpacing.horizontalSpaceS,
                               // Time
                               Text(
-                                timeFormat.format(litten.updatedAt),
+                                timeFormat.format(widget.litten.updatedAt),
                                 style: AppTextStyles.caption.copyWith(
                                   color: Colors.grey.shade500,
                                 ),
@@ -236,39 +352,39 @@ class LittenItem extends StatelessWidget {
                           children: [
                             _buildFileBadge(
                               Icons.hearing,
-                              litten.audioCount,
-                              litten.audioCount > 0 
-                                  ? AppColors.recordingColor 
+                              widget.litten.audioCount,
+                              widget.litten.audioCount > 0
+                                  ? AppColors.recordingColor
                                   : AppColors.recordingColor.withValues(alpha: 0.3),
-                              isActive: litten.audioCount > 0,
+                              isActive: widget.litten.audioCount > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
                             _buildFileBadge(
                               Icons.keyboard,
-                              litten.textCount,
-                              litten.textCount > 0 
-                                  ? AppColors.writingColor 
+                              widget.litten.textCount,
+                              widget.litten.textCount > 0
+                                  ? AppColors.writingColor
                                   : AppColors.writingColor.withValues(alpha: 0.3),
-                              isActive: litten.textCount > 0,
+                              isActive: widget.litten.textCount > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
                             _buildFileBadge(
                               Icons.draw,
-                              litten.handwritingCount,
-                              litten.handwritingCount > 0 
+                              widget.litten.handwritingCount,
+                              widget.litten.handwritingCount > 0
                                   ? AppColors.writingColor.withValues(alpha: 0.8)
                                   : AppColors.writingColor.withValues(alpha: 0.2),
-                              isActive: litten.handwritingCount > 0,
+                              isActive: widget.litten.handwritingCount > 0,
                             ),
                           ],
                         ),
                       ],
                     ),
                     // Description
-                    if (litten.description != null && litten.description!.isNotEmpty) ...[
+                    if (widget.litten.description != null && widget.litten.description!.isNotEmpty) ...[
                       AppSpacing.verticalSpaceXS,
                       Text(
-                        litten.description!,
+                        widget.litten.description!,
                         style: AppTextStyles.bodyText2.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -282,7 +398,7 @@ class LittenItem extends StatelessWidget {
               AppSpacing.horizontalSpaceS,
               // Delete button
               IconButton(
-                onPressed: onDelete,
+                onPressed: widget.onDelete,
                 icon: const Icon(Icons.delete_outline),
                 color: Colors.red.shade400,
                 iconSize: 20,

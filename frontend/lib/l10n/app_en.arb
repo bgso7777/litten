@@ -259,6 +259,86 @@
   "@cancel": {
     "description": "Cancel button"
   },
+
+  "addSchedule": "Add Schedule",
+  "@addSchedule": {
+    "description": "Add schedule checkbox label"
+  },
+
+  "selectDate": "Select Date",
+  "@selectDate": {
+    "description": "Date picker help text"
+  },
+
+  "selectStartTime": "Select Start Time",
+  "@selectStartTime": {
+    "description": "Start time picker help text"
+  },
+
+  "selectEndTime": "Select End Time",
+  "@selectEndTime": {
+    "description": "End time picker help text"
+  },
+
+  "startTime": "Start Time",
+  "@startTime": {
+    "description": "Start time label"
+  },
+
+  "endTime": "End Time",
+  "@endTime": {
+    "description": "End time label"
+  },
+
+  "date": "Date",
+  "@date": {
+    "description": "Date label"
+  },
+
+  "notes": "Notes",
+  "@notes": {
+    "description": "Notes field label"
+  },
+
+  "scheduleNotesHint": "Enter notes for this schedule (optional)",
+  "@scheduleNotesHint": {
+    "description": "Schedule notes field hint text"
+  },
+
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Confirm button"
+  },
+
+  "enableNotifications": "Enable Notifications",
+  "@enableNotifications": {
+    "description": "Enable notifications checkbox label"
+  },
+
+  "frequency": "Frequency",
+  "@frequency": {
+    "description": "Frequency column header in notification settings"
+  },
+
+  "enabledNotifications": "Enabled Notifications",
+  "@enabledNotifications": {
+    "description": "Enabled notifications summary title"
+  },
+
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications panel title"
+  },
+
+  "noNotifications": "No notifications",
+  "@noNotifications": {
+    "description": "Empty notifications message"
+  },
+
+  "clearAll": "Clear All",
+  "@clearAll": {
+    "description": "Clear all notifications button"
+  },
   
   "freeUserLimits": "Free user limits:",
   "@freeUserLimits": {

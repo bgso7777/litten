@@ -466,6 +466,102 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancel;
 
+  /// Add schedule checkbox label
+  ///
+  /// In en, this message translates to:
+  /// **'Add Schedule'**
+  String get addSchedule;
+
+  /// Date picker help text
+  ///
+  /// In en, this message translates to:
+  /// **'Select Date'**
+  String get selectDate;
+
+  /// Start time picker help text
+  ///
+  /// In en, this message translates to:
+  /// **'Select Start Time'**
+  String get selectStartTime;
+
+  /// End time picker help text
+  ///
+  /// In en, this message translates to:
+  /// **'Select End Time'**
+  String get selectEndTime;
+
+  /// Start time label
+  ///
+  /// In en, this message translates to:
+  /// **'Start Time'**
+  String get startTime;
+
+  /// End time label
+  ///
+  /// In en, this message translates to:
+  /// **'End Time'**
+  String get endTime;
+
+  /// Date label
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get date;
+
+  /// Notes field label
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get notes;
+
+  /// Schedule notes field hint text
+  ///
+  /// In en, this message translates to:
+  /// **'Enter notes for this schedule (optional)'**
+  String get scheduleNotesHint;
+
+  /// Confirm button
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// Enable notifications checkbox label
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Notifications'**
+  String get enableNotifications;
+
+  /// Frequency column header in notification settings
+  ///
+  /// In en, this message translates to:
+  /// **'Frequency'**
+  String get frequency;
+
+  /// Enabled notifications summary title
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled Notifications'**
+  String get enabledNotifications;
+
+  /// Notifications panel title
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// Empty notifications message
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get noNotifications;
+
+  /// Clear all notifications button
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get clearAll;
+
   /// Free user limits section title
   ///
   /// In en, this message translates to:

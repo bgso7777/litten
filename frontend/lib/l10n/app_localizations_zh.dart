@@ -165,6 +165,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancel => '取消';
 
   @override
+  String get addSchedule => 'Add Schedule';
+
+  @override
+  String get selectDate => 'Select Date';
+
+  @override
+  String get selectStartTime => 'Select Start Time';
+
+  @override
+  String get selectEndTime => 'Select End Time';
+
+  @override
+  String get startTime => 'Start Time';
+
+  @override
+  String get endTime => 'End Time';
+
+  @override
+  String get date => 'Date';
+
+  @override
+  String get notes => 'Notes';
+
+  @override
+  String get scheduleNotesHint => 'Enter notes for this schedule (optional)';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String get enableNotifications => 'Enable Notifications';
+
+  @override
+  String get frequency => 'Frequency';
+
+  @override
+  String get enabledNotifications => 'Enabled Notifications';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get noNotifications => 'No notifications';
+
+  @override
+  String get clearAll => 'Clear All';
+
+  @override
   String get freeUserLimits => '免费用户限制：';
 
   @override

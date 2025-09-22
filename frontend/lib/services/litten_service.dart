@@ -16,8 +16,8 @@ class LittenService {
     final littensJson = prefs.getStringList(_luttensKey) ?? [];
     final littens = littensJson.map((json) => Litten.fromJson(jsonDecode(json))).toList();
     
-    // 최신순으로 정렬 (최신이 아래로)
-    littens.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    // 최신순으로 정렬 (최신이 맨 위로)
+    littens.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     
     return littens;
   }

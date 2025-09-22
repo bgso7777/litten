@@ -5,9 +5,11 @@ import '../models/litten.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
 import '../services/litten_service.dart';
+import '../services/notification_service.dart';
 
 class AppStateProvider extends ChangeNotifier {
   final LittenService _littenService = LittenService();
+  final NotificationService _notificationService = NotificationService();
   
   // 앱 상태
   Locale _locale = const Locale('en');
@@ -40,6 +42,9 @@ class AppStateProvider extends ChangeNotifier {
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;
   bool get isStandardUser => _subscriptionType == SubscriptionType.standard;
   bool get isPremiumPlusUser => _subscriptionType == SubscriptionType.premium;
+
+  // 알림 서비스 관련 Getters
+  NotificationService get notificationService => _notificationService;
   
   // 캘린더 관련 Getters
   DateTime get selectedDate => _selectedDate;
@@ -98,6 +103,10 @@ class AppStateProvider extends ChangeNotifier {
     _selectedDate = today;
     _focusedDate = today;
     
+    // 알림 서비스 시작
+    _notificationService.startNotificationChecker();
+    _updateNotificationSchedule();
+
     _isInitialized = true;
     notifyListeners();
   }
@@ -274,16 +283,17 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   // 리튼 생성
-  Future<void> createLitten(String title) async {
+  Future<void> createLitten(String title, {LittenSchedule? schedule}) async {
     if (!canCreateMoreLittens) {
       throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
     }
 
-    // 선택된 날짜에 현재 시간을 조합하여 생성
+    // 스케줄이 있으면 스케줄 날짜 사용, 없으면 선택된 날짜 사용
+    final targetDate = schedule?.date ?? _selectedDate;
     final selectedDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
       DateTime.now().hour,
       DateTime.now().minute,
       DateTime.now().second,
@@ -292,12 +302,14 @@ class AppStateProvider extends ChangeNotifier {
     );
 
     final litten = Litten(
-      title: title, 
+      title: title,
       createdAt: selectedDateTime,
       updatedAt: selectedDateTime,
+      schedule: schedule,
     );
     await _littenService.saveLitten(litten);
     await refreshLittens();
+    _updateNotificationSchedule();
   }
 
   // 리튼 이름 변경
@@ -357,13 +369,24 @@ class AppStateProvider extends ChangeNotifier {
   // 리튼 목록 새로고침
   Future<void> refreshLittens() async {
     _littens = await _littenService.getAllLittens();
-    
+
     // 선택된 리튼이 있다면 업데이트된 데이터로 다시 설정
     if (_selectedLitten != null) {
       _selectedLitten = _littens.where((l) => l.id == _selectedLitten!.id).firstOrNull;
     }
-    
+
+    _updateNotificationSchedule();
     notifyListeners();
+  }
+
+  void _updateNotificationSchedule() {
+    _notificationService.scheduleNotifications(_littens);
+  }
+
+  @override
+  void dispose() {
+    _notificationService.dispose();
+    super.dispose();
   }
 
   // 설정 저장

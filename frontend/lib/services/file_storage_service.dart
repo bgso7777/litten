@@ -33,8 +33,11 @@ class FileStorageService {
       final textFiles = filesList
           .map((fileJson) => TextFile.fromJson(fileJson))
           .toList();
-      
-      print('디버그: 텍스트 파일 ${textFiles.length}개 로드 완료');
+
+      // 최신순으로 정렬 (최신이 맨 위로)
+      textFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      print('디버그: 텍스트 파일 ${textFiles.length}개 로드 완료 (최신순 정렬)');
       return textFiles;
     } catch (e) {
       print('에러: 텍스트 파일 로드 실패 - $e');
@@ -78,8 +81,11 @@ class FileStorageService {
       final handwritingFiles = filesList
           .map((fileJson) => HandwritingFile.fromJson(fileJson))
           .toList();
-      
-      print('디버그: 필기 파일 ${handwritingFiles.length}개 로드 완료');
+
+      // 최신순으로 정렬 (최신이 맨 위로)
+      handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      print('디버그: 필기 파일 ${handwritingFiles.length}개 로드 완료 (최신순 정렬)');
       return handwritingFiles;
     } catch (e) {
       print('에러: 필기 파일 로드 실패 - $e');
