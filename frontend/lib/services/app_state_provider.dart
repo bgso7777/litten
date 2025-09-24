@@ -6,10 +6,12 @@ import '../models/audio_file.dart';
 import '../models/text_file.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
+import '../services/app_icon_badge_service.dart';
 
 class AppStateProvider extends ChangeNotifier {
   final LittenService _littenService = LittenService();
   final NotificationService _notificationService = NotificationService();
+  final AppIconBadgeService _appIconBadgeService = AppIconBadgeService();
   
   // 앱 상태
   Locale _locale = const Locale('en');
@@ -45,6 +47,7 @@ class AppStateProvider extends ChangeNotifier {
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
+  AppIconBadgeService get appIconBadgeService => _appIconBadgeService;
   
   // 캘린더 관련 Getters
   DateTime get selectedDate => _selectedDate;
@@ -103,8 +106,12 @@ class AppStateProvider extends ChangeNotifier {
     _selectedDate = today;
     _focusedDate = today;
     
+    // 앱 아이콘 배지 서비스 초기화
+    _appIconBadgeService.initialize();
+
     // 알림 서비스 시작
     _notificationService.startNotificationChecker();
+    _notificationService.addListener(_onNotificationChanged);
     _updateNotificationSchedule();
 
     _isInitialized = true;
@@ -316,10 +323,21 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> renameLitten(String littenId, String newTitle) async {
     await _littenService.renameLitten(littenId, newTitle);
     await refreshLittens();
-    
+
     // 선택된 리튼이 변경된 경우 업데이트
     if (_selectedLitten?.id == littenId) {
       _selectedLitten = _selectedLitten!.copyWith(title: newTitle);
+    }
+  }
+
+  // 리튼 업데이트
+  Future<void> updateLitten(Litten updatedLitten) async {
+    await _littenService.saveLitten(updatedLitten);
+    await refreshLittens();
+
+    // 선택된 리튼이 변경된 경우 업데이트
+    if (_selectedLitten?.id == updatedLitten.id) {
+      _selectedLitten = updatedLitten;
     }
   }
 
@@ -383,8 +401,14 @@ class AppStateProvider extends ChangeNotifier {
     _notificationService.scheduleNotifications(_littens);
   }
 
+  void _onNotificationChanged() {
+    final notificationCount = _notificationService.firedNotifications.length;
+    _appIconBadgeService.updateBadge(notificationCount);
+  }
+
   @override
   void dispose() {
+    _notificationService.removeListener(_onNotificationChanged);
     _notificationService.dispose();
     super.dispose();
   }

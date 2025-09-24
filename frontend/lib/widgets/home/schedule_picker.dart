@@ -9,12 +9,14 @@ class SchedulePicker extends StatefulWidget {
   final LittenSchedule? initialSchedule;
   final Function(LittenSchedule?) onScheduleChanged;
   final DateTime? defaultDate;
+  final bool showNotificationSettings;
 
   const SchedulePicker({
     super.key,
     this.initialSchedule,
     required this.onScheduleChanged,
     this.defaultDate,
+    this.showNotificationSettings = true,
   });
 
   @override
@@ -22,7 +24,7 @@ class SchedulePicker extends StatefulWidget {
 }
 
 class _SchedulePickerState extends State<SchedulePicker> {
-  bool _hasSchedule = false;
+  bool _hasSchedule = true;
   late DateTime _selectedDate;
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 10, minute: 0);
@@ -55,18 +57,14 @@ class _SchedulePickerState extends State<SchedulePicker> {
   }
 
   void _updateSchedule() {
-    if (_hasSchedule) {
-      final schedule = LittenSchedule(
-        date: _selectedDate,
-        startTime: _startTime,
-        endTime: _endTime,
-        notes: _notesController.text.isEmpty ? null : _notesController.text,
-        notificationRules: _notificationRules,
-      );
-      widget.onScheduleChanged(schedule);
-    } else {
-      widget.onScheduleChanged(null);
-    }
+    final schedule = LittenSchedule(
+      date: _selectedDate,
+      startTime: _startTime,
+      endTime: _endTime,
+      notes: _notesController.text.isEmpty ? null : _notesController.text,
+      notificationRules: _notificationRules,
+    );
+    widget.onScheduleChanged(schedule);
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -97,25 +95,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Checkbox(
-              value: _hasSchedule,
-              onChanged: (value) {
-                setState(() {
-                  _hasSchedule = value ?? false;
-                });
-                _updateSchedule();
-              },
-            ),
-            Text(
-              l10n?.addSchedule ?? '일정 추가',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        if (_hasSchedule) ...[
-          const SizedBox(height: 16),
+        const SizedBox(height: 16),
           // 날짜 선택
           Card(
             child: ListTile(
@@ -221,18 +201,19 @@ class _SchedulePickerState extends State<SchedulePicker> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          // 알림 설정
-          NotificationSettings(
-            initialRules: _notificationRules,
-            onRulesChanged: (rules) {
-              setState(() {
-                _notificationRules = rules;
-              });
-              _updateSchedule();
-            },
-          ),
-        ],
+          if (widget.showNotificationSettings) ...[
+            const SizedBox(height: 16),
+            // 알림 설정
+            NotificationSettings(
+              initialRules: _notificationRules,
+              onRulesChanged: (rules) {
+                setState(() {
+                  _notificationRules = rules;
+                });
+                _updateSchedule();
+              },
+            ),
+          ],
       ],
     );
   }

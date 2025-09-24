@@ -238,9 +238,15 @@ class NotificationBadge extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              notificationService.createTestNotification('테스트 알림');
+              notificationService.createTestNotification('30초 후 알림');
             },
-            child: Text('테스트 알림'),
+            child: Text('30초 테스트'),
+          ),
+          TextButton(
+            onPressed: () {
+              notificationService.createImmediateTestNotification('즉시 테스트 알림');
+            },
+            child: Text('즉시 테스트'),
           ),
           if (notificationService.firedNotifications.isNotEmpty)
             TextButton(

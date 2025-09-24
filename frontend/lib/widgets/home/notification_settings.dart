@@ -18,13 +18,11 @@ class NotificationSettings extends StatefulWidget {
 
 class _NotificationSettingsState extends State<NotificationSettings> {
   late List<NotificationRule> _rules;
-  bool _showNotifications = false;
 
   @override
   void initState() {
     super.initState();
     _rules = List.from(widget.initialRules);
-    _showNotifications = _rules.any((rule) => rule.isEnabled);
 
     // 초기 규칙이 없다면 기본 규칙 생성
     if (_rules.isEmpty) {
@@ -86,28 +84,6 @@ class _NotificationSettingsState extends State<NotificationSettings> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Checkbox(
-              value: _showNotifications,
-              onChanged: (value) {
-                setState(() {
-                  _showNotifications = value ?? false;
-                  if (!_showNotifications) {
-                    // 알림 비활성화 시 모든 규칙 비활성화
-                    _rules = _rules.map((rule) => rule.copyWith(isEnabled: false)).toList();
-                    _notifyChanges();
-                  }
-                });
-              },
-            ),
-            Text(
-              l10n?.enableNotifications ?? '알림 설정',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        if (_showNotifications) ...[
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
@@ -229,7 +205,6 @@ class _NotificationSettingsState extends State<NotificationSettings> {
               ),
             ),
           ],
-        ],
       ],
     );
   }

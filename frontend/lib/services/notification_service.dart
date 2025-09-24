@@ -61,9 +61,9 @@ class NotificationService extends ChangeNotifier {
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
 
   void startNotificationChecker() {
-    // 1분마다 알림 체크 (웹에서 더 자주 체크)
+    // 30초마다 알림 체크 (웹에서 더 자주 체크)
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _checkNotifications();
     });
 
@@ -80,18 +80,35 @@ class NotificationService extends ChangeNotifier {
     final now = DateTime.now();
     final currentMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute);
 
-    // 1분 간격으로 체크하므로 현재 시간부터 2분 이내의 알림을 찾습니다
-    final endTime = currentMinute.add(const Duration(minutes: 2));
+    // 현재 시간과 정확히 일치하거나 1분 이내에 지난 알림을 찾습니다
+    final checkStartTime = currentMinute.subtract(const Duration(minutes: 1));
+    final checkEndTime = currentMinute.add(const Duration(minutes: 1));
 
     final notifications = _pendingNotifications.where((notification) {
-      return notification.triggerTime.isAfter(currentMinute.subtract(const Duration(minutes: 1))) &&
-             notification.triggerTime.isBefore(endTime);
+      final triggerMinute = DateTime(
+        notification.triggerTime.year,
+        notification.triggerTime.month,
+        notification.triggerTime.day,
+        notification.triggerTime.hour,
+        notification.triggerTime.minute,
+      );
+
+      return triggerMinute.isAfter(checkStartTime) &&
+             triggerMinute.isBefore(checkEndTime);
     }).toList();
 
     // 디버그 정보 출력
-    debugPrint('🕒 알림 체크: ${DateFormat('yyyy-MM-dd HH:mm').format(now)}');
+    debugPrint('🕒 알림 체크: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)}');
+    debugPrint('   현재 분: ${DateFormat('yyyy-MM-dd HH:mm').format(currentMinute)}');
+    debugPrint('   체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)}');
     debugPrint('   대기 중인 알림: ${_pendingNotifications.length}개');
     debugPrint('   이번에 발생할 알림: ${notifications.length}개');
+
+    if (notifications.isNotEmpty) {
+      for (final notification in notifications) {
+        debugPrint('   - ${notification.littenTitle}: ${DateFormat('yyyy-MM-dd HH:mm').format(notification.triggerTime)}');
+      }
+    }
 
     for (final notification in notifications) {
       _fireNotification(notification);
@@ -274,24 +291,50 @@ class NotificationService extends ChangeNotifier {
   // 테스트용: 즉시 발생할 알림 생성
   void createTestNotification(String title) {
     final now = DateTime.now();
+    // 30초 후에 발생하도록 설정
+    final triggerTime = now.add(const Duration(seconds: 30));
     final testNotification = NotificationEvent(
-      littenId: 'test',
+      littenId: 'test_${now.millisecondsSinceEpoch}',
       littenTitle: title,
       schedule: LittenSchedule(
         date: now,
-        startTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 1))),
-        endTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 2))),
+        startTime: TimeOfDay.fromDateTime(triggerTime),
+        endTime: TimeOfDay.fromDateTime(triggerTime.add(const Duration(minutes: 1))),
       ),
       rule: NotificationRule(
         frequency: NotificationFrequency.onDay,
         timing: NotificationTiming.onTime,
         isEnabled: true,
       ),
-      triggerTime: now.add(const Duration(minutes: 1)),
+      triggerTime: triggerTime,
     );
 
     _pendingNotifications.add(testNotification);
-    debugPrint('🧪 테스트 알림 생성: 1분 후 발생 예정');
+    debugPrint('🧪 테스트 알림 생성: ${DateFormat('HH:mm:ss').format(triggerTime)}에 발생 예정');
+    notifyListeners();
+  }
+
+  // 즉시 발생하는 테스트 알림
+  void createImmediateTestNotification(String title) {
+    final now = DateTime.now();
+    final testNotification = NotificationEvent(
+      littenId: 'immediate_test_${now.millisecondsSinceEpoch}',
+      littenTitle: title,
+      schedule: LittenSchedule(
+        date: now,
+        startTime: TimeOfDay.fromDateTime(now),
+        endTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 1))),
+      ),
+      rule: NotificationRule(
+        frequency: NotificationFrequency.onDay,
+        timing: NotificationTiming.onTime,
+        isEnabled: true,
+      ),
+      triggerTime: now,
+    );
+
+    _firedNotifications.add(testNotification);
+    debugPrint('🧪 즉시 테스트 알림 발생: $title');
     notifyListeners();
   }
 

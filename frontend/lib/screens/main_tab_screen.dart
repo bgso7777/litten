@@ -66,11 +66,17 @@ class MainTabScreen extends StatelessWidget {
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
-            onTap: appState.changeTabIndex,
+            onTap: (index) {
+              if (index == 0) {
+                // 홈탭 클릭 시 알림 확인 처리
+                _clearHomeNotifications(appState);
+              }
+              appState.changeTabIndex(index);
+            },
             type: BottomNavigationBarType.fixed,
             items: [
               BottomNavigationBarItem(
-                icon: const Icon(Icons.home),
+                icon: _buildHomeIconWithBadge(appState),
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
@@ -246,5 +252,64 @@ class MainTabScreen extends StatelessWidget {
     }
 
     return spacedBadges;
+  }
+
+  Widget _buildHomeIconWithBadge(AppStateProvider appState) {
+    return AnimatedBuilder(
+      animation: appState.notificationService,
+      builder: (context, child) {
+        final notificationCount = appState.notificationService.firedNotifications.length;
+
+        if (notificationCount == 0) {
+          return const Icon(Icons.home);
+        }
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.home),
+            Positioned(
+              right: -8,
+              top: -8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 16,
+                  minHeight: 16,
+                ),
+                child: Text(
+                  notificationCount > 99 ? '99+' : notificationCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _clearHomeNotifications(AppStateProvider appState) {
+    // 홈탭을 클릭했을 때 발생한 알림들을 모두 지움
+    final firedNotifications = List.from(appState.notificationService.firedNotifications);
+    for (final notification in firedNotifications) {
+      appState.notificationService.dismissNotification(notification);
+    }
   }
 }
