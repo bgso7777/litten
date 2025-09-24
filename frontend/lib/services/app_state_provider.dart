@@ -291,32 +291,60 @@ class AppStateProvider extends ChangeNotifier {
 
   // 리튼 생성
   Future<void> createLitten(String title, {LittenSchedule? schedule}) async {
-    if (!canCreateMoreLittens) {
-      throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
+    debugPrint('🔄 리튼 생성 시작: $title');
+
+    try {
+      if (!canCreateMoreLittens) {
+        debugPrint('❌ 리튼 생성 실패: 최대 생성 개수 초과');
+        throw Exception('무료 사용자는 최대 5개의 리튼만 생성할 수 있습니다.');
+      }
+
+      // 제목 유효성 검사
+      if (title.trim().isEmpty) {
+        debugPrint('❌ 리튼 생성 실패: 빈 제목');
+        throw Exception('리튼 제목을 입력해주세요.');
+      }
+
+      // 스케줄 유효성 검사
+      if (schedule != null) {
+        final startTime = schedule.startTime;
+        final endTime = schedule.endTime;
+        if (startTime.hour == endTime.hour && startTime.minute >= endTime.minute) {
+          debugPrint('❌ 리튼 생성 실패: 잘못된 시간 설정');
+          throw Exception('시작 시간이 종료 시간보다 늦을 수 없습니다.');
+        }
+        debugPrint('📅 일정 정보: ${schedule.date} ${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')} - ${endTime.hour}:${endTime.minute.toString().padLeft(2, '0')}');
+      }
+
+      // 스케줄이 있으면 스케줄 날짜 사용, 없으면 선택된 날짜 사용
+      final targetDate = schedule?.date ?? _selectedDate;
+      final selectedDateTime = DateTime(
+        targetDate.year,
+        targetDate.month,
+        targetDate.day,
+        DateTime.now().hour,
+        DateTime.now().minute,
+        DateTime.now().second,
+        DateTime.now().millisecond,
+        DateTime.now().microsecond,
+      );
+
+      final litten = Litten(
+        title: title.trim(),
+        createdAt: selectedDateTime,
+        updatedAt: selectedDateTime,
+        schedule: schedule,
+      );
+
+      await _littenService.saveLitten(litten);
+      await refreshLittens();
+      _updateNotificationSchedule();
+
+      debugPrint('✅ 리튼 생성 완료: ${litten.id} - $title');
+    } catch (e) {
+      debugPrint('❌ 리튼 생성 에러: $e');
+      rethrow;
     }
-
-    // 스케줄이 있으면 스케줄 날짜 사용, 없으면 선택된 날짜 사용
-    final targetDate = schedule?.date ?? _selectedDate;
-    final selectedDateTime = DateTime(
-      targetDate.year,
-      targetDate.month,
-      targetDate.day,
-      DateTime.now().hour,
-      DateTime.now().minute,
-      DateTime.now().second,
-      DateTime.now().millisecond,
-      DateTime.now().microsecond,
-    );
-
-    final litten = Litten(
-      title: title,
-      createdAt: selectedDateTime,
-      updatedAt: selectedDateTime,
-      schedule: schedule,
-    );
-    await _littenService.saveLitten(litten);
-    await refreshLittens();
-    _updateNotificationSchedule();
   }
 
   // 리튼 이름 변경
@@ -332,12 +360,24 @@ class AppStateProvider extends ChangeNotifier {
 
   // 리튼 업데이트
   Future<void> updateLitten(Litten updatedLitten) async {
-    await _littenService.saveLitten(updatedLitten);
-    await refreshLittens();
+    debugPrint('🔄 리튼 업데이트 시작: ${updatedLitten.id} - ${updatedLitten.title}');
 
-    // 선택된 리튼이 변경된 경우 업데이트
-    if (_selectedLitten?.id == updatedLitten.id) {
-      _selectedLitten = updatedLitten;
+    try {
+      await _littenService.saveLitten(updatedLitten);
+      await refreshLittens();
+
+      // 선택된 리튼이 변경된 경우 업데이트
+      if (_selectedLitten?.id == updatedLitten.id) {
+        _selectedLitten = updatedLitten;
+      }
+
+      // 알림 스케줄 업데이트 - 매우 중요!
+      _updateNotificationSchedule();
+
+      debugPrint('✅ 리튼 업데이트 완료: ${updatedLitten.id}');
+    } catch (e) {
+      debugPrint('❌ 리튼 업데이트 에러: $e');
+      rethrow;
     }
   }
 

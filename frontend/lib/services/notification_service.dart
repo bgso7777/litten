@@ -134,22 +134,41 @@ class NotificationService extends ChangeNotifier {
   }
 
   void scheduleNotifications(List<Litten> littens) {
-    _pendingNotifications.clear();
-    final now = DateTime.now();
+    try {
+      debugPrint('🔔 알림 스케줄링 시작: ${littens.length}개 리튼');
 
-    for (final litten in littens) {
-      if (litten.schedule == null) continue;
+      _pendingNotifications.clear();
+      final now = DateTime.now();
+      int totalScheduled = 0;
 
-      final schedule = litten.schedule!;
-      for (final rule in schedule.notificationRules) {
-        if (!rule.isEnabled) continue;
+      for (final litten in littens) {
+        if (litten.schedule == null) continue;
 
-        final notifications = _calculateNotificationTimes(litten, schedule, rule, now);
-        _pendingNotifications.addAll(notifications);
+        final schedule = litten.schedule!;
+        debugPrint('📋 "${litten.title}" 알림 설정 중: ${schedule.notificationRules.length}개 규칙');
+
+        for (final rule in schedule.notificationRules) {
+          if (!rule.isEnabled) {
+            debugPrint('⏸️ 비활성화된 알림 규칙 건너뛰기: ${rule.frequency.label} ${rule.timing.label}');
+            continue;
+          }
+
+          try {
+            final notifications = _calculateNotificationTimes(litten, schedule, rule, now);
+            _pendingNotifications.addAll(notifications);
+            totalScheduled += notifications.length;
+            debugPrint('✅ 알림 추가: ${notifications.length}개 (${rule.frequency.label} ${rule.timing.label})');
+          } catch (e) {
+            debugPrint('❌ 알림 계산 실패: "${litten.title}" - $e');
+          }
+        }
       }
-    }
 
-    notifyListeners();
+      debugPrint('🔔 알림 스케줄링 완료: 총 ${totalScheduled}개 알림 예약');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ 알림 스케줄링 에러: $e');
+    }
   }
 
   List<NotificationEvent> _calculateNotificationTimes(

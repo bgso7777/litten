@@ -52,19 +52,45 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
   @override
   void dispose() {
-    _notesController.dispose();
+    try {
+      _notesController.dispose();
+      debugPrint('✅ SchedulePicker disposed');
+    } catch (e) {
+      debugPrint('❌ SchedulePicker dispose 에러: $e');
+    }
     super.dispose();
   }
 
   void _updateSchedule() {
-    final schedule = LittenSchedule(
-      date: _selectedDate,
-      startTime: _startTime,
-      endTime: _endTime,
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-      notificationRules: _notificationRules,
-    );
-    widget.onScheduleChanged(schedule);
+    if (!mounted) {
+      debugPrint('⚠️ SchedulePicker: Widget not mounted, skipping schedule update');
+      return;
+    }
+
+    try {
+      // 시간 유효성 검사
+      if (_startTime.hour == _endTime.hour && _startTime.minute >= _endTime.minute) {
+        debugPrint('⚠️ 일정 시간 오류: 시작 시간이 종료 시간보다 늦습니다.');
+        return;
+      }
+
+      final schedule = LittenSchedule(
+        date: _selectedDate,
+        startTime: _startTime,
+        endTime: _endTime,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+        notificationRules: _notificationRules,
+      );
+
+      widget.onScheduleChanged(schedule);
+
+      // mounted 체크 후 context 사용
+      if (mounted) {
+        debugPrint('✅ 일정 업데이트: ${schedule.date} ${schedule.startTime.format(context)} - ${schedule.endTime.format(context)}');
+      }
+    } catch (e) {
+      debugPrint('❌ 일정 업데이트 실패: $e');
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -95,7 +121,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
           // 날짜 선택
           Card(
             child: ListTile(
@@ -106,7 +132,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               onTap: () => _selectDate(context),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           // 시간 선택 - 스크롤 박스
           Row(
             children: [

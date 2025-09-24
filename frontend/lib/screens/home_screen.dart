@@ -420,19 +420,35 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text(l10n?.cancel ?? '취소'),
             ),
             ElevatedButton(
-              onPressed: () => _performEditLitten(
-                littenId,
-                titleController.text.trim(),
-                selectedSchedule,
-                context,
-              ),
+              onPressed: () async {
+                bool shouldClose = false;
+                try {
+                  shouldClose = await _performEditLitten(
+                    littenId,
+                    titleController.text.trim(),
+                    selectedSchedule,
+                    context,
+                    titleController,
+                  );
+                  if (shouldClose && Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                    debugPrint('💾 리튼 수정 다이얼로그 닫기 완료');
+                  }
+                } catch (e) {
+                  debugPrint('❌ 리튼 수정 에러: $e');
+                } finally {
+                  // dispose 제거 - 가비지 컬렉터가 자동으로 처리하도록 함
+                  debugPrint('💾 다이얼로그 처리 완료');
+                }
+              },
               child: Text('저장'),
             ),
           ],
         ),
       ),
     ).then((_) {
-      titleController.dispose();
+      // dispose 제거 - 가비지 컬렉터가 자동으로 처리
+      debugPrint('💾 다이얼로그 종료');
     });
   }
 
@@ -742,33 +758,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _performEditLitten(
+  Future<bool> _performEditLitten(
     String littenId,
     String newTitle,
     LittenSchedule? newSchedule,
     BuildContext dialogContext,
+    TextEditingController titleController,
   ) async {
     final l10n = AppLocalizations.of(context);
 
-    if (newTitle.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n?.pleaseEnterTitle ?? '제목을 입력해주세요.')),
-      );
-      return;
+    // 입력 유효성 검사
+    if (newTitle.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n?.pleaseEnterTitle ?? '제목을 입력해주세요.')),
+        );
+      }
+      return false; // 유효성 검사 실패 시 다이얼로그를 닫지 않음
+    }
+
+    // 스케줄 유효성 검사
+    if (newSchedule != null) {
+      final startTime = newSchedule.startTime;
+      final endTime = newSchedule.endTime;
+      if (startTime.hour == endTime.hour && startTime.minute >= endTime.minute) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('시작 시간이 종료 시간보다 늦을 수 없습니다.')),
+          );
+        }
+        return false; // 유효성 검사 실패 시 다이얼로그를 닫지 않음
+      }
     }
 
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final navigator = Navigator.of(dialogContext);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
+      debugPrint('🔄 리튼 수정 시작: $littenId - ${newTitle.trim()}');
+
       // 기존 리튼 찾기
       final currentLitten = appState.littens.firstWhere((litten) => litten.id == littenId);
 
       // 수정된 리튼 생성
       final updatedLitten = Litten(
         id: currentLitten.id,
-        title: newTitle,
+        title: newTitle.trim(),
         description: currentLitten.description, // 기존 설명 유지
         createdAt: currentLitten.createdAt,
         updatedAt: DateTime.now(),
@@ -781,14 +816,24 @@ class _HomeScreenState extends State<HomeScreen> {
       // 리튼 업데이트
       await appState.updateLitten(updatedLitten);
 
-      navigator.pop();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('리튼이 수정되었습니다.')),
-      );
+      if (mounted) {
+        final scheduleText = newSchedule != null
+            ? ' (${DateFormat('M월 d일').format(newSchedule.date)} ${newSchedule.startTime.format(context)})'
+            : '';
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('${updatedLitten.title} 리튼이 수정되었습니다.$scheduleText')),
+        );
+        debugPrint('✅ 리튼 수정 완료: ${updatedLitten.id}');
+      }
+      return true; // 성공 시 다이얼로그를 닫음
     } catch (e) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
-      );
+      debugPrint('❌ 리튼 수정 에러: $e');
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
+        );
+      }
+      return false; // 실패 시 다이얼로그를 닫지 않음
     }
   }
 
