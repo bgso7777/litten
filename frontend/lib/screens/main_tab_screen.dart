@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../services/notification_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_screen.dart';
 import 'recording_screen.dart';
@@ -119,26 +120,29 @@ class MainTabScreen extends StatelessWidget {
 
     final badges = <Widget>[];
 
-    // 전체 리튼 수 배지 (가장 앞에 추가)
+    // 전체 리튼 수 배지 (알림이 있으면 -1 표시)
     final littenCount = appState.littens.length;
+    final hasNotifications = appState.notificationService.firedNotifications.isNotEmpty;
+    final displayCount = hasNotifications ? littenCount - 1 : littenCount;
+
     badges.add(
       Container(
         padding: ResponsiveUtils.getBadgePadding(context),
         decoration: BoxDecoration(
-          color: littenCount > 0 
-              ? Theme.of(context).primaryColor
+          color: littenCount > 0
+              ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
               : Theme.of(context).primaryColor.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder, 
-                size: ResponsiveUtils.getBadgeIconSize(context), 
+            Icon(Icons.folder,
+                size: ResponsiveUtils.getBadgeIconSize(context),
                 color: littenCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
-              littenCount.toString(),
+              displayCount.toString(),
               style: TextStyle(
                 color: littenCount > 0 ? Colors.white : Colors.white70,
                 fontSize: ResponsiveUtils.getBadgeFontSize(context),
@@ -306,10 +310,22 @@ class MainTabScreen extends StatelessWidget {
   }
 
   void _clearHomeNotifications(AppStateProvider appState) {
-    // 홈탭을 클릭했을 때 발생한 알림들을 모두 지움
-    final firedNotifications = List.from(appState.notificationService.firedNotifications);
-    for (final notification in firedNotifications) {
-      appState.notificationService.dismissNotification(notification);
+    // 홈탭을 클릭했을 때 발생한 알림들을 확인
+    final firedNotifications = List<NotificationEvent>.from(appState.notificationService.firedNotifications);
+
+    if (firedNotifications.isNotEmpty) {
+      debugPrint('🏠 홈탭 클릭: ${firedNotifications.length}개의 알림 발견');
+
+      // 알림에 해당하는 리튼과 날짜를 먼저 선택
+      appState.selectNotificationTargets(firedNotifications);
+
+      // 그 다음 알림들을 지움
+      for (final notification in firedNotifications) {
+        appState.notificationService.dismissNotification(notification);
+        debugPrint('🧹 알림 해제: ${notification.littenTitle}');
+      }
+    } else {
+      debugPrint('🏠 홈탭 클릭: 알림 없음');
     }
   }
 }

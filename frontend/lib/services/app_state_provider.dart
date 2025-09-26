@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
 import '../models/audio_file.dart';
@@ -290,7 +291,7 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   // 리튼 생성
-  Future<void> createLitten(String title, {LittenSchedule? schedule}) async {
+  Future<Litten> createLitten(String title, {LittenSchedule? schedule}) async {
     debugPrint('🔄 리튼 생성 시작: $title');
 
     try {
@@ -341,6 +342,7 @@ class AppStateProvider extends ChangeNotifier {
       _updateNotificationSchedule();
 
       debugPrint('✅ 리튼 생성 완료: ${litten.id} - $title');
+      return litten;
     } catch (e) {
       debugPrint('❌ 리튼 생성 에러: $e');
       rethrow;
@@ -786,6 +788,69 @@ class AppStateProvider extends ChangeNotifier {
       );
       return littenDate.isAtSameMomentAs(targetDate);
     }).length;
+  }
+
+  // 알림에 해당하는 리튼과 날짜를 선택하는 메서드 (가장 과거 알림 기준)
+  void selectNotificationTargets(List<NotificationEvent> notifications) {
+    if (notifications.isEmpty) return;
+
+    try {
+      // 가장 과거의 알림을 찾기 (일정 날짜 기준으로 정렬)
+      final sortedNotifications = List<NotificationEvent>.from(notifications);
+      sortedNotifications.sort((a, b) => a.schedule.date.compareTo(b.schedule.date));
+
+      final oldestNotification = sortedNotifications.first;
+      debugPrint('🎯 가장 과거 알림 선택: ${oldestNotification.littenTitle} - ${DateFormat('yyyy-MM-dd').format(oldestNotification.schedule.date)}');
+
+      // 해당 리튼을 찾기
+      final targetLitten = _littens.firstWhere(
+        (litten) => litten.id == oldestNotification.littenId,
+        orElse: () {
+          debugPrint('⚠️ 알림의 리튼을 찾을 수 없음: ${oldestNotification.littenId}');
+          // 빈 리튼을 반환하여 에러를 방지
+          return Litten(
+            id: 'not_found',
+            title: '알림 리튼을 찾을 수 없음',
+            createdAt: DateTime.now(),
+          );
+        },
+      );
+
+      // 리튼이 존재하면 선택
+      if (targetLitten.id != 'not_found') {
+        _selectedLitten = targetLitten;
+        debugPrint('✅ 리튼 선택됨: ${targetLitten.title}');
+      }
+
+      // 가장 과거 알림의 일정 날짜로 선택된 날짜 변경
+      final scheduleDate = oldestNotification.schedule.date;
+      final targetDate = DateTime(
+        scheduleDate.year,
+        scheduleDate.month,
+        scheduleDate.day,
+      );
+
+      if (_selectedDate != targetDate) {
+        _selectedDate = targetDate;
+        _focusedDate = targetDate;
+        debugPrint('✅ 날짜 선택됨: ${DateFormat('yyyy-MM-dd').format(targetDate)}');
+      }
+
+      // 상태 변경 알림
+      notifyListeners();
+
+      // 모든 알림 정보 로그 (날짜순 정렬)
+      if (notifications.length > 1) {
+        debugPrint('📢 전체 알림 ${notifications.length}개 (날짜순):');
+        for (int i = 0; i < sortedNotifications.length; i++) {
+          final notification = sortedNotifications[i];
+          final prefix = i == 0 ? '👑 [선택됨]' : '   ';
+          debugPrint('$prefix ${notification.littenTitle}: ${DateFormat('yyyy-MM-dd HH:mm').format(notification.schedule.date)}');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 알림 대상 선택 실패: $e');
+    }
   }
 }
 

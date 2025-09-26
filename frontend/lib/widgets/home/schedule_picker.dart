@@ -10,6 +10,7 @@ class SchedulePicker extends StatefulWidget {
   final Function(LittenSchedule?) onScheduleChanged;
   final DateTime? defaultDate;
   final bool showNotificationSettings;
+  final bool isCreatingNew; // 새로 생성하는 리튼인지 구분
 
   const SchedulePicker({
     super.key,
@@ -17,6 +18,7 @@ class SchedulePicker extends StatefulWidget {
     required this.onScheduleChanged,
     this.defaultDate,
     this.showNotificationSettings = true,
+    this.isCreatingNew = false,
   });
 
   @override
@@ -47,7 +49,10 @@ class _SchedulePickerState extends State<SchedulePicker> {
       _selectedDate = widget.defaultDate ?? DateTime.now();
     }
 
-    _updateSchedule();
+    // 새로 생성하는 경우가 아니라면 초기 일정 생성
+    if (!widget.isCreatingNew) {
+      _updateSchedule();
+    }
   }
 
   @override
@@ -167,17 +172,23 @@ class _SchedulePickerState extends State<SchedulePicker> {
                   label: l10n?.endTime ?? '종료 시간',
                   onTimeChanged: (time) {
                     setState(() {
-                      // 종료 시간이 시작 시간보다 빠르면 시작 시간을 조정
+                      // 종료 시간이 시작 시간보다 빠르거나 같으면 종료 시간을 시작 시간보다 크게 조정
                       if (time.hour < _startTime.hour ||
                           (time.hour == _startTime.hour && time.minute <= _startTime.minute)) {
-                        final newStartMinute = time.minute - 30;
-                        if (newStartMinute < 0) {
-                          _startTime = TimeOfDay(hour: (time.hour - 1 + 24) % 24, minute: newStartMinute + 60);
+                        // 시작 시간에서 최소 15분 더한 값으로 종료 시간 설정 (5분 단위로 조정)
+                        final minGapMinutes = 15; // 최소 15분 간격
+                        var newEndMinute = _startTime.minute + minGapMinutes;
+                        // 5분 단위로 올림 처리
+                        newEndMinute = ((newEndMinute + 4) ~/ 5) * 5;
+                        if (newEndMinute >= 60) {
+                          _endTime = TimeOfDay(hour: (_startTime.hour + 1) % 24, minute: newEndMinute - 60);
                         } else {
-                          _startTime = TimeOfDay(hour: time.hour, minute: newStartMinute);
+                          _endTime = TimeOfDay(hour: _startTime.hour, minute: newEndMinute);
                         }
+                        debugPrint('🕐 종료 시간 자동 조정: ${_startTime.format(context)} → ${_endTime.format(context)}');
+                      } else {
+                        _endTime = time;
                       }
-                      _endTime = time;
                     });
                     _updateSchedule();
                   },

@@ -24,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _titleController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   LittenSchedule? _selectedSchedule;
+  bool _userInteractedWithSchedule = false; // 사용자가 일정을 직접 설정했는지 추적
+  int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
 
   @override
   void dispose() {
@@ -67,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
     
     _titleController.clear();
     _selectedSchedule = null;
+    _userInteractedWithSchedule = false;
+    _currentTabIndex = 0; // 탭 인덱스 초기화
 
     showDialog(
       context: context,
@@ -75,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: Text(l10n?.createLitten ?? '리튼 생성'),
           content: SizedBox(
             width: double.maxFinite,
-            height: 480,
+            height: MediaQuery.of(context).size.height * 0.7, // 화면 높이의 70%
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -185,6 +189,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     onScheduleChanged: (schedule) {
                       setState(() {
                         _selectedSchedule = schedule;
+                        // 사용자가 일정과 상호작용했음을 표시
+                        _userInteractedWithSchedule = schedule != null;
                       });
                     },
                   ),
@@ -206,22 +212,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
                 return;
               }
-              
+
+              // 같은 이름의 리튼이 이미 존재하는지 확인
+              final existingLittens = appState.littens.where(
+                (litten) => litten.title.trim().toLowerCase() == title.toLowerCase(),
+              ).toList();
+
+              if (existingLittens.isNotEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('이미 같은 이름의 리튼이 존재합니다: "$title"')),
+                );
+                return;
+              }
+
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
-              
+
               try {
-                await appState.createLitten(title, schedule: _selectedSchedule);
+                final newLitten = await appState.createLitten(title, schedule: _selectedSchedule);
                 if (mounted) {
-                  navigator.pop();
+                  // 현재 탭이 알림설정 탭(1)이면 창을 닫고, 일정추가 탭(0)이면 닫지 않음
+                  if (_currentTabIndex == 1) {
+                    navigator.pop();
+                  }
                   final scheduleText = _selectedSchedule != null
                       ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(context)})'
                       : '';
                   scaffoldMessenger.showSnackBar(
                     SnackBar(content: Text('$title 리튼이 생성되었습니다.$scheduleText')),
                   );
-                  // 새로 생성된 리튼(최신)으로 스크롤
+                  // 새로 생성된 리튼을 선택하고 스크롤
                   WidgetsBinding.instance.addPostFrameCallback((_) {
+                    appState.selectLitten(newLitten);
                     _scrollToTop();
                   });
                 }
@@ -289,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final TextEditingController titleController = TextEditingController(text: currentLitten.title);
     LittenSchedule? selectedSchedule = currentLitten.schedule;
+    _currentTabIndex = 0; // 탭 인덱스 초기화
 
     showDialog(
       context: context,
@@ -297,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: Text('리튼 수정'),
           content: SizedBox(
             width: double.maxFinite,
-            height: 480,
+            height: MediaQuery.of(context).size.height * 0.7, // 화면 높이의 70%
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -430,9 +453,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     titleController,
                   );
-                  if (shouldClose && Navigator.of(context).canPop()) {
+                  // shouldClose 조건과 현재 탭 조건을 모두 만족해야 창 닫기
+                  if (shouldClose && Navigator.of(context).canPop() && _currentTabIndex == 1) {
                     Navigator.of(context).pop();
                     debugPrint('💾 리튼 수정 다이얼로그 닫기 완료');
+                  } else if (shouldClose && _currentTabIndex == 0) {
+                    debugPrint('💾 일정추가 탭에서 저장 - 창을 닫지 않음');
                   }
                 } catch (e) {
                   debugPrint('❌ 리튼 수정 에러: $e');
@@ -459,9 +485,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return DefaultTabController(
       length: 2,
+      initialIndex: _currentTabIndex,
       child: StatefulBuilder(
         builder: (context, setState) {
-          final bool hasSchedule = selectedSchedule != null;
+          // 실제로 의미 있는 일정이 설정되어 있는지 확인 (기존 리튼에 일정이 있었던 경우만)
+          final bool hasSchedule = selectedSchedule != null && currentLitten.schedule != null;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,6 +503,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
                       )
                     : null,
+                onTap: (index) {
+                  _currentTabIndex = index;
+                },
                 tabs: [
                   Tab(
                     child: Row(
@@ -628,9 +659,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return DefaultTabController(
       length: 2,
+      initialIndex: _currentTabIndex,
       child: StatefulBuilder(
         builder: (context, setState) {
-          final bool hasSchedule = selectedSchedule != null;
+          // 새로 생성하는 리튼의 경우 사용자가 명시적으로 일정을 설정했는지 확인
+          final bool hasSchedule = _userInteractedWithSchedule && selectedSchedule != null;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,6 +677,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
                       )
                     : null,
+                onTap: (index) {
+                  _currentTabIndex = index;
+                },
                 tabs: [
                   Tab(
                     child: Row(
@@ -733,6 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
         initialSchedule: selectedSchedule,
         onScheduleChanged: onScheduleChanged,
         showNotificationSettings: false, // 알림 설정은 별도 탭에서
+        isCreatingNew: true, // 새로 생성하는 리튼임을 표시
       ),
     );
   }
