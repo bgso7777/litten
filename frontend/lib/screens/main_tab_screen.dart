@@ -5,7 +5,6 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_screen.dart';
-import 'recording_screen.dart';
 import 'writing_screen.dart';
 import 'settings_screen.dart';
 import '../config/themes.dart';
@@ -31,9 +30,11 @@ class MainTabScreen extends StatelessWidget {
                 const Icon(Icons.mic, size: 16),
                 AppSpacing.horizontalSpaceXS,
                 const Icon(Icons.draw, size: 16),
+                AppSpacing.horizontalSpaceXS,
+                _buildLittenCountBadge(appState, context),
               ],
             ),
-            leadingWidth: 80,
+            leadingWidth: 150,
             title: appState.selectedLitten != null
                 ? Text(
                     appState.selectedLitten!.title,
@@ -46,7 +47,7 @@ class MainTabScreen extends StatelessWidget {
                     l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
                     style: const TextStyle(fontSize: 14),
                   ),
-            actions: _buildFileCountBadges(appState, context),
+            actions: _buildFileCountBadgesOnly(appState, context),
           ),
           body: Column(
             children: [
@@ -56,7 +57,6 @@ class MainTabScreen extends StatelessWidget {
                   index: appState.selectedTabIndex,
                   children: const [
                     HomeScreen(),
-                    RecordingScreen(),
                     WritingScreen(),
                     SettingsScreen(),
                   ],
@@ -112,10 +112,6 @@ class MainTabScreen extends StatelessWidget {
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.hearing),
-                label: l10n?.recordingTitle ?? '듣기',
-              ),
-              BottomNavigationBarItem(
                 icon: const Icon(Icons.draw),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
@@ -130,7 +126,41 @@ class MainTabScreen extends StatelessWidget {
     );
   }
 
-  List<Widget>? _buildFileCountBadges(AppStateProvider appState, BuildContext context) {
+  Widget _buildLittenCountBadge(AppStateProvider appState, BuildContext context) {
+    // 전체 리튼 수 배지 (알림이 있으면 -1 표시)
+    final littenCount = appState.littens.length;
+    final hasNotifications = appState.notificationService.firedNotifications.isNotEmpty;
+    final displayCount = hasNotifications ? littenCount - 1 : littenCount;
+
+    return Container(
+      padding: ResponsiveUtils.getBadgePadding(context),
+      decoration: BoxDecoration(
+        color: littenCount > 0
+            ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
+            : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.folder,
+              size: ResponsiveUtils.getBadgeIconSize(context),
+              color: littenCount > 0 ? Colors.white : Colors.white70),
+          AppSpacing.horizontalSpaceXS,
+          Text(
+            displayCount.toString(),
+            style: TextStyle(
+              color: littenCount > 0 ? Colors.white : Colors.white70,
+              fontSize: ResponsiveUtils.getBadgeFontSize(context),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget>? _buildFileCountBadgesOnly(AppStateProvider appState, BuildContext context) {
     int audioCount = 0;
     int textCount = 0;
     int handwritingCount = 0;
@@ -151,40 +181,6 @@ class MainTabScreen extends StatelessWidget {
 
     final badges = <Widget>[];
 
-    // 전체 리튼 수 배지 (알림이 있으면 -1 표시)
-    final littenCount = appState.littens.length;
-    final hasNotifications = appState.notificationService.firedNotifications.isNotEmpty;
-    final displayCount = hasNotifications ? littenCount - 1 : littenCount;
-
-    badges.add(
-      Container(
-        padding: ResponsiveUtils.getBadgePadding(context),
-        decoration: BoxDecoration(
-          color: littenCount > 0
-              ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
-              : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.folder,
-                size: ResponsiveUtils.getBadgeIconSize(context),
-                color: littenCount > 0 ? Colors.white : Colors.white70),
-            AppSpacing.horizontalSpaceXS,
-            Text(
-              displayCount.toString(),
-              style: TextStyle(
-                color: littenCount > 0 ? Colors.white : Colors.white70,
-                fontSize: ResponsiveUtils.getBadgeFontSize(context),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
     // 녹음 파일 배지 (0개일 때도 표시)
     badges.add(
       Container(
@@ -196,8 +192,8 @@ class MainTabScreen extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hearing, 
-                size: ResponsiveUtils.getBadgeIconSize(context), 
+            Icon(Icons.hearing,
+                size: ResponsiveUtils.getBadgeIconSize(context),
                 color: audioCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
@@ -224,8 +220,8 @@ class MainTabScreen extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.keyboard, 
-                size: ResponsiveUtils.getBadgeIconSize(context), 
+            Icon(Icons.keyboard,
+                size: ResponsiveUtils.getBadgeIconSize(context),
                 color: textCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
@@ -246,7 +242,7 @@ class MainTabScreen extends StatelessWidget {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
         decoration: BoxDecoration(
-          color: handwritingCount > 0 
+          color: handwritingCount > 0
               ? AppColors.writingColor.withValues(alpha: 0.8)
               : AppColors.writingColor.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
@@ -254,8 +250,8 @@ class MainTabScreen extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.draw, 
-                size: ResponsiveUtils.getBadgeIconSize(context), 
+            Icon(Icons.draw,
+                size: ResponsiveUtils.getBadgeIconSize(context),
                 color: handwritingCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
             Text(
@@ -271,7 +267,6 @@ class MainTabScreen extends StatelessWidget {
       ),
     );
 
-
     // 배지들 사이에 균일한 간격 추가
     final spacedBadges = <Widget>[];
     for (int i = 0; i < badges.length; i++) {
@@ -280,7 +275,7 @@ class MainTabScreen extends StatelessWidget {
         spacedBadges.add(AppSpacing.horizontalSpaceXS);
       }
     }
-    
+
     // 마지막에 여백 추가
     if (spacedBadges.isNotEmpty) {
       spacedBadges.add(AppSpacing.horizontalSpaceM);
@@ -288,6 +283,7 @@ class MainTabScreen extends StatelessWidget {
 
     return spacedBadges;
   }
+
 
   Widget _buildHomeIconWithBadge(AppStateProvider appState) {
     return AnimatedBuilder(

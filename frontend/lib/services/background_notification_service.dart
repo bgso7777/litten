@@ -229,7 +229,7 @@ class BackgroundNotificationService {
         _convertToTZDateTime(scheduledDate),
         platformChannelSpecifics,
         payload: payload ?? littenId,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
 
@@ -253,7 +253,7 @@ class BackgroundNotificationService {
         "notificationCheck",
         frequency: const Duration(minutes: 15), // 최소 15분
         constraints: Constraints(
-          networkType: NetworkType.not_required,
+          networkType: NetworkType.unmetered,
           requiresBatteryNotLow: false,
           requiresCharging: false,
           requiresDeviceIdle: false,

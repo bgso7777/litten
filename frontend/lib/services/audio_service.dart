@@ -226,8 +226,8 @@ class AudioService extends ChangeNotifier {
     
     try {
       // 백그라운드 재생을 위한 오디오 컨텍스트 설정 (플랫폼 전역 1회성 적용)
-      await _player.setAudioContext(const AudioContext(
-        android: AudioContextAndroid(
+      await _player.setAudioContext(AudioContext(
+        android: const AudioContextAndroid(
           isSpeakerphoneOn: false,
           stayAwake: true, // 화면이 꺼져도 재생 유지
           contentType: AndroidContentType.music,
@@ -236,11 +236,11 @@ class AudioService extends ChangeNotifier {
         ),
         iOS: AudioContextIOS(
           category: AVAudioSessionCategory.playback, // 백그라운드 재생 허용
-          options: <AVAudioSessionOptions>[
+          options: <AVAudioSessionOptions>{
             AVAudioSessionOptions.mixWithOthers,
             AVAudioSessionOptions.allowBluetooth,
             AVAudioSessionOptions.defaultToSpeaker,
-          ],
+          },
         ),
       ));
 

@@ -43,8 +43,8 @@ dependencies:
 
   # Audio
   record: ^6.1.1
-  audioplayers: ^5.2.1
-  permission_handler: ^11.0.1
+  audioplayers: ^6.5.1
+  permission_handler: ^12.0.1
 
   # File & Storage
   path_provider: ^2.1.1
@@ -62,6 +62,7 @@ dependencies:
   
   # Network & HTTP
   http: ^1.1.2
+  webview_flutter: ^4.9.0
   
   # Utils
   uuid: ^4.2.1
@@ -71,8 +72,8 @@ dependencies:
   table_calendar: ^3.0.9
 
   # Background & Notifications
-  flutter_local_notifications: ^17.2.3
-  workmanager: ^0.5.2
+  flutter_local_notifications: ^19.4.2
+  workmanager: ^0.9.0
   # flutter_app_badger: ^1.5.0  # 임시 비활성화 - Android namespace 문제
 
 dev_dependencies:
@@ -84,7 +85,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
