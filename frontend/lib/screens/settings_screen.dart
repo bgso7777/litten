@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../services/background_notification_service.dart';
 import '../config/themes.dart';
 
 class SettingsScreen extends StatelessWidget {

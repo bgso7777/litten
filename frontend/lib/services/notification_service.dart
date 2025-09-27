@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/litten.dart';
+import 'background_notification_service.dart';
 
 class NotificationEvent {
   final String littenId;
@@ -58,6 +59,9 @@ class NotificationService extends ChangeNotifier {
   final List<NotificationEvent> _firedNotifications = [];
   final Map<String, Litten> _littenMap = {}; // 리튼 ID -> 리튼 객체 매핑
 
+  // 백그라운드 알림 서비스
+  final BackgroundNotificationService _backgroundService = BackgroundNotificationService();
+
   // 반복 알림 발생 시 자식 리튼 생성을 위한 콜백
   Function(Litten parentLitten, NotificationEvent notification)? onCreateChildLitten;
 
@@ -80,7 +84,7 @@ class NotificationService extends ChangeNotifier {
     _timer = null;
   }
 
-  void _checkNotifications() {
+  Future<void> _checkNotifications() async {
     final now = DateTime.now();
     final currentMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute);
 
@@ -115,11 +119,11 @@ class NotificationService extends ChangeNotifier {
     }
 
     for (final notification in notifications) {
-      _fireNotification(notification);
+      await _fireNotification(notification);
     }
   }
 
-  void _fireNotification(NotificationEvent notification) {
+  Future<void> _fireNotification(NotificationEvent notification) async {
     if (!_firedNotifications.any((fired) =>
         fired.littenId == notification.littenId &&
         fired.rule.frequency == notification.rule.frequency &&
@@ -129,7 +133,13 @@ class NotificationService extends ChangeNotifier {
       _firedNotifications.add(notification);
       _pendingNotifications.remove(notification);
 
-      // 알림 표시 (실제 구현에서는 플랫폼별 알림을 사용)
+      // 실제 시스템 알림 표시
+      await _backgroundService.showNotification(
+        title: '리튼 알림',
+        body: notification.message,
+        littenId: notification.littenId,
+      );
+
       debugPrint('🔔 알림: ${notification.message}');
       debugPrint('   시간: ${notification.timingDescription}');
 
@@ -330,9 +340,9 @@ class NotificationService extends ChangeNotifier {
   }
 
   // 수동으로 알림 체크 (디버깅용)
-  void manualCheckNotifications() {
+  Future<void> manualCheckNotifications() async {
     debugPrint('🔍 수동 알림 체크 실행');
-    _checkNotifications();
+    await _checkNotifications();
   }
 
   // 테스트용: 즉시 발생할 알림 생성
@@ -383,6 +393,29 @@ class NotificationService extends ChangeNotifier {
     _firedNotifications.add(testNotification);
     debugPrint('🧪 즉시 테스트 알림 발생: $title');
     notifyListeners();
+  }
+
+  // 매일 반복 알림 테스트 (자식 리튼 생성용)
+  Future<void> createDailyRecurringTestNotification(String littenId, String title) async {
+    final now = DateTime.now();
+    final testNotification = NotificationEvent(
+      littenId: littenId,
+      littenTitle: title,
+      schedule: LittenSchedule(
+        date: now,
+        startTime: TimeOfDay.fromDateTime(now),
+        endTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 1))),
+      ),
+      rule: NotificationRule(
+        frequency: NotificationFrequency.daily, // 매일 반복
+        timing: NotificationTiming.onTime, // 정시 알림
+        isEnabled: true,
+      ),
+      triggerTime: now,
+    );
+
+    debugPrint('🧪 매일 반복 테스트 알림 발생: $title (리튼 ID: $littenId)');
+    await _fireNotification(testNotification); // 직접 발생시켜서 자식 리튼 생성 테스트
   }
 
   void dismissNotification(NotificationEvent notification) {

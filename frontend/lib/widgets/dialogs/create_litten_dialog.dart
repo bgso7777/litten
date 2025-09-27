@@ -152,16 +152,24 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               return;
             }
 
-            // 같은 이름의 리튼이 이미 존재하는지 확인
-            final existingLittens = widget.appState.littens.where(
-              (litten) => litten.title.trim().toLowerCase() == title.toLowerCase(),
-            ).toList();
+            // 같은 이름이면서 같은 날짜의 리튼이 이미 존재하는지 확인 (일정이 있는 경우만)
+            if (_selectedSchedule != null) {
+              final selectedDate = _selectedSchedule!.date;
+              final existingLittens = widget.appState.littens.where(
+                (litten) => litten.title.trim().toLowerCase() == title.toLowerCase() &&
+                           litten.schedule != null &&
+                           litten.schedule!.date.year == selectedDate.year &&
+                           litten.schedule!.date.month == selectedDate.month &&
+                           litten.schedule!.date.day == selectedDate.day,
+              ).toList();
 
-            if (existingLittens.isNotEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('이미 같은 이름의 리튼이 존재합니다: "$title"')),
-              );
-              return;
+              if (existingLittens.isNotEmpty) {
+                final dateStr = DateFormat('M월 d일').format(_selectedSchedule!.date);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$dateStr에 이미 같은 이름의 리튼이 존재합니다: "$title"')),
+                );
+                return;
+              }
             }
 
             final navigator = Navigator.of(context);

@@ -67,6 +67,42 @@ class MainTabScreen extends StatelessWidget {
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
             onTap: (index) {
+              debugPrint('🔍 탭 터치: 인덱스 $index');
+
+              // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동
+              if (index == 0) {
+                final notifications = appState.notificationService.firedNotifications;
+                debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
+
+                if (notifications.isNotEmpty) {
+                  // 가장 오래된 알림 찾기 (triggerTime 기준으로 오름차순 정렬)
+                  final sortedNotifications = List.from(notifications)
+                    ..sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+
+                  final oldestNotification = sortedNotifications.first;
+                  debugPrint('📅 가장 오래된 알림: ${oldestNotification.littenTitle} - ${oldestNotification.triggerTime}');
+
+                  // 해당 리튼 찾기
+                  final targetLitten = appState.littens.firstWhere(
+                    (litten) => litten.id == oldestNotification.littenId,
+                    orElse: () => appState.littens.first, // 없으면 첫 번째 리튼
+                  );
+
+                  debugPrint('🎯 이동할 리튼: ${targetLitten.title}');
+
+                  // 해당 리튼의 스케줄 날짜로 selectedDate 변경
+                  if (targetLitten.schedule != null) {
+                    final targetDate = targetLitten.schedule!.date;
+                    debugPrint('📅 이동할 날짜: $targetDate');
+                    appState.selectDate(targetDate);
+                  }
+
+                  // 해당 리튼 선택
+                  appState.selectLitten(targetLitten);
+                  debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료');
+                }
+              }
+
               appState.changeTabIndex(index);
             },
             type: BottomNavigationBarType.fixed,

@@ -4,12 +4,17 @@ import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
 
 import 'services/app_state_provider.dart';
+import 'services/background_notification_service.dart';
 import 'screens/main_tab_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'config/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 백그라운드 알림 서비스 초기화
+  await BackgroundNotificationService().initialize();
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => AppStateProvider(),

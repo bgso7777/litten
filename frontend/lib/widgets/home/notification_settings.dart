@@ -100,17 +100,7 @@ class _NotificationSettingsState extends State<NotificationSettings> {
   }
 
   bool _isTimingAllowed(NotificationFrequency frequency, NotificationTiming timing) {
-    final recurringFrequencies = [
-      NotificationFrequency.daily,
-      NotificationFrequency.weekly,
-      NotificationFrequency.monthly,
-      NotificationFrequency.yearly,
-    ];
-
-    if (recurringFrequencies.contains(frequency)) {
-      return timing == NotificationTiming.onTime;
-    }
-
+    // 모든 알림 빈도에 대해 모든 시간 옵션 허용
     return true;
   }
 

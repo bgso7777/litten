@@ -70,6 +70,11 @@ dependencies:
   # Calendar
   table_calendar: ^3.0.9
 
+  # Background & Notifications
+  flutter_local_notifications: ^17.2.3
+  workmanager: ^0.5.2
+  # flutter_app_badger: ^1.5.0  # 임시 비활성화 - Android namespace 문제
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
