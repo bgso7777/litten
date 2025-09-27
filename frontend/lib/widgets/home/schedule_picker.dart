@@ -149,15 +149,11 @@ class _SchedulePickerState extends State<SchedulePicker> {
                   onTimeChanged: (time) {
                     setState(() {
                       _startTime = time;
-                      // 시작 시간이 종료 시간보다 늦으면 종료 시간을 조정
+                      // 시작 시간이 종료 시간보다 늦으면 종료 시간을 1시간 후로 자동 조정
                       if (_startTime.hour > _endTime.hour ||
                           (_startTime.hour == _endTime.hour && _startTime.minute >= _endTime.minute)) {
-                        final newEndMinute = _startTime.minute + 30;
-                        if (newEndMinute >= 60) {
-                          _endTime = TimeOfDay(hour: (_startTime.hour + 1) % 24, minute: newEndMinute - 60);
-                        } else {
-                          _endTime = TimeOfDay(hour: _startTime.hour, minute: newEndMinute);
-                        }
+                        _endTime = TimeOfDay(hour: (_startTime.hour + 1) % 24, minute: _startTime.minute);
+                        debugPrint('🕐 시작 시간 변경으로 종료 시간 자동 조정: ${_startTime.format(context)} → ${_endTime.format(context)}');
                       }
                     });
                     _updateSchedule();
@@ -172,22 +168,22 @@ class _SchedulePickerState extends State<SchedulePicker> {
                   label: l10n?.endTime ?? '종료 시간',
                   onTimeChanged: (time) {
                     setState(() {
-                      // 종료 시간이 시작 시간보다 빠르거나 같으면 종료 시간을 시작 시간보다 크게 조정
+                      // 종료 시간이 시작 시간보다 빠르거나 같으면 최소 간격을 위해 조정
                       if (time.hour < _startTime.hour ||
                           (time.hour == _startTime.hour && time.minute <= _startTime.minute)) {
-                        // 시작 시간에서 최소 15분 더한 값으로 종료 시간 설정 (5분 단위로 조정)
-                        final minGapMinutes = 15; // 최소 15분 간격
+                        // 시작 시간에서 최소 15분 후로 설정
+                        final minGapMinutes = 15;
                         var newEndMinute = _startTime.minute + minGapMinutes;
-                        // 5분 단위로 올림 처리
-                        newEndMinute = ((newEndMinute + 4) ~/ 5) * 5;
                         if (newEndMinute >= 60) {
                           _endTime = TimeOfDay(hour: (_startTime.hour + 1) % 24, minute: newEndMinute - 60);
                         } else {
                           _endTime = TimeOfDay(hour: _startTime.hour, minute: newEndMinute);
                         }
-                        debugPrint('🕐 종료 시간 자동 조정: ${_startTime.format(context)} → ${_endTime.format(context)}');
+                        debugPrint('🕐 종료 시간 최소 간격 조정: ${_startTime.format(context)} → ${_endTime.format(context)}');
                       } else {
+                        // 사용자가 선택한 종료 시간을 그대로 사용
                         _endTime = time;
+                        debugPrint('🕐 사용자 종료 시간 선택: ${_endTime.format(context)}');
                       }
                     });
                     _updateSchedule();
@@ -214,10 +210,10 @@ class _SchedulePickerState extends State<SchedulePicker> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -264,11 +260,11 @@ class _SchedulePickerState extends State<SchedulePicker> {
     final minutes = duration.inMinutes % 60;
 
     if (hours == 0) {
-      return '총 ${minutes}분';
+      return '총 $minutes분';
     } else if (minutes == 0) {
-      return '총 ${hours}시간';
+      return '총 $hours시간';
     } else {
-      return '총 ${hours}시간 ${minutes}분';
+      return '총 $hours시간 $minutes분';
     }
   }
 }

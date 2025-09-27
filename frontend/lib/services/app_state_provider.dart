@@ -111,6 +111,7 @@ class AppStateProvider extends ChangeNotifier {
     _appIconBadgeService.initialize();
 
     // 알림 서비스 시작
+    _notificationService.onCreateChildLitten = _createChildLitten;
     _notificationService.startNotificationChecker();
     _notificationService.addListener(_onNotificationChanged);
     _updateNotificationSchedule();
@@ -790,6 +791,38 @@ class AppStateProvider extends ChangeNotifier {
     }).length;
   }
 
+  // 특정 리튼에 발생한 알림이 있는지 확인하는 메서드
+  bool hasNotificationForLitten(String littenId) {
+    try {
+      // 발생한 알림만 확인 (대기 중인 알림은 제외)
+      return _notificationService.firedNotifications.any((notification) => notification.littenId == littenId);
+    } catch (e) {
+      debugPrint('❌ 리튼 알림 확인 실패: $e');
+      return false;
+    }
+  }
+
+  // 홈탭에서 알림이 있을 때 자동으로 선택하는 메서드
+  void selectNotificationTargetsOnHomeTab() {
+    try {
+      // 대기 중인 알림과 발생한 알림을 모두 확인
+      final allNotifications = <NotificationEvent>[];
+      allNotifications.addAll(_notificationService.pendingNotifications);
+      allNotifications.addAll(_notificationService.firedNotifications);
+
+      debugPrint('🏠 홈탭 알림 체크: 대기 중 ${_notificationService.pendingNotifications.length}개, 발생 ${_notificationService.firedNotifications.length}개');
+
+      if (allNotifications.isNotEmpty) {
+        selectNotificationTargets(allNotifications);
+        debugPrint('✅ 홈탭에서 알림 대상 자동 선택 완료');
+      } else {
+        debugPrint('📋 홈탭에서 확인할 알림 없음');
+      }
+    } catch (e) {
+      debugPrint('❌ 홈탭 알림 체크 실패: $e');
+    }
+  }
+
   // 알림에 해당하는 리튼과 날짜를 선택하는 메서드 (가장 과거 알림 기준)
   void selectNotificationTargets(List<NotificationEvent> notifications) {
     if (notifications.isEmpty) return;
@@ -850,6 +883,43 @@ class AppStateProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ 알림 대상 선택 실패: $e');
+    }
+  }
+
+  // 반복 알림 발생 시 자식 리튼을 생성하는 메서드
+  Future<void> _createChildLitten(Litten parentLitten, NotificationEvent notification) async {
+    try {
+      debugPrint('🏗️ 자식 리튼 생성 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
+
+      // 자식 리튼의 제목 생성 (예: "부모리튼명 - 매일 2024-01-15")
+      final dateStr = DateFormat('yyyy-MM-dd').format(notification.triggerTime);
+      final childTitle = '${parentLitten.title} - ${notification.rule.frequency.label} $dateStr';
+
+      // 자식 리튼 생성 (부모의 이름과 메모만 복사)
+      final childLitten = Litten(
+        title: childTitle,
+        description: parentLitten.description, // 부모의 메모(description) 복사
+        parentId: parentLitten.id, // 부모 리튼 ID 설정
+        isChildLitten: true, // 자식 리튼임을 표시
+        schedule: null, // 자식 리튼은 일정 없음
+      );
+
+      // 자식 리튼 추가
+      _littens.add(childLitten);
+      debugPrint('✅ 자식 리튼 생성 완료: ${childLitten.title}');
+
+      // 자식 리튼 저장
+      await _littenService.saveLitten(childLitten);
+
+      // 알림 스케줄 업데이트
+      _updateNotificationSchedule();
+
+      // UI 업데이트
+      notifyListeners();
+
+      debugPrint('🎯 총 ${_littens.length}개 리튼 (자식 리튼 포함)');
+    } catch (e) {
+      debugPrint('❌ 자식 리튼 생성 실패: $e');
     }
   }
 }

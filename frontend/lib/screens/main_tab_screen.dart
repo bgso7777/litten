@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
-import '../services/notification_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_screen.dart';
 import 'recording_screen.dart';
@@ -68,10 +67,6 @@ class MainTabScreen extends StatelessWidget {
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
             onTap: (index) {
-              if (index == 0) {
-                // 홈탭 클릭 시 알림 확인 처리
-                _clearHomeNotifications(appState);
-              }
               appState.changeTabIndex(index);
             },
             type: BottomNavigationBarType.fixed,
@@ -282,7 +277,7 @@ class MainTabScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -309,23 +304,4 @@ class MainTabScreen extends StatelessWidget {
     );
   }
 
-  void _clearHomeNotifications(AppStateProvider appState) {
-    // 홈탭을 클릭했을 때 발생한 알림들을 확인
-    final firedNotifications = List<NotificationEvent>.from(appState.notificationService.firedNotifications);
-
-    if (firedNotifications.isNotEmpty) {
-      debugPrint('🏠 홈탭 클릭: ${firedNotifications.length}개의 알림 발견');
-
-      // 알림에 해당하는 리튼과 날짜를 먼저 선택
-      appState.selectNotificationTargets(firedNotifications);
-
-      // 그 다음 알림들을 지움
-      for (final notification in firedNotifications) {
-        appState.notificationService.dismissNotification(notification);
-        debugPrint('🧹 알림 해제: ${notification.littenTitle}');
-      }
-    } else {
-      debugPrint('🏠 홈탭 클릭: 알림 없음');
-    }
-  }
 }

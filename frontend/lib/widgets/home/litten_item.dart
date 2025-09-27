@@ -39,8 +39,7 @@ class _LittenItemState extends State<LittenItem> {
 
   void _checkNotificationStatus() {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final hasNotifications = appState.notificationService.firedNotifications
-        .any((notification) => notification.littenId == widget.litten.id);
+    final hasNotifications = appState.hasNotificationForLitten(widget.litten.id);
 
     if (hasNotifications && !_isHighlighted) {
       setState(() {
@@ -56,7 +55,7 @@ class _LittenItemState extends State<LittenItem> {
         _isHighlighted = false;
       });
 
-      // 해당 리튼의 알림도 제거
+      // 해당 리튼의 발생한 알림만 제거 (대기 중인 알림은 유지)
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final notificationsToRemove = appState.notificationService.firedNotifications
           .where((notification) => notification.littenId == widget.litten.id)
@@ -79,8 +78,7 @@ class _LittenItemState extends State<LittenItem> {
     // 알림 상태 실시간 체크
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
-        final hasNotifications = appState.notificationService.firedNotifications
-            .any((notification) => notification.littenId == widget.litten.id);
+        final hasNotifications = appState.hasNotificationForLitten(widget.litten.id);
 
         // 새로운 알림이 발생했을 때 강조 표시 업데이트
         WidgetsBinding.instance.addPostFrameCallback((_) {

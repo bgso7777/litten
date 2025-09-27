@@ -150,6 +150,8 @@ class Litten {
   final List<String> textFileIds;
   final List<String> handwritingFileIds;
   final LittenSchedule? schedule;
+  final String? parentId; // 부모 리튼 ID (자식 리튼인 경우)
+  final bool isChildLitten; // 자식 리튼 여부
 
   Litten({
     String? id,
@@ -161,6 +163,8 @@ class Litten {
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
     this.schedule,
+    this.parentId,
+    this.isChildLitten = false,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
@@ -180,6 +184,8 @@ class Litten {
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
     LittenSchedule? schedule,
+    String? parentId,
+    bool? isChildLitten,
   }) {
     return Litten(
       id: id,
@@ -191,6 +197,8 @@ class Litten {
       textFileIds: textFileIds ?? this.textFileIds,
       handwritingFileIds: handwritingFileIds ?? this.handwritingFileIds,
       schedule: schedule ?? this.schedule,
+      parentId: parentId ?? this.parentId,
+      isChildLitten: isChildLitten ?? this.isChildLitten,
     );
   }
 
@@ -205,6 +213,8 @@ class Litten {
       'textFileIds': textFileIds,
       'handwritingFileIds': handwritingFileIds,
       'schedule': schedule?.toJson(),
+      'parentId': parentId,
+      'isChildLitten': isChildLitten,
     };
   }
 
@@ -219,6 +229,8 @@ class Litten {
       textFileIds: List<String>.from(json['textFileIds'] ?? []),
       handwritingFileIds: List<String>.from(json['handwritingFileIds'] ?? []),
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
+      parentId: json['parentId'],
+      isChildLitten: json['isChildLitten'] ?? false,
     );
   }
 }

@@ -369,7 +369,13 @@ class _WritingScreenState extends State<WritingScreen>
     _zoomAnimationController.dispose();
     _canvasTextController?.dispose();
     _canvasTextFocusNode?.dispose();
-    _htmlController.disable();
+    try {
+      if (_htmlController != null) {
+        _htmlController.disable();
+      }
+    } catch (e) {
+      debugPrint('❌ HTML 에디터 비활성화 에러: $e');
+    }
     super.dispose();
   }
 

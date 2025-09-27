@@ -56,6 +56,10 @@ class NotificationService extends ChangeNotifier {
   Timer? _timer;
   final List<NotificationEvent> _pendingNotifications = [];
   final List<NotificationEvent> _firedNotifications = [];
+  final Map<String, Litten> _littenMap = {}; // 리튼 ID -> 리튼 객체 매핑
+
+  // 반복 알림 발생 시 자식 리튼 생성을 위한 콜백
+  Function(Litten parentLitten, NotificationEvent notification)? onCreateChildLitten;
 
   List<NotificationEvent> get pendingNotifications => List.unmodifiable(_pendingNotifications);
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
@@ -129,6 +133,24 @@ class NotificationService extends ChangeNotifier {
       debugPrint('🔔 알림: ${notification.message}');
       debugPrint('   시간: ${notification.timingDescription}');
 
+      // 반복 알림(매일, 매주, 매월, 매년)이고 정시 알림인 경우 자식 리튼 생성
+      final isRecurringNotification = [
+        NotificationFrequency.daily,
+        NotificationFrequency.weekly,
+        NotificationFrequency.monthly,
+        NotificationFrequency.yearly,
+      ].contains(notification.rule.frequency);
+
+      final isOnTime = notification.rule.timing == NotificationTiming.onTime;
+
+      if (isRecurringNotification && isOnTime && onCreateChildLitten != null) {
+        final parentLitten = _littenMap[notification.littenId];
+        if (parentLitten != null) {
+          debugPrint('🏗️ 반복 알림 발생: ${notification.rule.frequency.label} - 자식 리튼 생성 요청');
+          onCreateChildLitten!(parentLitten, notification);
+        }
+      }
+
       notifyListeners();
     }
   }
@@ -138,8 +160,14 @@ class NotificationService extends ChangeNotifier {
       debugPrint('🔔 알림 스케줄링 시작: ${littens.length}개 리튼');
 
       _pendingNotifications.clear();
+      _littenMap.clear();
       final now = DateTime.now();
       int totalScheduled = 0;
+
+      // 리튼 맵 업데이트
+      for (final litten in littens) {
+        _littenMap[litten.id] = litten;
+      }
 
       for (final litten in littens) {
         if (litten.schedule == null) continue;
@@ -164,7 +192,7 @@ class NotificationService extends ChangeNotifier {
         }
       }
 
-      debugPrint('🔔 알림 스케줄링 완료: 총 ${totalScheduled}개 알림 예약');
+      debugPrint('🔔 알림 스케줄링 완료: 총 $totalScheduled개 알림 예약');
       notifyListeners();
     } catch (e) {
       debugPrint('❌ 알림 스케줄링 에러: $e');

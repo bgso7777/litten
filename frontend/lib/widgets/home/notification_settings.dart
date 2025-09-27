@@ -28,6 +28,9 @@ class _NotificationSettingsState extends State<NotificationSettings> {
     if (_rules.isEmpty) {
       _initializeDefaultRules();
     }
+
+    // 허용되지 않는 규칙들 정리
+    _cleanupInvalidRules();
   }
 
   void _initializeDefaultRules() {
@@ -43,7 +46,27 @@ class _NotificationSettingsState extends State<NotificationSettings> {
     }
   }
 
+  void _cleanupInvalidRules() {
+    final cleanedRules = <NotificationRule>[];
+
+    for (final rule in _rules) {
+      if (!_isTimingAllowed(rule.frequency, rule.timing) && rule.isEnabled) {
+        debugPrint('🧹 허용되지 않는 규칙 비활성화: ${rule.frequency.label} - ${rule.timing.label}');
+        cleanedRules.add(rule.copyWith(isEnabled: false));
+      } else {
+        cleanedRules.add(rule);
+      }
+    }
+
+    _rules = cleanedRules;
+  }
+
   void _updateRule(NotificationFrequency frequency, NotificationTiming timing, bool enabled) {
+    if (!_isTimingAllowed(frequency, timing) && enabled) {
+      debugPrint('🚫 허용되지 않는 알림 조합: ${frequency.label} - ${timing.label}');
+      return;
+    }
+
     setState(() {
       final index = _rules.indexWhere(
         (rule) => rule.frequency == frequency && rule.timing == timing,
@@ -76,6 +99,21 @@ class _NotificationSettingsState extends State<NotificationSettings> {
     );
   }
 
+  bool _isTimingAllowed(NotificationFrequency frequency, NotificationTiming timing) {
+    final recurringFrequencies = [
+      NotificationFrequency.daily,
+      NotificationFrequency.weekly,
+      NotificationFrequency.monthly,
+      NotificationFrequency.yearly,
+    ];
+
+    if (recurringFrequencies.contains(frequency)) {
+      return timing == NotificationTiming.onTime;
+    }
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -96,7 +134,7 @@ class _NotificationSettingsState extends State<NotificationSettings> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(8),
                       topRight: Radius.circular(8),
@@ -144,17 +182,21 @@ class _NotificationSettingsState extends State<NotificationSettings> {
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
-                        ...NotificationTiming.values.map((timing) =>
-                          Expanded(
+                        ...NotificationTiming.values.map((timing) {
+                          final isAllowed = _isTimingAllowed(frequency, timing);
+                          final isEnabled = _isRuleEnabled(frequency, timing);
+
+                          return Expanded(
                             child: Checkbox(
-                              value: _isRuleEnabled(frequency, timing),
-                              onChanged: (value) {
+                              value: isEnabled,
+                              onChanged: isAllowed ? (value) {
+                                debugPrint('🔔 알림 규칙 변경: ${frequency.label} - ${timing.label} = ${value ?? false}');
                                 _updateRule(frequency, timing, value ?? false);
-                              },
+                              } : null,
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       ],
                     ),
                   ),

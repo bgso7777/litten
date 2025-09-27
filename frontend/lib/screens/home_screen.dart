@@ -12,6 +12,8 @@ import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
 import '../models/litten.dart';
+import '../widgets/dialogs/create_litten_dialog.dart';
+import '../widgets/dialogs/edit_litten_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,15 +23,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final TextEditingController _titleController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  LittenSchedule? _selectedSchedule;
-  bool _userInteractedWithSchedule = false; // 사용자가 일정을 직접 설정했는지 추적
   int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
+  bool _userInteractedWithSchedule = false; // 사용자가 일정과 상호작용했는지 추적
 
   @override
   void dispose() {
-    _titleController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -56,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showCreateLittenDialog() {
     final l10n = AppLocalizations.of(context);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    
+
     if (!appState.canCreateMoreLittens) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -66,199 +65,14 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
-    
-    _titleController.clear();
-    _selectedSchedule = null;
-    _userInteractedWithSchedule = false;
-    _currentTabIndex = 0; // 탭 인덱스 초기화
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n?.createLitten ?? '리튼 생성'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: MediaQuery.of(context).size.height * 0.7, // 화면 높이의 70%
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 제목 섹션
-                Container(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '리튼 이름',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-                // 제목 입력 필드
-                SizedBox(
-                  height: 80, // 🔑 중요: 높이 고정 (이게 핵심!)
-                  child: Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(4), // 🔑 중요: 패딩 유지
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50, // 깔끔한 회색 배경
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.shade300, // 회색 테두리
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _titleController,
-                      enabled: true,
-                      decoration: InputDecoration(
-                        hintText: '예: 회의록, 강의 메모, 일기 등',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        labelStyle: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        hintStyle: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                      autofocus: true,
-                      onChanged: (value) {
-                        debugPrint('🔤 텍스트 입력: $value');
-                      },
-                      onTap: () {
-                        debugPrint('🔍 텍스트 필드 탭됨');
-                      },
-                    ),
-                  ),
-                ),
-
-                // 일정 설정 섹션
-                Text(
-                  '일정 설정',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 탭 구조로 일정 설정
-                Expanded(
-                  child: _buildCreateScheduleTabView(
-                    appState: appState,
-                    selectedSchedule: _selectedSchedule,
-                    onScheduleChanged: (schedule) {
-                      setState(() {
-                        _selectedSchedule = schedule;
-                        // 사용자가 일정과 상호작용했음을 표시
-                        _userInteractedWithSchedule = schedule != null;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n?.cancel ?? '취소'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final title = _titleController.text.trim();
-              if (title.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n?.pleaseEnterTitle ?? '제목을 입력해주세요.')),
-                );
-                return;
-              }
-
-              // 같은 이름의 리튼이 이미 존재하는지 확인
-              final existingLittens = appState.littens.where(
-                (litten) => litten.title.trim().toLowerCase() == title.toLowerCase(),
-              ).toList();
-
-              if (existingLittens.isNotEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('이미 같은 이름의 리튼이 존재합니다: "$title"')),
-                );
-                return;
-              }
-
-              final navigator = Navigator.of(context);
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-              try {
-                final newLitten = await appState.createLitten(title, schedule: _selectedSchedule);
-                if (mounted) {
-                  // 현재 탭이 알림설정 탭(1)이면 창을 닫고, 일정추가 탭(0)이면 닫지 않음
-                  if (_currentTabIndex == 1) {
-                    navigator.pop();
-                  }
-                  final scheduleText = _selectedSchedule != null
-                      ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(context)})'
-                      : '';
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('$title 리튼이 생성되었습니다.$scheduleText')),
-                  );
-                  // 새로 생성된 리튼을 선택하고 스크롤
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    appState.selectLitten(newLitten);
-                    _scrollToTop();
-                  });
-                }
-              } catch (e) {
-                if (mounted) {
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
-                  );
-                }
-              }
-            },
-            child: Text(l10n?.create ?? '생성'),
-          ),
-        ],
-        ),
+      builder: (context) => CreateLittenDialog(
+        appState: appState,
+        onScheduleIndexChanged: (index) {
+          _currentTabIndex = index;
+        },
       ),
     );
   }
@@ -305,177 +119,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showEditLittenDialog(String littenId) {
-    final l10n = AppLocalizations.of(context);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final currentLitten = appState.littens.firstWhere((litten) => litten.id == littenId);
 
-    final TextEditingController titleController = TextEditingController(text: currentLitten.title);
-    LittenSchedule? selectedSchedule = currentLitten.schedule;
-    _currentTabIndex = 0; // 탭 인덱스 초기화
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('리튼 수정'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: MediaQuery.of(context).size.height * 0.7, // 화면 높이의 70%
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 제목 섹션
-                Container(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '리튼 이름',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-                // 제목 입력 필드
-                SizedBox(
-                  height: 80, // 🔑 중요: 높이 고정 (이게 핵심!)
-                  child: Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(4), // 🔑 중요: 패딩 유지
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50, // 깔끔한 회색 배경
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.shade300, // 회색 테두리
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: titleController,
-                      enabled: true,
-                      decoration: InputDecoration(
-                        hintText: '예: 회의록, 강의 메모, 일기 등',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        labelStyle: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        hintStyle: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                      autofocus: true,
-                      onChanged: (value) {
-                        debugPrint('🔤 수정 텍스트 입력: $value');
-                      },
-                      onTap: () {
-                        debugPrint('🔍 수정 텍스트 필드 탭됨');
-                      },
-                    ),
-                  ),
-                ),
-
-                // 일정 설정 섹션
-                Text(
-                  '일정 설정',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 탭 구조로 일정 설정
-                Expanded(
-                  child: _buildScheduleTabView(
-                    currentLitten: currentLitten,
-                    selectedSchedule: selectedSchedule,
-                    onScheduleChanged: (schedule) {
-                      setState(() {
-                        selectedSchedule = schedule;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n?.cancel ?? '취소'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                bool shouldClose = false;
-                try {
-                  shouldClose = await _performEditLitten(
-                    littenId,
-                    titleController.text.trim(),
-                    selectedSchedule,
-                    context,
-                    titleController,
-                  );
-                  // shouldClose 조건과 현재 탭 조건을 모두 만족해야 창 닫기
-                  if (shouldClose && Navigator.of(context).canPop() && _currentTabIndex == 1) {
-                    Navigator.of(context).pop();
-                    debugPrint('💾 리튼 수정 다이얼로그 닫기 완료');
-                  } else if (shouldClose && _currentTabIndex == 0) {
-                    debugPrint('💾 일정추가 탭에서 저장 - 창을 닫지 않음');
-                  }
-                } catch (e) {
-                  debugPrint('❌ 리튼 수정 에러: $e');
-                } finally {
-                  // dispose 제거 - 가비지 컬렉터가 자동으로 처리하도록 함
-                  debugPrint('💾 다이얼로그 처리 완료');
-                }
-              },
-              child: Text('저장'),
-            ),
-          ],
-        ),
+      builder: (context) => EditLittenDialog(
+        litten: currentLitten,
+        onScheduleIndexChanged: (index) {
+          _currentTabIndex = index;
+        },
       ),
-    ).then((_) {
-      // dispose 제거 - 가비지 컬렉터가 자동으로 처리
-      debugPrint('💾 다이얼로그 종료');
-    });
+    );
   }
 
   Widget _buildScheduleTabView({
@@ -1141,8 +796,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final littensWithoutNotifications = <Litten>[];
 
     for (final litten in selectedDateLittens) {
-      final hasNotifications = appState.notificationService.firedNotifications
-          .any((notification) => notification.littenId == litten.id);
+      final hasNotifications = appState.hasNotificationForLitten(litten.id);
 
       if (hasNotifications) {
         littensWithNotifications.add(litten);
