@@ -309,65 +309,6 @@ class _WritingScreenState extends State<WritingScreen>
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  // 음성-쓰기 동기화 상태 표시 위젯
-  Widget _buildSyncStatusBar() {
-    final l10n = AppLocalizations.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _audioService,
-            builder: (context, child) {
-              return Icon(
-                _audioService.isRecording ? Icons.mic : Icons.sync,
-                color: Colors.black87,
-                size: 16,
-              );
-            },
-          ),
-          AppSpacing.horizontalSpaceS,
-          AnimatedBuilder(
-            animation: _audioService,
-            builder: (context, child) {
-              return Text(
-                _audioService.isRecording
-                    ? (l10n?.recording ?? '듣기 중...')
-                    : (l10n?.recordingTitle ?? '음성 동기화 준비됨'),
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-            },
-          ),
-          const Spacer(),
-          AnimatedBuilder(
-            animation: _audioService,
-            builder: (context, child) {
-              return Text(
-                _audioService.isRecording
-                    ? _formatDuration(_audioService.recordingDuration)
-                    : '00:00',
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -505,8 +446,6 @@ class _WritingScreenState extends State<WritingScreen>
 
     return Column(
       children: [
-        // 음성-쓰기 동기화 상태 표시
-        _buildSyncStatusBar(),
         // 파일 목록
         Expanded(
           child: _isLoading
@@ -528,19 +467,9 @@ class _WritingScreenState extends State<WritingScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.keyboard, size: 20),
+                                Icon(Icons.play_circle_outline, size: 20),
                                 SizedBox(width: 8),
-                                Text('텍스트 (${_textFiles.length})'),
-                              ],
-                            ),
-                          ),
-                          Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.draw, size: 20),
-                                SizedBox(width: 8),
-                                Text('필기 (${_handwritingFiles.length})'),
+                                Text('보기'),
                               ],
                             ),
                           ),
@@ -558,9 +487,19 @@ class _WritingScreenState extends State<WritingScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.play_circle_outline, size: 20),
+                                Icon(Icons.keyboard, size: 20),
                                 SizedBox(width: 8),
-                                Text('보기'),
+                                Text('텍스트 (${_textFiles.length})'),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.draw, size: 20),
+                                SizedBox(width: 8),
+                                Text('필기 (${_handwritingFiles.length})'),
                               ],
                             ),
                           ),
@@ -575,119 +514,81 @@ class _WritingScreenState extends State<WritingScreen>
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          // 첫 번째 탭 - 텍스트 파일
-                          Stack(
+                          // 첫 번째 탭 - 브라우저 (보기)
+                          Column(
                             children: [
-                              _textFiles.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.keyboard,
-                                            size: 48,
-                                            color: Colors.grey.shade400,
-                                          ),
-                                          AppSpacing.verticalSpaceS,
-                                          Text(
-                                            '텍스트 파일이 없습니다',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: _textFiles.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildTextFileItem(
-                                          _textFiles[index],
-                                        );
-                                      },
-                                    ),
-                              // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
-                              Positioned(
-                                right: 16,
-                                bottom: 16,
-                                child: FloatingActionButton(
-                                  onPressed: _createNewTextFile,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  mini: true,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.keyboard, size: 16),
-                                      SizedBox(width: 2),
-                                      Icon(Icons.add, size: 16),
-                                    ],
+                              // URL 입력 영역
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey.shade300),
                                   ),
                                 ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _urlController,
+                                        decoration: InputDecoration(
+                                          hintText: 'YouTube 영상 URL을 입력하세요...',
+                                          prefixIcon: const Icon(Icons.language),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        onSubmitted: (url) {
+                                          if (url.isNotEmpty) {
+                                            _loadUrl(url);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        if (_urlController.text.isNotEmpty) {
+                                          _loadUrl(_urlController.text);
+                                        }
+                                      },
+                                      child: const Text('이동'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // WebView 영역
+                              Expanded(
+                                child: _webViewController != null
+                                    ? WebViewWidget(controller: _webViewController!)
+                                    : Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.play_circle_outline,
+                                              size: 48,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            AppSpacing.verticalSpaceS,
+                                            Text(
+                                              'URL을 입력하여 영상을 시청하세요',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
-                          // 두 번째 탭 - 필기 파일
-                          Stack(
-                            children: [
-                              _handwritingFiles.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.draw,
-                                            size: 48,
-                                            color: Colors.grey.shade400,
-                                          ),
-                                          AppSpacing.verticalSpaceS,
-                                          Text(
-                                            '필기 파일이 없습니다',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: _handwritingFiles.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildHandwritingFileItem(
-                                          _handwritingFiles[index],
-                                        );
-                                      },
-                                    ),
-                              // 필기 쓰기 버튼 (오른쪽 아래 고정)
-                              Positioned(
-                                right: 16,
-                                bottom: 16,
-                                child: FloatingActionButton(
-                                  onPressed: _createNewHandwritingFile,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  mini: true,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.draw, size: 16),
-                                      SizedBox(width: 2),
-                                      Icon(Icons.add, size: 16),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          // 세 번째 탭 - 오디오 파일
+                          // 두 번째 탭 - 오디오 파일 (듣기)
                           Stack(
                             children: [
                               _audioFiles.isEmpty
@@ -746,69 +647,115 @@ class _WritingScreenState extends State<WritingScreen>
                               ),
                             ],
                           ),
-                          // 네 번째 탭 - 브라우저 (보기)
-                          Column(
+                          // 세 번째 탭 - 텍스트 파일
+                          Stack(
                             children: [
-                              // URL 입력 영역
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.grey.shade300),
+                              _textFiles.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.keyboard,
+                                            size: 48,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                          AppSpacing.verticalSpaceS,
+                                          Text(
+                                            '텍스트 파일이 없습니다',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _textFiles.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildTextFileItem(
+                                          _textFiles[index],
+                                        );
+                                      },
+                                    ),
+                              // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
+                              Positioned(
+                                right: 16,
+                                bottom: 16,
+                                child: FloatingActionButton(
+                                  onPressed: _createNewTextFile,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  mini: true,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.keyboard, size: 16),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.add, size: 16),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _urlController,
-                                        decoration: InputDecoration(
-                                          hintText: 'YouTube 영상 URL을 입력하세요...',
-                                          prefixIcon: const Icon(Icons.language),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                        ),
-                                        onSubmitted: (url) => _loadUrl(url),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: () => _loadUrl(_urlController.text),
-                                      child: const Text('이동'),
-                                    ),
-                                  ],
-                                ),
                               ),
-                              // WebView 영역
-                              Expanded(
-                                child: _webViewController != null
-                                    ? WebViewWidget(controller: _webViewController!)
-                                    : const Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.play_circle_outline,
-                                              size: 48,
-                                              color: Colors.grey,
+                            ],
+                          ),
+                          // 네 번째 탭 - 필기 파일
+                          Stack(
+                            children: [
+                              _handwritingFiles.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.draw,
+                                            size: 48,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                          AppSpacing.verticalSpaceS,
+                                          Text(
+                                            '필기 파일이 없습니다',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade500,
                                             ),
-                                            SizedBox(height: 16),
-                                            Text(
-                                              'URL을 입력해서 영상을 시청하세요',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _handwritingFiles.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildHandwritingFileItem(
+                                          _handwritingFiles[index],
+                                        );
+                                      },
+                                    ),
+                              // 필기 쓰기 버튼 (오른쪽 아래 고정)
+                              Positioned(
+                                right: 16,
+                                bottom: 16,
+                                child: FloatingActionButton(
+                                  onPressed: _createNewHandwritingFile,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  mini: true,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.draw, size: 16),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.add, size: 16),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -2688,8 +2635,6 @@ class _WritingScreenState extends State<WritingScreen>
     final l10n = AppLocalizations.of(context);
     return Column(
       children: [
-        // 음성-쓰기 동기화 상태 표시
-        _buildSyncStatusBar(),
         // 상단 헤더
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2849,8 +2794,6 @@ class _WritingScreenState extends State<WritingScreen>
       children: [
         Column(
           children: [
-            // 음성-쓰기 동기화 상태 표시
-            _buildSyncStatusBar(),
             // 상단 헤더
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

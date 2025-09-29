@@ -886,30 +886,56 @@ class AppStateProvider extends ChangeNotifier {
     }
   }
 
-  // 반복 알림 발생 시 자식 리튼을 생성하는 메서드
+  // 반복 알림 발생 시 중복 체크 후 카운트 증가 또는 자식 리튼 생성하는 메서드
   Future<void> _createChildLitten(Litten parentLitten, NotificationEvent notification) async {
     try {
-      debugPrint('🏗️ 자식 리튼 생성 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
+      debugPrint('🏗️ 알림 처리 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
 
-      // 자식 리튼의 제목 생성 (예: "부모리튼명 - 매일 2024-01-15")
-      final dateStr = DateFormat('yyyy-MM-dd').format(notification.triggerTime);
-      final childTitle = '${parentLitten.title} - ${notification.rule.frequency.label} $dateStr';
-
-      // 자식 리튼 생성 (부모의 이름과 메모만 복사)
-      final childLitten = Litten(
-        title: childTitle,
-        description: parentLitten.description, // 부모의 메모(description) 복사
-        parentId: parentLitten.id, // 부모 리튼 ID 설정
-        isChildLitten: true, // 자식 리튼임을 표시
-        schedule: null, // 자식 리튼은 일정 없음
+      // 같은 이름의 기존 리튼 찾기 (부모 리튼과 동일한 title을 가진 리튼)
+      final existingLitten = _littens.firstWhere(
+        (litten) => litten.title == parentLitten.title && !litten.isChildLitten,
+        orElse: () => parentLitten, // 없으면 부모 리튼 자체를 반환
       );
 
-      // 자식 리튼 추가
-      _littens.add(childLitten);
-      debugPrint('✅ 자식 리튼 생성 완료: ${childLitten.title}');
+      if (existingLitten.id == parentLitten.id) {
+        // 기존 리튼이 부모 리튼과 같은 경우: 알림 카운트 증가
+        debugPrint('🔢 기존 리튼에 알림 카운트 증가: ${existingLitten.title} (${existingLitten.notificationCount} → ${existingLitten.notificationCount + 1})');
 
-      // 자식 리튼 저장
-      await _littenService.saveLitten(childLitten);
+        // 알림 카운트를 증가시킨 새로운 리튼 생성
+        final updatedLitten = existingLitten.copyWith(
+          notificationCount: existingLitten.notificationCount + 1,
+        );
+
+        // 기존 리튼을 업데이트된 리튼으로 교체
+        final index = _littens.indexWhere((litten) => litten.id == existingLitten.id);
+        if (index != -1) {
+          _littens[index] = updatedLitten;
+
+          // 업데이트된 리튼 저장
+          await _littenService.saveLitten(updatedLitten);
+
+          debugPrint('✅ 알림 카운트 업데이트 완료: ${updatedLitten.title} (카운트: ${updatedLitten.notificationCount})');
+        }
+      } else {
+        // 다른 기존 리튼이 있는 경우: 해당 리튼의 알림 카운트 증가
+        debugPrint('🔢 중복 이름 리튼에 알림 카운트 증가: ${existingLitten.title} (${existingLitten.notificationCount} → ${existingLitten.notificationCount + 1})');
+
+        // 알림 카운트를 증가시킨 새로운 리튼 생성
+        final updatedLitten = existingLitten.copyWith(
+          notificationCount: existingLitten.notificationCount + 1,
+        );
+
+        // 기존 리튼을 업데이트된 리튼으로 교체
+        final index = _littens.indexWhere((litten) => litten.id == existingLitten.id);
+        if (index != -1) {
+          _littens[index] = updatedLitten;
+
+          // 업데이트된 리튼 저장
+          await _littenService.saveLitten(updatedLitten);
+
+          debugPrint('✅ 기존 리튼 알림 카운트 업데이트 완료: ${updatedLitten.title} (카운트: ${updatedLitten.notificationCount})');
+        }
+      }
 
       // 알림 스케줄 업데이트
       _updateNotificationSchedule();
@@ -917,9 +943,9 @@ class AppStateProvider extends ChangeNotifier {
       // UI 업데이트
       notifyListeners();
 
-      debugPrint('🎯 총 ${_littens.length}개 리튼 (자식 리튼 포함)');
+      debugPrint('🎯 총 ${_littens.length}개 리튼 (중복 방지 처리 완료)');
     } catch (e) {
-      debugPrint('❌ 자식 리튼 생성 실패: $e');
+      debugPrint('❌ 알림 처리 실패: $e');
     }
   }
 }

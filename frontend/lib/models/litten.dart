@@ -152,6 +152,7 @@ class Litten {
   final LittenSchedule? schedule;
   final String? parentId; // 부모 리튼 ID (자식 리튼인 경우)
   final bool isChildLitten; // 자식 리튼 여부
+  final int notificationCount; // 알림 발생 횟수 카운트
 
   Litten({
     String? id,
@@ -165,6 +166,7 @@ class Litten {
     this.schedule,
     this.parentId,
     this.isChildLitten = false,
+    this.notificationCount = 0,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
@@ -186,6 +188,7 @@ class Litten {
     LittenSchedule? schedule,
     String? parentId,
     bool? isChildLitten,
+    int? notificationCount,
   }) {
     return Litten(
       id: id,
@@ -199,6 +202,7 @@ class Litten {
       schedule: schedule ?? this.schedule,
       parentId: parentId ?? this.parentId,
       isChildLitten: isChildLitten ?? this.isChildLitten,
+      notificationCount: notificationCount ?? this.notificationCount,
     );
   }
 
@@ -215,6 +219,7 @@ class Litten {
       'schedule': schedule?.toJson(),
       'parentId': parentId,
       'isChildLitten': isChildLitten,
+      'notificationCount': notificationCount,
     };
   }
 
@@ -231,6 +236,7 @@ class Litten {
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
       parentId: json['parentId'],
       isChildLitten: json['isChildLitten'] ?? false,
+      notificationCount: json['notificationCount'] ?? 0,
     );
   }
 }
