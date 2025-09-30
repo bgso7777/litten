@@ -10,7 +10,9 @@ import '../models/litten.dart';
 class AudioService extends ChangeNotifier {
   static final AudioService _instance = AudioService._internal();
   factory AudioService() => _instance;
-  AudioService._internal();
+  AudioService._internal() {
+    _initializeAudioPlayer();
+  }
 
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
@@ -225,24 +227,7 @@ class AudioService extends ChangeNotifier {
     debugPrint('[AudioService] playAudio 진입 - fileName: ${audioFile.fileName}');
     
     try {
-      // 백그라운드 재생을 위한 오디오 컨텍스트 설정 (플랫폼 전역 1회성 적용)
-      await _player.setAudioContext(AudioContext(
-        android: const AudioContextAndroid(
-          isSpeakerphoneOn: false,
-          stayAwake: true, // 화면이 꺼져도 재생 유지
-          contentType: AndroidContentType.music,
-          usageType: AndroidUsageType.media,
-          audioFocus: AndroidAudioFocus.gain,
-        ),
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playback, // 백그라운드 재생 허용
-          options: <AVAudioSessionOptions>{
-            AVAudioSessionOptions.mixWithOthers,
-            AVAudioSessionOptions.allowBluetooth,
-            AVAudioSessionOptions.defaultToSpeaker,
-          },
-        ),
-      ));
+      // 백그라운드 재생 설정은 초기화 시 한 번만 설정됨
 
       if (_isPlaying) {
         await _player.stop();
@@ -333,6 +318,34 @@ class AudioService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[AudioService] 오디오 파일 삭제 오류: $e');
       return false;
+    }
+  }
+
+  /// 오디오 플레이어 백그라운드 재생 초기화
+  Future<void> _initializeAudioPlayer() async {
+    try {
+      debugPrint('🎵 오디오 플레이어 백그라운드 재생 설정 중...');
+
+      // 백그라운드 재생을 위한 오디오 컨텍스트 설정
+      await _player.setAudioContext(AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: true, // 화면이 꺼져도 재생 유지
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.media,
+          audioFocus: AndroidAudioFocus.gain, // 미디어 포커스 획득
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback, // 백그라운드 재생 허용
+          options: <AVAudioSessionOptions>{
+            AVAudioSessionOptions.mixWithOthers, // 다른 앱과 함께 재생
+          },
+        ),
+      ));
+
+      debugPrint('✅ 오디오 플레이어 백그라운드 재생 설정 완료');
+    } catch (e) {
+      debugPrint('❌ 오디오 플레이어 백그라운드 재생 설정 에러: $e');
     }
   }
 

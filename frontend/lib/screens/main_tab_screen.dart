@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_screen.dart';
 import 'writing_screen.dart';
@@ -10,8 +11,49 @@ import 'settings_screen.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
 
-class MainTabScreen extends StatelessWidget {
+class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
+
+  @override
+  State<MainTabScreen> createState() => _MainTabScreenState();
+}
+
+class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserver {
+  late AudioService audioService;
+
+  @override
+  void initState() {
+    super.initState();
+    audioService = AudioService();
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 시작');
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 종료');
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('🎵 MainTabScreen: 앱 생명주기 변경 - $state');
+
+    switch (state) {
+      case AppLifecycleState.paused:
+        debugPrint('🎵 앱이 백그라운드로 이동 - 오디오 재생 유지');
+        break;
+      case AppLifecycleState.resumed:
+        debugPrint('🎵 앱이 포그라운드로 복귀 - 오디오 재생 상태 확인');
+        break;
+      case AppLifecycleState.detached:
+        debugPrint('🎵 앱 종료 - 오디오 재생 중지');
+        break;
+      default:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +111,9 @@ class MainTabScreen extends StatelessWidget {
             onTap: (index) {
               debugPrint('🔍 탭 터치: 인덱스 $index');
 
+              // 탭 변경 시 현재 재생 상태 확인 및 유지
+              _logCurrentPlaybackState();
+
               // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동
               if (index == 0) {
                 final notifications = appState.notificationService.firedNotifications;
@@ -124,6 +169,16 @@ class MainTabScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// 현재 재생 상태를 로깅하고 백그라운드 재생 상태를 확인하는 메소드
+  void _logCurrentPlaybackState() {
+    debugPrint('🎵 탭 변경 시 재생 상태 확인:');
+    debugPrint('   - 오디오 재생 중: ${audioService.isPlaying}');
+    debugPrint('   - 현재 재생 파일: ${audioService.currentPlayingFile?.fileName ?? "없음"}');
+    debugPrint('   - 재생 시간: ${audioService.playbackDuration}');
+    debugPrint('   - 전체 시간: ${audioService.totalDuration}');
+    debugPrint('🎵 백그라운드 재생 유지: IndexedStack 사용으로 화면 상태 보존됨');
   }
 
   Widget _buildLittenCountBadge(AppStateProvider appState, BuildContext context) {

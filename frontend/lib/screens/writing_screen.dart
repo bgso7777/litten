@@ -18,7 +18,10 @@ import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
+import '../services/bookmark_service.dart';
+import '../services/session_service.dart';
 import '../widgets/common/empty_state.dart';
+import '../widgets/webview/bookmark_widget.dart';
 import '../config/themes.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
@@ -50,6 +53,10 @@ class _WritingScreenState extends State<WritingScreen>
   WebViewController? _webViewController;
   String _currentUrl = '';
   final TextEditingController _urlController = TextEditingController();
+  final BookmarkService _bookmarkService = BookmarkService();
+  final SessionService _sessionService = SessionService();
+  bool _isCurrentUrlBookmarked = false;
+  bool _showBookmarks = false;
 
   // 필기 모드 관련 상태
   Color _selectedColor = Colors.black;
@@ -190,9 +197,41 @@ class _WritingScreenState extends State<WritingScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 앱이 포어그라운드로 돌아왔을 때 파일 목록 재로드
-    if (state == AppLifecycleState.resumed) {
-      _loadFiles();
+
+    print('🔄 앱 생명주기 변경: $state');
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // 앱이 포어그라운드로 돌아왔을 때
+        print('📱 앱 포어그라운드 복귀 - 파일 목록 재로드');
+        _loadFiles();
+
+        // WebView 백그라운드 재생 설정 재적용
+        if (_webViewController != null) {
+          _enableBackgroundPlayback();
+        }
+        break;
+
+      case AppLifecycleState.paused:
+        // 앱이 백그라운드로 이동할 때
+        print('📱 앱 백그라운드 이동 - 미디어 재생 유지');
+        // 오디오/비디오 재생은 백그라운드에서도 계속됨
+        break;
+
+      case AppLifecycleState.detached:
+        // 앱이 완전히 종료될 때
+        print('📱 앱 종료');
+        break;
+
+      case AppLifecycleState.inactive:
+        // 앱이 비활성 상태일 때 (전화 등)
+        print('📱 앱 비활성 상태');
+        break;
+
+      case AppLifecycleState.hidden:
+        // 앱이 숨겨진 상태일 때
+        print('📱 앱 숨김 상태');
+        break;
     }
   }
 
@@ -467,19 +506,9 @@ class _WritingScreenState extends State<WritingScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.play_circle_outline, size: 20),
+                                Icon(Icons.draw, size: 20),
                                 SizedBox(width: 8),
-                                Text('보기'),
-                              ],
-                            ),
-                          ),
-                          Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.hearing, size: 20),
-                                SizedBox(width: 8),
-                                Text('듣기 (${_audioFiles.length})'),
+                                Text('필기 (${_handwritingFiles.length})'),
                               ],
                             ),
                           ),
@@ -497,9 +526,19 @@ class _WritingScreenState extends State<WritingScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.draw, size: 20),
+                                Icon(Icons.hearing, size: 20),
                                 SizedBox(width: 8),
-                                Text('필기 (${_handwritingFiles.length})'),
+                                Text('듣기 (${_audioFiles.length})'),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_circle_outline, size: 20),
+                                SizedBox(width: 8),
+                                Text('보기'),
                               ],
                             ),
                           ),
@@ -514,81 +553,119 @@ class _WritingScreenState extends State<WritingScreen>
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          // 첫 번째 탭 - 브라우저 (보기)
-                          Column(
+                          // 첫 번째 탭 - 필기 파일
+                          Stack(
                             children: [
-                              // URL 입력 영역
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.grey.shade300),
+                              _handwritingFiles.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.draw,
+                                            size: 48,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                          AppSpacing.verticalSpaceS,
+                                          Text(
+                                            '필기 파일이 없습니다',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _handwritingFiles.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildHandwritingFileItem(
+                                          _handwritingFiles[index],
+                                        );
+                                      },
+                                    ),
+                              // 필기 쓰기 버튼 (오른쪽 아래 고정)
+                              Positioned(
+                                right: 16,
+                                bottom: 16,
+                                child: FloatingActionButton(
+                                  onPressed: _createNewHandwritingFile,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  mini: true,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.draw, size: 16),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.add, size: 16),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _urlController,
-                                        decoration: InputDecoration(
-                                          hintText: 'YouTube 영상 URL을 입력하세요...',
-                                          prefixIcon: const Icon(Icons.language),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                        ),
-                                        onSubmitted: (url) {
-                                          if (url.isNotEmpty) {
-                                            _loadUrl(url);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        if (_urlController.text.isNotEmpty) {
-                                          _loadUrl(_urlController.text);
-                                        }
-                                      },
-                                      child: const Text('이동'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // WebView 영역
-                              Expanded(
-                                child: _webViewController != null
-                                    ? WebViewWidget(controller: _webViewController!)
-                                    : Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.play_circle_outline,
-                                              size: 48,
-                                              color: Colors.grey.shade400,
-                                            ),
-                                            AppSpacing.verticalSpaceS,
-                                            Text(
-                                              'URL을 입력하여 영상을 시청하세요',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                               ),
                             ],
                           ),
-                          // 두 번째 탭 - 오디오 파일 (듣기)
+                          // 두 번째 탭 - 텍스트 파일
+                          Stack(
+                            children: [
+                              _textFiles.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.keyboard,
+                                            size: 48,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                          AppSpacing.verticalSpaceS,
+                                          Text(
+                                            '텍스트 파일이 없습니다',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _textFiles.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildTextFileItem(
+                                          _textFiles[index],
+                                        );
+                                      },
+                                    ),
+                              // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
+                              Positioned(
+                                right: 16,
+                                bottom: 16,
+                                child: FloatingActionButton(
+                                  onPressed: _createNewTextFile,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  mini: true,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.keyboard, size: 16),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.add, size: 16),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // 세 번째 탭 - 오디오 파일 (듣기)
                           Stack(
                             children: [
                               _audioFiles.isEmpty
@@ -647,115 +724,137 @@ class _WritingScreenState extends State<WritingScreen>
                               ),
                             ],
                           ),
-                          // 세 번째 탭 - 텍스트 파일
-                          Stack(
+                          // 네 번째 탭 - 브라우저 (보기)
+                          Column(
                             children: [
-                              _textFiles.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.keyboard,
-                                            size: 48,
-                                            color: Colors.grey.shade400,
-                                          ),
-                                          AppSpacing.verticalSpaceS,
-                                          Text(
-                                            '텍스트 파일이 없습니다',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: _textFiles.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildTextFileItem(
-                                          _textFiles[index],
-                                        );
-                                      },
-                                    ),
-                              // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
-                              Positioned(
-                                right: 16,
-                                bottom: 16,
-                                child: FloatingActionButton(
-                                  onPressed: _createNewTextFile,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  mini: true,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.keyboard, size: 16),
-                                      SizedBox(width: 2),
-                                      Icon(Icons.add, size: 16),
-                                    ],
+                              // URL 입력 영역
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey.shade300),
                                   ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _urlController,
+                                        decoration: InputDecoration(
+                                          hintText: 'URL 또는 검색어를 입력하세요...',
+                                          prefixIcon: const Icon(Icons.language),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        onSubmitted: (url) {
+                                          if (url.isNotEmpty) {
+                                            _loadUrl(url);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // 즐겨찾기 버튼
+                                    IconButton(
+                                      onPressed: _toggleBookmark,
+                                      icon: Icon(
+                                        _isCurrentUrlBookmarked
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                        color: _isCurrentUrlBookmarked
+                                          ? Colors.orange
+                                          : Colors.grey,
+                                      ),
+                                      tooltip: _isCurrentUrlBookmarked
+                                        ? '즐겨찾기에서 제거'
+                                        : '즐겨찾기에 추가',
+                                    ),
+                                    // 즐겨찾기 목록 버튼
+                                    IconButton(
+                                      onPressed: _toggleBookmarksList,
+                                      icon: Icon(
+                                        Icons.bookmark,
+                                        color: _showBookmarks ? Colors.blue : Colors.grey,
+                                      ),
+                                      tooltip: '즐겨찾기 목록',
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        if (_urlController.text.isNotEmpty) {
+                                          _loadUrl(_urlController.text);
+                                        }
+                                      },
+                                      child: const Text('이동'),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                          // 네 번째 탭 - 필기 파일
-                          Stack(
-                            children: [
-                              _handwritingFiles.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.draw,
-                                            size: 48,
-                                            color: Colors.grey.shade400,
+                              // WebView 영역 또는 즐겨찾기 목록
+                              Expanded(
+                                child: _showBookmarks
+                                    ? BookmarkWidget(
+                                        onBookmarkTap: _onBookmarkSelected,
+                                        currentUrl: _currentUrl,
+                                      )
+                                    : _webViewController != null
+                                        ? WebViewWidget(controller: _webViewController!)
+                                        : FutureBuilder(
+                                            future: _initializeWebView(),
+                                            builder: (context, snapshot) {
+                                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                                return Center(
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      CircularProgressIndicator(),
+                                                      SizedBox(height: 16),
+                                                      Text(
+                                                        '구글 홈페이지를 로드하는 중...',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: Colors.grey.shade500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              } else if (_webViewController != null) {
+                                                return WebViewWidget(controller: _webViewController!);
+                                              } else {
+                                                return Center(
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.error_outline,
+                                                        size: 48,
+                                                        color: Colors.grey.shade400,
+                                                      ),
+                                                      SizedBox(height: 16),
+                                                      Text(
+                                                        '웹 페이지를 로드할 수 없습니다',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: Colors.grey.shade500,
+                                                        ),
+                                                      ),
+                                                      SizedBox(height: 8),
+                                                      ElevatedButton(
+                                                        onPressed: () => _loadUrl('https://www.google.com'),
+                                                        child: Text('다시 시도'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }
+                                            },
                                           ),
-                                          AppSpacing.verticalSpaceS,
-                                          Text(
-                                            '필기 파일이 없습니다',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: _handwritingFiles.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildHandwritingFileItem(
-                                          _handwritingFiles[index],
-                                        );
-                                      },
-                                    ),
-                              // 필기 쓰기 버튼 (오른쪽 아래 고정)
-                              Positioned(
-                                right: 16,
-                                bottom: 16,
-                                child: FloatingActionButton(
-                                  onPressed: _createNewHandwritingFile,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  mini: true,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.draw, size: 16),
-                                      SizedBox(width: 2),
-                                      Icon(Icons.add, size: 16),
-                                    ],
-                                  ),
-                                ),
                               ),
                             ],
                           ),
@@ -4260,11 +4359,17 @@ class _WritingScreenState extends State<WritingScreen>
                 setState(() {
                   _currentUrl = url;
                 });
+                // SessionService에 현재 활성 URL 저장
+                _sessionService.setCurrentActiveUrl(url);
               },
               onPageFinished: (String url) {
                 setState(() {
                   _currentUrl = url;
                 });
+                // SessionService에 현재 활성 URL 저장
+                _sessionService.setCurrentActiveUrl(url);
+                // 백그라운드 재생을 위한 JavaScript 실행
+                _enableBackgroundPlayback();
               },
             ),
           );
@@ -4276,6 +4381,9 @@ class _WritingScreenState extends State<WritingScreen>
         _currentUrl = finalUrl;
       });
 
+      // SessionService에 현재 활성 URL 저장
+      _sessionService.setCurrentActiveUrl(finalUrl);
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4285,6 +4393,188 @@ class _WritingScreenState extends State<WritingScreen>
           ),
         );
       }
+    }
+  }
+
+  // 현재 URL의 즐겨찾기 상태 업데이트
+  Future<void> _updateBookmarkStatus() async {
+    if (_currentUrl.isNotEmpty) {
+      final isBookmarked = await _bookmarkService.isBookmarked(_currentUrl);
+      setState(() {
+        _isCurrentUrlBookmarked = isBookmarked;
+      });
+    }
+  }
+
+  // 즐겨찾기 토글
+  Future<void> _toggleBookmark() async {
+    if (_currentUrl.isEmpty) return;
+
+    if (_isCurrentUrlBookmarked) {
+      final bookmarks = await _bookmarkService.getBookmarks();
+      final bookmark = bookmarks.firstWhere((b) => b.url == _currentUrl);
+      final success = await _bookmarkService.removeBookmark(bookmark.id);
+      if (success && mounted) {
+        setState(() => _isCurrentUrlBookmarked = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('즐겨찾기에서 제거되었습니다')),
+        );
+      }
+    } else {
+      final title = await _getPageTitle() ?? _extractTitleFromUrl(_currentUrl);
+      final success = await _bookmarkService.addBookmark(title, _currentUrl);
+      if (success && mounted) {
+        setState(() => _isCurrentUrlBookmarked = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('즐겨찾기에 추가되었습니다')),
+        );
+      }
+    }
+  }
+
+  // 즐겨찾기 목록 토글
+  void _toggleBookmarksList() {
+    setState(() {
+      _showBookmarks = !_showBookmarks;
+    });
+  }
+
+  // 즐겨찾기에서 URL 선택
+  void _onBookmarkSelected(String url) {
+    _urlController.text = url;
+    _loadUrl(url);
+    setState(() {
+      _showBookmarks = false;
+    });
+  }
+
+  /// 웹뷰에서 백그라운드 미디어 재생을 활성화합니다
+  Future<void> _enableBackgroundPlayback() async {
+    if (_webViewController == null) return;
+
+    try {
+      print('🎵 웹뷰 백그라운드 재생 설정 중...');
+
+      // 백그라운드 재생을 위한 JavaScript 코드 실행
+      await _webViewController!.runJavaScript('''
+        (function() {
+          // 미디어 세션 API가 지원되는 경우 활성화
+          if ('mediaSession' in navigator) {
+            console.log('Media Session API 지원됨');
+
+            // 미디어 핸들러 설정
+            navigator.mediaSession.setActionHandler('play', () => {
+              console.log('Media Session: 재생 이벤트');
+              const videos = document.querySelectorAll('video');
+              const audios = document.querySelectorAll('audio');
+
+              videos.forEach(video => {
+                if (video.paused) video.play().catch(e => console.log(e));
+              });
+              audios.forEach(audio => {
+                if (audio.paused) audio.play().catch(e => console.log(e));
+              });
+            });
+
+            navigator.mediaSession.setActionHandler('pause', () => {
+              console.log('Media Session: 일시정지 이벤트');
+              const videos = document.querySelectorAll('video');
+              const audios = document.querySelectorAll('audio');
+
+              videos.forEach(video => {
+                if (!video.paused) video.pause();
+              });
+              audios.forEach(audio => {
+                if (!audio.paused) audio.pause();
+              });
+            });
+          }
+
+          // 모든 비디오/오디오 요소에 백그라운드 재생 설정
+          const mediaElements = [...document.querySelectorAll('video'), ...document.querySelectorAll('audio')];
+          mediaElements.forEach(element => {
+            // 백그라운드 재생 허용
+            element.setAttribute('playsinline', 'true');
+            if (element.tagName === 'VIDEO') {
+              // 비디오의 경우 picture-in-picture 지원
+              if ('pictureInPictureEnabled' in document) {
+                element.setAttribute('pip', 'true');
+              }
+            }
+          });
+
+          // 새로 추가되는 미디어 요소에도 설정 적용
+          const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+              mutation.addedNodes.forEach(node => {
+                if (node.nodeType === 1) { // ELEMENT_NODE
+                  const newMediaElements = [...node.querySelectorAll('video'), ...node.querySelectorAll('audio')];
+                  newMediaElements.forEach(element => {
+                    element.setAttribute('playsinline', 'true');
+                    if (element.tagName === 'VIDEO' && 'pictureInPictureEnabled' in document) {
+                      element.setAttribute('pip', 'true');
+                    }
+                  });
+                }
+              });
+            });
+          });
+
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+
+          console.log('백그라운드 재생 설정 완료');
+        })();
+      ''');
+
+      print('✅ 웹뷰 백그라운드 재생 설정 완료');
+    } catch (e) {
+      print('❌ 웹뷰 백그라운드 재생 설정 에러: $e');
+    }
+  }
+
+  // WebView 초기화
+  Future<void> _initializeWebView() async {
+    if (_webViewController == null) {
+      // 우선순위: 1) 현재 _currentUrl 2) SessionService 활성 URL 3) 기본 URL
+      String urlToLoad;
+      if (_currentUrl.isNotEmpty) {
+        urlToLoad = _currentUrl;
+      } else {
+        final activeUrl = _sessionService.getCurrentActiveUrl();
+        if (activeUrl != null && activeUrl.isNotEmpty) {
+          urlToLoad = activeUrl;
+          _currentUrl = activeUrl; // 복원된 URL로 _currentUrl 업데이트
+        } else {
+          urlToLoad = _sessionService.getDefaultUrl();
+        }
+      }
+      debugPrint('🌐 WebView 초기화: $_currentUrl → $urlToLoad');
+      _loadUrl(urlToLoad);
+    }
+  }
+
+  // 페이지 제목 가져오기
+  Future<String?> _getPageTitle() async {
+    try {
+      if (_webViewController != null) {
+        return await _webViewController!.getTitle();
+      }
+    } catch (e) {
+      debugPrint('페이지 제목 가져오기 실패: $e');
+    }
+    return null;
+  }
+
+  // URL에서 제목 추출
+  String _extractTitleFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host.isNotEmpty ? uri.host : url;
+    } catch (e) {
+      return url;
     }
   }
 
