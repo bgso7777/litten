@@ -30,6 +30,7 @@ class TextFile {
   }
 
   String get displayTitle => title.isNotEmpty ? title : '새 텍스트';
+  String get fileName => title; // title을 fileName으로 사용
   String get preview => content.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   String get shortPreview => preview.length > 30 ? '${preview.substring(0, 30)}...' : preview;
   int get characterCount => content.length;

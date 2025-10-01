@@ -34,6 +34,11 @@ class SessionService {
     return _currentActiveUrl;
   }
 
+  /// 현재 활성 URL을 저장합니다 (BrowserTab에서 사용)
+  void saveActiveUrl(String url) {
+    setCurrentActiveUrl(url);
+  }
+
   /// 기본 URL을 가져옵니다 (마지막 방문 URL이 없는 경우)
   String getDefaultUrl() {
     return _lastVisitedUrl ?? 'https://www.google.com';
