@@ -376,6 +376,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
   Widget _buildTabHeader(TabItem tab, {required bool isFullScreen}) {
     final isActive = tab.id == _activeTabId;
+    final isDragging = _draggingTabId == tab.id;
 
     return Draggable<String>(
       data: tab.id,
@@ -393,29 +394,83 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         });
       },
       feedback: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(8),
+        elevation: 12,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor,
-            borderRadius: BorderRadius.circular(8),
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).primaryColor,
+                Theme.of(context).primaryColor.withValues(alpha: 0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(tab.icon, size: 16, color: Colors.white),
-              const SizedBox(width: 8),
+              Icon(tab.icon, size: 20, color: Colors.white),
+              const SizedBox(width: 10),
               Text(
                 tab.title,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
                 ),
               ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.open_with,
+                size: 16,
+                color: Colors.white70,
+              ),
             ],
           ),
+        ),
+      ),
+      childWhenDragging: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.grey.withValues(alpha: 0.5),
+            style: BorderStyle.solid,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              tab.icon,
+              size: 16,
+              color: Colors.grey.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                tab.title,
+                style: TextStyle(
+                  fontSize: isFullScreen ? 14 : 12,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.grey.withValues(alpha: 0.6),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
       child: InkWell(
@@ -425,30 +480,42 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           });
           widget.onTabTapped?.call(tab.id);
         },
-        child: Container(
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
                 : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(
-                color: isActive
-                    ? Theme.of(context).primaryColor
-                    : Colors.transparent,
-                width: 2,
-              ),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                  : Colors.transparent,
+              width: 1,
             ),
+            boxShadow: isActive ? [
+              BoxShadow(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                tab.icon,
-                size: 16,
-                color: isActive
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey,
+              AnimatedScale(
+                scale: isActive ? 1.1 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  tab.icon,
+                  size: 16,
+                  color: isActive
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[600],
+                ),
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -464,6 +531,17 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (!isDragging)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 14,
+                    color: isActive
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                        : Colors.grey.withValues(alpha: 0.5),
+                  ),
+                ),
             ],
           ),
         ),
@@ -522,32 +600,108 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   }
 
   Widget _buildEmptyQuadrant(TabPosition position) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.add_box_outlined,
-            size: 48,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getPositionLabel(position),
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
+    final isHovered = _hoveredPosition == position;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        gradient: isHovered ? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            Theme.of(context).primaryColor.withValues(alpha: 0.05),
+          ],
+        ) : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: isHovered ? 1.2 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isHovered
+                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                      : Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isHovered
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                        : Colors.grey.withValues(alpha: 0.3),
+                    width: 2,
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: Icon(
+                  Icons.add_box_outlined,
+                  size: 48,
+                  color: isHovered
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[400],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '탭을 여기로 드래그하세요',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 12,
+            const SizedBox(height: 16),
+            Text(
+              _getPositionLabel(position),
+              style: TextStyle(
+                color: isHovered
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey[600],
+                fontSize: 16,
+                fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            AnimatedOpacity(
+              opacity: isHovered ? 1.0 : 0.7,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isHovered
+                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                      : Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isHovered
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                        : Colors.grey.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.touch_app,
+                      size: 14,
+                      color: isHovered
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[500],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '탭을 여기로 드래그하세요',
+                      style: TextStyle(
+                        color: isHovered
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[500],
+                        fontSize: 12,
+                        fontWeight: isHovered ? FontWeight.w500 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -627,29 +781,75 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         final isHovered = _hoveredPosition == position;
 
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: isHovered ? 120 : 100,
-          height: isHovered ? 80 : 60,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          width: isHovered ? 140 : 100,
+          height: isHovered ? 90 : 60,
           decoration: BoxDecoration(
-            color: isHovered
-                ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
+            gradient: isHovered ? LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                Theme.of(context).primaryColor.withValues(alpha: 0.2),
+              ],
+            ) : LinearGradient(
+              colors: [
+                Colors.grey.withValues(alpha: 0.2),
+                Colors.grey.withValues(alpha: 0.1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isHovered
                   ? Theme.of(context).primaryColor
-                  : Colors.grey,
-              width: isHovered ? 2 : 1,
+                  : Colors.grey.withValues(alpha: 0.5),
+              width: isHovered ? 3 : 2,
             ),
+            boxShadow: isHovered ? [
+              BoxShadow(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ] : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isHovered
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey[600],
-                fontWeight: isHovered ? FontWeight.bold : FontWeight.normal,
+          child: AnimatedScale(
+            scale: isHovered ? 1.05 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedRotation(
+                    turns: isHovered ? 0.1 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.apps,
+                      size: isHovered ? 28 : 24,
+                      color: isHovered
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isHovered
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[600],
+                      fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
+                      fontSize: isHovered ? 14 : 12,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
