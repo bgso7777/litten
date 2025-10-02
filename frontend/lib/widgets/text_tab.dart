@@ -62,10 +62,12 @@ class _TextTabState extends State<TextTab> {
 
         return Container(
           color: Colors.green.shade50,
-          child: Column(
+          child: Stack(
             children: [
-              // 헤더
-              Container(
+              Column(
+                children: [
+                  // 헤더
+                  Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.green.shade100,
@@ -90,14 +92,6 @@ class _TextTabState extends State<TextTab> {
                       ),
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: _createNewTextFile,
-                      icon: Icon(
-                        Icons.add,
-                        color: Colors.green.shade700,
-                      ),
-                      tooltip: '새 텍스트 작성',
-                    ),
                   ],
                 ),
               ),
@@ -127,7 +121,7 @@ class _TextTabState extends State<TextTab> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '우상단의 + 버튼을 눌러 시작해보세요',
+                                  '하단의 + 버튼을 눌러 시작해보세요',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey.shade500,
@@ -143,10 +137,26 @@ class _TextTabState extends State<TextTab> {
                               return _buildTextFileItem(_textFiles[index]);
                             },
                           ),
+                ),
+              ],
+            ),
+            // 추가 버튼 (우하단 고정)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: _createNewTextFile,
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+                child: const Icon(
+                  Icons.add,
+                  size: 28,
+                ),
               ),
-            ],
-          ),
-        );
+            ),
+          ],
+        ),
+      );
       },
     );
   }

@@ -90,10 +90,12 @@ class _HandwritingTabState extends State<HandwritingTab> {
 
         return Container(
           color: Colors.blue.shade50,
-          child: Column(
+          child: Stack(
             children: [
-              // 헤더
-              Container(
+              Column(
+                children: [
+                  // 헤더
+                  Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade100,
@@ -118,14 +120,6 @@ class _HandwritingTabState extends State<HandwritingTab> {
                       ),
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: _createNewHandwritingFile,
-                      icon: Icon(
-                        Icons.add,
-                        color: Colors.blue.shade700,
-                      ),
-                      tooltip: '새 필기 작성',
-                    ),
                   ],
                 ),
               ),
@@ -155,7 +149,7 @@ class _HandwritingTabState extends State<HandwritingTab> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '우상단의 + 버튼을 눌러 시작해보세요',
+                                  '하단의 + 버튼을 눌러 시작해보세요',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey.shade500,
@@ -171,10 +165,26 @@ class _HandwritingTabState extends State<HandwritingTab> {
                               return _buildHandwritingFileItem(_handwritingFiles[index]);
                             },
                           ),
+                ),
+              ],
+            ),
+            // 추가 버튼 (우하단 고정)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: _createNewHandwritingFile,
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                child: const Icon(
+                  Icons.add,
+                  size: 28,
+                ),
               ),
-            ],
-          ),
-        );
+            ),
+          ],
+        ),
+      );
       },
     );
   }
@@ -765,6 +775,38 @@ class _HandwritingTabState extends State<HandwritingTab> {
 
     if (selectedLitten == null) return;
 
+    // PDF 변환과 빈 캔버스 선택 다이얼로그 표시
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('필기 방식 선택'),
+        content: const Text('PDF를 변환하여 필기하거나, 빈 캔버스에 직접 그릴 수 있습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _loadPdfForNewFile();
+            },
+            child: const Text('PDF 변환'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _createEmptyHandwritingFile();
+            },
+            child: const Text('빈 캔버스'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createEmptyHandwritingFile() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+
+    if (selectedLitten == null) return;
+
     try {
       final now = DateTime.now();
       final fileName = '필기${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
@@ -799,6 +841,62 @@ class _HandwritingTabState extends State<HandwritingTab> {
       _transformationController.value = Matrix4.identity();
     } catch (e) {
       debugPrint('[HandwritingTab] 새 필기 파일 생성 오류: $e');
+    }
+  }
+
+  Future<void> _loadPdfForNewFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        await _convertPdfToHandwriting(file);
+      }
+    } catch (e) {
+      debugPrint('[HandwritingTab] PDF 파일 선택 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF 파일을 불러올 수 없습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _convertPdfToHandwriting(File pdfFile) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+
+    if (selectedLitten == null) return;
+
+    try {
+      // PDF를 이미지로 변환하는 로직이 필요합니다
+      // 현재는 빈 캔버스로 생성
+      await _createEmptyHandwritingFile();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF 변환 기능이 개발 중입니다. 빈 캔버스가 생성됩니다.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[HandwritingTab] PDF 변환 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF 변환 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
