@@ -23,7 +23,7 @@ class _WritingScreenState extends State<WritingScreen> {
   void initState() {
     super.initState();
 
-    // 탭 초기화 - 첫 화면에는 텍스트 탭만 좌상단에 배치
+    // 탭 초기화 - 좌상단 영역에 텍스트, 필기, 듣기, Google 순서로 배치
     _tabs = [
       TabItem(
         id: 'text',
@@ -37,21 +37,21 @@ class _WritingScreenState extends State<WritingScreen> {
         title: '필기',
         icon: Icons.draw,
         content: const HandwritingTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: TabPosition.topLeft,
       ),
       TabItem(
         id: 'audio',
         title: '듣기',
         icon: Icons.mic,
         content: const RecordingTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: TabPosition.topLeft,
       ),
       TabItem(
         id: 'browser',
         title: 'Google',
         icon: Icons.public,
         content: const BrowserTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: TabPosition.topLeft,
       ),
     ];
   }

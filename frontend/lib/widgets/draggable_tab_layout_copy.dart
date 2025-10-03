@@ -56,12 +56,11 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
   // 화면 방향 추적
   bool get isPortrait => MediaQuery.of(context).orientation == Orientation.portrait;
-  Orientation? _previousOrientation;
 
   // 분할선 비율 (0.0 ~ 1.0)
-  double _horizontalDividerRatio = 0.5; // 상하 분할 비율
-  double _topVerticalDividerRatio = 0.5; // 상단 좌우 분할 비율
-  double _bottomVerticalDividerRatio = 0.5; // 하단 좌우 분할 비율
+  double _leftHorizontalDividerRatio = 0.5; // 좌측 상하 분할 비율
+  double _rightHorizontalDividerRatio = 0.5; // 우측 상하 분할 비율
+  double _verticalDividerRatio = 0.5; // 좌우 분할 비율 (통일)
 
   @override
   void initState() {
@@ -79,71 +78,9 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _adjustTabPositionsForOrientation();
-  }
-
-  @override
   void didUpdateWidget(DraggableTabLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
     _organizeTabsByPosition();
-  }
-
-  /// 방향 변경 시 탭 위치 매핑
-  /// 세로모드 좌하단(bottomLeft) ↔ 가로모드 우상단(topRight)
-  /// 세로모드 우상단(topRight) ↔ 가로모드 좌하단(bottomLeft)
-  TabPosition _mapPositionForOrientation(TabPosition position, bool toPortrait) {
-    if (toPortrait) {
-      // 가로 → 세로
-      if (position == TabPosition.topRight) return TabPosition.bottomLeft;
-      if (position == TabPosition.bottomLeft) return TabPosition.topRight;
-    } else {
-      // 세로 → 가로
-      if (position == TabPosition.bottomLeft) return TabPosition.topRight;
-      if (position == TabPosition.topRight) return TabPosition.bottomLeft;
-    }
-    return position;
-  }
-
-  /// 현재 방향에 맞게 모든 탭 위치 조정
-  void _adjustTabPositionsForOrientation() {
-    final currentOrientation = MediaQuery.of(context).orientation;
-
-    // 방향이 변경되었는지 확인
-    if (_previousOrientation != null && _previousOrientation != currentOrientation) {
-      final toPortrait = currentOrientation == Orientation.portrait;
-
-      // 변경될 탭들의 정보를 저장
-      final List<MapEntry<String, TabPosition>> changedTabs = [];
-
-      // 모든 탭의 위치를 새로운 방향에 맞게 조정
-      for (final tab in widget.tabs) {
-        final newPosition = _mapPositionForOrientation(tab.position, toPortrait);
-        if (newPosition != tab.position) {
-          tab.position = newPosition;
-          changedTabs.add(MapEntry(tab.id, newPosition));
-        }
-      }
-
-      // 위치 재정렬
-      _organizeTabsByPosition();
-
-      // 현재 빌드 사이클 이후에 콜백 및 setState 실행
-      if (mounted && changedTabs.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            // 부모 위젯에 변경 사항 알림
-            for (final entry in changedTabs) {
-              widget.onTabPositionChanged?.call(entry.key, entry.value);
-            }
-            setState(() {});
-          }
-        });
-      }
-    }
-
-    _previousOrientation = currentOrientation;
   }
 
   void _organizeTabsByPosition() {
@@ -183,35 +120,75 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
   Widget _buildMainLayout(BoxConstraints constraints) {
     final fullScreenTabs = _tabsByPosition[TabPosition.fullScreen] ?? [];
+    final hasQuadrantTabs = _tabsByPosition[TabPosition.topLeft]?.isNotEmpty == true ||
+        _tabsByPosition[TabPosition.topRight]?.isNotEmpty == true ||
+        _tabsByPosition[TabPosition.bottomLeft]?.isNotEmpty == true ||
+        _tabsByPosition[TabPosition.bottomRight]?.isNotEmpty == true;
 
-    if (fullScreenTabs.isNotEmpty) {
-      // 전체 화면 모드일 때
+    if (fullScreenTabs.isNotEmpty && !hasQuadrantTabs) {
+      // 전체 화면 모드만 (4분할 영역에 탭이 없을 때)
       return _buildFullScreenLayout(fullScreenTabs);
+    } else if (fullScreenTabs.isNotEmpty && hasQuadrantTabs) {
+      // 혼합 모드: 상단 탭 바 + 4분할 레이아웃
+      return _buildMixedLayout(fullScreenTabs, constraints);
     } else {
-      // 4분할 레이아웃
+      // 4분할 레이아웃만
       return _buildQuadrantLayout(constraints);
     }
+  }
+
+  // 혼합 레이아웃: 상단 탭 바 + 4분할 영역
+  Widget _buildMixedLayout(List<TabItem> fullScreenTabs, BoxConstraints constraints) {
+    return Column(
+      children: [
+        // 상단 탭 바 (fullScreen 탭들)
+        Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: fullScreenTabs.map((tab) => Expanded(
+              child: _buildFullScreenTabButton(tab),
+            )).toList(),
+          ),
+        ),
+        // 4분할 영역
+        Expanded(
+          child: _buildQuadrantLayout(constraints),
+        ),
+      ],
+    );
   }
 
   Widget _buildFullScreenLayout(List<TabItem> tabs) {
     return Column(
       children: [
-        // 탭 헤더
+        // 상단 탭 바
         Container(
-          height: 48,
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: Colors.grey[100],
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Row(
             children: tabs.map((tab) => Expanded(
-              child: _buildTabHeader(tab, isFullScreen: true),
+              child: _buildFullScreenTabButton(tab),
             )).toList(),
           ),
         ),
@@ -228,6 +205,123 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     );
   }
 
+  // fullScreen 모드의 탭 버튼
+  Widget _buildFullScreenTabButton(TabItem tab) {
+    final isActive = tab.id == _activeTabId;
+
+    return Draggable<String>(
+      data: tab.id,
+      onDragStarted: () {
+        setState(() {
+          _draggingTabId = tab.id;
+          _animationController.forward();
+        });
+      },
+      onDragEnd: (_) {
+        setState(() {
+          _draggingTabId = null;
+          _hoveredPosition = null;
+          _animationController.reverse();
+        });
+      },
+      feedback: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(tab.icon, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                tab.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                  fontFamily: 'Roboto',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildTabButtonContent(tab, isActive),
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _activeTabId = tab.id;
+          });
+          widget.onTabTapped?.call(tab.id);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: _buildTabButtonContent(tab, isActive),
+      ),
+    );
+  }
+
+  Widget _buildTabButtonContent(TabItem tab, bool isActive) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isActive ? Border.all(
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ) : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            tab.icon,
+            size: 18,
+            color: isActive
+                ? Theme.of(context).primaryColor
+                : Colors.grey[600],
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              tab.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                color: isActive
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey[700],
+              ),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          if (isActive) ...[
+            const SizedBox(width: 2),
+            Icon(
+              Icons.more_vert,
+              size: 12,
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuadrantLayout(BoxConstraints constraints) {
     // 빈 영역 체크 및 확장 로직
     final topLeftTabs = _tabsByPosition[TabPosition.topLeft] ?? [];
@@ -241,212 +335,449 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     final hasBottomLeft = bottomLeftTabs.isNotEmpty;
     final hasBottomRight = bottomRightTabs.isNotEmpty;
 
+    // 기본 4분할 레이아웃 (드래그 가능한 분할선 포함)
     final screenSize = MediaQuery.of(context).size;
 
-    // 세로 모드: 상하 2분할만 사용
+    // 상단과 하단에 탭이 있는지 여부
+    final showTopVerticalDivider = hasTopLeft && hasTopRight;
+    final showBottomVerticalDivider = hasBottomLeft && hasBottomRight;
+
+    // 세로 모드 판단
+    final isPortrait = screenSize.height > screenSize.width;
+
     if (isPortrait) {
-      // 상단과 하단에 탭이 있는지 확인
-      final hasTop = hasTopLeft || hasTopRight;
-      final hasBottom = hasBottomLeft || hasBottomRight;
+      // 세로 모드: 상하 분할선 드래그 시 좌우 영역이 같이 조절
 
-      return Column(
-        children: [
-          // 상단 영역 (topLeft와 topRight 통합)
-          if (hasTop && hasBottom)
-            Expanded(
-              flex: (_horizontalDividerRatio * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (hasTop && !hasBottom)
-            Expanded(
-              flex: 70,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (!hasTop && hasBottom)
-            Expanded(
-              flex: 30,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          // 가로 분할선
-          if (hasTop || hasBottom)
-            _buildHorizontalDivider(
-              onDrag: (delta) {
-                setState(() {
-                  _horizontalDividerRatio = (_horizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
-                });
-              },
-            ),
-          // 하단 영역 (bottomLeft와 bottomRight 통합)
-          if (hasTop && hasBottom)
-            Expanded(
-              flex: ((1 - _horizontalDividerRatio) * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (hasTop && !hasBottom)
-            Expanded(
-              flex: 30,
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (!hasTop && hasBottom)
-            Expanded(
-              flex: 70,
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          // 아무것도 없을 때
-          if (!hasTop && !hasBottom) ...[
-            Expanded(
-              flex: 50,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-            _buildHorizontalDivider(
-              onDrag: (delta) {
-                setState(() {
-                  _horizontalDividerRatio = (_horizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
-                });
-              },
-            ),
-            Expanded(
-              flex: 50,
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          ],
-        ],
-      );
-    }
+      // 빈 영역 확장 로직 - 단, 모든 탭이 하나의 영역에만 있을 때는 4분할 레이아웃 유지 (드래그 타겟 제공)
+      final allTabsInOneArea = (hasTopLeft && !hasTopRight && !hasBottomLeft && !hasBottomRight) ||
+                                (!hasTopLeft && hasTopRight && !hasBottomLeft && !hasBottomRight) ||
+                                (!hasTopLeft && !hasTopRight && hasBottomLeft && !hasBottomRight) ||
+                                (!hasTopLeft && !hasTopRight && !hasBottomLeft && hasBottomRight);
 
-    // 가로 모드: 좌우 2분할만 사용
-    else {
-      // 좌측과 우측에 탭이 있는지 확인
-      final hasLeft = hasTopLeft || hasBottomLeft;
-      final hasRight = hasTopRight || hasBottomRight;
+      if (!allTabsInOneArea) {
+        // 좌측이 모두 비어있으면 우측만 표시
+        if (!hasTopLeft && !hasBottomLeft && (hasTopRight || hasBottomRight)) {
+          return _buildQuadrant(
+            hasTopRight ? TabPosition.topRight : TabPosition.bottomRight,
+            double.infinity,
+            double.infinity,
+          );
+        }
+
+        // 우측이 모두 비어있으면 좌측만 표시
+        if (!hasTopRight && !hasBottomRight && (hasTopLeft || hasBottomLeft)) {
+          return _buildQuadrant(
+            hasTopLeft ? TabPosition.topLeft : TabPosition.bottomLeft,
+            double.infinity,
+            double.infinity,
+          );
+        }
+
+        // 상단이 모두 비어있으면 하단만 표시
+        if (!hasTopLeft && !hasTopRight && (hasBottomLeft || hasBottomRight)) {
+          return _buildQuadrant(
+            hasBottomLeft ? TabPosition.bottomLeft : TabPosition.bottomRight,
+            double.infinity,
+            double.infinity,
+          );
+        }
+
+        // 하단이 모두 비어있으면 상단만 표시
+        if (!hasBottomLeft && !hasBottomRight && (hasTopLeft || hasTopRight)) {
+          return _buildQuadrant(
+            hasTopLeft ? TabPosition.topLeft : TabPosition.topRight,
+            double.infinity,
+            double.infinity,
+          );
+        }
+      }
+
+      // 빈 영역 최소화 레이아웃 (빈 영역은 최소 크기로, 구분선은 항상 표시)
+      const minEmptySize = 40.0; // 빈 영역의 최소 크기
 
       return Row(
         children: [
-          // 좌측 영역 (topLeft와 bottomLeft 통합)
-          if (hasLeft && hasRight)
+          // 좌측 영역 (좌상단 + 좌하단)
+          if (hasTopLeft || hasBottomLeft)
             Expanded(
-              flex: (_topVerticalDividerRatio * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
+              flex: (_verticalDividerRatio * 100).round(),
+              child: Column(
+                children: [
+                  // 좌상단
+                  if (hasTopLeft)
+                    Expanded(
+                      flex: (_leftHorizontalDividerRatio * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.topLeft,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.topLeft,
+                        double.infinity,
+                        minEmptySize,
+                      ),
+                    ),
+                  // 가로 분할선 (좌우 동시 조절) - 항상 표시
+                  if (hasTopLeft || hasBottomLeft)
+                    _buildHorizontalDivider(
+                      onDrag: (delta) {
+                        setState(() {
+                          final newRatio = (_leftHorizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
+                          _leftHorizontalDividerRatio = newRatio;
+                          _rightHorizontalDividerRatio = newRatio;
+                        });
+                      },
+                    ),
+                  // 좌하단
+                  if (hasBottomLeft)
+                    Expanded(
+                      flex: ((1 - _leftHorizontalDividerRatio) * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.bottomLeft,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.bottomLeft,
+                        double.infinity,
+                        minEmptySize,
+                      ),
+                    ),
+                ],
               ),
             )
-          else if (hasLeft && !hasRight)
+          else
+            SizedBox(
+              width: minEmptySize,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.topLeft,
+                      minEmptySize,
+                      double.infinity,
+                    ),
+                  ),
+                  _buildHorizontalDivider(
+                    onDrag: (delta) {
+                      setState(() {
+                        final newRatio = (_leftHorizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
+                        _leftHorizontalDividerRatio = newRatio;
+                        _rightHorizontalDividerRatio = newRatio;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.bottomLeft,
+                      minEmptySize,
+                      double.infinity,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // 중앙 세로 분할선 - 항상 표시
+          _buildVerticalDivider(
+            onDrag: (delta) {
+              setState(() {
+                _verticalDividerRatio = (_verticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
+              });
+            },
+          ),
+          // 우측 영역 (우상단 + 우하단)
+          if (hasTopRight || hasBottomRight)
             Expanded(
-              flex: 70,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
+              flex: ((1 - _verticalDividerRatio) * 100).round(),
+              child: Column(
+                children: [
+                  // 우상단
+                  if (hasTopRight)
+                    Expanded(
+                      flex: (_rightHorizontalDividerRatio * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.topRight,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.topRight,
+                        double.infinity,
+                        minEmptySize,
+                      ),
+                    ),
+                  // 가로 분할선 (좌우 동시 조절) - 항상 표시
+                  if (hasTopRight || hasBottomRight)
+                    _buildHorizontalDivider(
+                      onDrag: (delta) {
+                        setState(() {
+                          final newRatio = (_rightHorizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
+                          _leftHorizontalDividerRatio = newRatio;
+                          _rightHorizontalDividerRatio = newRatio;
+                        });
+                      },
+                    ),
+                  // 우하단
+                  if (hasBottomRight)
+                    Expanded(
+                      flex: ((1 - _rightHorizontalDividerRatio) * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.bottomRight,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.bottomRight,
+                        double.infinity,
+                        minEmptySize,
+                      ),
+                    ),
+                ],
               ),
             )
-          else if (!hasLeft && hasRight)
-            Expanded(
-              flex: 30,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
+          else
+            SizedBox(
+              width: minEmptySize,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.topRight,
+                      minEmptySize,
+                      double.infinity,
+                    ),
+                  ),
+                  _buildHorizontalDivider(
+                    onDrag: (delta) {
+                      setState(() {
+                        final newRatio = (_rightHorizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
+                        _leftHorizontalDividerRatio = newRatio;
+                        _rightHorizontalDividerRatio = newRatio;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.bottomRight,
+                      minEmptySize,
+                      double.infinity,
+                    ),
+                  ),
+                ],
               ),
             ),
-          // 세로 분할선
-          if (hasLeft || hasRight)
-            _buildVerticalDivider(
-              onDrag: (delta) {
-                setState(() {
-                  _topVerticalDividerRatio = (_topVerticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
-                  _bottomVerticalDividerRatio = _topVerticalDividerRatio;
-                });
-              },
-            ),
-          // 우측 영역 (topRight와 bottomRight 통합)
-          if (hasLeft && hasRight)
+        ],
+      );
+    } else {
+      // 가로 모드: 빈 영역 최소화 레이아웃
+      const minEmptySize = 40.0;
+
+      return Column(
+        children: [
+          // 상단 영역 (좌상단 + 우상단)
+          if (hasTopLeft || hasTopRight)
             Expanded(
-              flex: ((1 - _topVerticalDividerRatio) * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.topRight,
-                double.infinity,
-                double.infinity,
+              flex: (_leftHorizontalDividerRatio * 100).round(),
+              child: Row(
+                children: [
+                  // 좌상단
+                  if (hasTopLeft)
+                    Expanded(
+                      flex: (_verticalDividerRatio * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.topLeft,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.topLeft,
+                        minEmptySize,
+                        double.infinity,
+                      ),
+                    ),
+                  // 세로 분할선 (상하 동시 조절) - 항상 표시
+                  if (hasTopLeft || hasTopRight)
+                    _buildVerticalDivider(
+                      onDrag: (delta) {
+                        setState(() {
+                          final newRatio = (_verticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
+                          _verticalDividerRatio = newRatio;
+                          _verticalDividerRatio = newRatio;
+                        });
+                      },
+                    ),
+                  // 우상단
+                  if (hasTopRight)
+                    Expanded(
+                      flex: ((1 - _verticalDividerRatio) * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.topRight,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.topRight,
+                        minEmptySize,
+                        double.infinity,
+                      ),
+                    ),
+                ],
               ),
             )
-          else if (hasLeft && !hasRight)
+          else
+            SizedBox(
+              height: minEmptySize,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.topLeft,
+                      double.infinity,
+                      minEmptySize,
+                    ),
+                  ),
+                  _buildVerticalDivider(
+                    onDrag: (delta) {
+                      setState(() {
+                        final newRatio = (_verticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
+                        _verticalDividerRatio = newRatio;
+                        _verticalDividerRatio = newRatio;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.topRight,
+                      double.infinity,
+                      minEmptySize,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // 중앙 가로 분할선 - 항상 표시
+          _buildHorizontalDivider(
+            onDrag: (delta) {
+              setState(() {
+                _leftHorizontalDividerRatio = (_leftHorizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
+                _rightHorizontalDividerRatio = _leftHorizontalDividerRatio;
+              });
+            },
+          ),
+          // 하단 영역 (좌하단 + 우하단)
+          if (hasBottomLeft || hasBottomRight)
             Expanded(
-              flex: 30,
-              child: _buildQuadrant(
-                TabPosition.topRight,
-                double.infinity,
-                double.infinity,
+              flex: ((1 - _leftHorizontalDividerRatio) * 100).round(),
+              child: Row(
+                children: [
+                  // 좌하단
+                  if (hasBottomLeft)
+                    Expanded(
+                      flex: (_verticalDividerRatio * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.bottomLeft,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.bottomLeft,
+                        minEmptySize,
+                        double.infinity,
+                      ),
+                    ),
+                  // 세로 분할선 (상하 동시 조절) - 항상 표시
+                  if (hasBottomLeft || hasBottomRight)
+                    _buildVerticalDivider(
+                      onDrag: (delta) {
+                        setState(() {
+                          final newRatio = (_verticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
+                          _verticalDividerRatio = newRatio;
+                          _verticalDividerRatio = newRatio;
+                        });
+                      },
+                    ),
+                  // 우하단
+                  if (hasBottomRight)
+                    Expanded(
+                      flex: ((1 - _verticalDividerRatio) * 100).round(),
+                      child: _buildQuadrant(
+                        TabPosition.bottomRight,
+                        double.infinity,
+                        double.infinity,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: minEmptySize,
+                      child: _buildQuadrant(
+                        TabPosition.bottomRight,
+                        minEmptySize,
+                        double.infinity,
+                      ),
+                    ),
+                ],
               ),
             )
-          else if (!hasLeft && hasRight)
-            Expanded(
-              flex: 70,
-              child: _buildQuadrant(
-                TabPosition.topRight,
-                double.infinity,
-                double.infinity,
+          else
+            SizedBox(
+              height: minEmptySize,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.bottomLeft,
+                      double.infinity,
+                      minEmptySize,
+                    ),
+                  ),
+                  _buildVerticalDivider(
+                    onDrag: (delta) {
+                      setState(() {
+                        final newRatio = (_verticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
+                        _verticalDividerRatio = newRatio;
+                        _verticalDividerRatio = newRatio;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: _buildQuadrant(
+                      TabPosition.bottomRight,
+                      double.infinity,
+                      minEmptySize,
+                    ),
+                  ),
+                ],
               ),
             ),
-          // 아무것도 없을 때
-          if (!hasLeft && !hasRight) ...[
-            Expanded(
-              flex: 50,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-            _buildVerticalDivider(
-              onDrag: (delta) {
-                setState(() {
-                  _topVerticalDividerRatio = (_topVerticalDividerRatio + delta.delta.dx / screenSize.width).clamp(0.1, 0.9);
-                  _bottomVerticalDividerRatio = _topVerticalDividerRatio;
-                });
-              },
-            ),
-            Expanded(
-              flex: 50,
-              child: _buildQuadrant(
-                TabPosition.topRight,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          ],
         ],
       );
     }
@@ -486,34 +817,31 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
           return Column(
             children: [
-              // 탭 헤더
-              if (tabs.length > 1)
-                Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                      ),
+              // 탭 헤더 (항상 표시)
+              Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: Row(
-                    children: tabs.map((tab) => Expanded(
-                      child: _buildTabHeader(tab, isFullScreen: false),
-                    )).toList(),
-                  ),
                 ),
+                child: Row(
+                  children: tabs.map((tab) => Expanded(
+                    child: _buildTabHeader(tab, isFullScreen: false),
+                  )).toList(),
+                ),
+              ),
               // 탭 컨텐츠
               Expanded(
-                child: tabs.length == 1
-                    ? _buildSingleTabContent(tabs.first)
-                    : tabs.isNotEmpty
-                        ? IndexedStack(
-                            index: tabs.indexWhere((tab) => tab.id == _activeTabId).clamp(0, tabs.length - 1),
-                            children: tabs.map((tab) => tab.content).toList(),
-                          )
-                        : const SizedBox.shrink(),
+                child: tabs.isNotEmpty
+                    ? IndexedStack(
+                        index: tabs.indexWhere((tab) => tab.id == _activeTabId).clamp(0, tabs.length - 1),
+                        children: tabs.map((tab) => tab.content).toList(),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           );
@@ -692,16 +1020,17 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 14,
-                  color: isActive
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
-                      : Colors.grey.withValues(alpha: 0.5),
+              if (!isDragging)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 14,
+                    color: isActive
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                        : Colors.grey.withValues(alpha: 0.5),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -769,56 +1098,77 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
+            Theme.of(context).primaryColor.withValues(alpha: 0.2),
             Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            Theme.of(context).primaryColor.withValues(alpha: 0.05),
           ],
-        ) : null,
+        ) : LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey.withValues(alpha: 0.05),
+            Colors.grey.withValues(alpha: 0.02),
+          ],
+        ),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isHovered
+              ? Theme.of(context).primaryColor.withValues(alpha: 0.5)
+              : Colors.grey.withValues(alpha: 0.2),
+          width: isHovered ? 3 : 2,
+          style: BorderStyle.solid,
+        ),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedScale(
-              scale: isHovered ? 1.2 : 1.0,
+              scale: isHovered ? 1.3 : 1.0,
               duration: const Duration(milliseconds: 200),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isHovered
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
+                      ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+                      : Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isHovered
-                        ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.4)
                         : Colors.grey.withValues(alpha: 0.3),
                     width: 2,
                     style: BorderStyle.solid,
                   ),
+                  boxShadow: isHovered ? [
+                    BoxShadow(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ] : null,
                 ),
                 child: Icon(
                   Icons.add_box_outlined,
-                  size: 48,
+                  size: 56,
                   color: isHovered
                       ? Theme.of(context).primaryColor
                       : Colors.grey[400],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               _getPositionLabel(position),
               style: TextStyle(
                 color: isHovered
                     ? Theme.of(context).primaryColor
                     : Colors.grey[600],
-                fontSize: 16,
-                fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
+                fontSize: 18,
+                fontWeight: isHovered ? FontWeight.bold : FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             AnimatedOpacity(
               opacity: isHovered ? 1.0 : 0.7,
               duration: const Duration(milliseconds: 200),
@@ -1022,14 +1372,25 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     setState(() {
       // 탭 찾기
       TabItem? tab;
+      TabPosition? oldPosition;
       for (final t in widget.tabs) {
         if (t.id == tabId) {
           tab = t;
+          oldPosition = t.position;
           break;
         }
       }
 
       if (tab != null) {
+        // 새 위치가 빈 영역인지 확인 (이동하려는 탭이 동일한 위치에 있는지도 고려)
+        final currentTabsInNewPosition = _tabsByPosition[newPosition] ?? [];
+        // wasEmpty: 새 위치에 탭이 없거나, 있다면 이동하려는 탭 자신뿐인 경우
+        final wasEmpty = currentTabsInNewPosition.isEmpty ||
+                         (currentTabsInNewPosition.length == 1 && currentTabsInNewPosition.first.id == tabId);
+
+        // 이전 위치 저장 (로그용)
+        final oldPos = tab.position;
+
         // 이전 위치에서 제거
         _tabsByPosition[tab.position]?.remove(tab);
 
@@ -1039,8 +1400,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         // 탭 위치 재구성
         _organizeTabsByPosition();
 
-        // 탭이 도킹되면 분할선 비율을 50%로 초기화
-        _resetDividerRatios();
+        // 디버그 로그
+        debugPrint('🔄 탭 이동: $tabId ($oldPos → $newPosition), wasEmpty: $wasEmpty');
+
+        // 빈 영역으로 이동한 경우 해당 영역을 확장
+        if (wasEmpty) {
+          debugPrint('📐 영역 확장: $newPosition');
+          _expandAreaForPosition(newPosition);
+        } else {
+          debugPrint('⚖️ 분할선 비율 초기화: 50/50');
+          // 탭이 도킹되면 분할선 비율을 50%로 초기화
+          _resetDividerRatios();
+        }
 
         // 콜백 호출
         widget.onTabPositionChanged?.call(tabId, newPosition);
@@ -1050,11 +1421,48 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     });
   }
 
+  // 특정 위치의 영역을 확장
+  void _expandAreaForPosition(TabPosition position) {
+    // 드롭된 영역을 50% 크기로 확장
+    // 좌우 분할: 50/50 (0.5)
+    // 상하 분할: 해당 영역만 100% (1.0)
+
+    switch (position) {
+      case TabPosition.topLeft:
+        // 좌상단을 확대: 좌측 50%, 좌측 내에서 상단 100%
+        _verticalDividerRatio = 0.5; // 좌우 50/50
+        _leftHorizontalDividerRatio = 1.0; // 좌측 내 상단 100%
+        _rightHorizontalDividerRatio = 0.5; // 우측은 50/50
+        break;
+      case TabPosition.topRight:
+        // 우상단을 확대: 우측 50%, 우측 내에서 상단 100%
+        _verticalDividerRatio = 0.5; // 좌우 50/50
+        _leftHorizontalDividerRatio = 0.5; // 좌측은 50/50
+        _rightHorizontalDividerRatio = 1.0; // 우측 내 상단 100%
+        break;
+      case TabPosition.bottomLeft:
+        // 좌하단을 확대: 좌측 50%, 좌측 내에서 상단 50%, 하단 50%
+        _verticalDividerRatio = 0.5; // 좌우 50/50
+        _leftHorizontalDividerRatio = 0.5; // 좌측 내 상단 50%, 하단 50%
+        _rightHorizontalDividerRatio = 0.5; // 우측은 50/50
+        break;
+      case TabPosition.bottomRight:
+        // 우하단을 확대: 전체 4개 영역 동일 비율 (각 25%)
+        _verticalDividerRatio = 0.5; // 좌우 50/50
+        _leftHorizontalDividerRatio = 0.5; // 좌측 내 상단 50%, 하단 50%
+        _rightHorizontalDividerRatio = 0.5; // 우측 내 상단 50%, 하단 50%
+        break;
+      case TabPosition.fullScreen:
+        // 전체 화면은 확장할 필요 없음
+        break;
+    }
+  }
+
   // 분할선 비율 초기화
   void _resetDividerRatios() {
-    _horizontalDividerRatio = 0.5;
-    _topVerticalDividerRatio = 0.5;
-    _bottomVerticalDividerRatio = 0.5;
+    _leftHorizontalDividerRatio = 0.5;
+    _rightHorizontalDividerRatio = 0.5;
+    _verticalDividerRatio = 0.5;
   }
 
   // 세로 화면에서 확장된 레이아웃
@@ -1178,17 +1586,8 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           color: Colors.transparent,
           child: Center(
             child: Container(
-              height: 2,
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
+              height: 1,
+              color: Colors.grey.withValues(alpha: 0.3),
             ),
           ),
         ),
@@ -1209,17 +1608,8 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           color: Colors.transparent,
           child: Center(
             child: Container(
-              width: 2,
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 2,
-                    offset: const Offset(1, 0),
-                  ),
-                ],
-              ),
+              width: 1,
+              color: Colors.grey.withValues(alpha: 0.3),
             ),
           ),
         ),
