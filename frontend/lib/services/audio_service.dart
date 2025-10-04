@@ -86,9 +86,9 @@ class AudioService extends ChangeNotifier {
         debugPrint('[AudioService] 오디오 디렉토리 생성: ${littenDir.path}');
       }
 
-      // 파일명 생성 (듣기+년월일시분)
+      // 파일명 생성 (녹음+년월일시분초)
       final now = DateTime.now();
-      final fileName = '듣기${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.m4a';
+      final fileName = '녹음${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.m4a';
       final filePath = '${littenDir.path}/$fileName';
       
       debugPrint('[AudioService] 녹음 파일 경로: $filePath');

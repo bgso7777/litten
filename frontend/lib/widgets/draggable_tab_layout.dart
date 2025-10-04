@@ -59,7 +59,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   Orientation? _previousOrientation;
 
   // 분할선 비율 (0.0 ~ 1.0)
-  double _horizontalDividerRatio = 0.5; // 상하 분할 비율
+  double _horizontalDividerRatio = 0.8; // 상하 분할 비율 (상단 80%, 하단 20%)
   double _topVerticalDividerRatio = 0.5; // 상단 좌우 분할 비율
   double _bottomVerticalDividerRatio = 0.5; // 하단 좌우 분할 비율
 
@@ -263,7 +263,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             )
           else if (hasTop && !hasBottom)
             Expanded(
-              flex: 70,
+              flex: 80,
               child: _buildQuadrant(
                 TabPosition.topLeft,
                 double.infinity,
@@ -272,7 +272,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             )
           else if (!hasTop && hasBottom)
             Expanded(
-              flex: 30,
+              flex: 20,
               child: _buildQuadrant(
                 TabPosition.topLeft,
                 double.infinity,
@@ -300,7 +300,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             )
           else if (hasTop && !hasBottom)
             Expanded(
-              flex: 30,
+              flex: 20,
               child: _buildQuadrant(
                 TabPosition.bottomLeft,
                 double.infinity,
@@ -309,7 +309,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             )
           else if (!hasTop && hasBottom)
             Expanded(
-              flex: 70,
+              flex: 80,
               child: _buildQuadrant(
                 TabPosition.bottomLeft,
                 double.infinity,
@@ -1126,16 +1126,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   }) {
     return GestureDetector(
       onVerticalDragUpdate: onDrag,
+      behavior: HitTestBehavior.opaque, // 영역 전체에서 터치 감지
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeUpDown,
         child: Container(
-          height: 8,
+          height: 12,
           color: Colors.transparent,
           child: Center(
             child: Container(
               height: 2,
               decoration: BoxDecoration(
                 color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(1),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
@@ -1157,16 +1159,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   }) {
     return GestureDetector(
       onHorizontalDragUpdate: onDrag,
+      behavior: HitTestBehavior.opaque, // 영역 전체에서 터치 감지
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeLeftRight,
         child: Container(
-          width: 8,
+          width: 12,
           color: Colors.transparent,
           child: Center(
             child: Container(
               width: 2,
               decoration: BoxDecoration(
                 color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(1),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),

@@ -100,7 +100,7 @@ class _RecordingTabState extends State<RecordingTab> {
                   onPressed: _toggleRecording,
                   backgroundColor: _audioService.isRecording
                       ? Colors.red
-                      : Colors.orange.shade700,
+                      : Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   child: AnimatedBuilder(
                     animation: _audioService,
@@ -132,6 +132,8 @@ class _RecordingTabState extends State<RecordingTab> {
 
     try {
       final audioFiles = await _audioService.getAudioFiles(selectedLitten);
+      // 최신 순으로 정렬
+      audioFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
         _audioFiles = audioFiles;
         _isLoading = false;
@@ -155,18 +157,21 @@ class _RecordingTabState extends State<RecordingTab> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.orange.shade100,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.hearing,
-            color: Colors.orange.shade700,
+            Icons.mic,
+            color: Theme.of(context).colorScheme.primary,
             size: 24,
           ),
         ),
         title: Text(
           audioFile.fileName,
-          style: AppTextStyles.headline3,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -201,7 +206,7 @@ class _RecordingTabState extends State<RecordingTab> {
                   onPressed: () => _playAudio(audioFile),
                   icon: Icon(
                     isCurrentlyPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.orange.shade700,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 );
               },

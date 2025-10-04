@@ -145,7 +145,7 @@ class _HandwritingTabState extends State<HandwritingTab> {
               bottom: 16,
               child: FloatingActionButton(
                 onPressed: _createNewHandwritingFile,
-                backgroundColor: Colors.blue.shade700,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 child: const Icon(
                   Icons.add,
@@ -169,28 +169,33 @@ class _HandwritingTabState extends State<HandwritingTab> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade100,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 border: Border(
-                  bottom: BorderSide(color: Colors.blue.shade200),
+                  bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
                 ),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: _exitEditor,
+                    onPressed: () async {
+                      await _saveHandwritingFile();
+                      await _exitEditor();
+                    },
                     icon: const Icon(Icons.arrow_back),
                     tooltip: '뒤로 가기',
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      _currentHandwritingFile?.displayTitle ?? '새 필기',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    child: Center(
+                      child: Text(
+                        _currentHandwritingFile?.displayTitle ?? '새 필기',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -288,13 +293,13 @@ class _HandwritingTabState extends State<HandwritingTab> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: isSelected ? Colors.blue.shade100 : null,
+            color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
             borderRadius: BorderRadius.circular(8),
-            border: isSelected ? Border.all(color: Colors.blue) : null,
+            border: isSelected ? Border.all(color: Theme.of(context).colorScheme.primary) : null,
           ),
           child: Icon(
             icon,
-            color: isSelected ? Colors.blue : Colors.grey.shade700,
+            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
             size: 20,
           ),
         ),
@@ -498,18 +503,21 @@ class _HandwritingTabState extends State<HandwritingTab> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.blue.shade100,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.gesture,
-            color: Colors.blue.shade700,
+            color: Theme.of(context).colorScheme.primary,
             size: 24,
           ),
         ),
         title: Text(
           handwritingFile.displayTitle,
-          style: AppTextStyles.headline3,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -537,7 +545,7 @@ class _HandwritingTabState extends State<HandwritingTab> {
               onPressed: () => _editHandwritingFile(handwritingFile),
               icon: Icon(
                 Icons.edit,
-                color: Colors.blue.shade700,
+                color: Theme.of(context).colorScheme.primary,
               ),
               tooltip: '편집',
             ),
@@ -732,7 +740,7 @@ class _HandwritingTabState extends State<HandwritingTab> {
         }
       }
 
-      handwritingFiles.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // 최신 순으로 정렬
       return handwritingFiles;
     } catch (e) {
       debugPrint('[HandwritingTab] 필기 파일 목록 조회 오류: $e');

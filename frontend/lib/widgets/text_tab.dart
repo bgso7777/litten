@@ -24,6 +24,7 @@ class _TextTabState extends State<TextTab> {
   bool _isLoading = false;
   bool _isEditing = false;
   TextFile? _currentTextFile;
+  String _initialContent = ''; // 에디터 진입 시 초기 콘텐츠
 
   @override
   void initState() {
@@ -117,7 +118,7 @@ class _TextTabState extends State<TextTab> {
               bottom: 16,
               child: FloatingActionButton(
                 onPressed: _createNewTextFile,
-                backgroundColor: Colors.green.shade700,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 child: const Icon(
                   Icons.add,
@@ -136,31 +137,37 @@ class _TextTabState extends State<TextTab> {
     return Column(
       children: [
         // 상단 헤더
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.green.shade100,
-            border: Border(
-              bottom: BorderSide(color: Colors.green.shade200),
-            ),
-          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
               IconButton(
-                onPressed: _exitEditor,
+                onPressed: () async {
+                  // 현재 콘텐츠 가져오기
+                  final currentContent = await _htmlController.getText();
+
+                  // 초기 콘텐츠와 다를 때만 저장
+                  if (currentContent != _initialContent) {
+                    await _saveTextFile();
+                  }
+
+                  await _exitEditor();
+                },
                 icon: const Icon(Icons.arrow_back),
                 tooltip: '뒤로 가기',
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  _currentTextFile?.displayTitle ?? '새 텍스트',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                child: Center(
+                  child: Text(
+                    _currentTextFile?.displayTitle ?? '새 텍스트',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
@@ -248,18 +255,28 @@ class _TextTabState extends State<TextTab> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.green.shade100,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.description,
-            color: Colors.green.shade700,
+            color: Theme.of(context).colorScheme.primary,
             size: 24,
           ),
         ),
         title: Text(
-          textFile.displayTitle,
-          style: AppTextStyles.headline3,
+          () {
+            // HTML 태그 제거
+            final plainText = textFile.content.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+            // 빈 내용이면 기본 텍스트
+            if (plainText.isEmpty) return '내용 없음';
+            // 10자까지만 표시, 그 이상이면 ... 추가
+            return plainText.length > 10 ? '${plainText.substring(0, 10)}...' : plainText;
+          }(),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -287,7 +304,7 @@ class _TextTabState extends State<TextTab> {
               onPressed: () => _editTextFile(textFile),
               icon: Icon(
                 Icons.edit,
-                color: Colors.green.shade700,
+                color: Theme.of(context).colorScheme.primary,
               ),
               tooltip: '편집',
             ),
@@ -358,7 +375,7 @@ class _TextTabState extends State<TextTab> {
         }
       }
 
-      textFiles.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      textFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // 최신 순으로 정렬
       return textFiles;
     } catch (e) {
       debugPrint('[TextTab] 텍스트 파일 목록 조회 오류: $e');
@@ -380,7 +397,7 @@ class _TextTabState extends State<TextTab> {
       }
 
       final now = DateTime.now();
-      final fileName = '쓰기${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final fileName = '텍스트${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
       final textFile = TextFile(
         id: now.millisecondsSinceEpoch.toString(),
@@ -393,6 +410,7 @@ class _TextTabState extends State<TextTab> {
       setState(() {
         _currentTextFile = textFile;
         _isEditing = true;
+        _initialContent = ''; // 초기 콘텐츠 저장
       });
 
       // HTML 에디터 초기화
@@ -407,6 +425,7 @@ class _TextTabState extends State<TextTab> {
     setState(() {
       _currentTextFile = textFile;
       _isEditing = true;
+      _initialContent = textFile.content; // 초기 콘텐츠 저장
     });
 
     // HTML 에디터가 로딩될 때까지 대기
