@@ -89,42 +89,13 @@ class _HandwritingTabState extends State<HandwritingTab> {
         }
 
         return Container(
-          color: Colors.blue.shade50,
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Stack(
             children: [
               Column(
                 children: [
-                  // 헤더
-                  Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade100,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.blue.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.gesture,
-                      color: Colors.blue.shade700,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '필기 (${_handwritingFiles.length})',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-              // 필기 파일 목록
-              Expanded(
+                  // 필기 파일 목록
+                  Expanded(
                 child: _isLoading
                     ? const Center(
                         child: CircularProgressIndicator(),

@@ -15,7 +15,7 @@
     "description": "Recording tab title"
   },
 
-  "writingTitle": "เขียน",
+  "writingTitle": "บันทึก",
   "@writingTitle": {
     "description": "Writing tab title"
   },

@@ -18,7 +18,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get recordingTitle => 'Слушание';
 
   @override
-  String get writingTitle => 'Письмо';
+  String get writingTitle => 'Заметка';
 
   @override
   String get settingsTitle => 'Настройки';

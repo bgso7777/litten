@@ -18,7 +18,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get recordingTitle => 'Ascultă';
 
   @override
-  String get writingTitle => 'Scrie';
+  String get writingTitle => 'Notă';
 
   @override
   String get settingsTitle => 'Setări';

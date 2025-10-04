@@ -61,42 +61,13 @@ class _TextTabState extends State<TextTab> {
         }
 
         return Container(
-          color: Colors.green.shade50,
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Stack(
             children: [
               Column(
                 children: [
-                  // 헤더
-                  Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.green.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.description,
-                      color: Colors.green.shade700,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '쓰기 (${_textFiles.length})',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-              // 텍스트 파일 목록
-              Expanded(
+                  // 텍스트 파일 목록
+                  Expanded(
                 child: _isLoading
                     ? const Center(
                         child: CircularProgressIndicator(),

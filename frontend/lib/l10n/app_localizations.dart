@@ -175,7 +175,7 @@ abstract class AppLocalizations {
   /// Writing tab title
   ///
   /// In en, this message translates to:
-  /// **'Write'**
+  /// **'Note'**
   String get writingTitle;
 
   /// Settings tab title

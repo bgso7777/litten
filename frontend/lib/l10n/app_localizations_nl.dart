@@ -18,7 +18,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get recordingTitle => 'Luister';
 
   @override
-  String get writingTitle => 'Schrijf';
+  String get writingTitle => 'Notitie';
 
   @override
   String get settingsTitle => 'Instellingen';

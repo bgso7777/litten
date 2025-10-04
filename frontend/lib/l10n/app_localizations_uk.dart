@@ -18,7 +18,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get recordingTitle => 'Слухати';
 
   @override
-  String get writingTitle => 'Писати';
+  String get writingTitle => 'Нотатка';
 
   @override
   String get settingsTitle => 'Налаштування';

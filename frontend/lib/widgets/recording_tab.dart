@@ -42,65 +42,11 @@ class _RecordingTabState extends State<RecordingTab> {
         }
 
         return Container(
-          color: Colors.orange.shade50,
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Stack(
             children: [
               Column(
                 children: [
-                  // 헤더
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      border: Border(
-                        bottom: BorderSide(color: Colors.orange.shade200),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.hearing,
-                          color: Colors.orange.shade700,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '듣기 (${_audioFiles.length})',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                        const Spacer(),
-                        AnimatedBuilder(
-                          animation: _audioService,
-                          builder: (context, child) {
-                            if (_audioService.isRecording) {
-                              return Row(
-                                children: [
-                                  Icon(
-                                    Icons.fiber_manual_record,
-                                    color: Colors.red,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatDuration(_audioService.recordingDuration),
-                                    style: TextStyle(
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
                   // 오디오 파일 목록
                   Expanded(
                     child: _isLoading

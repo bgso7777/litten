@@ -18,7 +18,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recordingTitle => '听写';
 
   @override
-  String get writingTitle => '写作';
+  String get writingTitle => '笔记';
 
   @override
   String get settingsTitle => '设置';

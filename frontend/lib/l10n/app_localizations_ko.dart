@@ -18,7 +18,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get recordingTitle => '듣기';
 
   @override
-  String get writingTitle => '쓰기';
+  String get writingTitle => '노트';
 
   @override
   String get settingsTitle => '설정';

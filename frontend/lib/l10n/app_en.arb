@@ -15,7 +15,7 @@
     "description": "Recording tab title"
   },
   
-  "writingTitle": "Write",
+  "writingTitle": "Note",
   "@writingTitle": {
     "description": "Writing tab title"
   },

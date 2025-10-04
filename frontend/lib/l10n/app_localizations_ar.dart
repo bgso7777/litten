@@ -18,7 +18,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get recordingTitle => 'الاستماع';
 
   @override
-  String get writingTitle => 'الكتابة';
+  String get writingTitle => 'ملاحظة';
 
   @override
   String get settingsTitle => 'الإعدادات';

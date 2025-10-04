@@ -18,7 +18,7 @@ class AppLocalizationsMs extends AppLocalizations {
   String get recordingTitle => 'Dengar';
 
   @override
-  String get writingTitle => 'Tulis';
+  String get writingTitle => 'Nota';
 
   @override
   String get settingsTitle => 'Tetapan';

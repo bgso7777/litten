@@ -18,7 +18,7 @@ class AppLocalizationsPs extends AppLocalizations {
   String get recordingTitle => 'واورئ';
 
   @override
-  String get writingTitle => 'وليکئ';
+  String get writingTitle => 'یادداشت';
 
   @override
   String get settingsTitle => 'تنظيمات';

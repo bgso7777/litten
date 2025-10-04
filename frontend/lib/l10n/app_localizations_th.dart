@@ -18,7 +18,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get recordingTitle => 'ฟัง';
 
   @override
-  String get writingTitle => 'เขียน';
+  String get writingTitle => 'บันทึก';
 
   @override
   String get settingsTitle => 'การตั้งค่า';

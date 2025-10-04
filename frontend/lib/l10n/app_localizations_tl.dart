@@ -18,7 +18,7 @@ class AppLocalizationsTl extends AppLocalizations {
   String get recordingTitle => 'Makinig';
 
   @override
-  String get writingTitle => 'Sumulat';
+  String get writingTitle => 'Tala';
 
   @override
   String get settingsTitle => 'Mga Setting';

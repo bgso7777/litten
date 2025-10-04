@@ -18,7 +18,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get recordingTitle => 'گوش دهید';
 
   @override
-  String get writingTitle => 'بنویسید';
+  String get writingTitle => 'یادداشت';
 
   @override
   String get settingsTitle => 'تنظیمات';

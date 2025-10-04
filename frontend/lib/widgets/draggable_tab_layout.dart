@@ -486,34 +486,31 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
           return Column(
             children: [
-              // 탭 헤더
-              if (tabs.length > 1)
-                Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                      ),
+              // 탭 헤더 (항상 표시)
+              Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: Row(
-                    children: tabs.map((tab) => Expanded(
-                      child: _buildTabHeader(tab, isFullScreen: false),
-                    )).toList(),
-                  ),
                 ),
+                child: Row(
+                  children: tabs.map((tab) => Expanded(
+                    child: _buildTabHeader(tab, isFullScreen: false),
+                  )).toList(),
+                ),
+              ),
               // 탭 컨텐츠
               Expanded(
-                child: tabs.length == 1
-                    ? _buildSingleTabContent(tabs.first)
-                    : tabs.isNotEmpty
-                        ? IndexedStack(
-                            index: tabs.indexWhere((tab) => tab.id == _activeTabId).clamp(0, tabs.length - 1),
-                            children: tabs.map((tab) => tab.content).toList(),
-                          )
-                        : const SizedBox.shrink(),
+                child: tabs.isNotEmpty
+                    ? IndexedStack(
+                        index: tabs.indexWhere((tab) => tab.id == _activeTabId).clamp(0, tabs.length - 1),
+                        children: tabs.map((tab) => tab.content).toList(),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           );
@@ -800,7 +797,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                 ),
                 child: Icon(
                   Icons.add_box_outlined,
-                  size: 48,
+                  size: 24,
                   color: isHovered
                       ? Theme.of(context).primaryColor
                       : Colors.grey[400],
@@ -809,55 +806,13 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             ),
             const SizedBox(height: 16),
             Text(
-              _getPositionLabel(position),
+              '탭을 여기로 드래그하세요 (${_getPositionLabel(position)})',
               style: TextStyle(
                 color: isHovered
                     ? Theme.of(context).primaryColor
                     : Colors.grey[600],
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            AnimatedOpacity(
-              opacity: isHovered ? 1.0 : 0.7,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isHovered
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isHovered
-                        ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                        : Colors.grey.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.touch_app,
-                      size: 14,
-                      color: isHovered
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey[500],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '탭을 여기로 드래그하세요',
-                      style: TextStyle(
-                        color: isHovered
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[500],
-                        fontSize: 12,
-                        fontWeight: isHovered ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],
@@ -991,7 +946,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                     turns: isHovered ? 0.1 : 0.0,
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      Icons.apps,
+                      Icons.folder_outlined,
                       size: isHovered ? 28 : 24,
                       color: isHovered
                           ? Theme.of(context).primaryColor

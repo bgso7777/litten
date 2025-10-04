@@ -18,7 +18,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get recordingTitle => 'Dinle';
 
   @override
-  String get writingTitle => 'Yaz';
+  String get writingTitle => 'Not';
 
   @override
   String get settingsTitle => 'Ayarlar';

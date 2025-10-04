@@ -18,7 +18,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get recordingTitle => 'ऐका';
 
   @override
-  String get writingTitle => 'लिहा';
+  String get writingTitle => 'नोट';
 
   @override
   String get settingsTitle => 'सेटिंग्ज';

@@ -67,16 +67,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: 8),
-                const Icon(Icons.hearing, size: 24),
-                AppSpacing.horizontalSpaceXS,
-                const Icon(Icons.mic, size: 16),
-                AppSpacing.horizontalSpaceXS,
-                const Icon(Icons.draw, size: 16),
+                const Icon(Icons.folder_outlined, size: 24),
                 AppSpacing.horizontalSpaceXS,
                 _buildLittenCountBadge(appState, context),
               ],
             ),
-            leadingWidth: 150,
+            leadingWidth: 120,
             title: appState.selectedLitten != null
                 ? Text(
                     appState.selectedLitten!.title,
@@ -157,7 +153,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.draw),
+                icon: const Icon(Icons.folder_outlined),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(

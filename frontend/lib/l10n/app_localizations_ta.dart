@@ -18,7 +18,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get recordingTitle => 'கேளுங்கள்';
 
   @override
-  String get writingTitle => 'எழுதுங்கள்';
+  String get writingTitle => 'குறிப்பு';
 
   @override
   String get settingsTitle => 'அமைப்புகள்';

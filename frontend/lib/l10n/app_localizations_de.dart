@@ -18,7 +18,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get recordingTitle => 'Hören';
 
   @override
-  String get writingTitle => 'Schreiben';
+  String get writingTitle => 'Notiz';
 
   @override
   String get settingsTitle => 'Einstellungen';

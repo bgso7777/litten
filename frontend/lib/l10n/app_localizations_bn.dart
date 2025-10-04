@@ -18,7 +18,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get recordingTitle => 'শুনুন';
 
   @override
-  String get writingTitle => 'লিখুন';
+  String get writingTitle => 'নোট';
 
   @override
   String get settingsTitle => 'সেটিংস';

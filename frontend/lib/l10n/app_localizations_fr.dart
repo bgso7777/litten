@@ -18,7 +18,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get recordingTitle => 'Écouter';
 
   @override
-  String get writingTitle => 'Écrire';
+  String get writingTitle => 'Note';
 
   @override
   String get settingsTitle => 'Paramètres';

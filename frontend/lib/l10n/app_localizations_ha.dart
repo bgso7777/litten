@@ -18,7 +18,7 @@ class AppLocalizationsHa extends AppLocalizations {
   String get recordingTitle => 'Saurara';
 
   @override
-  String get writingTitle => 'Rubuta';
+  String get writingTitle => 'Bayanin kula';
 
   @override
   String get settingsTitle => 'Saiti';

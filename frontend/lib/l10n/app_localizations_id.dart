@@ -18,7 +18,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get recordingTitle => 'Dengarkan';
 
   @override
-  String get writingTitle => 'Tulis';
+  String get writingTitle => 'Catatan';
 
   @override
   String get settingsTitle => 'Pengaturan';

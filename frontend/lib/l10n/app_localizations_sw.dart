@@ -18,7 +18,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get recordingTitle => 'Sikiza';
 
   @override
-  String get writingTitle => 'Andika';
+  String get writingTitle => 'Kumbukumbu';
 
   @override
   String get settingsTitle => 'Mipangilio';

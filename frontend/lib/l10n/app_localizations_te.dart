@@ -18,7 +18,7 @@ class AppLocalizationsTe extends AppLocalizations {
   String get recordingTitle => 'వినండి';
 
   @override
-  String get writingTitle => 'వ్రాయండి';
+  String get writingTitle => 'నోట్';
 
   @override
   String get settingsTitle => 'సెట్టింగ్స్';

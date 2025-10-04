@@ -18,7 +18,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get recordingTitle => '聞く';
 
   @override
-  String get writingTitle => '書く';
+  String get writingTitle => 'ノート';
 
   @override
   String get settingsTitle => '設定';

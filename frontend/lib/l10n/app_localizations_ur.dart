@@ -18,7 +18,7 @@ class AppLocalizationsUr extends AppLocalizations {
   String get recordingTitle => 'سنیں';
 
   @override
-  String get writingTitle => 'لکھیں';
+  String get writingTitle => 'نوٹ';
 
   @override
   String get settingsTitle => 'ترتیبات';

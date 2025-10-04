@@ -18,7 +18,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get recordingTitle => 'Ouvir';
 
   @override
-  String get writingTitle => 'Escrever';
+  String get writingTitle => 'Nota';
 
   @override
   String get settingsTitle => 'Configurações';

@@ -15,7 +15,7 @@
     "description": "Recording tab title"
   },
 
-  "writingTitle": "Писати",
+  "writingTitle": "Нотатка",
   "@writingTitle": {
     "description": "Writing tab title"
   },

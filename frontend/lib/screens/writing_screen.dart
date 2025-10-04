@@ -28,7 +28,7 @@ class _WritingScreenState extends State<WritingScreen> {
       TabItem(
         id: 'text',
         title: '텍스트',
-        icon: Icons.text_fields,
+        icon: Icons.keyboard,
         content: const TextTab(),
         position: TabPosition.topLeft,
       ),
@@ -41,14 +41,14 @@ class _WritingScreenState extends State<WritingScreen> {
       ),
       TabItem(
         id: 'audio',
-        title: '듣기',
+        title: '녹음',
         icon: Icons.mic,
         content: const RecordingTab(),
         position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
       ),
       TabItem(
         id: 'browser',
-        title: 'Google',
+        title: '검색',
         icon: Icons.public,
         content: const BrowserTab(),
         position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
