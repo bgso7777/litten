@@ -7,6 +7,7 @@ import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_screen.dart';
 import 'writing_screen.dart';
+// import '../widgets/handwriting_tab.dart';
 import 'settings_screen.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
@@ -93,7 +94,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               Expanded(
                 child: IndexedStack(
                   index: appState.selectedTabIndex,
-                  children: const [
+                  children: [
                     HomeScreen(),
                     WritingScreen(),
                     SettingsScreen(),

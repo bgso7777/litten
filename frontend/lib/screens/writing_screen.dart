@@ -18,6 +18,7 @@ class WritingScreen extends StatefulWidget {
 
 class _WritingScreenState extends State<WritingScreen> {
   late List<TabItem> _tabs;
+  final GlobalKey _tabLayoutKey = GlobalKey();
 
   @override
   void initState() {
@@ -29,21 +30,21 @@ class _WritingScreenState extends State<WritingScreen> {
         id: 'text',
         title: '텍스트',
         icon: Icons.keyboard,
-        content: const TextTab(),
+        content: TextTab(),
         position: TabPosition.topLeft,
       ),
       TabItem(
         id: 'handwriting',
         title: '필기',
         icon: Icons.draw,
-        content: const HandwritingTab(),
+        content: HandwritingTab(),
         position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
       ),
       TabItem(
         id: 'audio',
         title: '녹음',
         icon: Icons.mic,
-        content: const RecordingTab(),
+        content: RecordingTab(),
         position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
       ),
       TabItem(
@@ -59,6 +60,21 @@ class _WritingScreenState extends State<WritingScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
+      // child를 사용하여 DraggableTabLayout을 한 번만 생성
+      child: DraggableTabLayout(
+        key: _tabLayoutKey,
+        tabs: _tabs,
+        onTabPositionChanged: (tabId, newPosition) {
+          setState(() {
+            for (final tab in _tabs) {
+              if (tab.id == tabId) {
+                tab.position = newPosition;
+                break;
+              }
+            }
+          });
+        },
+      ),
       builder: (context, appState, child) {
         // 리튼이 선택되지 않았을 때
         if (appState.selectedLitten == null) {
@@ -92,20 +108,8 @@ class _WritingScreenState extends State<WritingScreen> {
           );
         }
 
-        // 드래그 가능한 탭 레이아웃
-        return DraggableTabLayout(
-          tabs: _tabs,
-          onTabPositionChanged: (tabId, newPosition) {
-            setState(() {
-              for (final tab in _tabs) {
-                if (tab.id == tabId) {
-                  tab.position = newPosition;
-                  break;
-                }
-              }
-            });
-          },
-        );
+        // 드래그 가능한 탭 레이아웃 반환 (child 파라미터로 전달된 것)
+        return child!;
       },
     );
   }
