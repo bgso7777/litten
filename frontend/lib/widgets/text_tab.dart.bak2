@@ -1,0 +1,1217 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:html_editor_enhanced/html_editor.dart';
+import 'package:flutter/foundation.dart';
+import '../l10n/app_localizations.dart';
+
+import '../services/app_state_provider.dart';
+import '../services/audio_service.dart';
+import '../widgets/common/empty_state.dart';
+import '../config/themes.dart';
+import '../models/text_file.dart';
+import '../services/file_storage_service.dart';
+import '../services/litten_service.dart';
+
+class TextTab extends StatefulWidget {
+  const TextTab({super.key});
+
+  @override
+  State<TextTab> createState() => _TextTabState();
+}
+
+class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
+  late HtmlEditorController _htmlController;
+  final AudioService _audioService = AudioService();
+
+  // 파일 목록 관련
+  List<TextFile> _textFiles = [];
+  bool _isLoading = false;
+
+  // 툴바 상태 관리
+  bool _isBoldActive = false;
+  bool _isItalicActive = false;
+  bool _isUnderlineActive = false;
+
+  // 편집 상태
+  TextFile? _currentTextFile;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _htmlController = HtmlEditorController();
+
+    _loadFiles();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 앱이 포어그라운드로 돌아왔을 때 파일 목록 재로드
+    if (state == AppLifecycleState.resumed) {
+      _loadFiles();
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // 음성-쓰기 동기화 상태 표시 위젯
+  Widget _buildSyncStatusBar() {
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Icon(
+                _audioService.isRecording ? Icons.mic : Icons.sync,
+                color: Colors.black87,
+                size: 16,
+              );
+            },
+          ),
+          AppSpacing.horizontalSpaceS,
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording
+                    ? (l10n?.recording ?? '듣기 중...')
+                    : (l10n?.recordingTitle ?? '음성 동기화 준비됨'),
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording
+                    ? _formatDuration(_audioService.recordingDuration)
+                    : '00:00',
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    // 메모리 누수 방지를 위한 리소스 정리
+    WidgetsBinding.instance.removeObserver(this);
+    _htmlController.disable();
+    super.dispose();
+  }
+
+  String? _lastLittenId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Consumer<AppStateProvider>(
+      builder: (context, appState, child) {
+        // 리튼이 변경되었을 때 파일 목록 재로드
+        if (appState.selectedLitten?.id != _lastLittenId) {
+          _lastLittenId = appState.selectedLitten?.id;
+          if (appState.selectedLitten != null) {
+            // 새로운 리튼으로 변경되었으므로 파일 목록 재로드
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadFiles();
+            });
+          }
+        }
+
+        if (appState.selectedLitten == null) {
+          return EmptyState(
+            icon: Icons.edit_note,
+            title: l10n?.emptyLittenTitle ?? '리튼을 선택해주세요',
+            description:
+                l10n?.emptyLittenDescription ??
+                '쓰기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
+            actionText: l10n?.homeTitle ?? '홈으로 이동',
+            onAction: () => appState.changeTabIndex(0),
+          );
+        }
+
+        if (_isEditing && _currentTextFile != null) {
+          return _buildTextEditor();
+        }
+
+        return _buildFileListView();
+      },
+    );
+  }
+
+  Future<void> _loadFiles() async {
+    if (!mounted) return; // 위젯이 dispose된 경우 return
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten != null) {
+        final storage = FileStorageService.instance;
+
+        // 텍스트 파일 로드
+        final loadedTextFiles = await storage.loadTextFiles(selectedLitten.id);
+
+        // 한 번의 setState로 모든 상태 업데이트
+        if (mounted) {
+          setState(() {
+            _textFiles
+              ..clear()
+              ..addAll(loadedTextFiles);
+            _isLoading = false;
+          });
+        }
+
+        print(
+          '디버그: 파일 목록 로드 완료 - 텍스트: ${_textFiles.length}개',
+        );
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('에러: 파일 로드 실패 - $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildFileListView() {
+    final l10n = AppLocalizations.of(context);
+
+    return Column(
+      children: [
+        // 음성-쓰기 동기화 상태 표시
+        _buildSyncStatusBar(),
+        // 파일 목록
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    // 텍스트 파일 섹션
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // 텍스트 파일 헤더
+                          Container(
+                            padding: AppSpacing.paddingM,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              border: Border(
+                                bottom: BorderSide(color: Colors.grey.shade200),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.keyboard,
+                                  size: 20,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                AppSpacing.horizontalSpaceS,
+                                Text(
+                                  '텍스트 (${_textFiles.length})',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 텍스트 파일 리스트
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                _textFiles.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.keyboard,
+                                              size: 48,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            AppSpacing.verticalSpaceS,
+                                            Text(
+                                              '텍스트 파일이 없습니다',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        itemCount: _textFiles.length,
+                                        itemBuilder: (context, index) {
+                                          return _buildTextFileItem(
+                                            _textFiles[index],
+                                          );
+                                        },
+                                      ),
+                                // 텍스트 쓰기 버튼 (오른쪽 아래 고정)
+                                Positioned(
+                                  right: 16,
+                                  bottom: 16,
+                                  child: FloatingActionButton(
+                                    onPressed: _createNewTextFile,
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).primaryColor,
+                                    foregroundColor: Colors.white,
+                                    mini: true,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.keyboard, size: 16),
+                                        SizedBox(width: 2),
+                                        Icon(Icons.add, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _createNewTextFile() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+
+    if (selectedLitten != null) {
+      // 현재 시간 기반 제목 생성
+      final now = DateTime.now();
+      final defaultTitle =
+          '텍스트 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+      final newTextFile = TextFile(
+        littenId: selectedLitten.id,
+        title: defaultTitle,
+        content: '',
+      );
+
+      print('디버그: 새로운 텍스트 파일 생성 - $defaultTitle');
+
+      setState(() {
+        _currentTextFile = newTextFile;
+        _isEditing = true;
+      });
+    }
+  }
+
+  void _editTextFile(TextFile file) async {
+    setState(() {
+      _currentTextFile = file;
+      _isEditing = true;
+    });
+
+    // HTML 에디터가 로딩될 때까지 대기
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      // HTML 컨텐츠 로드
+      _htmlController.setText(file.content);
+    } catch (e) {
+      print('HTML 에디터 로딩 에러: $e');
+    }
+  }
+
+  void _editHandwritingFile(HandwritingFile file) async {
+    // UI를 즉시 편집 모드로 전환하고 제스처 도구를 기본으로 선택
+    setState(() {
+      _currentHandwritingFile = file;
+      _isEditing = true;
+      _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
+      _isGestureMode = true; // 제스처 모드 활성화
+    });
+
+    // 이미지 로딩을 비동기로 처리하여 UI 블로킹 방지
+    _loadHandwritingImageAsync(file);
+
+    print('DEBUG: 필기 편집 시작 - 제스처 모드로 기본 설정');
+  }
+
+  // 비동기 이미지 로딩 함수
+  void _loadHandwritingImageAsync(HandwritingFile file) async {
+    try {
+      // 저장된 필기 이미지 로드
+      await _loadHandwritingImage(file);
+
+      // 로딩 완료 후 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
+    } catch (e) {
+      print('ERROR: 필기 이미지 비동기 로딩 실패 - $e');
+    }
+  }
+
+  // 페이지 네비게이션 메서드들
+  void _goToNextPage() async {
+    if (_currentHandwritingFile?.canGoNextPage == true) {
+      // 현재 페이지의 필기 내용을 저장
+      await _saveCurrentPageDrawing();
+
+      // 다음 페이지로 이동
+      final nextPageFile = _currentHandwritingFile!.goToNextPage();
+      setState(() {
+        _currentHandwritingFile = nextPageFile;
+      });
+
+      // 다음 페이지 이미지 로드
+      await _loadHandwritingImage(nextPageFile);
+
+      print('DEBUG: 다음 페이지로 이동 - ${nextPageFile.pageInfo}');
+    }
+  }
+
+  void _goToPreviousPage() async {
+    if (_currentHandwritingFile?.canGoPreviousPage == true) {
+      // 현재 페이지의 필기 내용을 저장
+      await _saveCurrentPageDrawing();
+
+      // 이전 페이지로 이동
+      final previousPageFile = _currentHandwritingFile!.goToPreviousPage();
+      setState(() {
+        _currentHandwritingFile = previousPageFile;
+      });
+
+      // 이전 페이지 이미지 로드
+      await _loadHandwritingImage(previousPageFile);
+
+      print('DEBUG: 이전 페이지로 이동 - ${previousPageFile.pageInfo}');
+    }
+  }
+
+  /// 더블 탭 처리 (좌측/우측 화면 절반에 따른 페이지 이동)
+  void _handleDoubleTap(Offset position) {
+    print('DEBUG: 더블 탭 감지 - 위치: $position');
+
+    // 제스처 모드가 아닌 경우에만 동작
+    if (_selectedTool != '제스처') {
+      print('DEBUG: 제스처 모드가 아니므로 더블 탭 무시');
+      return;
+    }
+
+    // 다중 페이지 파일이 아닌 경우 무시
+    if (_currentHandwritingFile?.isMultiPage != true) {
+      print('DEBUG: 단일 페이지 파일이므로 더블 탭 무시');
+      return;
+    }
+
+    // 화면 너비의 절반을 기준으로 좌측/우측 판단
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLeftSide = position.dx < screenWidth / 2;
+
+    print(
+      'DEBUG: 더블 탭 위치 판단 - ${isLeftSide ? '좌측' : '우측'} (${position.dx}/${screenWidth})',
+    );
+
+    if (isLeftSide) {
+      // 좌측 더블 탭 -> 이전 페이지로 이동
+      if (_currentHandwritingFile!.canGoPreviousPage) {
+        print('DEBUG: 좌측 더블 탭 -> 이전 페이지로 이동');
+        _goToPreviousPage();
+      } else {
+        print('DEBUG: 이전 페이지가 없음');
+      }
+    } else {
+      // 우측 더블 탭 -> 다음 페이지로 이동
+      if (_currentHandwritingFile!.canGoNextPage) {
+        print('DEBUG: 우측 더블 탭 -> 다음 페이지로 이동');
+        _goToNextPage();
+      } else {
+        print('DEBUG: 다음 페이지가 없음');
+      }
+    }
+  }
+
+  /// 탭 이벤트 처리 (더블 탭 감지)
+  void _handleTap(Offset position) {
+    final now = DateTime.now();
+
+    // 텍스트 도구가 선택된 경우 즉시 텍스트 입력 모드 시작
+    if (_selectedTool == '텍스트') {
+      print('DEBUG: 텍스트 도구 선택됨 - 즉시 입력 모드 시작');
+      _handleTextToolTap(position);
+      return;
+    }
+
+    // 이전 탭 시간과 위치 확인
+    if (_lastTapTime != null && _lastTapPosition != null) {
+      final timeDiff = now.difference(_lastTapTime!);
+      final positionDiff = (position - _lastTapPosition!).distance;
+
+      // 더블 탭 조건 확인
+      if (timeDiff <= _doubleTapTimeout &&
+          positionDiff <= _doubleTapDistanceThreshold) {
+        print(
+          'DEBUG: 더블 탭 조건 만족 - 시간차: ${timeDiff.inMilliseconds}ms, 거리차: ${positionDiff.toStringAsFixed(1)}px',
+        );
+        _handleDoubleTap(position);
+
+        // 더블 탭 처리 후 초기화
+        _lastTapTime = null;
+        _lastTapPosition = null;
+        return;
+      }
+    }
+
+    // 단일 탭으로 처리 (더블 탭 대기를 위한 정보 저장)
+    _lastTapTime = now;
+    _lastTapPosition = position;
+    print('DEBUG: 단일 탭 감지 - 더블 탭 대기 중');
+  }
+
+  void _handleTextToolTap(Offset position) {
+    try {
+      print('DEBUG: 텍스트 도구 탭 처리 시작 - 위치: $position');
+
+      // 터치 위치를 캔버스 좌표계로 변환
+      final canvasPosition = _transformLocalToCanvasCoordinates(position);
+
+      // 캔버스 좌표 저장
+      _textInputPosition = canvasPosition;
+
+      // 화면 좌표 계산 (UI 배치용)
+      final screenPosition = _calculateGlobalTextInputPosition(position);
+
+      // 텍스트 컨트롤러 초기화
+      _canvasTextController?.clear();
+
+      setState(() {
+        _screenTextInputPosition = screenPosition;
+        _isTextInputMode = true;
+      });
+
+      print('DEBUG: 텍스트 입력 모드 즉시 시작 완료');
+      print('DEBUG: 캔버스 위치: $canvasPosition');
+      print('DEBUG: 화면 위치: $screenPosition');
+    } catch (e) {
+      print('DEBUG: 텍스트 도구 탭 처리 중 오류 - $e');
+    }
+  }
+
+  Future<void> _saveCurrentPageDrawing() async {
+    if (_currentHandwritingFile != null && _painterController != null) {
+      try {
+        // 필기 내용이 있는지 확인 (drawables 목록으로 체크)
+        if (_painterController.drawables.isEmpty) {
+          print('DEBUG: 필기 내용이 없어서 저장하지 않음 (원본 배경 이미지 품질 보존)');
+          return;
+        }
+
+        // Old 파일 방식: 배경 이미지 원본 크기로 렌더링
+        Size renderSize;
+        if (_backgroundImageOriginalSize != null) {
+          // 배경 이미지가 있는 경우 원본 크기 사용 (품질 보존)
+          renderSize = _backgroundImageOriginalSize!;
+          print(
+            'DEBUG: 배경 이미지 원본 크기로 렌더링 - ${renderSize.width}x${renderSize.height}',
+          );
+        } else {
+          // 배경 이미지가 없는 경우 고해상도 사용 (비율 유지)
+          final aspectRatio = _backgroundImageAspectRatio ?? 1.414; // A4 비율 기본값
+          const double targetWidth = 1200; // 고해상도
+          final double targetHeight = targetWidth / aspectRatio;
+          renderSize = Size(targetWidth, targetHeight);
+          print('DEBUG: 고해상도로 렌더링 - ${renderSize.width}x${renderSize.height}');
+        }
+        final ui.Image renderedImage = await _painterController!.renderImage(
+          renderSize,
+        );
+
+        final ByteData? byteData = await renderedImage.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+
+        if (byteData != null) {
+          final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+          if (kIsWeb) {
+            await _saveCurrentPageDrawingForWeb(pngBytes);
+          } else {
+            await _saveCurrentPageDrawingForMobile(pngBytes);
+          }
+        }
+      } catch (e) {
+        print('ERROR: 페이지 필기 내용 저장 실패 - $e');
+      }
+    }
+  }
+
+  Future<void> _saveCurrentPageDrawingForWeb(Uint8List pngBytes) async {
+    final storage = FileStorageService.instance;
+
+    String drawingKey;
+    if (_currentHandwritingFile!.isMultiPage &&
+        _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
+      // 다중 페이지인 경우 필기 레이어 키 생성
+      drawingKey =
+          '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
+      print('DEBUG: 웹 - 다중 페이지 필기 레이어 저장 - $drawingKey');
+    } else {
+      // 단일 페이지인 경우 필기 레이어 키 생성
+      drawingKey = '${_currentHandwritingFile!.id}_drawing.png';
+      print('DEBUG: 웹 - 단일 페이지 필기 레이어 저장 - $drawingKey');
+    }
+
+    final success = await storage.saveImageBytesToWeb(drawingKey, pngBytes);
+    if (success) {
+      print(
+        'DEBUG: 웹 - 현재 페이지 필기 내용 저장 완료 - ${_currentHandwritingFile!.pageInfo}, 키: $drawingKey',
+      );
+    } else {
+      print('ERROR: 웹 - 현재 페이지 필기 내용 저장 실패 - $drawingKey');
+    }
+  }
+
+  Future<void> _saveCurrentPageDrawingForMobile(Uint8List pngBytes) async {
+    // 현재 페이지의 이미지를 직접 파일로 저장
+    final directory = await getApplicationDocumentsDirectory();
+    final littenDir = Directory(
+      '${directory.path}/litten_${_currentHandwritingFile!.littenId}',
+    );
+
+    String fileName;
+    if (_currentHandwritingFile!.isMultiPage &&
+        _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
+      // 다중 페이지인 경우 필기 레이어 파일명 생성
+      fileName =
+          '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
+      print('DEBUG: 모바일 - 다중 페이지 필기 레이어 저장 - $fileName');
+    } else {
+      // 단일 페이지인 경우 필기 레이어 파일명 생성
+      fileName = '${_currentHandwritingFile!.id}_drawing.png';
+      print('DEBUG: 모바일 - 단일 페이지 필기 레이어 저장 - $fileName');
+    }
+
+    final pageFile = File('${littenDir.path}/$fileName');
+    await pageFile.writeAsBytes(pngBytes);
+
+    print(
+      'DEBUG: 모바일 - 현재 페이지 필기 내용 저장 완료 - ${_currentHandwritingFile!.pageInfo}, 파일: $fileName',
+    );
+  }
+
+  Future<void> _loadHandwritingImage(HandwritingFile file) async {
+    try {
+      print('디버그: 필기 이미지 로드 시작 - ${file.displayTitle} ${file.pageInfo}');
+
+      if (kIsWeb) {
+        await _loadHandwritingImageForWeb(file);
+      } else {
+        await _loadHandwritingImageForMobile(file);
+      }
+    } catch (e) {
+      print('에러: 필기 이미지 로드 실패 - $e');
+    }
+  }
+
+  Future<void> _loadHandwritingImageForWeb(HandwritingFile file) async {
+    final storage = FileStorageService.instance;
+
+    // 캔버스를 클리어
+    _painterController.clearDrawables();
+
+    // 파일에 저장된 비율 정보를 먼저 복원
+    if (file.aspectRatio != null) {
+      _backgroundImageAspectRatio = file.aspectRatio;
+      print('DEBUG: 웹 - 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
+    }
+
+    // UI 업데이트로 _canvasSize 계산
+    setState(() {});
+
+    // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      String backgroundKey;
+      if (file.currentPageIndex < file.pageImagePaths.length) {
+        backgroundKey = file.pageImagePaths[file.currentPageIndex];
+      } else {
+        backgroundKey = file.pageImagePaths.first;
+      }
+
+      print('DEBUG: 웹 - 배경 이미지 로드 시도 - 키: $backgroundKey');
+      final backgroundBytes = await storage.getImageBytesFromWeb(backgroundKey);
+
+      if (backgroundBytes != null) {
+        await _setBackgroundFromBytes(backgroundBytes);
+        print('DEBUG: 웹 - 배경 이미지 로드 완료 - $backgroundKey');
+      } else {
+        print('ERROR: 웹 - 배경 이미지 로드 실패 - $backgroundKey');
+      }
+    }
+
+    // 2. 필기 레이어 로드 (있으면)
+    String drawingKey;
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      drawingKey = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+    } else {
+      drawingKey = '${file.id}_drawing.png';
+    }
+
+    final drawingBytes = await storage.getImageBytesFromWeb(drawingKey);
+    if (drawingBytes != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadDrawingLayer(drawingBytes);
+        print('DEBUG: 웹 - 필기 레이어 로드 완료 - $drawingKey');
+      });
+    } else {
+      print('DEBUG: 웹 - 필기 레이어 파일 없음 - $drawingKey (새로운 필기 가능)');
+    }
+  }
+
+  Future<void> _loadHandwritingImageForMobile(HandwritingFile file) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final littenDir = Directory('${directory.path}/litten_${file.littenId}');
+
+    // 다중 페이지인 경우 현재 페이지의 이미지 경로를 사용
+    String targetPath;
+    String fileName;
+
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      // 새로운 파일명 구조: {mainFileId}_page_{pageNumber}.png
+      if (file.currentPageIndex < file.pageImagePaths.length) {
+        fileName = file.pageImagePaths[file.currentPageIndex];
+      } else {
+        // 페이지 인덱스가 범위를 벗어나는 경우 첫 번째 페이지로 폴백
+        fileName = file.pageImagePaths.first;
+      }
+
+      // fileName이 이미 실제 파일명인지 확인 (예: "abc123_page_1.png")
+      if (fileName.contains('_page_')) {
+        targetPath = '${littenDir.path}/$fileName';
+        print(
+          '디버그: 모바일 - 다중 페이지 - 페이지 ${file.currentPageIndex + 1} 파일 로드: $fileName',
+        );
+      } else {
+        // 기존 가상 경로 형태인 경우 새 파일명 구조로 변환
+        final pageNumber = file.currentPageIndex + 1;
+        fileName = '${file.id}_page_$pageNumber.png';
+        targetPath = '${littenDir.path}/$fileName';
+        print('디버그: 모바일 - 다중 페이지 - 페이지 $pageNumber 파일 로드 (변환됨): $fileName');
+      }
+    } else {
+      // 단일 페이지인 경우 기존 방식 사용
+      fileName = '${file.id}.png';
+      targetPath = '${littenDir.path}/$fileName';
+      print('디버그: 모바일 - 단일 페이지 파일 로드: $fileName');
+    }
+
+    final imageFile = File(targetPath);
+
+    // 필기 레이어 파일 확인 및 로드
+    String drawingFileName;
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      drawingFileName =
+          '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+    } else {
+      drawingFileName = '${file.id}_drawing.png';
+    }
+
+    final drawingFile = File('${littenDir.path}/$drawingFileName');
+
+    // 캔버스를 클리어
+    _painterController.clearDrawables();
+
+    // 파일에 저장된 비율 정보를 먼저 복원
+    if (file.aspectRatio != null) {
+      _backgroundImageAspectRatio = file.aspectRatio;
+      print('DEBUG: 모바일 - 파일 저장된 비율 정보 우선 적용 - ${file.aspectRatio}');
+    }
+
+    // UI 업데이트로 _canvasSize 계산
+    setState(() {});
+
+    // 1. 먼저 배경 이미지 로드 (원본 PDF 페이지)
+    if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
+      final backgroundFileName = file.pageImagePaths[file.currentPageIndex];
+      final backgroundFile = File('${littenDir.path}/$backgroundFileName');
+
+      if (await backgroundFile.exists()) {
+        final backgroundBytes = await backgroundFile.readAsBytes();
+        await _setBackgroundFromBytes(backgroundBytes);
+        print('DEBUG: 모바일 - 배경 이미지 로드 완료 - $backgroundFileName');
+      }
+    }
+
+    // 2. 필기 레이어 로드 (있으면)
+    if (await drawingFile.exists()) {
+      final drawingBytes = await drawingFile.readAsBytes();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadDrawingLayer(drawingBytes);
+        print('DEBUG: 모바일 - 필기 레이어 로드 완료 - $drawingFileName');
+      });
+    } else {
+      print('DEBUG: 모바일 - 필기 레이어 파일 없음 - $drawingFileName (새로운 필기 가능)');
+    }
+  }
+
+  // 필기 레이어만 로드하는 함수
+  Future<void> _loadDrawingLayer(Uint8List drawingBytes) async {
+    try {
+      // Uint8List를 ui.Image로 변환
+      final codec = await ui.instantiateImageCodec(drawingBytes);
+      final frameInfo = await codec.getNextFrame();
+      final uiImage = frameInfo.image;
+
+      print(
+        'DEBUG: 필기 레이어 이미지 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}',
+      );
+
+      // 필기 레이어를 배경으로 설정 (원래 방식)
+      _painterController.background = ImageBackgroundDrawable(image: uiImage);
+      print('DEBUG: 필기 레이어를 배경으로 로드 완료');
+
+      // UI 업데이트
+      setState(() {});
+    } catch (e) {
+      print('ERROR: 필기 레이어 로드 실패 - $e');
+    }
+  }
+
+  Future<void> _loadSavedDrawingImage(
+    Uint8List imageBytes,
+    HandwritingFile file,
+  ) async {
+    try {
+      // Uint8List를 ui.Image로 변환
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final frameInfo = await codec.getNextFrame();
+      final uiImage = frameInfo.image;
+
+      // 원본 이미지 크기 정보 및 비율 계산
+      print(
+        'DEBUG: 배경 이미지 원본 크기 - 너비: ${uiImage.width}, 높이: ${uiImage.height}',
+      );
+
+      // 파일에 저장된 비율 정보를 절대 우선으로 사용 (이미지 크기는 무시)
+      if (file.aspectRatio != null) {
+        _backgroundImageAspectRatio = file.aspectRatio;
+        print(
+          'DEBUG: 파일 저장된 비율 정보 강제 적용 - ${file.aspectRatio} (이미지 크기 ${uiImage.width}x${uiImage.height} 무시)',
+        );
+      } else if (uiImage.width > 0 && uiImage.height > 0) {
+        _backgroundImageAspectRatio = uiImage.width / uiImage.height;
+        print('DEBUG: 비율 정보가 없어서 이미지에서 계산 - $_backgroundImageAspectRatio');
+      }
+
+      // 이미지 크기 정보 저장 (표시용, 비율 계산에는 사용 안 함)
+      if (uiImage.width > 0 && uiImage.height > 0) {
+        _backgroundImageOriginalSize = Size(
+          uiImage.width.toDouble(),
+          uiImage.height.toDouble(),
+        );
+        print('DEBUG: 저장된 이미지 크기 - ${uiImage.width}x${uiImage.height} (표시용)');
+      }
+
+      // 저장된 이미지를 배경으로 직접 설정 (리사이즈 없이)
+      // Flutter Painter가 자동으로 캔버스 크기에 맞춰 스케일링 처리함
+      _painterController.background = uiImage.backgroundDrawable;
+
+      // UI 업데이트
+      setState(() {});
+
+      // 캔버스를 좌상단으로 초기화
+      _resetCanvasToTopLeft();
+
+      print('DEBUG: 배경 이미지 설정 완료');
+    } catch (e) {
+      print('ERROR: 저장된 필기 이미지 로드 실패 - $e');
+    }
+  }
+
+  void _handleTextFileAction(String action, TextFile file) {
+    switch (action) {
+      case 'edit':
+        _editTextFile(file);
+        break;
+      case 'duplicate':
+        // TODO: 파일 복사 로직
+        break;
+      case 'delete':
+        _showDeleteConfirmDialog(file.displayTitle, () {
+          _deleteTextFile(file);
+        });
+        break;
+    }
+  }
+
+  void _handleHandwritingFileAction(String action, HandwritingFile file) {
+    switch (action) {
+      case 'edit':
+        _editHandwritingFile(file);
+        break;
+      case 'duplicate':
+        // TODO: 파일 복사 로직
+        break;
+      case 'delete':
+        _showDeleteConfirmDialog(file.displayTitle, () {
+          _deleteHandwritingFile(file);
+        });
+        break;
+    }
+  }
+
+  void _showDeleteConfirmDialog(String fileName, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('파일 삭제'),
+        content: Text('"$fileName"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteTextFile(TextFile file) async {
+    try {
+      print('디버그: 텍스트 파일 삭제 시작 - ${file.displayTitle}');
+
+      // 실제 파일 시스템에서 파일 삭제
+      final storage = FileStorageService.instance;
+      await storage.deleteTextFile(file);
+
+      // 메모리에서 제거
+      setState(() {
+        _textFiles.removeWhere((f) => f.id == file.id);
+      });
+
+      // 파일 목록 업데이트하여 SharedPreferences에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten != null) {
+        await storage.saveTextFiles(selectedLitten.id, _textFiles);
+
+        // 리튼에서 파일 제거
+        final littenService = LittenService();
+        await littenService.removeTextFileFromLitten(
+          selectedLitten.id,
+          file.id,
+        );
+      }
+
+      print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${file.displayTitle} 파일이 삭제되었습니다.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      print('에러: 텍스트 파일 삭제 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 삭제에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteHandwritingFile(HandwritingFile file) async {
+    try {
+      print('디버그: 필기 파일 삭제 시작 - ${file.displayTitle}');
+
+      // 실제 파일 시스템에서 이미지 파일 삭제
+      final storage = FileStorageService.instance;
+      await storage.deleteHandwritingFile(file);
+
+      // 메모리에서 제거
+      setState(() {
+        _handwritingFiles.removeWhere((f) => f.id == file.id);
+      });
+
+      // 파일 목록 업데이트하여 SharedPreferences에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten != null) {
+        await storage.saveHandwritingFiles(
+          selectedLitten.id,
+          _handwritingFiles,
+        );
+
+        // 리튼에서 파일 제거
+        final littenService = LittenService();
+        await littenService.removeHandwritingFileFromLitten(
+          selectedLitten.id,
+          file.id,
+        );
+      }
+
+      print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${file.displayTitle} 파일이 삭제되었습니다.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      print('에러: 필기 파일 삭제 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 삭제에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveCurrentTextFile() async {
+    if (_currentTextFile != null) {
+      try {
+        print('디버그: 텍스트 파일 저장 시작 - ${_currentTextFile!.displayTitle}');
+
+        // HTML 콘텐츠 가져오기 - 실패 시 현재 저장된 콘텐츠 사용
+        String htmlContent = '';
+        try {
+          htmlContent = await _htmlController.getText();
+          print('디버그: HTML 내용 로드됨 - 길이: ${htmlContent.length}자');
+        } catch (e) {
+          print('경고: HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
+          htmlContent = _currentTextFile?.content ?? '';
+        }
+
+        // 빈 내용이어도 저장 가능하도록 수정
+        final updatedFile = _currentTextFile!.copyWith(
+          content: htmlContent.isEmpty
+              ? '<p><br></p>'
+              : htmlContent, // 빈 내용일 때 기본 HTML 추가
+        );
+
+        // 파일 목록에 추가 또는 업데이트
+        final existingIndex = _textFiles.indexWhere(
+          (f) => f.id == updatedFile.id,
+        );
+        if (existingIndex >= 0) {
+          _textFiles[existingIndex] = updatedFile;
+          print('디버그: 기존 텍스트 파일 업데이트됨 - ${updatedFile.displayTitle}');
+        } else {
+          _textFiles.add(updatedFile);
+          print('디버그: 새로운 텍스트 파일 추가됨 - ${updatedFile.displayTitle}');
+        }
+
+        // 실제 파일 시스템에 저장
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
+
+        if (selectedLitten != null) {
+          final storage = FileStorageService.instance;
+
+          // HTML 콘텐츠를 파일로 저장
+          await storage.saveTextFileContent(updatedFile);
+
+          // 파일 목록을 SharedPreferences에 저장
+          await storage.saveTextFiles(selectedLitten.id, _textFiles);
+
+          // 리튼의 파일 목록 업데이트
+          final littenService = LittenService();
+          if (existingIndex >= 0) {
+            // 기존 파일 업데이트는 추가 작업 불필요
+          } else {
+            // 새 파일 추가
+            await littenService.addTextFileToLitten(
+              selectedLitten.id,
+              updatedFile.id,
+            );
+          }
+        }
+
+        setState(() {
+          _isEditing = false;
+          _currentTextFile = null;
+        });
+
+        _focusTimer?.cancel();
+
+        print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
+
+        // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
+        await appState.refreshLittens();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${updatedFile.displayTitle} 파일이 저장되었습니다.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        print('에러: 텍스트 파일 저장 실패 - $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('저장 실패: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _saveCurrentHandwritingFile() async {
+    if (_currentHandwritingFile != null) {
+      final String fileTitle = _currentHandwritingFile!.displayTitle;
+      try {
+        print(
+          '디버그: 필기 파일 저장 시작 - $fileTitle ${_currentHandwritingFile!.pageInfo}',
+        );
+
+        // 필기 내용이 있을 때만 저장
+        if (_painterController.drawables.isNotEmpty) {
+          await _saveCurrentPageDrawing();
+          print('DEBUG: 필기 내용 있어서 저장함');
+        } else {
+          print('DEBUG: 필기 내용 없어서 저장 건너뜀');
+        }
+
+        // 파일 목록에서 현재 파일의 페이지 정보 업데이트 (비율 정보 포함)
+        final currentAspectRatio = _getCanvasAspectRatio();
+        final updatedFile = _currentHandwritingFile!.copyWith(
+          aspectRatio: currentAspectRatio,
+        );
+        print('DEBUG: 필기 파일 저장 - 비율 정보 업데이트: $currentAspectRatio');
+        final existingIndex = _handwritingFiles.indexWhere(
+          (f) => f.id == updatedFile.id,
+        );
+
+        // appState를 미리 가져옴
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
+
+        if (existingIndex >= 0) {
+          _handwritingFiles[existingIndex] = updatedFile;
+          print(
+            '디버그: 기존 필기 파일 페이지 정보 업데이트됨 - ${updatedFile.displayTitle} ${updatedFile.pageInfo}',
+          );
+        } else {
+          // 새로운 파일인 경우 목록에 추가
+          _handwritingFiles.add(updatedFile);
+          print(
+            '디버그: 새로운 필기 파일 목록에 추가됨 - ${updatedFile.displayTitle} ${updatedFile.pageInfo}',
+          );
+
+          // 리튼에 필기 파일 추가
+          if (selectedLitten != null) {
+            final littenService = LittenService();
+            await littenService.addHandwritingFileToLitten(
+              selectedLitten.id,
+              updatedFile.id,
+            );
+          }
+        }
+
+        // SharedPreferences에 파일 목록 저장
+
+        if (selectedLitten != null) {
+          final storage = FileStorageService.instance;
+          await storage.saveHandwritingFiles(
+            selectedLitten.id,
+            _handwritingFiles,
+          );
+        }
+
+        print(
+          '디버그: 필기 파일 저장 완료 - $fileTitle ${_currentHandwritingFile!.pageInfo}',
+        );
+
+        // 저장 완료 알림을 위한 간단한 피드백 (선택사항)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('저장되었습니다'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+
+        // 편집 모드를 유지하고 화면 전환하지 않음
+        // setState(() {
+        //   _isEditing = false;
+        //   _currentHandwritingFile = null;
+        //   _backgroundImageOriginalSize = null;
+        // });
+      } catch (e) {
+        print('에러: 필기 파일 저장 실패 - $e');
+      }
+    }
+  }
+}
+
+enum WritingMode { text, handwriting }

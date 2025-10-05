@@ -87,7 +87,23 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   @override
   void didUpdateWidget(DraggableTabLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    print('[DraggableTabLayout] didUpdateWidget 호출 - 현재 활성 탭: $_activeTabId');
+
+    // 현재 활성 탭이 여전히 존재하는지 확인
+    final activeTabStillExists = widget.tabs.any((tab) => tab.id == _activeTabId);
+    print('[DraggableTabLayout] 활성 탭 존재 여부: $activeTabStillExists');
+
     _organizeTabsByPosition();
+
+    // 활성 탭이 사라진 경우에만 첫 번째 탭으로 리셋
+    if (!activeTabStillExists && widget.tabs.isNotEmpty) {
+      final oldActiveId = _activeTabId;
+      _activeTabId = widget.tabs.first.id;
+      print('[DraggableTabLayout] 활성 탭 리셋: $oldActiveId -> $_activeTabId');
+    } else {
+      print('[DraggableTabLayout] 활성 탭 유지: $_activeTabId');
+    }
   }
 
   /// 방향 변경 시 탭 위치 매핑
@@ -633,9 +649,11 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       ),
       child: InkWell(
         onTap: () {
+          print('[DraggableTabLayout] 탭 클릭: ${tab.id} (${tab.title})');
           setState(() {
             _activeTabId = tab.id;
           });
+          print('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
           widget.onTabTapped?.call(tab.id);
         },
         borderRadius: BorderRadius.circular(8),

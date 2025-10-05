@@ -1,172 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_painter_v2/flutter_painter.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:printing/printing.dart';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'dart:io';
-import 'dart:async';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart';
+import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../services/audio_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
-import '../models/handwriting_file.dart';
+import '../models/text_file.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 
-class HandwritingTab extends StatefulWidget {
-  const HandwritingTab({super.key});
+class TextTab extends StatefulWidget {
+  const TextTab({super.key});
 
   @override
-  State<HandwritingTab> createState() => _HandwritingTabState();
+  State<TextTab> createState() => _TextTabState();
 }
 
-class _HandwritingTabState extends State<HandwritingTab>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late PainterController _painterController;
+class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
+  late HtmlEditorController _htmlController;
+  final AudioService _audioService = AudioService();
 
   // 파일 목록 관련
-  List<HandwritingFile> _handwritingFiles = [];
+  List<TextFile> _textFiles = [];
   bool _isLoading = false;
-
-  // 필기 모드 관련 상태
-  Color _selectedColor = Colors.black;
-  double _strokeWidth = 2.0;
-  List<Uint8List>? _pdfPages;
-  int _currentPdfPage = 0;
 
   // 툴바 상태 관리
   bool _isBoldActive = false;
   bool _isItalicActive = false;
   bool _isUnderlineActive = false;
-  String? _backgroundImagePath;
-  String _selectedTool = '펜';
-  bool _isGestureMode = false; // 제스처 모드 (확대/축소/이동)
-  bool _showAdvancedTools = false;
-  bool _showColorPicker = false;
-  double? _backgroundImageAspectRatio;
-  Size? _backgroundImageOriginalSize;
-
-  // 제스처 및 애니메이션 관련
-  late AnimationController _zoomAnimationController;
-  Animation<Matrix4>? _zoomAnimation;
-
-  // 페이지 네비게이션을 위한 수평 스크롤 감지 변수들
-  Offset? _panStartPosition;
-  Offset? _lastFocalPoint;
-  bool _isPanningHorizontally = false;
-  static const double _panThreshold = 100.0; // 페이지 전환을 위한 최소 거리
-  static const double _panVelocityThreshold = 500.0; // 페이지 전환을 위한 최소 속도
-  static const double _edgeThreshold = 50.0; // 스크롤 경계 감지 임계값
-  bool _hasReachedLeftEdge = false;
-  bool _hasReachedRightEdge = false;
-
-  // 더블 탭 페이지 네비게이션 관련
-  DateTime? _lastTapTime;
-  Offset? _lastTapPosition;
-  static const Duration _doubleTapTimeout = Duration(milliseconds: 500);
-  static const double _doubleTapDistanceThreshold = 50.0;
-
-  // 캔버스 내 텍스트 입력 관련
-  bool _isTextInputMode = false;
-  TextEditingController? _canvasTextController;
-  FocusNode? _canvasTextFocusNode;
-  Offset? _textInputPosition;
-  Offset? _screenTextInputPosition; // 화면 좌표계 위치
-
-  bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
-  Size? _canvasSize; // 실제 캔버스 크기 저장
-
-  // 줌 기능 관련
-  late TransformationController _transformationController;
-  static const double _minScale = 0.3;
-  static const double _maxScale = 8.0;
-
-  // PDF 변환 진행 상태
-  bool _isConverting = false;
-  int _convertedPages = 0;
-  int _totalPagesToConvert = 0;
-  String _conversionStatus = '';
-  bool _conversionCancelled = false;
 
   // 편집 상태
-  HandwritingFile? _currentHandwritingFile;
+  TextFile? _currentTextFile;
   bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _painterController = PainterController();
-    _transformationController = TransformationController();
-
-    // 애니메이션 컨트롤러 초기화
-    _zoomAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    // 텍스트 입력 컨트롤러 초기화
-    _canvasTextController = TextEditingController();
-    _canvasTextFocusNode = FocusNode();
-
-    // 초기 펜 모드 설정
-    _painterController.freeStyleMode = FreeStyleMode.draw;
-    _painterController.freeStyleStrokeWidth = _strokeWidth;
-    _painterController.freeStyleColor = _selectedColor;
+    _htmlController = HtmlEditorController();
 
     _loadFiles();
   }
-
-  // 캔버스를 좌상단으로 초기화하는 함수 (중복 호출 방지)
-  bool _isResettingCanvas = false;
-
-  void _resetCanvasToTopLeft() {
-    if (_isResettingCanvas) return; // 이미 진행 중이면 무시
-
-    _isResettingCanvas = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        if (mounted && _transformationController.value != Matrix4.identity()) {
-          _transformationController.value = Matrix4.identity();
-        }
-      } finally {
-        _isResettingCanvas = false;
-      }
-    });
-  }
-
-  // 부드러운 애니메이션으로 변환 매트릭스 적용
-  void _animateToTransform(Matrix4 targetMatrix) {
-    final Matrix4 startMatrix = _transformationController.value.clone();
-
-    _zoomAnimation = Matrix4Tween(begin: startMatrix, end: targetMatrix)
-        .animate(
-          CurvedAnimation(
-            parent: _zoomAnimationController,
-            curve: Curves.easeInOut,
-          ),
-        );
-
-    _zoomAnimation!.addListener(() {
-      if (mounted) {
-        _transformationController.value = _zoomAnimation!.value;
-      }
-    });
-
-    _zoomAnimationController.reset();
-    _zoomAnimationController.forward();
-  }
-
-  Timer? _focusTimer;
-  bool _isKeyboardVisible = false;
-  bool _hasAutoFocused = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -177,21 +54,89 @@ class _HandwritingTabState extends State<HandwritingTab>
     }
   }
 
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
 
-    // 키보드 표시/숨김 감지
-    final bottomInset = View.of(context).viewInsets.bottom;
-    final newKeyboardVisible = bottomInset > 0;
+  /// 키보드 숨김 및 포커스 해제 함수
+  Future<void> _hideKeyboardAndClearFocus() async {
+    print('키보드 숨김 및 포커스 해제 시작');
 
-    if (newKeyboardVisible != _isKeyboardVisible) {
+    try {
+      _htmlController.clearFocus();
+      await SystemChannels.textInput.invokeMethod('TextInput.hide');
+
       setState(() {
-        _isKeyboardVisible = newKeyboardVisible;
+        _isKeyboardVisible = false;
       });
 
-      print('키보드 상태 변경: ${_isKeyboardVisible ? "표시됨" : "숨겨짐"}');
+      print('키보드 숨김 및 포커스 해제 완료');
+    } catch (e) {
+      print('키보드 숨김 실패: $e');
     }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // 음성-쓰기 동기화 상태 표시 위젯
+  Widget _buildSyncStatusBar() {
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Icon(
+                _audioService.isRecording ? Icons.mic : Icons.sync,
+                color: Colors.black87,
+                size: 16,
+              );
+            },
+          ),
+          AppSpacing.horizontalSpaceS,
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording
+                    ? (l10n?.recording ?? '듣기 중...')
+                    : (l10n?.recordingTitle ?? '음성 동기화 준비됨'),
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+          AnimatedBuilder(
+            animation: _audioService,
+            builder: (context, child) {
+              return Text(
+                _audioService.isRecording
+                    ? _formatDuration(_audioService.recordingDuration)
+                    : '00:00',
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -203,6 +148,7 @@ class _HandwritingTabState extends State<HandwritingTab>
     _zoomAnimationController.dispose();
     _canvasTextController?.dispose();
     _canvasTextFocusNode?.dispose();
+    _htmlController.disable();
     super.dispose();
   }
 
@@ -237,6 +183,10 @@ class _HandwritingTabState extends State<HandwritingTab>
           );
         }
 
+        if (_isEditing && _currentTextFile != null) {
+          return _buildTextEditor();
+        }
+
         if (_isEditing && _currentHandwritingFile != null) {
           return _buildHandwritingEditor();
         }
@@ -260,29 +210,21 @@ class _HandwritingTabState extends State<HandwritingTab>
       if (selectedLitten != null) {
         final storage = FileStorageService.instance;
 
-        // 필기 파일 로드
-        final handwritingFilesFuture = storage.loadHandwritingFiles(
-          selectedLitten.id,
-        );
-
-        final results = await Future.wait([
-          handwritingFilesFuture,
-        ]);
-
-        final loadedHandwritingFiles = results[0] as List<HandwritingFile>;
+        // 텍스트 파일 로드
+        final loadedTextFiles = await storage.loadTextFiles(selectedLitten.id);
 
         // 한 번의 setState로 모든 상태 업데이트
         if (mounted) {
           setState(() {
-            _handwritingFiles
+            _textFiles
               ..clear()
-              ..addAll(loadedHandwritingFiles);
+              ..addAll(loadedTextFiles);
             _isLoading = false;
           });
         }
 
         print(
-          '디버그: 파일 목록 로드 완료 - 필기: ${_handwritingFiles.length}개', // 텍스트 파일 부분 제거
+          '디버그: 파일 목록 로드 완료 - 텍스트: ${_textFiles.length}개',
         );
       } else {
         if (mounted) {
@@ -306,13 +248,14 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     return Column(
       children: [
+        // 음성-쓰기 동기화 상태 표시
+        _buildSyncStatusBar(),
         // 파일 목록
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
-                    /* 텍스트 파일 섹션 주석 처리 시작
                     // 텍스트 파일 섹션 (상단 50%)
                     Expanded(
                       flex: 1,
@@ -409,12 +352,39 @@ class _HandwritingTabState extends State<HandwritingTab>
                     ),
                     // 구분선
                     Container(height: 1, color: Colors.grey.shade200),
-                    텍스트 파일 섹션 주석 처리 끝 */
                     // 필기 파일 섹션 (하단 50%)
                     Expanded(
                       flex: 1,
                       child: Column(
                         children: [
+                          // 필기 파일 헤더
+                          Container(
+                            padding: AppSpacing.paddingM,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              border: Border(
+                                bottom: BorderSide(color: Colors.grey.shade200),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.draw,
+                                  size: 20,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                AppSpacing.horizontalSpaceS,
+                                Text(
+                                  '필기 (${_handwritingFiles.length})',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           // 필기 파일 리스트
                           Expanded(
                             child: Stack(
@@ -481,6 +451,31 @@ class _HandwritingTabState extends State<HandwritingTab>
         ),
       ],
     );
+  }
+
+  void _createNewTextFile() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+
+    if (selectedLitten != null) {
+      // 현재 시간 기반 제목 생성
+      final now = DateTime.now();
+      final defaultTitle =
+          '텍스트 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+      final newTextFile = TextFile(
+        littenId: selectedLitten.id,
+        title: defaultTitle,
+        content: '',
+      );
+
+      print('디버그: 새로운 텍스트 파일 생성 - $defaultTitle');
+
+      setState(() {
+        _currentTextFile = newTextFile;
+        _isEditing = true;
+      });
+    }
   }
 
   void _createNewHandwritingFile() async {
@@ -2209,6 +2204,44 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
+  Widget _buildTextFileItem(TextFile file) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(
+            context,
+          ).primaryColor.withValues(alpha: 0.1),
+          child: Icon(Icons.keyboard, color: Theme.of(context).primaryColor),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (file.shortPreview.isNotEmpty)
+              Text(
+                file.shortPreview,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            AppSpacing.verticalSpaceXS,
+            Text(
+              '${file.characterCount}자 • ${file.updatedAt.toString().substring(0, 16)}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) => _handleTextFileAction(value, file),
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'edit', child: Text('편집')),
+            const PopupMenuItem(value: 'duplicate', child: Text('복사')),
+            const PopupMenuItem(value: 'delete', child: Text('삭제')),
+          ],
+        ),
+        onTap: () => _editTextFile(file),
+      ),
+    );
+  }
+
   Widget _buildHandwritingFileItem(HandwritingFile file) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -2277,12 +2310,173 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
+  Widget _buildTextEditor() {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      children: [
+        // 음성-쓰기 동기화 상태 표시
+        _buildSyncStatusBar(),
+        // 상단 헤더
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () async {
+                  await _hideKeyboardAndClearFocus();
+                  setState(() {
+                    _isEditing = false;
+                    _currentTextFile = null;
+                    _hasAutoFocused = false;
+                  });
+                  _focusTimer?.cancel();
+                },
+                icon: const Icon(Icons.arrow_back),
+              ),
+              Expanded(
+                child: Text(
+                  _currentTextFile?.displayTitle ?? '새 텍스트',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _saveCurrentTextFile,
+                child: Text(l10n?.save ?? '저장'),
+              ),
+            ],
+          ),
+        ),
+
+        // HTML 에디터 - 툴바 바로 아래부터 키보드까지 또는 하단 메인 메뉴까지
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.blue, width: 3),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GestureDetector(
+                    onTap: () async {
+                      // 터치 시 포커스 설정 및 키보드 표시
+                      await _focusAndShowKeyboard();
+                    },
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: HtmlEditor(
+                          controller: _htmlController,
+                          htmlEditorOptions: HtmlEditorOptions(
+                            hint: '여기에 텍스트를 입력하세요...',
+                            shouldEnsureVisible: true,
+                            initialText: _currentTextFile?.content ?? '',
+                            adjustHeightForKeyboard: true,
+                            darkMode: false,
+                            autoAdjustHeight: false,
+                            spellCheck: false,
+                            characterLimit: null,
+                          ),
+                          htmlToolbarOptions: HtmlToolbarOptions(
+                            toolbarPosition: ToolbarPosition.aboveEditor,
+                            toolbarType: ToolbarType.nativeScrollable,
+                            renderBorder: true,
+                            toolbarItemHeight: 32,
+                            renderSeparatorWidget: true,
+                            separatorWidget: Container(
+                              width: 1,
+                              height: 24,
+                              color: Colors.grey.shade400,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                            buttonColor: Colors.grey.shade400,
+                            buttonSelectedColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.8),
+                            buttonBorderColor: Colors.grey.shade700,
+                            buttonBorderWidth: 2.0,
+                            defaultToolbarButtons: const [
+                              FontButtons(
+                                bold: true,
+                                italic: true,
+                                underline: true,
+                              ),
+                              ColorButtons(),
+                              ListButtons(listStyles: true),
+                              ParagraphButtons(
+                                textDirection: false,
+                                lineHeight: false,
+                                caseConverter: false,
+                              ),
+                            ],
+                          ),
+                          otherOptions: const OtherOptions(height: 350),
+                          callbacks: Callbacks(
+                            onInit: () async {
+                              print('HTML 에디터 초기화 완료');
+
+                              // 새 파일이고 아직 자동 포커스가 안 되었다면 자동 포커스
+                              if (!_hasAutoFocused &&
+                                  _currentTextFile?.content.isEmpty == true) {
+                                // HTML 에디터 초기화 완료 후 즉시 자동 포커스 시도
+                                await Future.delayed(
+                                  const Duration(milliseconds: 100),
+                                );
+                                await _autoFocusAndShowKeyboard();
+                              }
+                            },
+                            onFocus: () {
+                              print('HTML 에디터 포커스됨');
+                              setState(() {
+                                _isKeyboardVisible = true;
+                              });
+                            },
+                            onBlur: () {
+                              print('HTML 에디터 포커스 해제됨');
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildHandwritingEditor() {
     final l10n = AppLocalizations.of(context);
     return Stack(
       children: [
         Column(
           children: [
+            // 음성-쓰기 동기화 상태 표시
+            _buildSyncStatusBar(),
             // 상단 헤더
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2689,6 +2883,46 @@ class _HandwritingTabState extends State<HandwritingTab>
     await _loadPdfFile();
     // flutter_pdfview를 사용하므로 PDF 뷰어로만 표시됩니다.
     // PDF를 필기 배경으로 사용하려면 별도의 PDF to Image 변환이 필요합니다.
+  }
+
+  /// 텍스트 내용에 따라 커서 위치를 설정하는 메서드
+  void _positionCursorForContent(String content) async {
+    try {
+      if (content.isEmpty) {
+        // 내용이 없으면 1행1열로
+        _htmlController.execCommand('selectAll');
+        _htmlController.execCommand('collapseToStart');
+      } else {
+        // 내용이 있으면 마지막 라인의 다음 라인 1열로
+        _htmlController.execCommand('selectAll');
+        _htmlController.execCommand('collapseToEnd');
+        // 추가 줄바꿈을 위해 Enter 키 입력
+        _htmlController.insertText('\n');
+      }
+    } catch (e) {
+      print('커서 위치 설정 실패: $e');
+    }
+  }
+
+  void _editTextFile(TextFile file) async {
+    setState(() {
+      _currentTextFile = file;
+      _isEditing = true;
+      _hasAutoFocused = false; // 자동 포커스 플래그 리셋
+    });
+
+    // HTML 에디터가 로딩될 때까지 대기
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      // HTML 컨텐츠 로드
+      _htmlController.setText(file.content);
+
+      // 자동 포커스와 키보드 표시 (한 번만)
+      await _autoFocusAndShowKeyboard();
+    } catch (e) {
+      print('HTML 에디터 로딩 에러: $e');
+    }
   }
 
   void _editHandwritingFile(HandwritingFile file) async {
@@ -3196,6 +3430,22 @@ class _HandwritingTabState extends State<HandwritingTab>
     }
   }
 
+  void _handleTextFileAction(String action, TextFile file) {
+    switch (action) {
+      case 'edit':
+        _editTextFile(file);
+        break;
+      case 'duplicate':
+        // TODO: 파일 복사 로직
+        break;
+      case 'delete':
+        _showDeleteConfirmDialog(file.displayTitle, () {
+          _deleteTextFile(file);
+        });
+        break;
+    }
+  }
+
   void _handleHandwritingFileAction(String action, HandwritingFile file) {
     switch (action) {
       case 'edit':
@@ -3234,6 +3484,57 @@ class _HandwritingTabState extends State<HandwritingTab>
         ],
       ),
     );
+  }
+
+  Future<void> _deleteTextFile(TextFile file) async {
+    try {
+      print('디버그: 텍스트 파일 삭제 시작 - ${file.displayTitle}');
+
+      // 실제 파일 시스템에서 파일 삭제
+      final storage = FileStorageService.instance;
+      await storage.deleteTextFile(file);
+
+      // 메모리에서 제거
+      setState(() {
+        _textFiles.removeWhere((f) => f.id == file.id);
+      });
+
+      // 파일 목록 업데이트하여 SharedPreferences에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten != null) {
+        await storage.saveTextFiles(selectedLitten.id, _textFiles);
+
+        // 리튼에서 파일 제거
+        final littenService = LittenService();
+        await littenService.removeTextFileFromLitten(
+          selectedLitten.id,
+          file.id,
+        );
+      }
+
+      print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${file.displayTitle} 파일이 삭제되었습니다.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      print('에러: 텍스트 파일 삭제 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 삭제에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _deleteHandwritingFile(HandwritingFile file) async {
@@ -3286,6 +3587,97 @@ class _HandwritingTabState extends State<HandwritingTab>
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _saveCurrentTextFile() async {
+    if (_currentTextFile != null) {
+      try {
+        print('디버그: 텍스트 파일 저장 시작 - ${_currentTextFile!.displayTitle}');
+
+        // HTML 콘텐츠 가져오기 - 실패 시 현재 저장된 콘텐츠 사용
+        String htmlContent = '';
+        try {
+          htmlContent = await _htmlController.getText();
+          print('디버그: HTML 내용 로드됨 - 길이: ${htmlContent.length}자');
+        } catch (e) {
+          print('경고: HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
+          htmlContent = _currentTextFile?.content ?? '';
+        }
+
+        // 빈 내용이어도 저장 가능하도록 수정
+        final updatedFile = _currentTextFile!.copyWith(
+          content: htmlContent.isEmpty
+              ? '<p><br></p>'
+              : htmlContent, // 빈 내용일 때 기본 HTML 추가
+        );
+
+        // 파일 목록에 추가 또는 업데이트
+        final existingIndex = _textFiles.indexWhere(
+          (f) => f.id == updatedFile.id,
+        );
+        if (existingIndex >= 0) {
+          _textFiles[existingIndex] = updatedFile;
+          print('디버그: 기존 텍스트 파일 업데이트됨 - ${updatedFile.displayTitle}');
+        } else {
+          _textFiles.add(updatedFile);
+          print('디버그: 새로운 텍스트 파일 추가됨 - ${updatedFile.displayTitle}');
+        }
+
+        // 실제 파일 시스템에 저장
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final selectedLitten = appState.selectedLitten;
+
+        if (selectedLitten != null) {
+          final storage = FileStorageService.instance;
+
+          // HTML 콘텐츠를 파일로 저장
+          await storage.saveTextFileContent(updatedFile);
+
+          // 파일 목록을 SharedPreferences에 저장
+          await storage.saveTextFiles(selectedLitten.id, _textFiles);
+
+          // 리튼의 파일 목록 업데이트
+          final littenService = LittenService();
+          if (existingIndex >= 0) {
+            // 기존 파일 업데이트는 추가 작업 불필요
+          } else {
+            // 새 파일 추가
+            await littenService.addTextFileToLitten(
+              selectedLitten.id,
+              updatedFile.id,
+            );
+          }
+        }
+
+        setState(() {
+          _isEditing = false;
+          _currentTextFile = null;
+        });
+
+        _focusTimer?.cancel();
+
+        print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
+
+        // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
+        await appState.refreshLittens();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${updatedFile.displayTitle} 파일이 저장되었습니다.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        print('에러: 텍스트 파일 저장 실패 - $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('저장 실패: $e'), backgroundColor: Colors.red),
+          );
+        }
       }
     }
   }
