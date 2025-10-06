@@ -33,6 +33,8 @@ class _RecordingTabState extends State<RecordingTab> {
       if (mounted) {
         setState(() {
           _audioFiles = files;
+          // 최신순으로 정렬 (createdAt 기준 내림차순)
+          _audioFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
       }
     }
@@ -120,10 +122,15 @@ class _RecordingTabState extends State<RecordingTab> {
   }
 
   Future<void> _playAudio(AudioFile audioFile) async {
-    if (_audioService.currentPlayingFile?.id == audioFile.id &&
-        _audioService.isPlaying) {
-      await _audioService.stopAudio();
+    // 같은 파일이 재생 중이면 일시정지/재개
+    if (_audioService.currentPlayingFile?.id == audioFile.id) {
+      if (_audioService.isPlaying) {
+        await _audioService.pauseAudio();
+      } else {
+        await _audioService.resumeAudio();
+      }
     } else {
+      // 다른 파일 재생
       final success = await _audioService.playAudio(audioFile);
       if (mounted && !success) {
         final l10n = AppLocalizations.of(context);
@@ -241,8 +248,8 @@ class _RecordingTabState extends State<RecordingTab> {
             builder: (context, child) {
               return Text(
                 _audioService.isRecording
-                    ? (l10n?.recording ?? '듣기 중...')
-                    : (l10n?.recordingTitle ?? '음성 동기화 준비됨'),
+                    ? (l10n?.recording ?? '녹음 중...')
+                    : (l10n?.recordingTitle ?? '녹음 동기화 준비됨'),
                 style: const TextStyle(
                   color: Colors.black87,
                   fontSize: 12,
@@ -314,7 +321,7 @@ class _RecordingTabState extends State<RecordingTab> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '${l10n?.noAudioFilesYet ?? '아직 듣기 파일이 없습니다'}\n${l10n?.startFirstRecording ?? '아래 버튼을 눌러 첫 번째 듣기를 시작하세요'}',
+                                    '${l10n?.noAudioFilesYet ?? '아직 녹음 파일이 없습니다'}\n${l10n?.startFirstRecording ?? '아래 버튼을 눌러 첫 번째 녹음을 시작하세요'}',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -374,24 +381,83 @@ class _RecordingTabState extends State<RecordingTab> {
                                             color: Colors.grey.shade600,
                                           ),
                                         ),
-                                        if (isCurrentPlaying &&
-                                            _audioService.isPlaying) ...[
-                                          const SizedBox(height: 4),
-                                          Row(
+                                        if (isCurrentPlaying) ...[
+                                          const SizedBox(height: 8),
+                                          // 프로그레스바
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                '${_formatDuration(_audioService.playbackDuration)} / ${_formatDuration(_audioService.totalDuration)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.blue,
+                                              SliderTheme(
+                                                data: SliderTheme.of(context)
+                                                    .copyWith(
+                                                  trackHeight: 2.0,
+                                                  thumbShape:
+                                                      const RoundSliderThumbShape(
+                                                    enabledThumbRadius: 6.0,
+                                                  ),
+                                                  overlayShape:
+                                                      const RoundSliderOverlayShape(
+                                                    overlayRadius: 12.0,
+                                                  ),
+                                                ),
+                                                child: Slider(
+                                                  value: _audioService
+                                                          .totalDuration
+                                                          .inMilliseconds >
+                                                      0
+                                                      ? _audioService
+                                                          .playbackDuration
+                                                          .inMilliseconds
+                                                          .toDouble()
+                                                      : 0.0,
+                                                  min: 0.0,
+                                                  max: _audioService
+                                                      .totalDuration
+                                                      .inMilliseconds
+                                                      .toDouble(),
+                                                  onChanged: (value) async {
+                                                    await _audioService
+                                                        .seekAudio(Duration(
+                                                            milliseconds:
+                                                                value.toInt()));
+                                                  },
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '${_audioService.playbackSpeed}x',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.blue,
+                                              Padding(
+                                                padding: const EdgeInsets
+                                                    .symmetric(horizontal: 8.0),
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      _formatDuration(
+                                                          _audioService
+                                                              .playbackDuration),
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.blue,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${_audioService.playbackSpeed}x',
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.blue,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      _formatDuration(
+                                                          _audioService
+                                                              .totalDuration),
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.blue,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ],
@@ -410,28 +476,13 @@ class _RecordingTabState extends State<RecordingTab> {
                                             tooltip:
                                                 l10n?.playbackSpeed ?? '재생 속도',
                                           ),
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(Icons.more_vert),
-                                          onSelected: (value) {
-                                            if (value == 'delete') {
-                                              _deleteAudio(audioFile);
-                                            }
-                                          },
-                                          itemBuilder: (context) => [
-                                            PopupMenuItem<String>(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.delete_outline,
-                                                    color: Colors.red,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(l10n?.delete ?? '삭제'),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline,
+                                            color: Theme.of(context).primaryColor,
+                                          ),
+                                          onPressed: () => _deleteAudio(audioFile),
+                                          tooltip: l10n?.delete ?? '삭제',
                                         ),
                                       ],
                                     ),
@@ -444,12 +495,13 @@ class _RecordingTabState extends State<RecordingTab> {
                   ),
                 ],
               ),
-              // 홈탭과 동일한 FloatingActionButton 위치와 크기
+              // 텍스트 탭과 동일한 FloatingActionButton 위치와 크기
               Positioned(
                 right: 16,
                 bottom: 16,
                 child: FloatingActionButton(
                   onPressed: _toggleRecording,
+                  mini: true,
                   tooltip: _audioService.isRecording
                       ? l10n?.stopRecording ?? '녹음 중지'
                       : l10n?.recordingTitle ?? '녹음 시작',

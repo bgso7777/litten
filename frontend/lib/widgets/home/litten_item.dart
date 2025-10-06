@@ -186,7 +186,7 @@ class _LittenItemState extends State<LittenItem> {
                             Row(
                               children: [
                                 _buildFileBadge(
-                                  Icons.hearing,
+                                  Icons.mic,
                                   widget.litten.audioCount,
                                   Colors.grey.shade300,
                                   isActive: false,
@@ -349,11 +349,11 @@ class _LittenItemState extends State<LittenItem> {
                         Row(
                           children: [
                             _buildFileBadge(
-                              Icons.hearing,
+                              Icons.mic,
                               widget.litten.audioCount,
                               widget.litten.audioCount > 0
-                                  ? AppColors.recordingColor
-                                  : AppColors.recordingColor.withValues(alpha: 0.3),
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
                               isActive: widget.litten.audioCount > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
@@ -361,8 +361,8 @@ class _LittenItemState extends State<LittenItem> {
                               Icons.keyboard,
                               widget.litten.textCount,
                               widget.litten.textCount > 0
-                                  ? AppColors.writingColor
-                                  : AppColors.writingColor.withValues(alpha: 0.3),
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
                               isActive: widget.litten.textCount > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
@@ -370,8 +370,8 @@ class _LittenItemState extends State<LittenItem> {
                               Icons.draw,
                               widget.litten.handwritingCount,
                               widget.litten.handwritingCount > 0
-                                  ? AppColors.writingColor.withValues(alpha: 0.8)
-                                  : AppColors.writingColor.withValues(alpha: 0.2),
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
                               isActive: widget.litten.handwritingCount > 0,
                             ),
                           ],

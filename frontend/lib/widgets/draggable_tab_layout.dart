@@ -1015,6 +1015,9 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         // 탭이 도킹되면 분할선 비율을 50%로 초기화
         _resetDividerRatios();
 
+        // 드롭된 탭을 활성 탭으로 선택
+        _activeTabId = tabId;
+
         // 콜백 호출
         widget.onTabPositionChanged?.call(tabId, newPosition);
       }

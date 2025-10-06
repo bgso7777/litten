@@ -86,9 +86,9 @@ class AudioService extends ChangeNotifier {
         debugPrint('[AudioService] 오디오 디렉토리 생성: ${littenDir.path}');
       }
 
-      // 파일명 생성 (녹음+년월일시분초)
+      // 파일명 생성 (녹음 년월일시분초)
       final now = DateTime.now();
-      final fileName = '녹음${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.m4a';
+      final fileName = '녹음 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.m4a';
       final filePath = '${littenDir.path}/$fileName';
       
       debugPrint('[AudioService] 녹음 파일 경로: $filePath');
@@ -270,21 +270,66 @@ class AudioService extends ChangeNotifier {
     }
   }
 
+  /// 재생 일시정지
+  Future<void> pauseAudio() async {
+    debugPrint('[AudioService] pauseAudio 진입');
+
+    try {
+      await _player.pause();
+      _isPlaying = false;
+
+      debugPrint('[AudioService] 재생 일시정지됨');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AudioService] 재생 일시정지 오류: $e');
+    }
+  }
+
+  /// 재생 재개
+  Future<void> resumeAudio() async {
+    debugPrint('[AudioService] resumeAudio 진입');
+
+    try {
+      await _player.resume();
+      _isPlaying = true;
+
+      debugPrint('[AudioService] 재생 재개됨');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AudioService] 재생 재개 오류: $e');
+    }
+  }
+
   /// 재생 중지
   Future<void> stopAudio() async {
     debugPrint('[AudioService] stopAudio 진입');
-    
+
     try {
       await _player.stop();
       _isPlaying = false;
       _currentPlayingFile = null;
       _playbackDuration = Duration.zero;
       _totalDuration = Duration.zero;
-      
+
       debugPrint('[AudioService] 재생 중지됨');
       notifyListeners();
     } catch (e) {
       debugPrint('[AudioService] 재생 중지 오류: $e');
+    }
+  }
+
+  /// 재생 위치 변경
+  Future<void> seekAudio(Duration position) async {
+    debugPrint('[AudioService] seekAudio 진입 - position: $position');
+
+    try {
+      await _player.seek(position);
+      _playbackDuration = position;
+
+      debugPrint('[AudioService] 재생 위치 변경됨: $position');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AudioService] 재생 위치 변경 오류: $e');
     }
   }
 

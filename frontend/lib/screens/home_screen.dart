@@ -929,7 +929,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
             child: Text(l10n?.delete ?? '삭제', style: const TextStyle(color: Colors.white)),
           ),
         ],

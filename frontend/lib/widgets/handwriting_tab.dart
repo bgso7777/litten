@@ -277,6 +277,8 @@ class _HandwritingTabState extends State<HandwritingTab>
             _handwritingFiles
               ..clear()
               ..addAll(loadedHandwritingFiles);
+            // 최신순으로 정렬 (createdAt 기준 내림차순)
+            _handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
             _isLoading = false;
           });
         }
@@ -449,25 +451,47 @@ class _HandwritingTabState extends State<HandwritingTab>
                                           );
                                         },
                                       ),
-                                // FloatingActionButton 추가
+                                // PDF+ 및 캔버스+ 버튼
                                 Positioned(
                                   right: 16,
                                   bottom: 16,
-                                  child: FloatingActionButton(
-                                    onPressed: _createNewHandwritingFile,
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).primaryColor,
-                                    foregroundColor: Colors.white,
-                                    mini: true,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(Icons.draw, size: 16),
-                                        SizedBox(width: 2),
-                                        Icon(Icons.add, size: 16),
-                                      ],
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // PDF 버튼
+                                      FloatingActionButton(
+                                        onPressed: _loadPdfForNewFile,
+                                        backgroundColor: Theme.of(context).primaryColor,
+                                        foregroundColor: Colors.white,
+                                        mini: true,
+                                        heroTag: 'pdf_button',
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Icon(Icons.picture_as_pdf, size: 16),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.add, size: 16),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // 캔버스 버튼
+                                      FloatingActionButton(
+                                        onPressed: _createEmptyHandwritingFile,
+                                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.8),
+                                        foregroundColor: Colors.white,
+                                        mini: true,
+                                        heroTag: 'canvas_button',
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Icon(Icons.draw, size: 16),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.add, size: 16),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -483,37 +507,38 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
-  void _createNewHandwritingFile() async {
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final selectedLitten = appState.selectedLitten;
-
-    if (selectedLitten != null) {
-      // 먼저 PDF 파일 또는 이미지 선택 다이얼로그 표시
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('필기 방식 선택'),
-          content: const Text('PDF를 변환하여 필기하거나, 빈 캔버스에 직접 그릴 수 있습니다.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _loadPdfForNewFile();
-              },
-              child: const Text('PDF 변환'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _createEmptyHandwritingFile();
-              },
-              child: const Text('빈 캔버스'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
+  // 이 메서드는 더 이상 사용되지 않음 - PDF+와 캔버스+ 버튼이 직접 호출
+  // void _createNewHandwritingFile() async {
+  //   final appState = Provider.of<AppStateProvider>(context, listen: false);
+  //   final selectedLitten = appState.selectedLitten;
+  //
+  //   if (selectedLitten != null) {
+  //     // 먼저 PDF 파일 또는 이미지 선택 다이얼로그 표시
+  //     showDialog(
+  //       context: context,
+  //       builder: (context) => AlertDialog(
+  //         title: const Text('필기 방식 선택'),
+  //         content: const Text('PDF를 변환하여 필기하거나, 빈 캔버스에 직접 그릴 수 있습니다.'),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () {
+  //               Navigator.pop(context);
+  //               _loadPdfForNewFile();
+  //             },
+  //             child: const Text('PDF 변환'),
+  //           ),
+  //           TextButton(
+  //             onPressed: () {
+  //               Navigator.pop(context);
+  //               _createEmptyHandwritingFile();
+  //             },
+  //             child: const Text('빈 캔버스'),
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  // }
 
   void _createEmptyHandwritingFile() {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -2217,7 +2242,12 @@ class _HandwritingTabState extends State<HandwritingTab>
           backgroundColor: Theme.of(
             context,
           ).primaryColor.withValues(alpha: 0.1),
-          child: Icon(Icons.draw, color: Theme.of(context).primaryColor),
+          child: Icon(
+            file.type == HandwritingType.pdfConvert
+                ? Icons.picture_as_pdf
+                : Icons.draw,
+            color: Theme.of(context).primaryColor,
+          ),
         ),
         title: Text(
           file.displayTitle,
@@ -2225,17 +2255,10 @@ class _HandwritingTabState extends State<HandwritingTab>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        subtitle: Row(
               children: [
-                Text(
-                  file.isFromPdf ? 'PDF 작성' : '직접 작성',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
+                // 페이지 수 표시
                 if (file.isMultiPage) ...[
-                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -2254,23 +2277,25 @@ class _HandwritingTabState extends State<HandwritingTab>
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                 ],
+                // 수정 날짜
+                Expanded(
+                  child: Text(
+                    file.updatedAt.toString().substring(0, 16),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
+                ),
               ],
             ),
-            AppSpacing.verticalSpaceXS,
-            Text(
-              file.updatedAt.toString().substring(0, 16),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) => _handleHandwritingFileAction(value, file),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('편집')),
-            const PopupMenuItem(value: 'duplicate', child: Text('복사')),
-            const PopupMenuItem(value: 'delete', child: Text('삭제')),
-          ],
+        trailing: IconButton(
+          icon: Icon(
+            Icons.delete_outline,
+            color: Theme.of(context).primaryColor,
+          ),
+          onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
+            _deleteHandwritingFile(file);
+          }),
         ),
         onTap: () => _editHandwritingFile(file),
       ),
@@ -2310,40 +2335,45 @@ class _HandwritingTabState extends State<HandwritingTab>
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
+                      textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                   ),
                   // 페이지 네비게이션 (다중 페이지인 경우)
                   if (_currentHandwritingFile?.isMultiPage == true) ...[
-                    Column(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              onPressed:
-                                  _currentHandwritingFile!.canGoPreviousPage
-                                  ? _goToPreviousPage
-                                  : null,
-                              icon: const Icon(Icons.keyboard_arrow_left),
-                              tooltip: '이전 페이지',
-                            ),
-                            IconButton(
-                              onPressed: _currentHandwritingFile!.canGoNextPage
-                                  ? _goToNextPage
-                                  : null,
-                              icon: const Icon(Icons.keyboard_arrow_right),
-                              tooltip: '다음 페이지',
-                            ),
-                          ],
+                        IconButton(
+                          onPressed:
+                              _currentHandwritingFile!.canGoPreviousPage
+                              ? _goToPreviousPage
+                              : null,
+                          icon: const Icon(Icons.keyboard_arrow_left, size: 20),
+                          tooltip: '이전 페이지',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        Text(
-                          _currentHandwritingFile!.pageInfo,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            _currentHandwritingFile!.pageInfo,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                        ),
+                        IconButton(
+                          onPressed: _currentHandwritingFile!.canGoNextPage
+                              ? _goToNextPage
+                              : null,
+                          icon: const Icon(Icons.keyboard_arrow_right, size: 20),
+                          tooltip: '다음 페이지',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),

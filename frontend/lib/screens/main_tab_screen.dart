@@ -238,13 +238,13 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       Container(
         padding: ResponsiveUtils.getBadgePadding(context),
         decoration: BoxDecoration(
-          color: audioCount > 0 ? AppColors.recordingColor : AppColors.recordingColor.withValues(alpha: 0.3),
+          color: audioCount > 0 ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hearing,
+            Icon(Icons.mic,
                 size: ResponsiveUtils.getBadgeIconSize(context),
                 color: audioCount > 0 ? Colors.white : Colors.white70),
             AppSpacing.horizontalSpaceXS,
@@ -266,7 +266,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
         decoration: BoxDecoration(
-          color: textCount > 0 ? AppColors.writingColor : AppColors.writingColor.withValues(alpha: 0.3),
+          color: textCount > 0 ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(
@@ -295,8 +295,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
         decoration: BoxDecoration(
           color: handwritingCount > 0
-              ? AppColors.writingColor.withValues(alpha: 0.8)
-              : AppColors.writingColor.withValues(alpha: 0.2),
+              ? Theme.of(context).primaryColor
+              : Theme.of(context).primaryColor.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
         ),
         child: Row(

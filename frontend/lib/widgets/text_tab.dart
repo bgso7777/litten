@@ -465,6 +465,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               Text(
                 file.shortPreview,
                 style: TextStyle(color: Colors.grey.shade600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             AppSpacing.verticalSpaceXS,
             Text(
@@ -473,13 +475,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) => _handleTextFileAction(value, file),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('편집')),
-            const PopupMenuItem(value: 'duplicate', child: Text('복사')),
-            const PopupMenuItem(value: 'delete', child: Text('삭제')),
-          ],
+        trailing: IconButton(
+          icon: Icon(
+            Icons.delete_outline,
+            color: Theme.of(context).primaryColor,
+          ),
+          onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
+            _deleteTextFile(file);
+          }),
         ),
         onTap: () => _editTextFile(file),
       ),
@@ -515,6 +518,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               TextButton(

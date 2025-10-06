@@ -177,22 +177,27 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
             final currentContext = context;
 
             try {
+              debugPrint('🔥 리튼 생성 시작: $title');
               final newLitten = await widget.appState.createLitten(title, schedule: _selectedSchedule);
+              debugPrint('✅ 리튼 생성 완료: ${newLitten.id}');
+
               if (mounted) {
-                // 리튼 생성 후 항상 다이얼로그 닫기
+                // 생성된 리튼을 즉시 선택
+                await widget.appState.selectLitten(newLitten);
+                debugPrint('✅ 리튼 선택 완료: ${newLitten.id}');
+
+                // 다이얼로그 닫기
                 navigator.pop();
+
                 final scheduleText = _selectedSchedule != null
                     ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(currentContext)})'
                     : '';
                 scaffoldMessenger.showSnackBar(
                   SnackBar(content: Text('$title 리튼이 생성되었습니다.$scheduleText')),
                 );
-                // 새로 생성된 리튼을 선택
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  widget.appState.selectLitten(newLitten);
-                });
               }
             } catch (e) {
+              debugPrint('❌ 리튼 생성 에러: $e');
               if (mounted) {
                 scaffoldMessenger.showSnackBar(
                   SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
