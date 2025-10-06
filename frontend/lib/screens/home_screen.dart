@@ -12,6 +12,9 @@ import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
 import '../models/litten.dart';
+import '../models/audio_file.dart';
+import '../models/text_file.dart';
+import '../models/handwriting_file.dart';
 import '../widgets/dialogs/create_litten_dialog.dart';
 import '../widgets/dialogs/edit_litten_dialog.dart';
 
@@ -22,20 +25,24 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  late TabController _bottomTabController; // 하단 탭 컨트롤러 (리튼/파일)
   int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
   bool _userInteractedWithSchedule = false; // 사용자가 일정과 상호작용했는지 추적
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _bottomTabController.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    _bottomTabController = TabController(length: 2, vsync: this);
+
     // 화면 로드 후 최신 리튼으로 스크롤 (최신이 맨 위에 있으므로 맨 위로)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToTop();
@@ -94,10 +101,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 flex: 1,
                 child: _buildCalendarSection(appState, l10n),
               ),
-              // 하단 50% - 리튼 리스트
+              // 하단 50% - 탭 영역 (리튼/파일)
               Expanded(
                 flex: 1,
-                child: _buildLittenListSection(appState, l10n),
+                child: _buildBottomTabSection(appState, l10n),
               ),
             ],
           ),
@@ -787,9 +794,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 리튼 리스트 섹션 빌드
-  Widget _buildLittenListSection(AppStateProvider appState, AppLocalizations? l10n) {
-    final selectedDateLittens = appState.littensForSelectedDate;
+  // 하단 탭 섹션 빌드 (리튼/파일 탭)
+  Widget _buildBottomTabSection(AppStateProvider appState, AppLocalizations? l10n) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingM.left,
+        right: AppSpacing.paddingM.right,
+        bottom: AppSpacing.paddingM.left,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 탭 바
+          TabBar(
+            controller: _bottomTabController,
+            labelColor: Theme.of(context).primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Theme.of(context).primaryColor,
+            tabs: const [
+              Tab(text: '일정'),
+              Tab(text: '파일'),
+            ],
+          ),
+          // 탭 뷰
+          Expanded(
+            child: TabBarView(
+              controller: _bottomTabController,
+              children: [
+                _buildLittenListTab(appState, l10n),
+                _buildAllFilesTab(appState, l10n),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 리튼 리스트 탭
+  Widget _buildLittenListTab(AppStateProvider appState, AppLocalizations? l10n) {
+    // undefined 리튼을 제외한 리튼들만 표시
+    final selectedDateLittens = appState.littensForSelectedDate
+        .where((litten) => litten.title != 'undefined')
+        .toList();
 
     // 알림이 있는 리튼과 없는 리튼을 구분하여 정렬
     final littensWithNotifications = <Litten>[];
@@ -822,34 +869,21 @@ class _HomeScreenState extends State<HomeScreen> {
     // 알림이 없는 리튼들은 생성 순으로 정렬 (최신순)
     littensWithoutNotifications.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: AppSpacing.paddingM.left,
-        right: AppSpacing.paddingM.left,
-        bottom: AppSpacing.paddingM.left,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 리튼 리스트
-          Expanded(
-            child: selectedDateLittens.isEmpty
-                ? EmptyState(
-                    icon: Icons.calendar_today,
-                    title: '선택한 날짜에 생성된 리튼이 없습니다',
-                    description: '이 날짜에 첫 번째 리튼을 생성해보세요',
-                    actionText: l10n?.createLitten ?? '리튼 생성',
-                    onAction: _showCreateLittenDialog,
-                  )
-                : Scrollbar(
-                    child: RefreshIndicator(
-                      onRefresh: () async {
-                        await appState.refreshLittens();
-                      },
-                      child: ListView(
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        children: [
+    return selectedDateLittens.isEmpty
+        ? const EmptyState(
+            icon: Icons.calendar_today,
+            title: '선택한 날짜에 생성된 일정이 없습니다',
+            description: '이 날짜에 첫 번째 일정을 생성해보세요',
+          )
+        : Scrollbar(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await appState.refreshLittens();
+              },
+              child: ListView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                children: [
                           // 알림이 있는 리튼들
                           if (littensWithNotifications.isNotEmpty) ...[
                             ...littensWithNotifications.map((litten) => LittenItem(
@@ -882,21 +916,164 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                           ],
-                          // 알림이 없는 리튼들
-                          ...littensWithoutNotifications.map((litten) => LittenItem(
-                            litten: litten,
-                            isSelected: appState.selectedLitten?.id == litten.id,
-                            onTap: () => appState.selectLitten(litten),
-                            onDelete: () => _showDeleteDialog(litten.id, litten.title),
-                            onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
-                          )),
-                        ],
+                  // 알림이 없는 리튼들
+                  ...littensWithoutNotifications.map((litten) => LittenItem(
+                    litten: litten,
+                    isSelected: appState.selectedLitten?.id == litten.id,
+                    onTap: () => appState.selectLitten(litten),
+                    onDelete: () => _showDeleteDialog(litten.id, litten.title),
+                    onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
+                  )),
+                ],
+              ),
+            ),
+          );
+  }
+
+  // 모든 파일 탭
+  Widget _buildAllFilesTab(AppStateProvider appState, AppLocalizations? l10n) {
+    // undefined 리튼이 선택된 경우 모든 파일 표시, 아니면 선택된 날짜의 파일만 표시
+    final isUndefinedSelected = appState.selectedLitten?.title == 'undefined';
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: isUndefinedSelected
+          ? appState.getAllFiles()  // undefined: 모든 리튼의 모든 파일
+          : appState.getAllFilesForSelectedDate(),  // 다른 리튼: 선택된 날짜의 파일만
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('오류: ${snapshot.error}'),
+          );
+        }
+
+        final allFiles = snapshot.data ?? [];
+
+        if (allFiles.isEmpty) {
+          return const EmptyState(
+            icon: Icons.folder_open,
+            title: '선택한 날짜에 파일이 없습니다',
+            description: '리튼에 녹음, 텍스트, 필기를 추가해보세요',
+          );
+        }
+
+        return Scrollbar(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await appState.refreshLittens();
+              setState(() {}); // FutureBuilder 재실행
+            },
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: allFiles.length,
+              itemBuilder: (context, index) {
+                final fileData = allFiles[index];
+                final fileType = fileData['type'] as String;
+                final littenTitle = fileData['littenTitle'] as String;
+                final createdAt = fileData['createdAt'] as DateTime;
+
+                IconData icon;
+                String title;
+                String subtitle;
+
+                if (fileType == 'audio') {
+                  final audioFile = fileData['file'] as AudioFile;
+                  icon = Icons.mic;
+                  title = audioFile.displayName;
+                  subtitle = '${audioFile.durationString} • $littenTitle';
+                } else if (fileType == 'text') {
+                  final textFile = fileData['file'] as TextFile;
+                  icon = Icons.keyboard;
+                  title = textFile.displayTitle;
+                  subtitle = '${textFile.shortPreview} • $littenTitle';
+                } else {
+                  final handwritingFile = fileData['file'] as HandwritingFile;
+                  // PDF에서 변환된 필기는 picture_as_pdf, 빈 캔버스는 draw
+                  icon = handwritingFile.type == HandwritingType.pdfConvert
+                      ? Icons.picture_as_pdf
+                      : Icons.draw;
+                  title = handwritingFile.displayTitle;
+                  subtitle = '${handwritingFile.pageInfo.isNotEmpty ? handwritingFile.pageInfo + " • " : ""}$littenTitle';
+                }
+
+                return ListTile(
+                  leading: Icon(icon, color: Theme.of(context).primaryColor),
+                  title: Row(
+                    children: [
+                      // 리튼명
+                      Text(
+                        littenTitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      // 파일명 (나머지 공간 차지, ellipsis 처리)
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 시간
+                      Text(
+                        DateFormat('HH:mm').format(createdAt),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
+                  onTap: () async {
+                    debugPrint('📂 파일 터치: ${fileData['file']}');
+                    debugPrint('   - 파일 타입: $fileType');
+                    debugPrint('   - 리튼 ID: ${fileData['littenId']}');
+
+                    // 파일이 속한 리튼 선택
+                    final littenId = fileData['littenId'] as String;
+                    final litten = appState.littens.firstWhere((l) => l.id == littenId);
+                    debugPrint('   - 선택할 리튼: ${litten.title}');
+
+                    await appState.selectLitten(litten);
+                    debugPrint('✅ 리튼 선택 완료');
+
+                    // WritingScreen 내부 탭 설정
+                    String targetWritingTabId;
+                    if (fileType == 'audio') {
+                      targetWritingTabId = 'audio'; // 녹음 탭
+                    } else if (fileType == 'text') {
+                      targetWritingTabId = 'text'; // 텍스트 탭
+                    } else {
+                      targetWritingTabId = 'handwriting'; // 필기 탭
+                    }
+                    debugPrint('   - 목표 WritingScreen 탭: $targetWritingTabId');
+                    appState.setTargetWritingTab(targetWritingTabId);
+
+                    // 노트 탭(WritingScreen)으로 이동 (인덱스 1)
+                    const targetTabIndex = 1;
+                    debugPrint('🔄 노트 탭으로 이동 (인덱스 $targetTabIndex)');
+
+                    // 탭 변경 전에 약간의 딜레이를 주어 리튼 선택이 완료되도록 함
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    appState.changeTab(targetTabIndex);
+                    debugPrint('✅ 탭 변경 완료');
+                  },
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

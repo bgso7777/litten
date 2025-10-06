@@ -61,7 +61,20 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         final l10n = AppLocalizations.of(context);
-        
+
+        // selectedLitten이 null인 경우 undefined 리튼 자동 선택
+        if (appState.selectedLitten == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final undefinedLitten = appState.littens
+                .where((l) => l.title == 'undefined')
+                .firstOrNull;
+            if (undefinedLitten != null) {
+              appState.selectLitten(undefinedLitten);
+              debugPrint('✅ MainTabScreen: undefined 리튼 자동 선택');
+            }
+          });
+        }
+
         return Scaffold(
           appBar: AppBar(
             leading: Row(
@@ -77,9 +90,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             title: appState.selectedLitten != null
                 ? Text(
                     appState.selectedLitten!.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
+                      color: appState.selectedLitten!.title == 'undefined'
+                          ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
+                          : null,
                     ),
                   )
                 : Text(
@@ -179,8 +195,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   }
 
   Widget _buildLittenCountBadge(AppStateProvider appState, BuildContext context) {
-    // 전체 리튼 수 배지 (알림이 있으면 -1 표시)
-    final littenCount = appState.littens.length;
+    // 전체 리튼 수 배지 (undefined 제외, 알림이 있으면 -1 표시)
+    final littenCount = appState.littens.where((l) => l.title != 'undefined').length;
     final hasNotifications = appState.notificationService.firedNotifications.isNotEmpty;
     final displayCount = hasNotifications ? littenCount - 1 : littenCount;
 
@@ -233,35 +249,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
     final badges = <Widget>[];
 
-    // 녹음 파일 배지 (0개일 때도 표시)
-    badges.add(
-      Container(
-        padding: ResponsiveUtils.getBadgePadding(context),
-        decoration: BoxDecoration(
-          color: audioCount > 0 ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.mic,
-                size: ResponsiveUtils.getBadgeIconSize(context),
-                color: audioCount > 0 ? Colors.white : Colors.white70),
-            AppSpacing.horizontalSpaceXS,
-            Text(
-              audioCount.toString(),
-              style: TextStyle(
-                color: audioCount > 0 ? Colors.white : Colors.white70,
-                fontSize: ResponsiveUtils.getBadgeFontSize(context),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    // 텍스트 파일 배지 (0개일 때도 표시)
+    // 텍스트 파일 배지 (0개일 때도 표시) - 첫 번째로 변경
     badges.add(
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
@@ -289,7 +277,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       ),
     );
 
-    // 필기 파일 배지 (0개일 때도 표시)
+    // 필기 파일 배지 (0개일 때도 표시) - 두 번째로 변경
     badges.add(
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 4.9, vertical: 1.6),
@@ -310,6 +298,34 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               handwritingCount.toString(),
               style: TextStyle(
                 color: handwritingCount > 0 ? Colors.white : Colors.white70,
+                fontSize: ResponsiveUtils.getBadgeFontSize(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 녹음 파일 배지 (0개일 때도 표시) - 세 번째로 변경
+    badges.add(
+      Container(
+        padding: ResponsiveUtils.getBadgePadding(context),
+        decoration: BoxDecoration(
+          color: audioCount > 0 ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic,
+                size: ResponsiveUtils.getBadgeIconSize(context),
+                color: audioCount > 0 ? Colors.white : Colors.white70),
+            AppSpacing.horizontalSpaceXS,
+            Text(
+              audioCount.toString(),
+              style: TextStyle(
+                color: audioCount > 0 ? Colors.white : Colors.white70,
                 fontSize: ResponsiveUtils.getBadgeFontSize(context),
                 fontWeight: FontWeight.bold,
               ),

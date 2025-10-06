@@ -30,12 +30,14 @@ class DraggableTabLayout extends StatefulWidget {
   final List<TabItem> tabs;
   final Function(String tabId, TabPosition newPosition)? onTabPositionChanged;
   final Function(String tabId)? onTabTapped;
+  final String? initialActiveTabId; // 초기 활성 탭 ID
 
   const DraggableTabLayout({
     super.key,
     required this.tabs,
     this.onTabPositionChanged,
     this.onTabTapped,
+    this.initialActiveTabId,
   });
 
   @override
@@ -72,9 +74,13 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     );
     _organizeTabsByPosition();
 
-    // 첫 번째 탭을 활성화
-    if (widget.tabs.isNotEmpty) {
+    // 초기 활성 탭 설정 (initialActiveTabId가 있으면 사용, 없으면 첫 번째 탭)
+    if (widget.initialActiveTabId != null && widget.tabs.any((tab) => tab.id == widget.initialActiveTabId)) {
+      _activeTabId = widget.initialActiveTabId;
+      debugPrint('[DraggableTabLayout] 초기 활성 탭 설정: $_activeTabId');
+    } else if (widget.tabs.isNotEmpty) {
       _activeTabId = widget.tabs.first.id;
+      debugPrint('[DraggableTabLayout] 첫 번째 탭 활성화: $_activeTabId');
     }
   }
 

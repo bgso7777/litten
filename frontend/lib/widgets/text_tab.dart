@@ -51,7 +51,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   void dispose() {
     // 메모리 누수 방지를 위한 리소스 정리
     WidgetsBinding.instance.removeObserver(this);
-    _htmlController.disable();
+    try {
+      _htmlController.disable();
+    } catch (e) {
+      debugPrint('HtmlEditorController dispose 에러 (무시됨): $e');
+    }
     super.dispose();
   }
 

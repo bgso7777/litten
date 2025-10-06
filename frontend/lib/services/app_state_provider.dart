@@ -5,9 +5,12 @@ import '../config/themes.dart';
 import '../models/litten.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
+import '../models/handwriting_file.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
 import '../services/app_icon_badge_service.dart';
+import '../services/file_storage_service.dart';
+import '../services/audio_service.dart';
 
 class AppStateProvider extends ChangeNotifier {
   final LittenService _littenService = LittenService();
@@ -24,7 +27,10 @@ class AppStateProvider extends ChangeNotifier {
   List<Litten> _littens = [];
   Litten? _selectedLitten;
   int _selectedTabIndex = 0;
-  
+
+  // WritingScreen 내부 탭 선택 상태
+  String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
+
   // 캘린더 상태
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
@@ -41,6 +47,7 @@ class AppStateProvider extends ChangeNotifier {
   List<Litten> get littens => _littens;
   Litten? get selectedLitten => _selectedLitten;
   int get selectedTabIndex => _selectedTabIndex;
+  String? get targetWritingTabId => _targetWritingTabId;
   SubscriptionType get subscriptionType => _subscriptionType;
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;
   bool get isStandardUser => _subscriptionType == SubscriptionType.standard;
@@ -71,10 +78,12 @@ class AppStateProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // 사용 제한 확인
+  // 사용 제한 확인 (undefined 리튼 제외)
   bool get canCreateMoreLittens {
     if (_subscriptionType != SubscriptionType.free) return true;
-    return _littens.length < 5; // 무료 사용자는 최대 5개
+    // undefined 리튼을 제외한 개수 계산
+    final userLittensCount = _littens.where((l) => l.title != 'undefined').length;
+    return userLittensCount < 5; // 무료 사용자는 최대 5개
   }
 
   int get maxAudioFiles {
@@ -99,14 +108,20 @@ class AppStateProvider extends ChangeNotifier {
     await _loadSettings();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
-    // 앱 시작 시에는 아무 리튼도 선택하지 않음
-    _selectedLitten = null;
-    
+
+    // undefined 리튼 확인 및 생성
+    await _ensureUndefinedLitten();
+
+    // 리튼이 선택되지 않은 경우 undefined 리튼 자동 선택
+    if (_selectedLitten == null) {
+      _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
+    }
+
     // 캘린더를 오늘 날짜로 초기화
     final today = DateTime.now();
     _selectedDate = today;
     _focusedDate = today;
-    
+
     // 앱 아이콘 배지 서비스 초기화
     _appIconBadgeService.initialize();
 
@@ -163,6 +178,26 @@ class AppStateProvider extends ChangeNotifier {
   // 리튼 로드
   Future<void> _loadLittens() async {
     _littens = await _littenService.getAllLittens();
+  }
+
+  // undefined 리튼 확인 및 생성
+  Future<void> _ensureUndefinedLitten() async {
+    // undefined 리튼이 이미 존재하는지 확인
+    final undefinedExists = _littens.any((l) => l.title == 'undefined');
+
+    if (!undefinedExists) {
+      // undefined 리튼 생성
+      final undefinedLitten = Litten(
+        title: 'undefined',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _littenService.saveLitten(undefinedLitten);
+      await _loadLittens(); // 리튼 목록 재로드
+
+      debugPrint('✅ undefined 리튼 생성 완료');
+    }
   }
 
   Future<void> _loadSelectedLitten() async {
@@ -284,6 +319,12 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // WritingScreen 내부 탭 설정 (파일 타입에 따라)
+  void setTargetWritingTab(String? tabId) {
+    _targetWritingTabId = tabId;
+    notifyListeners();
+  }
+
   // 리튼 선택
   Future<void> selectLitten(Litten litten) async {
     _selectedLitten = litten;
@@ -388,11 +429,17 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> deleteLitten(String littenId) async {
     await _littenService.deleteLitten(littenId);
     await refreshLittens();
-    
-    // 선택된 리튼이 삭제된 경우 선택 해제
+
+    // 선택된 리튼이 삭제된 경우 undefined 리튼 자동 선택
     if (_selectedLitten?.id == littenId) {
-      _selectedLitten = null;
-      await _littenService.setSelectedLittenId(null);
+      // undefined 리튼이 존재하는지 확인하고 없으면 생성
+      await _ensureUndefinedLitten();
+
+      // undefined 리튼 자동 선택
+      _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
+      await _littenService.setSelectedLittenId(_selectedLitten?.id);
+
+      debugPrint('✅ 리튼 삭제 후 undefined 리튼 자동 선택 완료');
     }
   }
 
@@ -778,10 +825,13 @@ class AppStateProvider extends ChangeNotifier {
     }
   }
   
-  // 특정 날짜에 생성된 리튼들의 개수
+  // 특정 날짜에 생성된 리튼들의 개수 (undefined 제외)
   int getLittenCountForDate(DateTime date) {
     final targetDate = DateTime(date.year, date.month, date.day);
     return _littens.where((litten) {
+      // undefined 리튼은 제외
+      if (litten.title == 'undefined') return false;
+
       final littenDate = DateTime(
         litten.createdAt.year,
         litten.createdAt.month,
@@ -947,6 +997,126 @@ class AppStateProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ 알림 처리 실패: $e');
     }
+  }
+
+  // 선택된 날짜의 모든 파일들을 가져오기
+  Future<List<Map<String, dynamic>>> getAllFilesForSelectedDate() async {
+    debugPrint('📁 선택된 날짜의 모든 파일 로드 시작: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}');
+
+    final allFiles = <Map<String, dynamic>>[];
+
+    // undefined 리튼을 제외한 선택된 날짜의 리튼들
+    final selectedDateLittens = littensForSelectedDate
+        .where((litten) => litten.title != 'undefined')
+        .toList();
+
+    debugPrint('📋 리튼 개수: ${selectedDateLittens.length}');
+
+    for (final litten in selectedDateLittens) {
+      // 오디오 파일들
+      final audioFiles = await _littenService.getAudioFilesByLittenId(litten.id);
+      for (final audioFile in audioFiles) {
+        allFiles.add({
+          'type': 'audio',
+          'file': audioFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': audioFile.createdAt,
+        });
+      }
+
+      // 텍스트 파일들
+      final textFiles = await FileStorageService.instance.loadTextFiles(litten.id);
+      for (final textFile in textFiles) {
+        allFiles.add({
+          'type': 'text',
+          'file': textFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': textFile.createdAt,
+        });
+      }
+
+      // 필기 파일들
+      final handwritingFiles = await FileStorageService.instance.loadHandwritingFiles(litten.id);
+      for (final handwritingFile in handwritingFiles) {
+        allFiles.add({
+          'type': 'handwriting',
+          'file': handwritingFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': handwritingFile.createdAt,
+        });
+      }
+    }
+
+    // 최신순으로 정렬
+    allFiles.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
+
+    debugPrint('✅ 총 ${allFiles.length}개 파일 로드 완료 (오디오: ${allFiles.where((f) => f['type'] == 'audio').length}, 텍스트: ${allFiles.where((f) => f['type'] == 'text').length}, 필기: ${allFiles.where((f) => f['type'] == 'handwriting').length})');
+
+    return allFiles;
+  }
+
+  /// 모든 리튼의 모든 파일을 가져오기 (시간 순서대로 정렬)
+  Future<List<Map<String, dynamic>>> getAllFiles() async {
+    debugPrint('📁 전체 파일 로드 시작 (모든 리튼 포함)');
+
+    final allFiles = <Map<String, dynamic>>[];
+
+    // 모든 리튼들 (undefined 포함)
+    final allLittens = _littens.toList();
+
+    debugPrint('📋 전체 리튼 개수: ${allLittens.length}');
+
+    for (final litten in allLittens) {
+      debugPrint('🔍 리튼 파일 스캔 시작: ${litten.title} (${litten.id})');
+
+      // 오디오 파일들 (파일 시스템에서 직접 로드)
+      final audioFiles = await AudioService().getAudioFiles(litten);
+      debugPrint('   🎵 오디오 파일: ${audioFiles.length}개');
+      for (final audioFile in audioFiles) {
+        debugPrint('      - ${audioFile.displayName}');
+        allFiles.add({
+          'type': 'audio',
+          'file': audioFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': audioFile.createdAt,
+        });
+      }
+
+      // 텍스트 파일들
+      final textFiles = await FileStorageService.instance.loadTextFiles(litten.id);
+      for (final textFile in textFiles) {
+        allFiles.add({
+          'type': 'text',
+          'file': textFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': textFile.createdAt,
+        });
+      }
+
+      // 필기 파일들
+      final handwritingFiles = await FileStorageService.instance.loadHandwritingFiles(litten.id);
+      for (final handwritingFile in handwritingFiles) {
+        allFiles.add({
+          'type': 'handwriting',
+          'file': handwritingFile,
+          'littenTitle': litten.title,
+          'littenId': litten.id,
+          'createdAt': handwritingFile.createdAt,
+        });
+      }
+    }
+
+    // 최신순으로 정렬
+    allFiles.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
+
+    debugPrint('✅ 총 ${allFiles.length}개 파일 로드 완료 (오디오: ${allFiles.where((f) => f['type'] == 'audio').length}, 텍스트: ${allFiles.where((f) => f['type'] == 'text').length}, 필기: ${allFiles.where((f) => f['type'] == 'handwriting').length})');
+
+    return allFiles;
   }
 }
 

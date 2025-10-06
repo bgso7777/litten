@@ -15,7 +15,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get homeTitle => '홈';
 
   @override
-  String get recordingTitle => '듣기';
+  String get recordingTitle => '녹음';
 
   @override
   String get writingTitle => '노트';
@@ -33,13 +33,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get emptyLittenDescription => '하단의 \'리튼 생성\' 버튼을 사용해서 첫 번째 노트를 시작하세요';
 
   @override
-  String get startRecording => '듣기 시작';
+  String get startRecording => '녹음 시작';
 
   @override
-  String get stopRecording => '듣기 중지';
+  String get stopRecording => '녹음 중지';
 
   @override
-  String get recording => '듣기 중...';
+  String get recording => '녹음 중...';
 
   @override
   String get textWriting => '텍스트 쓰기';
@@ -105,7 +105,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get startScreen => '시작 화면';
 
   @override
-  String get recordingSettings => '듣기 설정';
+  String get recordingSettings => '녹음 설정';
 
   @override
   String get maxRecordingTime => '최대 녹음 시간';
@@ -261,28 +261,28 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noLittenSelected => '리튼을 선택해주세요';
 
   @override
-  String get selectLittenFirst => '듣기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.';
+  String get selectLittenFirst => '녹음을 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.';
 
   @override
   String get goToHome => '홈으로 이동';
 
   @override
-  String get noAudioFilesYet => '아직 듣기 파일이 없습니다';
+  String get noAudioFilesYet => '아직 녹음 파일이 없습니다';
 
   @override
-  String get startFirstRecording => '아래 버튼을 눌러 첫 번째 듣기를 시작하세요';
+  String get startFirstRecording => '아래 버튼을 눌러 첫 번째 녹음을 시작하세요';
 
   @override
   String get selectLittenFirstMessage => '먼저 리튼을 선택하거나 생성해주세요.';
 
   @override
-  String get recordingStoppedAndSaved => '듣기가 중지되고 파일이 저장되었습니다.';
+  String get recordingStoppedAndSaved => '녹음이 중지되고 파일이 저장되었습니다.';
 
   @override
-  String get recordingStarted => '듣기가 시작되었습니다.';
+  String get recordingStarted => '녹음이 시작되었습니다.';
 
   @override
-  String get recordingFailed => '듣기 시작에 실패했습니다. 권한을 확인해주세요.';
+  String get recordingFailed => '녹음 시작에 실패했습니다. 권한을 확인해주세요.';
 
   @override
   String get playbackFailed => '재생에 실패했습니다.';
@@ -305,7 +305,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get playbackSpeed => '재생 속도';
 
   @override
-  String get recordingInProgress => '듣기 중...';
+  String get recordingInProgress => '녹음 중...';
 
   @override
   String get created => '생성';
@@ -400,10 +400,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get getStarted => '시작하기';
 
   @override
-  String get welcomeDescription => '듣기, 쓰기, 필기를 통합한\n스마트 노트 앱';
+  String get welcomeDescription => '녹음, 쓰기, 필기를 통합한\n스마트 노트 앱';
 
   @override
-  String get listen => '듣기';
+  String get listen => '녹음';
 
   @override
   String get listenDescription => '음성 녹음 및 재생';

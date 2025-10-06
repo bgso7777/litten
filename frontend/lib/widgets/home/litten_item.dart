@@ -182,16 +182,9 @@ class _LittenItemState extends State<LittenItem> {
                               ),
                             ),
                             AppSpacing.horizontalSpaceS,
-                            // File count badges (greyed out)
+                            // File count badges (greyed out) - 텍스트, 필기, 녹음 순서
                             Row(
                               children: [
-                                _buildFileBadge(
-                                  Icons.mic,
-                                  widget.litten.audioCount,
-                                  Colors.grey.shade300,
-                                  isActive: false,
-                                ),
-                                AppSpacing.horizontalSpaceXS,
                                 _buildFileBadge(
                                   Icons.keyboard,
                                   widget.litten.textCount,
@@ -202,6 +195,13 @@ class _LittenItemState extends State<LittenItem> {
                                 _buildFileBadge(
                                   Icons.draw,
                                   widget.litten.handwritingCount,
+                                  Colors.grey.shade300,
+                                  isActive: false,
+                                ),
+                                AppSpacing.horizontalSpaceXS,
+                                _buildFileBadge(
+                                  Icons.mic,
+                                  widget.litten.audioCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
@@ -345,18 +345,9 @@ class _LittenItemState extends State<LittenItem> {
                           ),
                         ),
                         AppSpacing.horizontalSpaceS,
-                        // File count badges (녹음, 텍스트, 필기 순서 - 항상 표시)
+                        // File count badges (텍스트, 필기, 녹음 순서 - 항상 표시)
                         Row(
                           children: [
-                            _buildFileBadge(
-                              Icons.mic,
-                              widget.litten.audioCount,
-                              widget.litten.audioCount > 0
-                                  ? Theme.of(context).primaryColor
-                                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                              isActive: widget.litten.audioCount > 0,
-                            ),
-                            AppSpacing.horizontalSpaceXS,
                             _buildFileBadge(
                               Icons.keyboard,
                               widget.litten.textCount,
@@ -373,6 +364,15 @@ class _LittenItemState extends State<LittenItem> {
                                   ? Theme.of(context).primaryColor
                                   : Theme.of(context).primaryColor.withValues(alpha: 0.3),
                               isActive: widget.litten.handwritingCount > 0,
+                            ),
+                            AppSpacing.horizontalSpaceXS,
+                            _buildFileBadge(
+                              Icons.mic,
+                              widget.litten.audioCount,
+                              widget.litten.audioCount > 0
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                              isActive: widget.litten.audioCount > 0,
                             ),
                           ],
                         ),

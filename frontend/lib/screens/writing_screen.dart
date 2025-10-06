@@ -60,22 +60,23 @@ class _WritingScreenState extends State<WritingScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
-      // child를 사용하여 DraggableTabLayout을 한 번만 생성
-      child: DraggableTabLayout(
-        key: _tabLayoutKey,
-        tabs: _tabs,
-        onTabPositionChanged: (tabId, newPosition) {
-          setState(() {
-            for (final tab in _tabs) {
-              if (tab.id == tabId) {
-                tab.position = newPosition;
-                break;
-              }
-            }
-          });
-        },
-      ),
       builder: (context, appState, child) {
+        // DraggableTabLayout을 매번 생성하되, initialActiveTabId를 전달
+        final draggableTabLayout = DraggableTabLayout(
+          key: ValueKey(appState.targetWritingTabId), // targetWritingTabId가 바뀌면 위젯 재생성
+          tabs: _tabs,
+          initialActiveTabId: appState.targetWritingTabId,
+          onTabPositionChanged: (tabId, newPosition) {
+            setState(() {
+              for (final tab in _tabs) {
+                if (tab.id == tabId) {
+                  tab.position = newPosition;
+                  break;
+                }
+              }
+            });
+          },
+        );
         // 리튼이 선택되지 않았을 때
         if (appState.selectedLitten == null) {
           return Center(
@@ -108,8 +109,8 @@ class _WritingScreenState extends State<WritingScreen> {
           );
         }
 
-        // 드래그 가능한 탭 레이아웃 반환 (child 파라미터로 전달된 것)
-        return child!;
+        // 드래그 가능한 탭 레이아웃 반환
+        return draggableTabLayout;
       },
     );
   }
