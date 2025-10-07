@@ -31,6 +31,9 @@ class AppStateProvider extends ChangeNotifier {
   // WritingScreen 내부 탭 선택 상태
   String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
 
+  // HomeScreen 하단 탭 선택 상태 (0: 파일, 1: 일정)
+  int _homeBottomTabIndex = 0;
+
   // 캘린더 상태
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
@@ -48,6 +51,7 @@ class AppStateProvider extends ChangeNotifier {
   Litten? get selectedLitten => _selectedLitten;
   int get selectedTabIndex => _selectedTabIndex;
   String? get targetWritingTabId => _targetWritingTabId;
+  int get homeBottomTabIndex => _homeBottomTabIndex;
   SubscriptionType get subscriptionType => _subscriptionType;
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;
   bool get isStandardUser => _subscriptionType == SubscriptionType.standard;
@@ -783,6 +787,12 @@ class AppStateProvider extends ChangeNotifier {
     changeTab(index);
   }
 
+  void setHomeBottomTabIndex(int index) {
+    _homeBottomTabIndex = index;
+    notifyListeners();
+    debugPrint('🏠 홈 화면 하단 탭 인덱스 변경: $index');
+  }
+
   Future<void> updateSubscriptionType(SubscriptionType subscriptionType) async {
     await changeSubscriptionType(subscriptionType);
   }
@@ -1083,6 +1093,7 @@ class AppStateProvider extends ChangeNotifier {
           'littenTitle': litten.title,
           'littenId': litten.id,
           'createdAt': audioFile.createdAt,
+          'updatedAt': audioFile.createdAt, // 오디오 파일은 updatedAt이 없으므로 createdAt 사용
         });
       }
 
@@ -1095,6 +1106,7 @@ class AppStateProvider extends ChangeNotifier {
           'littenTitle': litten.title,
           'littenId': litten.id,
           'createdAt': textFile.createdAt,
+          'updatedAt': textFile.updatedAt,
         });
       }
 
@@ -1107,15 +1119,76 @@ class AppStateProvider extends ChangeNotifier {
           'littenTitle': litten.title,
           'littenId': litten.id,
           'createdAt': handwritingFile.createdAt,
+          'updatedAt': handwritingFile.updatedAt,
         });
       }
     }
 
-    // 최신순으로 정렬
-    allFiles.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
+    // 수정일자 기준 내림차순 정렬 (최신순)
+    allFiles.sort((a, b) => (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime));
 
     debugPrint('✅ 총 ${allFiles.length}개 파일 로드 완료 (오디오: ${allFiles.where((f) => f['type'] == 'audio').length}, 텍스트: ${allFiles.where((f) => f['type'] == 'text').length}, 필기: ${allFiles.where((f) => f['type'] == 'handwriting').length})');
 
+    return allFiles;
+  }
+
+  // 선택된 리튼의 파일만 가져오기
+  Future<List<Map<String, dynamic>>> getFilesForSelectedLitten() async {
+    if (_selectedLitten == null) {
+      debugPrint('📁 선택된 리튼이 없음');
+      return [];
+    }
+
+    debugPrint('📁 선택된 리튼의 파일 로드 시작: ${_selectedLitten!.title} (${_selectedLitten!.id})');
+
+    final allFiles = <Map<String, dynamic>>[];
+
+    // 오디오 파일들
+    final audioFiles = await AudioService().getAudioFiles(_selectedLitten!);
+    debugPrint('   🎵 오디오 파일: ${audioFiles.length}개');
+    for (final audioFile in audioFiles) {
+      allFiles.add({
+        'type': 'audio',
+        'file': audioFile,
+        'littenTitle': _selectedLitten!.title,
+        'littenId': _selectedLitten!.id,
+        'createdAt': audioFile.createdAt,
+        'updatedAt': audioFile.createdAt, // 오디오 파일은 updatedAt이 없으므로 createdAt 사용
+      });
+    }
+
+    // 텍스트 파일들
+    final textFiles = await FileStorageService.instance.loadTextFiles(_selectedLitten!.id);
+    debugPrint('   📝 텍스트 파일: ${textFiles.length}개');
+    for (final textFile in textFiles) {
+      allFiles.add({
+        'type': 'text',
+        'file': textFile,
+        'littenTitle': _selectedLitten!.title,
+        'littenId': _selectedLitten!.id,
+        'createdAt': textFile.createdAt,
+        'updatedAt': textFile.updatedAt,
+      });
+    }
+
+    // 필기 파일들
+    final handwritingFiles = await FileStorageService.instance.loadHandwritingFiles(_selectedLitten!.id);
+    debugPrint('   ✍️ 필기 파일: ${handwritingFiles.length}개');
+    for (final handwritingFile in handwritingFiles) {
+      allFiles.add({
+        'type': 'handwriting',
+        'file': handwritingFile,
+        'littenTitle': _selectedLitten!.title,
+        'littenId': _selectedLitten!.id,
+        'createdAt': handwritingFile.createdAt,
+        'updatedAt': handwritingFile.updatedAt,
+      });
+    }
+
+    // 수정일자 기준 내림차순 정렬 (최신순)
+    allFiles.sort((a, b) => (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime));
+
+    debugPrint('📁 선택된 리튼의 총 파일 개수: ${allFiles.length}개');
     return allFiles;
   }
 }

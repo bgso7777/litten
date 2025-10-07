@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -286,6 +287,92 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   }
 
 
+  void _showRenameDialog(TextFile file) {
+    final TextEditingController controller = TextEditingController(
+      text: file.title.isNotEmpty ? file.title : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('파일 이름 변경'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '파일 이름을 입력하세요',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty) {
+                Navigator.pop(context);
+                await _renameTextFile(file, newTitle);
+              }
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameTextFile(TextFile file, String newTitle) async {
+    try {
+      print('디버그: 텍스트 파일 이름 변경 시작 - ${file.displayTitle} -> $newTitle');
+
+      final updatedFile = file.copyWith(title: newTitle);
+
+      // 파일 목록에서 업데이트
+      final index = _textFiles.indexWhere((f) => f.id == file.id);
+      if (index >= 0) {
+        setState(() {
+          _textFiles[index] = updatedFile;
+        });
+      }
+
+      // 파일 시스템에 저장
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten != null) {
+        final storage = FileStorageService.instance;
+        await storage.saveTextFiles(selectedLitten.id, _textFiles);
+
+        // 홈탭 파일 리스트 갱신을 위해 리튼 새로고침
+        await appState.refreshLittens();
+      }
+
+      print('디버그: 텍스트 파일 이름 변경 완료 - $newTitle');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 이름이 "$newTitle"(으)로 변경되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('에러: 텍스트 파일 이름 변경 실패 - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 이름 변경에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showDeleteConfirmDialog(String fileName, VoidCallback onConfirm) {
     showDialog(
       context: context,
@@ -465,13 +552,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (file.shortPreview.isNotEmpty)
-              Text(
-                file.shortPreview,
-                style: TextStyle(color: Colors.grey.shade600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              file.title.isNotEmpty ? file.title : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             AppSpacing.verticalSpaceXS,
             Text(
               '${file.characterCount}자 • ${file.updatedAt.toString().substring(0, 16)}',
@@ -479,14 +568,26 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: Icon(
-            Icons.delete_outline,
-            color: Theme.of(context).primaryColor,
-          ),
-          onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
-            _deleteTextFile(file);
-          }),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: () => _showRenameDialog(file),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
+                _deleteTextFile(file);
+              }),
+            ),
+          ],
         ),
         onTap: () => _editTextFile(file),
       ),

@@ -478,6 +478,14 @@ class _RecordingTabState extends State<RecordingTab> {
                                           ),
                                         IconButton(
                                           icon: Icon(
+                                            Icons.edit_outlined,
+                                            color: Theme.of(context).primaryColor,
+                                          ),
+                                          onPressed: () => _showRenameAudioFileDialog(audioFile),
+                                          tooltip: '이름 변경',
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
                                             Icons.delete_outline,
                                             color: Theme.of(context).primaryColor,
                                           ),
@@ -522,5 +530,72 @@ class _RecordingTabState extends State<RecordingTab> {
         );
       },
     );
+  }
+
+  // 오디오 파일 이름 변경 다이얼로그
+  void _showRenameAudioFileDialog(AudioFile audioFile) {
+    final controller = TextEditingController(text: audioFile.displayName);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('파일 이름 변경'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '새 파일 이름',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          onSubmitted: (_) {
+            Navigator.pop(context);
+            _renameAudioFile(audioFile, controller.text.trim());
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _renameAudioFile(audioFile, controller.text.trim());
+            },
+            child: const Text('변경'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 오디오 파일 이름 변경
+  Future<void> _renameAudioFile(AudioFile audioFile, String newName) async {
+    if (newName.isEmpty || newName == audioFile.displayName) {
+      return;
+    }
+
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      if (appState.selectedLitten == null) return;
+
+      // AudioService를 통해 파일 이름 업데이트
+      await _audioService.renameAudioFile(audioFile, newName);
+
+      // 목록 새로고침
+      await _loadAudioFiles();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('파일 이름이 변경되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일 이름 변경 실패: $e')),
+        );
+      }
+    }
   }
 }

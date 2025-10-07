@@ -41,7 +41,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _bottomTabController = TabController(length: 2, vsync: this);
+    _bottomTabController = TabController(length: 2, vsync: this, initialIndex: 0); // 파일 탭이 기본
+
+    // 탭 변경 시 FAB 표시/숨김 및 appState 동기화를 위해 리스너 추가
+    _bottomTabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+        // 사용자가 탭을 수동으로 변경한 경우 appState에도 반영
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        if (_bottomTabController.index != appState.homeBottomTabIndex) {
+          appState.setHomeBottomTabIndex(_bottomTabController.index);
+        }
+      }
+    });
 
     // 화면 로드 후 최신 리튼으로 스크롤 (최신이 맨 위에 있으므로 맨 위로)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -87,23 +99,34 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    
+
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
+        // appState의 homeBottomTabIndex와 TabController 동기화
+        if (_bottomTabController.index != appState.homeBottomTabIndex) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _bottomTabController.index != appState.homeBottomTabIndex) {
+              _bottomTabController.animateTo(appState.homeBottomTabIndex);
+            }
+          });
+        }
+
         return Scaffold(
           appBar: null,
           body: Stack(
             children: [
               Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 상단 50% - 캘린더
+              // 상단 45% - 캘린더
               Expanded(
-                flex: 1,
+                flex: 9,
                 child: _buildCalendarSection(appState, l10n),
               ),
-              // 하단 50% - 탭 영역 (리튼/파일)
+              // 하단 55% - 탭 영역 (리튼/파일)
               Expanded(
-                flex: 1,
+                flex: 11,
                 child: _buildBottomTabSection(appState, l10n),
               ),
             ],
@@ -111,11 +134,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               // 알림 배지
             ],
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _showCreateLittenDialog,
-            tooltip: l10n?.createLitten ?? '리튼 생성',
-            child: const Icon(Icons.add),
-          ),
+          floatingActionButton: _bottomTabController.index == 1 // 일정 탭(인덱스 1)일 때만 표시
+              ? FloatingActionButton(
+                  onPressed: _showCreateLittenDialog,
+                  tooltip: l10n?.createLitten ?? '리튼 생성',
+                  child: const Icon(Icons.add),
+                )
+              : null,
         );
       },
     );
@@ -575,11 +600,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         left: AppSpacing.paddingM.left,
         right: AppSpacing.paddingM.left,
         top: 0,
+        bottom: 0,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.max,
         children: [
           // 월 네비게이션 헤더
           Row(
@@ -600,6 +627,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 DateFormat.yMMMM(appState.locale.languageCode).format(appState.focusedDate),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
+                  fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
                 ),
               ),
               IconButton(
@@ -617,7 +645,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           // 캘린더
           Expanded(
-            child: TableCalendar<dynamic>(
+            child: Transform.translate(
+              offset: const Offset(0, 8), // 캘린더를 8px 아래로 이동하여 탭과 가깝게
+              child: Transform.scale(
+                scale: 0.9, // 캘린더를 90% 크기로 축소
+                child: TableCalendar<dynamic>(
               firstDay: DateTime.utc(2020, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
               focusedDay: appState.focusedDate,
@@ -788,6 +820,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 },
               ),
             ),
+            ),
+            ),
           ),
         ],
       ),
@@ -796,39 +830,72 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   // 하단 탭 섹션 빌드 (리튼/파일 탭)
   Widget _buildBottomTabSection(AppStateProvider appState, AppLocalizations? l10n) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: AppSpacing.paddingM.left,
-        right: AppSpacing.paddingM.right,
-        bottom: AppSpacing.paddingM.left,
-      ),
-      child: Column(
+    // 파일 개수 계산
+    final isUndefinedSelected = appState.selectedLitten?.title == 'undefined';
+
+    // 일정 개수 계산 (undefined 제외)
+    final selectedDateLittens = appState.littensForSelectedDate
+        .where((litten) => litten.title != 'undefined')
+        .toList();
+    final littenCount = selectedDateLittens.length;
+
+    return Transform.translate(
+      offset: const Offset(0, -8), // 탭을 8px 위로 이동하여 캘린더와 가깝게
+      child: Container(
+        padding: EdgeInsets.only(
+          left: AppSpacing.paddingM.left,
+          right: AppSpacing.paddingM.right,
+          top: 0,
+          bottom: AppSpacing.paddingM.left,
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 탭 바
-          TabBar(
-            controller: _bottomTabController,
-            labelColor: Theme.of(context).primaryColor,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Theme.of(context).primaryColor,
-            tabs: const [
-              Tab(text: '일정'),
-              Tab(text: '파일'),
-            ],
+          FutureBuilder<int>(
+            future: _getFileCount(appState, isUndefinedSelected),
+            builder: (context, snapshot) {
+              final fileCount = snapshot.data ?? 0;
+              return TabBar(
+                controller: _bottomTabController,
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Theme.of(context).primaryColor,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                tabs: [
+                  Tab(text: '파일($fileCount)'),
+                  Tab(text: '일정($littenCount)'),
+                ],
+              );
+            },
           ),
           // 탭 뷰
           Expanded(
             child: TabBarView(
               controller: _bottomTabController,
               children: [
-                _buildLittenListTab(appState, l10n),
                 _buildAllFilesTab(appState, l10n),
+                _buildLittenListTab(appState, l10n),
               ],
             ),
           ),
         ],
       ),
+      ),
     );
+  }
+
+  // 파일 개수 가져오기
+  Future<int> _getFileCount(AppStateProvider appState, bool isUndefinedSelected) async {
+    try {
+      final files = isUndefinedSelected
+          ? await appState.getAllFiles()
+          : await appState.getFilesForSelectedLitten();
+      return files.length;
+    } catch (e) {
+      return 0;
+    }
   }
 
   // 리튼 리스트 탭
@@ -932,13 +999,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   // 모든 파일 탭
   Widget _buildAllFilesTab(AppStateProvider appState, AppLocalizations? l10n) {
-    // undefined 리튼이 선택된 경우 모든 파일 표시, 아니면 선택된 날짜의 파일만 표시
+    // undefined 리튼이 선택된 경우 모든 파일 표시, 아니면 선택된 리튼의 파일만 표시
     final isUndefinedSelected = appState.selectedLitten?.title == 'undefined';
 
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: isUndefinedSelected
-          ? appState.getAllFiles()  // undefined: 모든 리튼의 모든 파일
-          : appState.getAllFilesForSelectedDate(),  // 다른 리튼: 선택된 날짜의 파일만
+          ? appState.getAllFiles()  // undefined: 모든 리튼의 모든 파일 (시간순)
+          : appState.getFilesForSelectedLitten(),  // 다른 리튼: 선택된 리튼의 파일만
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -972,7 +1039,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               itemBuilder: (context, index) {
                 final fileData = allFiles[index];
                 final fileType = fileData['type'] as String;
-                final littenTitle = fileData['littenTitle'] as String;
+                final littenTitleRaw = fileData['littenTitle'] as String;
+                final littenTitle = littenTitleRaw == 'undefined' ? '-' : littenTitleRaw;
                 final createdAt = fileData['createdAt'] as DateTime;
 
                 IconData icon;
@@ -999,41 +1067,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   subtitle = '${handwritingFile.pageInfo.isNotEmpty ? handwritingFile.pageInfo + " • " : ""}$littenTitle';
                 }
 
-                return ListTile(
-                  leading: Icon(icon, color: Theme.of(context).primaryColor),
-                  title: Row(
-                    children: [
-                      // 리튼명
-                      Text(
-                        littenTitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 파일명 (나머지 공간 차지, ellipsis 처리)
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 시간
-                      Text(
-                        DateFormat('HH:mm').format(createdAt),
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                return InkWell(
                   onTap: () async {
                     debugPrint('📂 파일 터치: ${fileData['file']}');
                     debugPrint('   - 파일 타입: $fileType');
@@ -1068,6 +1102,55 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     appState.changeTab(targetTabIndex);
                     debugPrint('✅ 탭 변경 완료');
                   },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        // 아이콘
+                        Icon(icon, color: Theme.of(context).primaryColor, size: 16),
+                        const SizedBox(width: 12),
+                        // 리튼명 (고정 너비)
+                        SizedBox(
+                          width: 80,
+                          child: Text(
+                            littenTitle,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // 파일명 (확장 가능, ellipsis)
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // 시간 (고정 너비)
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            DateFormat('HH:mm').format(createdAt),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),

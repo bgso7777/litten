@@ -89,7 +89,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             leadingWidth: 120,
             title: appState.selectedLitten != null
                 ? Text(
-                    appState.selectedLitten!.title,
+                    appState.selectedLitten!.title == 'undefined' ? '-' : appState.selectedLitten!.title,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -127,7 +127,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
-              // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동
+              // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동, 없으면 undefined 리튼 선택
               if (index == 0) {
                 final notifications = appState.notificationService.firedNotifications;
                 debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
@@ -157,7 +157,21 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
                   // 해당 리튼 선택
                   appState.selectLitten(targetLitten);
-                  debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료');
+
+                  // 홈 화면의 일정 탭(인덱스 1) 선택
+                  appState.setHomeBottomTabIndex(1);
+
+                  debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
+                } else {
+                  // 알림이 없을 경우 undefined 리튼 선택 및 파일 탭(인덱스 0) 선택
+                  final undefinedLitten = appState.littens
+                      .where((l) => l.title == 'undefined')
+                      .firstOrNull;
+                  if (undefinedLitten != null) {
+                    appState.selectLitten(undefinedLitten);
+                    appState.setHomeBottomTabIndex(0);  // 파일 탭 선택
+                    debugPrint('✅ 알림이 없어서 undefined 리튼 선택 및 파일 탭 활성화');
+                  }
                 }
               }
 

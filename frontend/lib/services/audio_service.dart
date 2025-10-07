@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -391,6 +392,27 @@ class AudioService extends ChangeNotifier {
       debugPrint('✅ 오디오 플레이어 백그라운드 재생 설정 완료');
     } catch (e) {
       debugPrint('❌ 오디오 플레이어 백그라운드 재생 설정 에러: $e');
+    }
+  }
+
+  // 오디오 파일 이름 변경
+  Future<void> renameAudioFile(AudioFile audioFile, String newName) async {
+    try {
+      debugPrint('[AudioService] 파일 이름 변경: ${audioFile.fileName} -> $newName');
+
+      // 메타데이터 파일 업데이트
+      final metadataPath = audioFile.filePath.replaceAll('.m4a', '_metadata.json');
+      final metadataFile = File(metadataPath);
+
+      if (await metadataFile.exists()) {
+        final metadata = json.decode(await metadataFile.readAsString());
+        metadata['customName'] = newName;
+        await metadataFile.writeAsString(json.encode(metadata));
+        debugPrint('[AudioService] 메타데이터 업데이트 완료');
+      }
+    } catch (e) {
+      debugPrint('[AudioService] 파일 이름 변경 에러: $e');
+      rethrow;
     }
   }
 

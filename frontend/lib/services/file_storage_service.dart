@@ -68,25 +68,75 @@ class FileStorageService {
   Future<List<HandwritingFile>> loadHandwritingFiles(String littenId) async {
     try {
       print('디버그: 필기 파일 로드 시작 - littenId: $littenId');
-      
+
       final prefs = await SharedPreferences.getInstance();
       final filesJsonString = prefs.getString('${_handwritingFilesKey}_$littenId');
-      
-      if (filesJsonString == null) {
-        print('디버그: 저장된 필기 파일이 없음');
+
+      // SharedPreferences에 저장된 파일이 있고 비어있지 않으면 그것을 사용
+      if (filesJsonString != null) {
+        final filesList = jsonDecode(filesJsonString) as List;
+
+        // 빈 배열이면 파일 시스템을 다시 스캔
+        if (filesList.isEmpty) {
+          print('디버그: SharedPreferences에 빈 배열 저장됨, 파일 시스템 스캔 시작');
+        } else {
+          final handwritingFiles = filesList
+              .map((fileJson) => HandwritingFile.fromJson(fileJson))
+              .toList();
+
+          // 최신순으로 정렬 (최신이 맨 위로)
+          handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          print('디버그: 필기 파일 ${handwritingFiles.length}개 로드 완료 (최신순 정렬)');
+          return handwritingFiles;
+        }
+      } else {
+        print('디버그: SharedPreferences에 없음, 파일 시스템 스캔 시작');
+      }
+
+      // 파일 시스템에서 스캔
+      if (kIsWeb) {
+        print('디버그: 웹 환경에서는 파일 시스템 스캔 불가');
         return [];
       }
-      
-      final filesList = jsonDecode(filesJsonString) as List;
-      final handwritingFiles = filesList
-          .map((fileJson) => HandwritingFile.fromJson(fileJson))
-          .toList();
 
-      // 최신순으로 정렬 (최신이 맨 위로)
-      handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final dir = await getApplicationDocumentsDirectory();
+      final handwritingDir = Directory('${dir.path}/littens/$littenId/handwriting');
 
-      print('디버그: 필기 파일 ${handwritingFiles.length}개 로드 완료 (최신순 정렬)');
-      return handwritingFiles;
+      if (!await handwritingDir.exists()) {
+        print('디버그: 필기 디렉토리가 존재하지 않음');
+        return [];
+      }
+
+      final files = <HandwritingFile>[];
+      await for (final entity in handwritingDir.list()) {
+        if (entity is File) {
+          final fileName = entity.path.split('/').last;
+          // metadata.json 파일 찾기
+          if (fileName.endsWith('_metadata.json')) {
+            try {
+              final metadataStr = await entity.readAsString();
+              final metadata = jsonDecode(metadataStr);
+              final handwritingFile = HandwritingFile.fromJson(metadata);
+              files.add(handwritingFile);
+              print('디버그: 메타데이터 파일 발견: $fileName -> ${handwritingFile.title}');
+            } catch (e) {
+              print('에러: 메타데이터 파일 읽기 실패 - $fileName: $e');
+            }
+          }
+        }
+      }
+
+      // 최신순으로 정렬
+      files.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // SharedPreferences에 저장
+      if (files.isNotEmpty) {
+        await saveHandwritingFiles(littenId, files);
+      }
+
+      print('디버그: 파일 시스템에서 필기 파일 ${files.length}개 발견 및 로드 완료');
+      return files;
     } catch (e) {
       print('에러: 필기 파일 로드 실패 - $e');
       return [];

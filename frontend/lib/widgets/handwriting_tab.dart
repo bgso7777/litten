@@ -2288,18 +2288,106 @@ class _HandwritingTabState extends State<HandwritingTab>
                 ),
               ],
             ),
-        trailing: IconButton(
-          icon: Icon(
-            Icons.delete_outline,
-            color: Theme.of(context).primaryColor,
-          ),
-          onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
-            _deleteHandwritingFile(file);
-          }),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: () => _showRenameHandwritingFileDialog(file),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: () => _showDeleteConfirmDialog(file.displayTitle, () {
+                _deleteHandwritingFile(file);
+              }),
+            ),
+          ],
         ),
         onTap: () => _editHandwritingFile(file),
       ),
     );
+  }
+
+  // 필기 파일 이름 변경 다이얼로그
+  void _showRenameHandwritingFileDialog(HandwritingFile file) {
+    final controller = TextEditingController(text: file.title);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('파일 이름 변경'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '새 파일 이름',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          onSubmitted: (_) {
+            Navigator.pop(context);
+            _renameHandwritingFile(file, controller.text.trim());
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _renameHandwritingFile(file, controller.text.trim());
+            },
+            child: const Text('변경'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 필기 파일 이름 변경
+  Future<void> _renameHandwritingFile(HandwritingFile file, String newName) async {
+    if (newName.isEmpty || newName == file.title) {
+      return;
+    }
+
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      if (appState.selectedLitten == null) return;
+
+      // 파일 목록에서 해당 파일 찾아서 업데이트
+      final fileIndex = _handwritingFiles.indexWhere((f) => f.id == file.id);
+      if (fileIndex != -1) {
+        _handwritingFiles[fileIndex] = file.copyWith(title: newName);
+
+        // 전체 목록 저장
+        await FileStorageService.instance.saveHandwritingFiles(
+          appState.selectedLitten!.id,
+          _handwritingFiles,
+        );
+
+        // 목록 새로고침
+        await _loadFiles();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('파일 이름이 변경되었습니다')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일 이름 변경 실패: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildHandwritingEditor() {

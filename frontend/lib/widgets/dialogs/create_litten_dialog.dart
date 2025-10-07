@@ -41,7 +41,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
 
     return AlertDialog(
       title: Text(
-        l10n?.createLitten ?? '리튼 생성',
+        l10n?.createLitten ?? '일정 생성',
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,

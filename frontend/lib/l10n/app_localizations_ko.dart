@@ -24,7 +24,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsTitle => '설정';
 
   @override
-  String get createLitten => '리튼 생성';
+  String get createLitten => '일정 생성';
 
   @override
   String get emptyLittenTitle => '리튼을 생성하거나 선택하세요';

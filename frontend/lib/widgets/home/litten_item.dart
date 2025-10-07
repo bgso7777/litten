@@ -131,7 +131,7 @@ class _LittenItemState extends State<LittenItem> {
             onLongPress: widget.onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: 8.0), // 50% 축소 (16.0 → 8.0)
               child: Row(
                 children: [
                   // Leading icon
@@ -162,7 +162,7 @@ class _LittenItemState extends State<LittenItem> {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      widget.litten.title,
+                                      widget.litten.title == 'undefined' ? '-' : widget.litten.title,
                                       style: AppTextStyles.headline3.copyWith(
                                         color: Colors.grey.shade400,
                                       ),
@@ -296,7 +296,7 @@ class _LittenItemState extends State<LittenItem> {
           onLongPress: widget.onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.m),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: 8.0), // 50% 축소 (16.0 → 8.0)
             child: Row(
             children: [
               // Leading icon
@@ -327,7 +327,7 @@ class _LittenItemState extends State<LittenItem> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  widget.litten.title,
+                                  widget.litten.title == 'undefined' ? '-' : widget.litten.title,
                                   style: AppTextStyles.headline3,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
