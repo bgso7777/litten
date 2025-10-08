@@ -1,0 +1,55 @@
+<html>
+<head>
+    <title>로그인 (테스트)</title>
+    <meta charset="UTF-8">
+</head>
+
+<script type="text/javascript">
+    var prefixPath = "";
+
+    function onload() {
+        prefixPath = document.getElementsByName("prefixPath")[0].value;
+    }
+
+    function onClick() {
+        var requestData = {
+        };
+        var memberId = document.getElementsByName("memberId")[0].value;
+        var password = document.getElementsByName("password")[0].value;
+        var requestURL = "../../../../../.."+prefixPath+"/anon/svc/authentication/"+btoa(memberId)+"/"+btoa(password);
+        var xMLHttpRequest = new XMLHttpRequest();
+        xMLHttpRequest.open('get', requestURL);
+        xMLHttpRequest.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        xMLHttpRequest.onload = () => {
+            console.log(xMLHttpRequest.response);
+            document.getElementsByName('reponseData')[0].value = xMLHttpRequest.response;
+        };
+        document.getElementsByName('requestData')[0].value = JSON.stringify(requestData);
+        xMLHttpRequest.send(JSON.stringify(requestData));
+        // xMLHttpRequest.send(JSON.stringify());
+    }
+
+</script>
+
+<body onload="onload()">
+    <input type="hidden" name="prefixPath" th:value="${prefixPath}"/>
+
+    <br>
+    로그인 테스트 페이지
+    <div id="div1">
+        <input type="hidden" name="_method" value="get"/>
+        <input type="hidden" name="type" value="1"/>
+        <p>
+            아이디 : <input type="text" name="memberId" placeholder="아이디" size="20">
+        <p>
+            비밀번호 : <input type="password" name="password" placeholder="비밀번호" size="20">
+        <p>
+            <input type="submit" name="submit" value="로그인" onclick="onClick()"></input>
+        <p>
+            <input type="label" name="requestData" size="100" value="요청데이터">
+        <p>
+            <input type="label" name="reponseData" size="100" value="응답데이터">
+    </div>
+</body>
+
+</html>

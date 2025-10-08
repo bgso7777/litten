@@ -1,0 +1,103 @@
+server:
+  port: 8989
+  shutdown: graceful
+  protocol: https
+  domain: dev-api.ploonet.com
+  prefix-path: /api/account/v1
+  developer-mail: byoungkyu.so@saltlux.com # 중요 에러 시 메일 발송
+  billing-url: http://billing:8787/aice/billing/v1/credit/plus
+  config-manager-url: http://localhost:8151/aice/configManager
+  talkbot-url:
+  message-url: http://localhost:8282/aice/msggw/messages/v1/send/sms
+  message-kakao-url: http://localhost:8282/aice/msggw/messages/v1/send/bulk/kakao
+  union-url: http://127.0.0.1:8161
+
+logging:
+  config: classpath:log4j2/log4j2-${spring.config.activate.on-profile}.xml
+  level:
+    root: debug
+  multifile:
+    useyn: false
+
+management:
+  endpoints:
+    web:
+      base-path: /health
+      path-mapping:
+        health: check
+  endpoint:
+    health:
+      show-details: always
+
+spring:
+  application:
+    name: accountManager
+  config:
+    activate:
+      on-profile: release
+  datasource:
+    #url: jdbc:mariadb://10.0.11.30:3306/aice?useSSL=false&amp;characterEncoding=utf8
+    url: jdbc:mariadb://10.20.27.240:3306/aice?useSSL=false&amp;characterEncoding=utf8
+    username: be_account
+    password: 67606CF147BE4745AC2194EF9831BE1DBF3ECA9C2B554EE79E620DC9AD52D027
+    driver-class-name: org.mariadb.jdbc.Driver
+    hikari:
+      connectionTimeout : 30000 # 최대 3초까지만 pool 대기
+      maximumPoolSize : 3
+      connectionTestQuery : select 1
+  jpa:
+    hibernate:
+      use-new-id-generator-mappings: false
+    ddl-auto: none # update the schema with the given values
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        allow_update_outside_transaction: true
+    generate-ddl: true
+    defer-datasource-initialization: true
+  devtools:
+    livereload:
+      enabled: true
+    restart:
+      enabled: true
+      additional-paths: src
+  jackson:
+    parser:
+      allow-unquoted-field-names: true
+      allow-single-quotes: true
+    serialization:
+      INDENT_OUTPUT: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  security:
+    filter:
+      ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost,172.19.0.1,10.0.15.126,10.0.143.78,10.0.137.225,10.0.22.233,10.0.128.74,172.16.100.67,10.0.27.220,10.0.134.24,10.0.64.203,172.16.100.95,172.16.100.107,172.16.100.120,10.0.26.250,1.224.169.27,172.16.100.2
+  mail:
+    host: smtp-mail.outlook.com
+    port: 587
+    username: company@ploonet.com
+    password: ploonet@0425
+    ssl.used: N
+    starttls.enable: Y
+    properties:
+      mail:
+        debug: true
+        smtp:
+          connectiontimeout: 30000
+          auth: true
+          starttls:
+            enable: true
+          ssl:
+            protocols: TLSv1.2
+  datasource-ploonettotal:
+    driver-class-name: org.mariadb.jdbc.Driver
+    jdbc-url: jdbc:mariadb://uniondb.cn3vo2h0sfkr.ap-northeast-2.rds.amazonaws.com:3306/ploonet_total?autoReconnect=true
+    username: workcenter
+    password: pl004!@#$
+
+jwt:
+  token-validity-in-milliseconds: 43200000 # 600000(10분), 86400000(24시간), 31536000000(365일)
+  secret: aiceaccountjwtsecretparsetargettobase64
+
+cs-center-company-seq: 8314

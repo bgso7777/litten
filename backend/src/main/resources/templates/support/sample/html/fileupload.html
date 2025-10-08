@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>업로드 테스트</title>
+</head>
+
+<script type="text/javascript">
+  function uploadOnClick() {
+      /*var submitObject = document.getElementsByName("submit");
+      var fileuploadform = document.getElementsByName("fileuploadform");
+      fileuploadform.action =  "/account/staff/file";
+      submitObject.submit();
+      return true;*/
+    const formData = new FormData(document.getElementById("fileuploadform"));
+    fetch("/account/staff/file", {
+      method: "POST",
+      headers: {
+        "auth-token": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJiZ3NvNzc3NkBuYXZlci5jb20iLCJhdXRoIjoiTUVNQkVSX0lORElWSURVQUxfTUFTVEVSIiwicmVhbF9uYW1lIjoi7IaM67OR6recNzc3NiIsImlzTW9iaWxlIjpmYWxzZSwiZXhwIjoxNzA2ODA1NTc1fQ.GB8FHsMGZMa336iSAAJ7bPxjxzj2Yud4k7HykGs6gtPCOvzvDa2VdZVDOcoa8JN734Jawvke9LOpyjRhWlR1dw"
+        },
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => console.log(data))
+    .catch(error => console.error(error));
+  }
+</script>
+
+  <body>
+  <h1>엑셀 담당자 업로드 테스트</h1>
+<!--    <form id="fileuploadform" name="fileuploadform" th:action="@{/account/staff/file}" method="POST" enctype="multipart/form-data" onSubmit="return uploadOnClick();">-->
+  <form id="fileuploadform" name="fileuploadform" enctype="multipart/form-data" onSubmit="return uploadOnClick();">
+      <input type="file" th:name="file">
+      <input th:type="submit" value="업로드 !" />
+    </form>
+  </body>
+
+</html>

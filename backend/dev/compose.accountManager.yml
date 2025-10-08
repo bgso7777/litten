@@ -1,0 +1,42 @@
+version: '3.5'
+
+networks:
+    net-workcenter:
+        driver: bridge
+        name: net-workcenter
+services:
+    accountManager:
+        container_name: accountManager
+        #restart: always
+        image: ploonet:v3
+        privileged: true
+        tty: true
+        dns:
+            - 10.0.0.2
+        dns_search:
+            - ap-northeast-2.compute.internal
+        networks:
+            net-workcenter:
+        sysctls:
+            net.ipv4.conf.all.forwarding: 1
+        ports:
+            - "8989:8989"
+        environment:
+            APP_PROFILE: dev
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /sys/fs/cgroup:/sys/fs/cgroup:ro
+            - /var/workcenter/pods/accountManager:/var/workcenter/accountManager
+        working_dir: /var/workcenter/accountManager
+        entrypoint: /sbin/init && /var/workcenter/startup.sh
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8989/health/check"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+        #deploy:
+            #resources:
+                #limits:
+                    #cpus: '1.0'
+                    #memory: 128M
