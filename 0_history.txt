@@ -20,18 +20,6 @@ aos, ios 시뮬레이터에서 실행된 앱 죽이고, 다시 빌드해서,
 새 기능이 추가된 버젼으로 다시 실행해줘
 
 
-36 - backend
----------------------------------------
-brew install mariadb
-brew services start mariadb
-
-brew services stop --all
-brew services list
-brew services start mariadb
-
-brew install mariadb-client
-
-
 37 - frontend
 ---------------------------------------
 
@@ -116,6 +104,34 @@ vosk_flutter
 
 ===================================================================
 ===================================================================
+
+36 - backend
+---------------------------------------
+brew install mariadb
+brew services start mariadb
+
+brew services stop --all
+brew services list
+brew services start mariadb
+
+brew install mariadb-client
+
+mysql -u root
+
+mariadb에 litten 데이터베이스를 만들고 
+계정은 litten 패스워드는 litten1234로 해줘
+
+backend를 개발할건데 java 17을 설치해줘 
+
+backend 디렉토리에 spring boot 관련 기본 설정을 했어
+backend 관련 설정을 할거니까 대기해줘
+
+StartAccountManagerApplication를 실행해줘
+
+maven설치해줘
+
+settings.json에 실행 관련 설정을 넣어야 하잖아?
+
 
 35 - frontend
 ---------------------------------------

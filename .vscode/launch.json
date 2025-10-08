@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-StartAccountManagerApplication",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/backend",
+            "mainClass": "com.litten.StartAccountManagerApplication",
+            "projectName": "litten-backend",
+            "args": "",
+            "vmArgs": "-Dspring.profiles.active=local",
+            "envFile": "${workspaceFolder}/backend/.env"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Attach)",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005
+        }
+    ]
+}
