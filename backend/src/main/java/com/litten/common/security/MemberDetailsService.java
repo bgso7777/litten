@@ -2,9 +2,9 @@ package com.litten.common.security;
 
 import com.litten.Constants;
 import com.litten.common.dao.AdminUserRepository;
-import com.litten.common.dao.MemberRepository;
+import com.litten.note.NoteMemberRepository;
 import com.litten.common.domain.AdminUser;
-import com.litten.common.domain.Member;
+import com.litten.note.NoteMember;
 import com.litten.common.dynamic.BeanUtil;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.core.GrantedAuthority;
@@ -29,7 +29,7 @@ public class MemberDetailsService implements UserDetailsService {
         MemberDetails domainUserDetails = null;
         try {
             if( username.indexOf(Constants.ANONYMOUS_MEMBER_ID_PREFIX)!=-1 ) {
-                Member member = new Member();
+                NoteMember member = new NoteMember();
                 member.setId(username.substring(username.indexOf(Constants.ANONYMOUS_MEMBER_ID_PREFIX) + Constants.ANONYMOUS_MEMBER_ID_PREFIX.length()));
                 member.setName(username.substring(username.indexOf(Constants.ANONYMOUS_MEMBER_ID_PREFIX)));
                 member.setPassword(Constants.ANONYMOUS_CRYPTO_PASSWORD);
@@ -40,27 +40,27 @@ public class MemberDetailsService implements UserDetailsService {
                 AdminUser adminUser = adminUserRepository.findByLoginId(loginId);
                 domainUserDetails = createMemberAdminAdmin(username, adminUser);
             } else {
-                MemberRepository memberRepository = BeanUtil.getBean2(MemberRepository.class);
-//                List<Member> members = memberRepository.findByMemberIdAndStatusCodeNot(username, Constants.CODE_MEMBER_STATUS_WITHDRAWAL);
-                List<Member> members = memberRepository.findByIdAndStatusCodeInAndLevelCode(username, new String[]{Constants.CODE_MEMBER_STATUS_NORMAL}, Constants.CODE_LEVEL_MASTER);
-                if ( members==null || members.size()==0 ) {
+                NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+                NoteMember noteMember = noteMemberRepository.findByIdAndStateCode(username, "signup");
+                if ( noteMember==null ) {
                     // 앞단에서 미리 id와 pw의 일치 여부를 체크 함.
                     throw new UsernameNotFoundException("User [" + username + "] was not found in the database");
                 } else {
-                    // 기업
-                    if (members != null && members.get(0).getUserType().equals(Constants.CODE_USER_TYPE_COMPANY)) {
-                        if (members.get(0).getCompanyMaster() != null && members.get(0).getCompanyMaster().equals(Constants.STRING_TRUE))
-                            domainUserDetails = createMemberCompanyMaster(username, members.get(0));
-                        else
-                            domainUserDetails = createMemberCompany(username, members.get(0));
-                    // 개인
-                    } else if (members != null && members.get(0).getUserType().equals(Constants.CODE_USER_TYPE_INDIVIDUAL)) {
-                        if (members.get(0).getCompanyMaster() != null && members.get(0).getCompanyMaster().equals(Constants.STRING_TRUE))
-                            domainUserDetails = createMemberIndividualMaster(username, members.get(0));
-                        else
-                            domainUserDetails = createMemberIndividual(username, members.get(0));
-                    } else {
-                    }
+//                    // 기업
+//                    if (noteMember != null ) {
+//                        if (members.get(0).getCompanyMaster() != null && members.get(0).getCompanyMaster().equals(Constants.STRING_TRUE))
+//                            domainUserDetails = createMemberCompanyMaster(username, noteMember);
+//                        else
+//                            domainUserDetails = createMemberCompany(username, noteMember);
+//                    // 개인
+//                    } else if (members != null && members.get(0).getUserType().equals(Constants.CODE_USER_TYPE_INDIVIDUAL)) {
+//                        if (members.get(0).getCompanyMaster() != null && members.get(0).getCompanyMaster().equals(Constants.STRING_TRUE))
+//                            domainUserDetails = createMemberIndividualMaster(username, members.get(0));
+//                        else
+//                            domainUserDetails = createMemberIndividual(username, members.get(0));
+//                    } else {
+//                    }
+                    domainUserDetails = createMemberIndividual(username, noteMember);
                 }
             }
         } catch (Exception e) {
@@ -70,50 +70,50 @@ public class MemberDetailsService implements UserDetailsService {
         return domainUserDetails;
     }
 
-    private MemberDetails createMemberIndividual(String login, Member member) {
+    private MemberDetails createMemberIndividual(String login, NoteMember noteMember) {
         List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>() {
             {
                 add(AuthoritiesConstants.ROLE_MEMBER_INDIVIDUAL);
             }
         };
-        return new MemberDetails(member.getName(), member.getId(), member.getPassword(), authorities);
+        return new MemberDetails(noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
     }
 
-    private MemberDetails createMemberIndividualMaster(String login, Member member) {
+    private MemberDetails createMemberIndividualMaster(String login, NoteMember noteMember) {
         List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>() {
             {
                 add(AuthoritiesConstants.ROLE_MEMBER_INDIVIDUAL_MASTER);
             }
         };
-        return new MemberDetails(member.getName(), member.getId(), member.getPassword(), authorities);
+        return new MemberDetails(noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
     }
 
-    private MemberDetails createMemberCompany(String login, Member member) {
+    private MemberDetails createMemberCompany(String login, NoteMember noteMember) {
         List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>() {
             {
                 add(AuthoritiesConstants.ROLE_MEMBER_COMPANY);
             }
         };
-        return new MemberDetails(member.getName(), member.getId(), member.getPassword(), authorities);
+        return new MemberDetails(noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
     }
 
-    private MemberDetails createMemberCompanyMaster(String login, Member member) {
+    private MemberDetails createMemberCompanyMaster(String login, NoteMember noteMember) {
         List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>() {
             {
                 add(AuthoritiesConstants.ROLE_MEMBER_COMPANY_MASTER);
             }
         };
-        return new MemberDetails(member.getName(), member.getId(), member.getPassword(), authorities);
+        return new MemberDetails(noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
     }
 
 
-    private MemberDetails createAnonymous(String login, Member member) {
+    private MemberDetails createAnonymous(String login, NoteMember noteMember) {
         List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>() {
             {
                 add(AuthoritiesConstants.ROLE_ANONYMOUS);
             }
         };
-        return new MemberDetails(member.getName(), member.getId(), member.getPassword(), authorities);
+        return new MemberDetails(noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
     }
 
     private MemberDetails createMemberAdminAdmin(String login, AdminUser adminUser) {

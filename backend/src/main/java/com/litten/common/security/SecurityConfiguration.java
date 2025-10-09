@@ -191,6 +191,29 @@ public class SecurityConfiguration {
         .antMatchers("/account/brand/member").access(hasIpAddress.toString())
         .antMatchers("/account/brand/member").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
 
+
+
+
+        .antMatchers("/note/v1/members/install/**").permitAll()
+        .antMatchers("/note/v1/members/signup/**").permitAll()
+        .antMatchers("/note/v1/members/password-url/**").permitAll()
+        .antMatchers("/note/v1/members/login/web/**").permitAll()
+        .antMatchers("/note/v1/members/login/mobile/**").permitAll()
+
+//        .antMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
+//        .antMatchers("/litten/anon/svc/members/change-password2/**/**").permitAll()
+//        .antMatchers("/litten/anon/svc/members/change-password2/**").permitAll()
+//        .antMatchers("/litten/anon/svc/members/change-password3/**").permitAll()
+
+        .antMatchers("/anon/svc/support/sample/html/**").permitAll()
+        .antMatchers("/anon/svc/members/change-password2/**/**").permitAll()
+        .antMatchers("/anon/svc/members/change-password2/**").permitAll()
+        .antMatchers("/anon/svc/members/change-password3/**").permitAll()
+
+        .antMatchers("/anon/**").access(hasIpAddress.toString())
+        .antMatchers("/anon/svc/support/sample/html/**").permitAll()
+        .antMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
+
         .anyRequest().authenticated()
         .and()
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

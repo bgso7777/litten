@@ -3,17 +3,21 @@ server:
   shutdown: graceful
   protocol: http
   domain: localhost
-  prefix-path: /account/anon/svc
+  prefix-path: /litten/anon/svc
   developer-mail: byoungkyu.so@saltlux.com # 중요 에러 시 메일 발송
+  servlet:
+    context-path: /litten
+
   billing-url: http://localhost:8787/aice/billing
-#  config-manager-url: http://localhost:8151/aice/configManager
+  #  config-manager-url: http://localhost:8151/aice/configManager
   config-manager-url: http://10.0.131.55:8151/aice/configManager
-#  talkbot-url: http://localhost:4001
+  #  talkbot-url: http://localhost:4001
   talkbot-url: http://192.168.220.222:4001
-#  message-url: http://10.0.131.55:8282/aice/msggw/messages/v1/send/sms
+  #  message-url: http://10.0.131.55:8282/aice/msggw/messages/v1/send/sms
   message-url: https://dev-backdoor.ploonet.com/message-gateway/aice/msggw/messages/v1/send/sms
   message-kakao-url: https://dev-backdoor.ploonet.com/message-gateway/aice/msggw/messages/v1/send/bulk/kakao
   union-url: http://localhost:8161
+
 
 logging:
   config: classpath:log4j2/log4j2-${spring.config.activate.on-profile}.xml
@@ -81,23 +85,39 @@ spring:
   security:
     filter:
       ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost
+#  mail:
+#    host: smtp-mail.outlook.com
+#    port: 587
+#    username: company@ploonet.com
+#    password: ploonet@0425
+#    ssl.used: N
+#    starttls.enable: Y
+#    properties:
+#      mail:
+#        debug: true
+#        smtp:
+#          connectiontimeout: 30000
+#          auth: true
+#          starttls:
+#            enable: true
+#          ssl:
+#            protocols: TLSv1.2
   mail:
-    host: smtp-mail.outlook.com
+    host: outlook.office365.com
     port: 587
-    username: company@ploonet.com
-    password: ploonet@0425
-    ssl.used: N
-    starttls.enable: Y
+    username: aice@saltlux.com
+    password: MsCy9jC4QyceCNS
     properties:
       mail:
         debug: true
         smtp:
-          connectiontimeout: 30000
+          connectiontimeout: 5000
           auth: true
           starttls:
             enable: true
           ssl:
             protocols: TLSv1.2
+
 #  datasource-ploonettotal:
 #    driver-class-name: org.mariadb.jdbc.Driver
 #    jdbc-url: jdbc:mariadb://localhost:3306/ploonet_total?autoReconnect=true

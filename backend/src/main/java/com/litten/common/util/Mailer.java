@@ -130,10 +130,10 @@ public class Mailer {
 		int mm = Constants.CHANGE_PASSWORD_DUE_MINUTE/60;
 
 		String from = "aice@saltlux.com";
-		String subject = "다이퀘스트 계정의 비밀번호 재설정 요청을 하셨습니다.";
+		String subject = "계정의 비밀번호 재설정 요청을 하셨습니다.";
 		String content = "비밀번호를 재설정할까요?<p>";
 			   content += toName+"("+toMail+")님 계정에 대해 비밀번호 재설정을 요청하신 경우 아래 비밀번호 재설정을 진행하세요.("+mm+"분 이내)<p>";
-			   content += "본인의 요청이 아닌 경우 다이퀘스트 고객센터로 연락 바랍니다.<p><p>";
+//			   content += "본인의 요청이 아닌 경우 다이퀘스트 고객센터로 연락 바랍니다.<p><p>";
 		       content += "<a href=\""+toUrl+"\">비밀번호 재설정</a>";
 
 		MimeMessage mail = javaMailSender.createMimeMessage();

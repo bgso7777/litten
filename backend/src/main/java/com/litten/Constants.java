@@ -357,4 +357,5 @@ public class Constants {
 
     public static final String TAG_IS_ALLOWD = "isAllowd";
     public static final String TAG_SAFE_PHONE_NUMBER = "safePhoneNumber";
+    public static final String TAG_SEQUENCE = "sequence";
 }

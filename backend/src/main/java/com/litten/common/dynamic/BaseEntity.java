@@ -44,24 +44,23 @@ public class BaseEntity implements Serializable {
         return sb.toString();
     }
 
-    @Column(name="fk_writer", columnDefinition="BIGINT(20) NULL DEFAULT NULL COMMENT '등록 회원 ID(seq)'")
-    private Long insertMemberSeq;
+    @Column(name="insert_pk", columnDefinition="BIGINT(20) NULL DEFAULT NULL COMMENT '등록 회원 ID(seq)'")
+    private Long insertSeq;
 
-    @Column(name="fk_modifier", columnDefinition="BIGINT(20) NULL DEFAULT NULL COMMENT '등록 회원 ID(seq)'")
-    private Long updateMemberSeq;
+    @Column(name="update_pk", columnDefinition="BIGINT(20) NULL DEFAULT NULL COMMENT '등록 회원 ID(seq)'")
+    private Long updateSeq;
 
     @JsonSerialize(using=LocalDateTimeSerializer.class)
     @JsonDeserialize(using=LocalDateTimeDeserializer.class)
     @LastModifiedDate
-    @Column(name="fd_moddate", columnDefinition="DATETIME NULL COMMENT '수정일시'")
+    @Column(name="update_date_time", columnDefinition="DATETIME NULL COMMENT '수정일시'")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updateDateTime;
 
     @JsonSerialize(using=LocalDateTimeSerializer.class)
     @JsonDeserialize(using=LocalDateTimeDeserializer.class)
     @CreatedDate
-    @Column(name="fd_regdate", columnDefinition="DATETIME NULL COMMENT '등록일시'")
+    @Column(name="insert_date_time", columnDefinition="DATETIME NULL COMMENT '등록일시'")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime insertDateTime;
-
 }
