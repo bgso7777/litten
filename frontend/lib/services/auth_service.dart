@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'api_service.dart';
 
 /// 인증 상태를 나타내는 열거형
@@ -133,18 +136,60 @@ class AuthServiceImpl extends AuthService {
   AuthStatus _authStatus = AuthStatus.unauthenticated;
   User? _currentUser;
   String? _token;
+  String? _deviceUuid;
   final ApiService _apiService = ApiService();
+  final Uuid _uuid = const Uuid();
 
   // SharedPreferences 키
   static const String _keyToken = 'auth_token';
   static const String _keyEmail = 'user_email';
   static const String _keyUserId = 'user_id';
+  static const String _keyDeviceUuid = 'device_uuid';
+  static const String _keyRegisteredEmail = 'registered_email'; // 최초 회원가입한 이메일
 
   @override
   AuthStatus get authStatus => _authStatus;
 
   @override
   User? get currentUser => _currentUser;
+
+  /// 최초 회원가입한 이메일 가져오기
+  Future<String?> getRegisteredEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyRegisteredEmail);
+  }
+
+  /// 디바이스 UUID 가져오기 또는 생성
+  Future<String> _getOrCreateDeviceUuid() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? uuid = prefs.getString(_keyDeviceUuid);
+
+    if (uuid == null) {
+      uuid = _uuid.v4();
+      await prefs.setString(_keyDeviceUuid, uuid);
+      debugPrint('🔐 AuthService: 새로운 UUID 생성 - $uuid');
+    } else {
+      debugPrint('🔐 AuthService: 기존 UUID 사용 - $uuid');
+    }
+
+    _deviceUuid = uuid;
+    return uuid;
+  }
+
+  /// UUID를 서버에 등록
+  /// 앱 설치 후 처음 실행 시 또는 언어 선택 시 호출
+  Future<void> registerDeviceUuid() async {
+    debugPrint('🔐 AuthService: UUID 등록 시작');
+
+    try {
+      final uuid = await _getOrCreateDeviceUuid();
+      await _apiService.registerUuid(uuid: uuid);
+      debugPrint('🔐 AuthService: UUID 등록 성공 - $uuid');
+    } catch (e) {
+      debugPrint('🔐 AuthService: UUID 등록 실패 - $e');
+      // UUID 등록 실패는 앱 사용을 막지 않음
+    }
+  }
 
   /// 로그인 상태 확인
   Future<void> checkAuthStatus() async {
@@ -155,6 +200,9 @@ class AuthServiceImpl extends AuthService {
       final token = prefs.getString(_keyToken);
       final email = prefs.getString(_keyEmail);
       final userId = prefs.getString(_keyUserId);
+
+      // 디바이스 UUID 확인 또는 생성
+      await _getOrCreateDeviceUuid();
 
       if (token != null && email != null && userId != null) {
         _token = token;
@@ -199,6 +247,18 @@ class AuthServiceImpl extends AuthService {
     await prefs.remove(_keyToken);
     await prefs.remove(_keyEmail);
     await prefs.remove(_keyUserId);
+  }
+
+  /// 회원탈퇴 시 모든 인증 정보 삭제 (registered_email 포함)
+  Future<void> _clearAllAuthData() async {
+    debugPrint('🔐 AuthService: 모든 인증 정보 삭제 (회원탈퇴)');
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyToken);
+    await prefs.remove(_keyEmail);
+    await prefs.remove(_keyUserId);
+    await prefs.remove(_keyRegisteredEmail);
+    debugPrint('🔐 AuthService: registered_email 삭제 완료');
   }
 
   @override
@@ -263,9 +323,13 @@ class AuthServiceImpl extends AuthService {
       _authStatus = AuthStatus.loading;
       notifyListeners();
 
+      // 디바이스 UUID 가져오기 또는 생성
+      final uuid = await _getOrCreateDeviceUuid();
+
       final response = await _apiService.signUp(
         email: email,
         password: password,
+        uuid: uuid,
       );
 
       // 응답에서 사용자 정보 추출
@@ -278,6 +342,11 @@ class AuthServiceImpl extends AuthService {
         displayName: displayName,
         createdAt: DateTime.now(),
       );
+
+      // 최초 회원가입한 이메일 저장
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyRegisteredEmail, email);
+      debugPrint('🔐 AuthService: 회원가입 이메일 저장 - $email');
 
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
@@ -373,8 +442,131 @@ class AuthServiceImpl extends AuthService {
   Future<void> deleteAccount() async {
     debugPrint('🔐 AuthService: 계정 삭제');
 
-    // TODO: 2차 개발 시 백엔드 API 연동
-    throw UnimplementedError('계정 삭제 기능은 2차 개발에서 구현됩니다.');
+    if (_currentUser == null) {
+      throw Exception('로그인이 필요합니다');
+    }
+
+    try {
+      await _apiService.deleteAccount(
+        email: _currentUser!.email,
+        token: _token,
+      );
+
+      // 로그아웃 처리 및 registered_email 삭제
+      _token = null;
+      _authStatus = AuthStatus.unauthenticated;
+      _currentUser = null;
+
+      await _clearAllAuthData();
+      notifyListeners();
+
+      debugPrint('🔐 AuthService: 계정 삭제 성공');
+    } catch (e) {
+      debugPrint('🔐 AuthService: 계정 삭제 실패 - $e');
+      rethrow;
+    }
+  }
+
+  /// 회원탈퇴 (로컬 파일 유지, 무료 플랜 전환)
+  Future<void> deleteAccountAndAllData() async {
+    debugPrint('🔐 AuthService: 회원탈퇴 (로컬 파일 유지, 무료 플랜 전환)');
+
+    if (_currentUser == null) {
+      throw Exception('로그인이 필요합니다');
+    }
+
+    try {
+      // 1. 서버에 회원탈퇴 요청
+      await _apiService.deleteAccount(
+        email: _currentUser!.email,
+        token: _token,
+      );
+      debugPrint('🔐 AuthService: 서버 회원탈퇴 완료');
+
+      // 2. 로그아웃 처리 및 인증 정보 삭제
+      _token = null;
+      _authStatus = AuthStatus.unauthenticated;
+      _currentUser = null;
+
+      await _clearAllAuthData();
+      debugPrint('🔐 AuthService: 인증 정보 삭제 완료');
+
+      // 3. 로컬 파일은 유지 (삭제하지 않음)
+      debugPrint('ℹ️ AuthService: 로컬 파일 유지');
+
+      // 4. 무료 플랜으로 전환
+      await _resetToFreePlan();
+      debugPrint('🔐 AuthService: 무료 플랜 전환 완료');
+
+      notifyListeners();
+
+      debugPrint('🔐 AuthService: 회원탈퇴 성공 (로컬 파일 유지, 무료 플랜)');
+    } catch (e) {
+      debugPrint('🔐 AuthService: 회원탈퇴 실패 - $e');
+      rethrow;
+    }
+  }
+
+  /// 모든 로컬 파일 삭제
+  Future<void> _deleteAllLocalFiles() async {
+    try {
+      debugPrint('🗑️ AuthService: 로컬 파일 삭제 시작');
+
+      // 앱 문서 디렉토리 가져오기
+      final directory = await getApplicationDocumentsDirectory();
+      final appDir = Directory(directory.path);
+
+      // 모든 파일과 디렉토리 삭제
+      if (await appDir.exists()) {
+        final files = appDir.listSync(recursive: true);
+        for (final file in files) {
+          try {
+            if (file is File) {
+              await file.delete();
+              debugPrint('🗑️ 파일 삭제: ${file.path}');
+            } else if (file is Directory) {
+              await file.delete(recursive: true);
+              debugPrint('🗑️ 디렉토리 삭제: ${file.path}');
+            }
+          } catch (e) {
+            debugPrint('⚠️ 파일 삭제 실패: ${file.path} - $e');
+          }
+        }
+      }
+
+      // SharedPreferences의 모든 파일 관련 데이터 삭제
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      for (final key in keys) {
+        if (key.contains('text_files_') ||
+            key.contains('handwriting_files_') ||
+            key.contains('audio_files_') ||
+            key.contains('littens')) {
+          await prefs.remove(key);
+          debugPrint('🗑️ SharedPreferences 키 삭제: $key');
+        }
+      }
+
+      debugPrint('✅ AuthService: 모든 로컬 파일 삭제 완료');
+    } catch (e) {
+      debugPrint('❌ AuthService: 로컬 파일 삭제 실패 - $e');
+      rethrow;
+    }
+  }
+
+  /// 무료 플랜으로 전환
+  Future<void> _resetToFreePlan() async {
+    try {
+      debugPrint('🔄 AuthService: 무료 플랜으로 전환 시작');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('subscription_type', 'free');
+
+      debugPrint('✅ AuthService: 무료 플랜 전환 완료');
+    } catch (e) {
+      debugPrint('❌ AuthService: 무료 플랜 전환 실패 - $e');
+      rethrow;
+    }
   }
 
   @override

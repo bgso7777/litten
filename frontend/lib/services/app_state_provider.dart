@@ -18,7 +18,13 @@ class AppStateProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final AppIconBadgeService _appIconBadgeService = AppIconBadgeService();
   final AuthServiceImpl _authService = AuthServiceImpl();
-  
+
+  // 생성자: AuthService 리스너 등록
+  AppStateProvider() {
+    // AuthService의 상태 변경을 감지하여 UI 업데이트
+    _authService.addListener(_onAuthStateChanged);
+  }
+
   // 앱 상태
   Locale _locale = const Locale('en');
   AppThemeType _themeType = AppThemeType.natureGreen;
@@ -519,6 +525,7 @@ class AppStateProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authService.removeListener(_onAuthStateChanged);
     _notificationService.removeListener(_onNotificationChanged);
     _notificationService.dispose();
     super.dispose();

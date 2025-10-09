@@ -26,7 +26,9 @@ class SettingsScreen extends StatelessWidget {
               [
                 _buildSettingsItem(
                   icon: Icons.person,
-                  title: l10n?.userStatus ?? '사용자 상태',
+                  title: appState.isLoggedIn
+                    ? '사용자 상태(로그인)'
+                    : '사용자 상태(로그아웃)',
                   subtitle: _getSubscriptionStatusText(appState.subscriptionType, l10n),
                   iconColor: _getSubscriptionColor(appState.subscriptionType),
                   onTap: () => _showSubscriptionManagementDialog(context, appState),
@@ -38,13 +40,13 @@ class SettingsScreen extends StatelessWidget {
                   iconColor: Colors.blue,
                   onTap: () => _showUsageDialog(context, appState),
                 ),
-                // 로그인 상태일 때만 비밀번호 변경 메뉴 표시
+                // 로그인 상태일 때만 비밀번호 변경 및 회원탈퇴 메뉴 표시
                 if (appState.isLoggedIn) ...[
                   _buildSettingsItem(
                     icon: Icons.lock_reset,
                     title: l10n?.changePassword ?? '비밀번호 변경',
                     subtitle: l10n?.changePasswordDescription ?? '계정 비밀번호를 변경합니다',
-                    iconColor: Colors.red,
+                    iconColor: Colors.orange,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -53,6 +55,20 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       );
                     },
+                  ),
+                  _buildSettingsItem(
+                    icon: Icons.logout,
+                    title: '로그아웃',
+                    subtitle: '현재 계정에서 로그아웃합니다',
+                    iconColor: Colors.blue,
+                    onTap: () => _showLogoutDialog(context, appState),
+                  ),
+                  _buildSettingsItem(
+                    icon: Icons.person_remove,
+                    title: '회원탈퇴',
+                    subtitle: '계정을 영구적으로 삭제합니다',
+                    iconColor: Colors.red,
+                    onTap: () => _showDeleteAccountDialog(context, appState),
                   ),
                 ],
                 if (appState.subscriptionType == SubscriptionType.free) ...[
@@ -492,19 +508,92 @@ class SettingsScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 사용자 상태 섹션
             Text(
-              l10n?.currentPlan ?? '현재 플랜',
+              '사용자 상태',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _getSubscriptionStatusText(appState.subscriptionType, l10n),
-              style: TextStyle(
-                color: _getSubscriptionColor(appState.subscriptionType),
-                fontSize: 14,
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        appState.isLoggedIn ? Icons.person : Icons.person_outline,
+                        size: 20,
+                        color: appState.isLoggedIn ? Colors.green : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        appState.isLoggedIn ? '로그인됨' : '로그아웃됨',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: appState.isLoggedIn ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (appState.isLoggedIn && appState.currentUser != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      appState.currentUser!.email,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        if (appState.isLoggedIn) {
+                          // 로그아웃
+                          _showLogoutDialog(context, appState);
+                        } else {
+                          // 로그인 화면으로 이동
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        }
+                      },
+                      icon: Icon(
+                        appState.isLoggedIn ? Icons.logout : Icons.login,
+                        size: 18,
+                      ),
+                      label: Text(
+                        appState.isLoggedIn ? '로그아웃' : '로그인',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: appState.isLoggedIn ? Colors.red : Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -553,16 +642,26 @@ class SettingsScreen extends StatelessWidget {
               title: l10n?.premiumVersion ?? 'Premium',
               price: l10n?.premiumMonthly ?? 'Premium (\$9.99/month)',
               isCurrentPlan: appState.subscriptionType == SubscriptionType.premium,
-              isPremium: true,
+              isDisabled: !appState.isLoggedIn, // 로그아웃 상태면 비활성화
               onSelect: () {
-                Navigator.of(context).pop();
-                // 프리미엄은 로그인 필요
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                );
+                if (appState.isLoggedIn) {
+                  appState.changeSubscriptionType(SubscriptionType.premium);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n?.subscriptionChanged ?? '구독이 변경되었습니다'),
+                    ),
+                  );
+                } else {
+                  // 로그아웃 상태면 안내 메시지
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('프리미엄은 로그인 후 선택 가능합니다'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
               },
             ),
           ],
@@ -582,16 +681,24 @@ class SettingsScreen extends StatelessWidget {
     required String title,
     required String price,
     required bool isCurrentPlan,
-    bool isPremium = false,
+    bool isDisabled = false, // 비활성화 여부
     required VoidCallback onSelect,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isCurrentPlan ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.05),
+        color: isCurrentPlan
+            ? Colors.blue.withValues(alpha: 0.1)
+            : isDisabled
+                ? Colors.grey.withValues(alpha: 0.03)
+                : Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isCurrentPlan ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
+          color: isCurrentPlan
+              ? Colors.blue
+              : isDisabled
+                  ? Colors.grey.withValues(alpha: 0.2)
+                  : Colors.grey.withValues(alpha: 0.3),
           width: isCurrentPlan ? 2 : 1,
         ),
       ),
@@ -608,7 +715,11 @@ class SettingsScreen extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: isCurrentPlan ? Colors.blue : Colors.black87,
+                        color: isCurrentPlan
+                            ? Colors.blue
+                            : isDisabled
+                                ? Colors.grey.withValues(alpha: 0.5)
+                                : Colors.black87,
                       ),
                     ),
                     if (isCurrentPlan) ...[
@@ -629,6 +740,14 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (isDisabled && !isCurrentPlan) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -636,7 +755,9 @@ class SettingsScreen extends StatelessWidget {
                   price,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: isDisabled
+                        ? Colors.grey.withValues(alpha: 0.4)
+                        : Colors.grey[600],
                   ),
                 ),
               ],
@@ -644,17 +765,256 @@ class SettingsScreen extends StatelessWidget {
           ),
           if (!isCurrentPlan)
             ElevatedButton(
-              onPressed: onSelect,
+              onPressed: isDisabled ? null : onSelect,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 minimumSize: const Size(0, 0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text(
-                isPremium ? 'Login' : 'Select',
-                style: const TextStyle(fontSize: 12),
+              child: const Text(
+                'Select',
+                style: TextStyle(fontSize: 12),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
+    final isPremium = appState.subscriptionType == SubscriptionType.premium;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('로그아웃'),
+          ],
+        ),
+        content: Text(
+          isPremium
+              ? '프리미엄 상태에서 로그아웃 시 파일 공유를 할 수 없습니다.\n정말로 로그아웃 하시겠습니까?'
+              : '정말로 로그아웃 하시겠습니까?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.cancel ?? '취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+              navigator.pop(); // 다이얼로그 닫기
+
+              try {
+                // 로그아웃 실행
+                await appState.authService.signOut();
+
+                // 성공 메시지
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text('로그아웃되었습니다.'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } catch (e) {
+                // 에러 메시지
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text('로그아웃 실패: $e'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('로그아웃'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('회원탈퇴'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '정말로 회원탈퇴를 진행하시겠습니까?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '회원탈퇴 시 다음 사항에 유의해주세요:',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            _buildWarningItem('• 모든 데이터가 영구적으로 삭제됩니다'),
+            _buildWarningItem('• 서버에 저장된 파일이 모두 삭제됩니다'),
+            _buildWarningItem('• 계정 복구가 불가능합니다'),
+            _buildWarningItem('• 구독이 자동으로 취소됩니다'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.cancel ?? '취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _confirmDeleteAccount(context, appState);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('탈퇴하기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarningItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.red.shade700,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('최종 확인'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '정말로 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            Text(
+              '탈퇴하시려면 "삭제 확인" 버튼을 눌러주세요',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.cancel ?? '취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+              navigator.pop();
+
+              // 로딩 표시
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('계정 삭제 중...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+
+              try {
+                // 회원탈퇴 실행 (로컬 파일 유지, 무료 플랜 전환)
+                await appState.authService.deleteAccountAndAllData();
+
+                navigator.pop(); // 로딩 닫기
+
+                // 성공 메시지
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text('계정이 삭제되었습니다. 로컬 파일은 유지되며 무료 플랜으로 전환되었습니다.'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+
+                // 무료 플랜으로 전환
+                await appState.changeSubscriptionType(SubscriptionType.free);
+
+                // 로그인 화면으로 이동
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              } catch (e) {
+                navigator.pop(); // 로딩 닫기
+
+                // 에러 메시지
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text('계정 삭제 실패: $e'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('삭제 확인'),
+          ),
         ],
       ),
     );

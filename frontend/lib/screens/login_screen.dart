@@ -18,6 +18,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  String? _registeredEmail; // 최초 회원가입한 이메일
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisteredEmail();
+  }
+
+  /// 최초 회원가입한 이메일 불러오기
+  Future<void> _loadRegisteredEmail() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final registeredEmail = await appState.authService.getRegisteredEmail();
+
+    if (registeredEmail != null && mounted) {
+      setState(() {
+        _registeredEmail = registeredEmail;
+        _emailController.text = registeredEmail;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -88,6 +108,13 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n?.login ?? '로그인'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            // 뒤로가기 버튼 클릭 시 홈 화면으로 이동
+            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          },
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -121,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: _registeredEmail == null, // 등록된 이메일이 있으면 비활성화
                   decoration: InputDecoration(
                     labelText: l10n?.email ?? '이메일',
                     hintText: l10n?.emailHint ?? 'example@email.com',
@@ -128,6 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    helperText: _registeredEmail != null
+                        ? '이 기기에 등록된 계정입니다'
+                        : null,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
