@@ -3,6 +3,7 @@ CREATE DATABASE litten;
 
 grant all privileges on *.* to 'litten'@'localhost' identified by 'litten1234';
 
+DROP TABLE IF EXISTS `note_member`;
 CREATE TABLE `note_member` (
   `sequence` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '회원pk',
   `uuid` VARCHAR(64) NULL COMMENT '계정UUID',
@@ -22,15 +23,101 @@ CREATE TABLE `note_member` (
   `update_pk` BIGINT(20) NULL COMMENT '[직원]수정자 fk',
   `update_date_time` TIMESTAMP NULL COMMENT '[직원]수정일시',
   `insert_pk` BIGINT(20) NULL COMMENT '[직원]등록자 fk',
-  PRIMARY KEY (`sequence`),
-  UNIQUE KEY `id_unique` (`id`),
-  KEY `uuid_index` (`uuid`),
-  KEY `mobile_index` (`mobile`),
-  KEY `email_index` (`email`)
+	PRIMARY KEY (`sequence`) USING BTREE,
+	INDEX `index_of_id` (`id`) USING BTREE,
+	INDEX `index_of_uuid` (`uuid`) USING BTREE,  
+   INDEX `index_of_mobile` (`mobile`),
+   INDEX `index_of_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='회원';
 
 
 
+CREATE TABLE `tbl_company_staff` (
+	`pk_company_staff` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '직원 pk',
+	`solution_type` VARCHAR(10) NOT NULL DEFAULT B11 COMMENT '솔루션타입' COLLATE 'utf8mb4_general_ci',
+	`user_type` VARCHAR(10) NOT NULL DEFAULT B2001 COMMENT '사용자타입' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_id` VARCHAR(128) NULL COMMENT '직원 id' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_ai_yn` CHAR(1) NULL DEFAULT N COMMENT 'AI직원 여부YN' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_level_code` VARCHAR(64) NULL COMMENT '직원 구분 코드' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_status_code` VARCHAR(64) NULL COMMENT '직원 계정 상태 코드' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_response_status_code` VARCHAR(64) NULL DEFAULT A1201 COMMENT '직원 응답 상태 코드' COLLATE 'utf8mb4_general_ci',
+	`auto_response_yn` VARCHAR(1) NULL DEFAULT N COMMENT '손비서 자동 자리비움' COLLATE 'utf8mb4_general_ci',
+	`fk_company` BIGINT(20) NULL COMMENT '회사 fk',
+	`fk_staff_work` BIGINT(20) NULL COMMENT '담당 직무 fk',
+	`fd_company_master_yn` CHAR(1) NULL DEFAULT N COMMENT '회사 대표직원 여부YN' COLLATE 'utf8mb4_general_ci',
+	`fd_default_ai` CHAR(1) NULL DEFAULT N COMMENT '디폴트 AI직원 (대표 AI직원)' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_pw` VARCHAR(512) NULL COMMENT '직원 pw[단방향]' COLLATE 'utf8mb4_general_ci',
+	`fd_signup_keycode` VARCHAR(256) NULL COMMENT '직원 가입 초대코드' COLLATE 'utf8mb4_general_ci',
+	`fd_signup_keycode_date` TIMESTAMP NULL COMMENT '직원 가입 초대코드 생성일시',
+	`fd_signup_keycode_ok_yn` CHAR(1) NULL COMMENT '초대코드 컨펌 여부YN' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_ai_uid` VARCHAR(128) NULL COMMENT 'AI직원 uid' COLLATE 'utf8mb4_general_ci',
+	`fd_dnis` VARCHAR(128) NULL COMMENT '할당번호' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_name` VARCHAR(64) NULL COMMENT '직원 이름' COLLATE 'utf8mb4_general_ci',
+	`staff_nick_name` VARCHAR(128) NULL COLLATE 'utf8mb4_general_ci',
+	`fd_staff_name_en` VARCHAR(64) NULL COMMENT '직원 이름 영어' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_mobile` VARCHAR(64) NULL COMMENT '직원 휴대전화' COLLATE 'utf8mb4_general_ci',
+	`dnis_hand` VARCHAR(32) NULL COMMENT '손비서 내선번호' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_mobile_type` VARCHAR(64) NULL COMMENT '직원 휴대전화 통신사' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_mobile_verify_dt` DATETIME NULL COMMENT '본인인증일시',
+	`fd_staff_phone` VARCHAR(64) NULL COMMENT '직원 일반전화' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_email` VARCHAR(128) NULL COMMENT '직원 이메일' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_duty` VARCHAR(64) NULL COMMENT '임무' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_birth` VARCHAR(16) NULL COMMENT '직원 생년월일' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_gender_mf` CHAR(1) NULL COMMENT '직원 성별 MF' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_national_yn` CHAR(1) NULL COMMENT '내국인 여부YN' COLLATE 'utf8mb4_general_ci',
+	`fd_address_zipcode` VARCHAR(64) NULL COMMENT '주소 우편번호' COLLATE 'utf8mb4_general_ci',
+	`fd_address_common` VARCHAR(128) NULL COMMENT '주소 기본' COLLATE 'utf8mb4_general_ci',
+	`fd_address_detail` VARCHAR(128) NULL COMMENT '주소 상세' COLLATE 'utf8mb4_general_ci',
+	`fd_logo_file_path` VARCHAR(128) NULL COMMENT '개인심볼(aws path)' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_di` VARCHAR(128) NULL COMMENT '직원 DI' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_ci` VARCHAR(128) NULL COMMENT '직원 CI' COLLATE 'utf8mb4_general_ci',
+	`fd_staff_persona` VARCHAR(64) NULL DEFAULT '20' COMMENT 'AI직원 목소리 설정' COLLATE 'utf8mb4_general_ci',
+	`interj_yn` VARCHAR(1) NULL DEFAULT N COMMENT '간투사 사용 여부' COLLATE 'utf8mb4_general_ci',
+	`call_fwd_yn` VARCHAR(1) NULL DEFAULT N COMMENT '착신설정 여부' COLLATE 'utf8mb4_general_ci',
+	`fd_push_noti_yn` CHAR(1) NULL COMMENT 'push' COLLATE 'utf8mb4_general_ci',
+	`fd_push_token` VARCHAR(256) NULL COMMENT 'push token' COLLATE 'utf8mb4_general_ci',
+	`fd_login_date` TIMESTAMP NULL COMMENT '로그인 일시',
+	`dept_disp_name` VARCHAR(254) NULL COMMENT '부서명' COLLATE 'utf8mb4_general_ci',
+	`ad_agree_sms_yn` VARCHAR(1) NULL DEFAULT Y COLLATE 'utf8mb4_general_ci',
+	`ad_agree_email_yn` VARCHAR(1) NULL DEFAULT Y COLLATE 'utf8mb4_general_ci',
+	`leave_reason` VARCHAR(254) NULL COMMENT '탈퇴사유' COLLATE 'utf8mb4_general_ci',
+	`fk_writer` BIGINT(20) NULL COMMENT '[직원]등록자 fk',
+	`fd_regdate` TIMESTAMP NULL COMMENT '[직원]등록일시',
+	`fk_modifier` BIGINT(20) NULL COMMENT '[직원]수정자 fk',
+	`fd_moddate` TIMESTAMP NULL DEFAULT current_timestamp() COMMENT '[직원]수정일시',
+	`fk_staff_work_code` VARCHAR(64) NULL COMMENT 'ai직원 담당업무 코드' COLLATE 'utf8mb4_general_ci',
+	`fd_state_code` VARCHAR(64) NULL COMMENT '직원 활성화 상태' COLLATE 'utf8mb4_general_ci',
+	`fd_sign_up_path_code` VARCHAR(64) NULL COMMENT '회원 가입 경로' COLLATE 'utf8mb4_general_ci',
+	`is_change_password` TINYINT(1) NOT NULL DEFAULT '0' COMMENT '패스워드 변경 여부',
+	`change_password_date` TIMESTAMP NULL COMMENT '패스워드변경일시',
+	`uuid` VARCHAR(64) NULL COMMENT '계정UUID' COLLATE 'utf8mb4_unicode_ci',
+	`leave_code` VARCHAR(32) NULL COMMENT '탈퇴코드' COLLATE 'utf8mb4_general_ci',
+	`recommend_id` VARCHAR(32) NULL COMMENT '추천인 아이디' COLLATE 'utf8mb4_general_ci',
+	`quick_start_status` INT(11) NOT NULL DEFAULT -1 COMMENT 'quick 상태 (-1: quick start아님, 1: quick start 2: quick start 종료)',
+	`quick_start_bot_status` INT(11) NOT NULL DEFAULT -1 COMMENT 'quick bot 상태 (-1: 생성 안됨, 1: 생성)',
+	`bot_display_yn` CHAR(1) NULL DEFAULT Y COMMENT 'bot 화면표시 여부YN' COLLATE 'utf8mb4_general_ci',
+	`quick_start_from` DATE NULL COMMENT 'quick start 시작일',
+	`quick_start_to` DATE NULL COMMENT 'quick start 종료일',
+	`mobile_overseas_code` VARCHAR(10) NULL DEFAULT +82 COMMENT '모바일 해외 번호' COLLATE 'utf8mb4_general_ci',
+	PRIMARY KEY (`pk_company_staff`) USING BTREE,
+	INDEX `idx_company_staff_solution_type` (`solution_type`) USING BTREE,
+	INDEX `idx_company_staff_user_type` (`user_type`) USING BTREE,
+	INDEX `idx_company_staff_fk_company` (`fk_company`) USING BTREE,
+	INDEX `idx_company_staff_fk_staff_work` (`fk_staff_work`) USING BTREE,
+	INDEX `idx_company_staff_staff_id` (`fd_staff_id`) USING BTREE,
+	INDEX `idx_company_staff_staff_ai_yn` (`fd_staff_ai_yn`) USING BTREE,
+	INDEX `idx_company_staff_staff_level_code` (`fd_staff_level_code`) USING BTREE,
+	INDEX `idx_company_staff_staff_status_code` (`fd_staff_status_code`) USING BTREE,
+	INDEX `idx_company_staff_staff_response_status_code` (`fd_staff_response_status_code`) USING BTREE,
+	INDEX `idx_company_staff_staff_mobile` (`fd_staff_mobile`) USING BTREE,
+	INDEX `idx_company_staff_staff_phone` (`fd_staff_phone`) USING BTREE,
+	INDEX `idx_company_staff_staff_email` (`fd_staff_email`) USING BTREE
+)
+COMMENT='직원'
+COLLATE='utf8mb4_general_ci'
+ENGINE=InnoDB
+AUTO_INCREMENT=12101
+;
 
 -- 테이블 aice.tbl_admin_user 구조 내보내기
 DROP TABLE IF EXISTS `tbl_admin_user`;
