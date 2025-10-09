@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
+import '../services/api_service.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -26,16 +27,49 @@ class _LoginScreenState extends State<LoginScreen> {
     _loadRegisteredEmail();
   }
 
-  /// 최초 회원가입한 이메일 불러오기
+  /// UUID로 계정 조회하여 이메일 불러오기 (signup 또는 withdraw 상태인 경우)
   Future<void> _loadRegisteredEmail() async {
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final registeredEmail = await appState.authService.getRegisteredEmail();
+    debugPrint('[LoginScreen] _loadRegisteredEmail - UUID로 계정 조회 시작');
 
-    if (registeredEmail != null && mounted) {
-      setState(() {
-        _registeredEmail = registeredEmail;
-        _emailController.text = registeredEmail;
-      });
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final apiService = ApiService();
+
+    try {
+      // UUID 가져오기 - AuthService를 통해
+      final uuid = await appState.authService.getDeviceUuid();
+      debugPrint('[LoginScreen] _loadRegisteredEmail - UUID: $uuid');
+
+      // UUID로 계정 조회
+      final accountData = await apiService.findAccountByUuid(uuid: uuid);
+      debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 조회 결과: $accountData');
+
+      if (accountData != null && mounted) {
+        // body 필드에서 계정 정보 추출
+        final body = accountData['body'] as Map<String, dynamic>?;
+        if (body != null) {
+          final stateCode = body['stateCode'] as String?;
+          final email = body['id'] as String?;
+
+          debugPrint('[LoginScreen] _loadRegisteredEmail - stateCode: $stateCode, email: $email');
+
+          // stateCode가 'signup' 또는 'withdraw' 상태인 경우 이메일 고정
+          if ((stateCode == 'signup' || stateCode == 'withdraw') && email != null) {
+            debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 고정: $email (상태: $stateCode)');
+            setState(() {
+              _registeredEmail = email;
+              _emailController.text = email;
+            });
+          } else {
+            debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 고정 조건 미충족 (stateCode: $stateCode)');
+          }
+        } else {
+          debugPrint('[LoginScreen] _loadRegisteredEmail - body 필드가 null');
+        }
+      } else {
+        debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 없음 또는 mounted=false');
+      }
+    } catch (e) {
+      debugPrint('[LoginScreen] _loadRegisteredEmail - 오류 발생: $e');
     }
   }
 

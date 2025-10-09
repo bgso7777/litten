@@ -159,6 +159,11 @@ class AuthServiceImpl extends AuthService {
     return prefs.getString(_keyRegisteredEmail);
   }
 
+  /// 디바이스 UUID 가져오기 (public 메소드)
+  Future<String> getDeviceUuid() async {
+    return await _getOrCreateDeviceUuid();
+  }
+
   /// 디바이스 UUID 가져오기 또는 생성
   Future<String> _getOrCreateDeviceUuid() async {
     final prefs = await SharedPreferences.getInstance();

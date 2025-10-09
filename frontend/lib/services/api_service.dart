@@ -16,6 +16,7 @@ class ApiService {
   static const String _passwordUrlEndpoint = '/litten/note/v1/members/password-url';
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
   static const String _deleteAccountEndpoint = '/litten/note/v1/members/signup';
+  static const String _findByUuidEndpoint = '/litten/note/v1/members/find-by-uuid';
 
   /// HTTP 헤더 생성
   Map<String, String> _getHeaders({String? token}) {
@@ -413,6 +414,56 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] deleteAccount - Error: $e');
       rethrow;
+    }
+  }
+
+  /// UUID로 계정 조회
+  /// POST /litten/note/v1/members/find-by-uuid
+  /// {"uuid": "sdajf-asdjfls-02394iowjfi-sadj1"}
+  /// Response: {"result": 1, "data": {...}} (1=성공/계정있음, 0=계정없음)
+  Future<Map<String, dynamic>?> findAccountByUuid({
+    required String uuid,
+  }) async {
+    debugPrint('[ApiService] findAccountByUuid - uuid: $uuid');
+
+    try {
+      final url = Uri.parse('$baseUrl$_findByUuidEndpoint');
+      final body = jsonEncode({
+        'uuid': uuid,
+      });
+
+      debugPrint('[ApiService] findAccountByUuid - URL: $url');
+      debugPrint('[ApiService] findAccountByUuid - Request body: $body');
+
+      final response = await http.post(
+        url,
+        headers: _getHeaders(),
+        body: body,
+      );
+
+      debugPrint('[ApiService] findAccountByUuid - Response status: ${response.statusCode}');
+      debugPrint('[ApiService] findAccountByUuid - Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final result = data['result'] as int?;
+
+        if (result == 1) {
+          // 계정 존재
+          debugPrint('[ApiService] findAccountByUuid - Account found');
+          return data;
+        } else {
+          // 계정 없음
+          debugPrint('[ApiService] findAccountByUuid - Account not found');
+          return null;
+        }
+      } else {
+        debugPrint('[ApiService] findAccountByUuid - Failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[ApiService] findAccountByUuid - Error: $e');
+      return null;
     }
   }
 }

@@ -261,6 +261,30 @@ public class NoteMemberController {
         return ResponseEntity.ok(result);
     }
 
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/find-by-uuid")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> findMemberByUuid(@RequestBody JsonNode requestBody) {
+        log.info("UUID로 계정 조회 요청: {}", requestBody);
+
+        String domainName = "NoteMember";
+        Map<String, Object> result = new HashMap<>();
+        String uuid = requestBody.get("uuid").asText();
+
+        log.info("조회 대상 UUID: {}", uuid);
+
+        // UUID로 계정 조회 (id 컬럼이 uuid)
+        result = controllerDynamicServiceBridge.findDomainById(domainName, uuid);
+
+        if (((Integer)result.get(ConstantsDynamic.TAG_RESULT)).equals(ConstantsDynamic.RESULT_SUCCESS)) {
+            log.info("UUID로 계정 조회 성공: {}", uuid);
+        } else {
+            log.info("UUID로 계정 조회 실패 (계정 없음): {}", uuid);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
     @DeleteMapping("/note/v1/members/signup")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> deleteNoteMember(@RequestBody JsonNode requestBody) {
