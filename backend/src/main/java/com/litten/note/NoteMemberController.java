@@ -1,6 +1,7 @@
 package com.litten.note;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.litten.common.dynamic.ConstantsDynamic;
 import com.litten.common.dynamic.ControllerDynamicServiceBridge;
@@ -233,23 +234,36 @@ public class NoteMemberController {
 
     @DeleteMapping("/note/v1/members/{id}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> deleteNoteMember(
-            @PathVariable(value="id", required=true) String id ) {
+    public ResponseEntity<Map<String, Object>> deleteNoteMember( @PathVariable(value="id", required=true) String id ) {
+//        Map<String, Object> result = new HashMap<>();
+//        if( id==null ) {
+//            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
+//            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
+//        } else {
+//            String domainName = "NoteMemberDomain";
+//            String columnName1 = "id";
+//            Object value1 = id;
+//            String type1 = ConstantsDynamic.TYPE_OF_STRING;
+//            if (value1 != null) {
+//                result = controllerDynamicServiceBridge.deleteDomainByOneColumn(domainName, columnName1, value1, type1);
+//            } else {
+//                result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
+//                result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
+//            }
+//        }
+//        return ResponseEntity.ok(result);
+        String domainName = "NoteMember";
         Map<String, Object> result = new HashMap<>();
-        if( id==null ) {
-            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
-            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
-        } else {
-            String domainName = "NoteMemberDomain";
-            String columnName1 = "id";
-            Object value1 = id;
-            String type1 = ConstantsDynamic.TYPE_OF_STRING;
-            if (value1 != null) {
-                result = controllerDynamicServiceBridge.deleteDomainByOneColumn(domainName, columnName1, value1, type1);
-            } else {
-                result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
-                result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
-            }
+        result = controllerDynamicServiceBridge.findDomainByTwoColumn(domainName,"id",id,ConstantsDynamic.TYPE_OF_STRING,"state-code", "signup",ConstantsDynamic.TYPE_OF_STRING);
+        if( ((Integer)result.get(ConstantsDynamic.TAG_RESULT)).equals(ConstantsDynamic.RESULT_SUCCESS) ) {
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode objectNode = mapper.createObjectNode();
+            objectNode.put("stateCode", "withdraw");
+//            objectNode.deepCopy().put("stateCode", "withdraw");
+            result = controllerDynamicServiceBridge.updateDomainById(domainName,true,objectNode,id);
+        } else if( ((Integer)result.get(ConstantsDynamic.TAG_RESULT)).equals(ConstantsDynamic.RESULT_NOT_FOUND) ) {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_ALEADY_EXIST);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_ALEADY_EXIST_MESSAGE+" id-->"+id);
         }
         return ResponseEntity.ok(result);
     }

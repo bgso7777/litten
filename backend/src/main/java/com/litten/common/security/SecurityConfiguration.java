@@ -192,8 +192,8 @@ public class SecurityConfiguration {
         .antMatchers("/account/brand/member").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
 
 
-
-
+        // litten
+        .antMatchers("/note/v1/members/**").permitAll()
         .antMatchers("/note/v1/members/install/**").permitAll()
         .antMatchers("/note/v1/members/signup/**").permitAll()
         .antMatchers("/note/v1/members/password-url/**").permitAll()

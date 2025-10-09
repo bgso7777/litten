@@ -20,7 +20,42 @@ aos, ios 시뮬레이터에서 실행된 앱 죽이고, 다시 빌드해서,
 새 기능이 추가된 버젼으로 다시 실행해줘
 
 
-38 - frontend
+
+39 - backend
+---------------------------------------
+
+서버주소 http://localhost:8989
+
+UUID 등록 (처음 설치 시 온보드에서 언어 선택 시)
+  POST /litten/note/v1/members/install
+  {"uuid": "sdajf-asdjfls-02394iowjfi-sadj1"}
+회원가입 (온보드에서 설치 시 또는 설정>구독관리>Login>회원가입)
+  POST /litten/note/v1/members/signup
+  {
+    "id": "bgso777@naver.com",
+    "password": "asdf",
+    "uuid": "sdajf-asdjfls-02394iowjfi-sadj1"
+  }
+로그인 웹 
+  POST /litten/note/v1/members/login/web
+  {"id":"id@domain","password":"password1234"}
+로그인 모바일
+  POST /litten/note/v1/members/login/mobile
+  {"id":"id@domain","password":"password1234"}
+비밀번호 재발급 (로그인 전에 URL 전송)
+  POST /litten/note/v1/members/password-url
+  {"id":"id@domain"}
+비밀번호 변경 (로그인 상태에서 설정에 비밀번호번경)
+  PUT /litten/note/v1/members/password
+  {"id":"id@domain","password":"password1234","newPassword":"password1234"}
+회원탈퇴 (로그인 상태에서 설정에 탈퇴)
+  DELETE /litten/note/v1/members/signup
+  {
+    "id": "bgso777@naver.com",
+  }
+
+
+39 - frontend
 ---------------------------------------
 
 홈탭을 누르면 캔린더는 오늘을 선택해줘 
