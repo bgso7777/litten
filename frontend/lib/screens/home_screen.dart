@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _bottomTabController = TabController(length: 2, vsync: this, initialIndex: 0); // 파일 탭이 기본
+    _bottomTabController = TabController(length: 2, vsync: this, initialIndex: 0); // 일정 탭이 기본
 
     // 탭 변경 시 FAB 표시/숨김 및 appState 동기화를 위해 리스너 추가
     _bottomTabController.addListener(() {
@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               // 알림 배지
             ],
           ),
-          floatingActionButton: _bottomTabController.index == 1 // 일정 탭(인덱스 1)일 때만 표시
+          floatingActionButton: _bottomTabController.index == 0 // 일정 탭(인덱스 0)일 때만 표시
               ? FloatingActionButton(
                   onPressed: _showCreateLittenDialog,
                   tooltip: l10n?.createLitten ?? '리튼 생성',
@@ -864,8 +864,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
                 tabs: [
-                  Tab(text: '파일($fileCount)'),
                   Tab(text: '일정($littenCount)'),
+                  Tab(text: '파일($fileCount)'),
                 ],
               );
             },
@@ -875,8 +875,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: TabBarView(
               controller: _bottomTabController,
               children: [
-                _buildAllFilesTab(appState, l10n),
                 _buildLittenListTab(appState, l10n),
+                _buildAllFilesTab(appState, l10n),
               ],
             ),
           ),

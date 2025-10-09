@@ -63,14 +63,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
   }
 
+  SubscriptionType? _selectedSubscription;
+
   @override
   void initState() {
     super.initState();
-    
+
     // 시스템 언어를 기본 선택으로 설정
     final appState = context.read<AppStateProvider>();
     _selectedLanguage = appState.locale.languageCode;
     _selectedTheme = ThemeManager.getThemeByLocale(_selectedLanguage!);
+    _selectedSubscription = SubscriptionType.free; // 기본값: 무료
   }
 
   @override
@@ -84,14 +87,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  for (int i = 0; i < 3; i++)
+                  for (int i = 0; i < 4; i++)
                     Expanded(
                       child: Container(
                         height: 4,
-                        margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
+                        margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
                         decoration: BoxDecoration(
-                          color: i <= _currentPage 
-                              ? Theme.of(context).primaryColor 
+                          color: i <= _currentPage
+                              ? Theme.of(context).primaryColor
                               : Colors.grey[300],
                           borderRadius: BorderRadius.circular(2),
                         ),
@@ -109,6 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _buildWelcomePage(),
                   _buildLanguagePage(),
                   _buildThemePage(),
+                  _buildSubscriptionPage(),
                 ],
               ),
             ),
@@ -128,8 +132,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _currentPage == 2 ? _completeOnboarding : _nextPage,
-                      child: Text(_currentPage == 2 
+                      onPressed: _currentPage == 3 ? _completeOnboarding : _nextPage,
+                      child: Text(_currentPage == 3
                           ? (AppLocalizations.of(context)?.getStarted ?? '시작하기')
                           : (AppLocalizations.of(context)?.next ?? '다음')),
                     ),
@@ -411,6 +415,172 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Widget _buildSubscriptionPage() {
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            l10n?.selectSubscriptionPlan ?? '구독 플랜을 선택하세요',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n?.subscriptionDescription ?? '원하시는 플랜을 선택해주세요',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: ListView(
+              children: [
+                _buildSubscriptionOption(
+                  type: SubscriptionType.free,
+                  title: l10n?.freeVersion ?? 'Free',
+                  price: l10n?.freeWithAds ?? 'Free (with ads)',
+                  features: [
+                    '${l10n?.maxLittens ?? 'Litten'}: ${l10n?.maxLittensLimit ?? 'Max 5'}',
+                    '${l10n?.maxRecordingFiles ?? 'Recording files'}: ${l10n?.maxRecordingFilesLimit ?? 'Max 10'}',
+                    '${l10n?.maxTextFiles ?? 'Text files'}: ${l10n?.maxTextFilesLimit ?? 'Max 5'}',
+                    '${l10n?.maxHandwritingFiles ?? 'Handwriting files'}: ${l10n?.maxHandwritingFilesLimit ?? 'Max 5'}',
+                  ],
+                  color: Colors.grey,
+                ),
+                const SizedBox(height: 12),
+                _buildSubscriptionOption(
+                  type: SubscriptionType.standard,
+                  title: l10n?.standardVersion ?? 'Standard',
+                  price: l10n?.standardMonthly ?? 'Standard (\$4.99/month)',
+                  features: [
+                    l10n?.removeAds ?? 'Remove ads',
+                    l10n?.unlimitedLittens ?? 'Unlimited littens',
+                    l10n?.unlimitedFiles ?? 'Unlimited files',
+                  ],
+                  color: AppColors.recordingColor,
+                ),
+                const SizedBox(height: 12),
+                _buildSubscriptionOption(
+                  type: SubscriptionType.premium,
+                  title: l10n?.premiumVersion ?? 'Premium',
+                  price: l10n?.premiumMonthly ?? 'Premium (\$9.99/month)',
+                  features: [
+                    l10n?.allStandardFeatures ?? 'All Standard features',
+                    l10n?.cloudSync ?? 'Cloud sync',
+                    l10n?.multiDeviceSupport ?? 'Multi-device support',
+                  ],
+                  color: AppColors.handwritingColor,
+                  comingSoon: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionOption({
+    required SubscriptionType type,
+    required String title,
+    required String price,
+    required List<String> features,
+    required Color color,
+    bool comingSoon = false,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    final isSelected = _selectedSubscription == type;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedSubscription = type),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? color : Colors.black,
+                    ),
+                  ),
+                ),
+                if (comingSoon)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      l10n?.comingSoon ?? 'Coming Soon',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ),
+                if (isSelected && !comingSoon)
+                  Icon(Icons.check_circle, color: color),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              price,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...features.map((feature) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check,
+                    size: 16,
+                    color: isSelected ? color : Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeatureItem({
     required IconData icon,
     required String title,
@@ -455,7 +625,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage < 2) {
+    if (_currentPage < 3) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -477,6 +647,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     appState.completeOnboarding(
       selectedLanguage: _selectedLanguage,
       selectedTheme: _selectedTheme,
+      selectedSubscription: _selectedSubscription,
     );
   }
 

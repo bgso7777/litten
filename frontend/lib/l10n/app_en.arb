@@ -699,5 +699,326 @@
   "drawDescription": "Handwriting on images",
   "@drawDescription": {
     "description": "Draw feature description"
+  },
+
+  "selectSubscriptionPlan": "Select Subscription Plan",
+  "@selectSubscriptionPlan": {
+    "description": "Subscription plan selection title in onboarding"
+  },
+
+  "subscriptionDescription": "Choose your preferred plan",
+  "@subscriptionDescription": {
+    "description": "Subscription plan selection description"
+  },
+
+  "unlimitedLittens": "Unlimited littens",
+  "@unlimitedLittens": {
+    "description": "Unlimited littens feature"
+  },
+
+  "unlimitedFiles": "Unlimited files",
+  "@unlimitedFiles": {
+    "description": "Unlimited files feature"
+  },
+
+  "allStandardFeatures": "All Standard features",
+  "@allStandardFeatures": {
+    "description": "Premium plan includes all standard features"
+  },
+
+  "cloudSync": "Cloud sync",
+  "@cloudSync": {
+    "description": "Cloud synchronization feature"
+  },
+
+  "multiDeviceSupport": "Multi-device support",
+  "@multiDeviceSupport": {
+    "description": "Multi-device support feature"
+  },
+
+  "comingSoon": "Coming Soon",
+  "@comingSoon": {
+    "description": "Coming soon label"
+  },
+
+  "login": "Login",
+  "@login": {
+    "description": "Login button text"
+  },
+
+  "loginComingSoon": "Login feature coming soon",
+  "@loginComingSoon": {
+    "description": "Login feature coming soon message"
+  },
+
+  "welcomeBack": "Welcome Back",
+  "@welcomeBack": {
+    "description": "Welcome back message on login screen"
+  },
+
+  "loginDescription": "Login to your account to securely store files in the cloud",
+  "@loginDescription": {
+    "description": "Login screen description"
+  },
+
+  "email": "Email",
+  "@email": {
+    "description": "Email input label"
+  },
+
+  "emailHint": "example@email.com",
+  "@emailHint": {
+    "description": "Email input hint"
+  },
+
+  "emailRequired": "Please enter your email",
+  "@emailRequired": {
+    "description": "Email required validation message"
+  },
+
+  "emailInvalid": "Invalid email format",
+  "@emailInvalid": {
+    "description": "Email invalid validation message"
+  },
+
+  "password": "Password",
+  "@password": {
+    "description": "Password input label"
+  },
+
+  "passwordHint": "Enter your password",
+  "@passwordHint": {
+    "description": "Password input hint"
+  },
+
+  "passwordRequired": "Please enter your password",
+  "@passwordRequired": {
+    "description": "Password required validation message"
+  },
+
+  "passwordTooShort": "Password must be at least 6 characters",
+  "@passwordTooShort": {
+    "description": "Password too short validation message"
+  },
+
+  "forgotPassword": "Forgot your password?",
+  "@forgotPassword": {
+    "description": "Forgot password link text"
+  },
+
+  "orLoginWith": "Or login with",
+  "@orLoginWith": {
+    "description": "Social login separator text"
+  },
+
+  "loginWithGoogle": "Login with Google",
+  "@loginWithGoogle": {
+    "description": "Login with Google button text"
+  },
+
+  "loginWithApple": "Login with Apple",
+  "@loginWithApple": {
+    "description": "Login with Apple button text"
+  },
+
+  "noAccount": "Don't have an account?",
+  "@noAccount": {
+    "description": "No account message"
+  },
+
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Sign up button text"
+  },
+
+  "manageSubscription": "Manage Subscription",
+  "@manageSubscription": {
+    "description": "Manage subscription dialog title"
+  },
+
+  "currentPlan": "Current Plan",
+  "@currentPlan": {
+    "description": "Current plan label"
+  },
+
+  "availablePlans": "Available Plans",
+  "@availablePlans": {
+    "description": "Available plans label"
+  },
+
+  "subscriptionChanged": "Subscription changed",
+  "@subscriptionChanged": {
+    "description": "Subscription changed message"
+  },
+
+  "signUpComingSoon": "Sign up feature coming soon",
+  "@signUpComingSoon": {
+    "description": "Sign up feature coming soon message"
+  },
+
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account title on sign up screen"
+  },
+
+  "signUpDescription": "Create your free account and get started",
+  "@signUpDescription": {
+    "description": "Sign up screen description"
+  },
+
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Confirm password input label"
+  },
+
+  "confirmPasswordHint": "Re-enter your password",
+  "@confirmPasswordHint": {
+    "description": "Confirm password input hint"
+  },
+
+  "confirmPasswordRequired": "Please confirm your password",
+  "@confirmPasswordRequired": {
+    "description": "Confirm password required validation message"
+  },
+
+  "passwordMismatch": "Passwords do not match",
+  "@passwordMismatch": {
+    "description": "Password mismatch validation message"
+  },
+
+  "orSignUpWith": "Or sign up with",
+  "@orSignUpWith": {
+    "description": "Social sign up separator text"
+  },
+
+  "signUpWithGoogle": "Sign up with Google",
+  "@signUpWithGoogle": {
+    "description": "Sign up with Google button text"
+  },
+
+  "signUpWithApple": "Sign up with Apple",
+  "@signUpWithApple": {
+    "description": "Sign up with Apple button text"
+  },
+
+  "alreadyHaveAccount": "Already have an account?",
+  "@alreadyHaveAccount": {
+    "description": "Already have account message"
+  },
+
+  "signUpEmailNote": "Please provide your own email for smooth service usage",
+  "@signUpEmailNote": {
+    "description": "Sign up email note"
+  },
+
+  "forgotPasswordDescription": "Enter your registered email address and\nwe'll send you a password reset link",
+  "@forgotPasswordDescription": {
+    "description": "Forgot password screen description"
+  },
+
+  "sendResetLink": "Send Reset Link",
+  "@sendResetLink": {
+    "description": "Send reset link button text"
+  },
+
+  "backToLogin": "Back to Login",
+  "@backToLogin": {
+    "description": "Back to login button text"
+  },
+
+  "emailSent": "Email Sent",
+  "@emailSent": {
+    "description": "Email sent confirmation title"
+  },
+
+  "resetEmailSentDescription": "We've sent a password reset link to {email}.\n\nPlease check your email and click the link\nto set a new password.",
+  "@resetEmailSentDescription": {
+    "description": "Password reset email sent description",
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "user@example.com"
+      }
+    }
+  },
+
+  "resetEmailNote": "If you don't see the email, please check your spam folder",
+  "@resetEmailNote": {
+    "description": "Reset email note about spam folder"
+  },
+
+  "resendEmail": "Resend Email",
+  "@resendEmail": {
+    "description": "Resend email button text"
+  },
+
+  "changePassword": "Change Password",
+  "@changePassword": {
+    "description": "Change password menu and screen title"
+  },
+
+  "changePasswordDescription": "Change your account password",
+  "@changePasswordDescription": {
+    "description": "Change password menu subtitle"
+  },
+
+  "changePasswordInfo": "Please change your password regularly for security",
+  "@changePasswordInfo": {
+    "description": "Change password info message"
+  },
+
+  "currentPassword": "Current Password",
+  "@currentPassword": {
+    "description": "Current password input label"
+  },
+
+  "currentPasswordHint": "Enter your current password",
+  "@currentPasswordHint": {
+    "description": "Current password input hint"
+  },
+
+  "currentPasswordRequired": "Please enter your current password",
+  "@currentPasswordRequired": {
+    "description": "Current password required validation message"
+  },
+
+  "newPassword": "New Password",
+  "@newPassword": {
+    "description": "New password input label"
+  },
+
+  "newPasswordHint": "Enter your new password",
+  "@newPasswordHint": {
+    "description": "New password input hint"
+  },
+
+  "newPasswordRequired": "Please enter your new password",
+  "@newPasswordRequired": {
+    "description": "New password required validation message"
+  },
+
+  "newPasswordSameAsCurrent": "New password is the same as current password",
+  "@newPasswordSameAsCurrent": {
+    "description": "New password same as current validation message"
+  },
+
+  "confirmNewPassword": "Confirm New Password",
+  "@confirmNewPassword": {
+    "description": "Confirm new password input label"
+  },
+
+  "confirmNewPasswordHint": "Re-enter your new password",
+  "@confirmNewPasswordHint": {
+    "description": "Confirm new password input hint"
+  },
+
+  "passwordChanged": "Password has been changed",
+  "@passwordChanged": {
+    "description": "Password changed success message"
+  },
+
+  "passwordChangeComingSoon": "Password change feature coming soon",
+  "@passwordChangeComingSoon": {
+    "description": "Password change feature coming soon message"
   }
 }

@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
+import '../widgets/common/themed_note_icon.dart';
 import 'home_screen.dart';
 import 'writing_screen.dart';
 // import '../widgets/handwriting_tab.dart';
@@ -184,7 +185,15 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.folder_outlined),
+                icon: Builder(
+                  builder: (context) {
+                    final isSelected = appState.selectedTabIndex == 1;
+                    final iconColor = isSelected
+                        ? Theme.of(context).primaryColor
+                        : (Theme.of(context).bottomNavigationBarTheme.unselectedItemColor ?? Colors.grey);
+                    return ThemedNoteIcon(size: 24, color: iconColor);
+                  },
+                ),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(

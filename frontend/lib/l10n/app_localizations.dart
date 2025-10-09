@@ -951,6 +951,384 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Handwriting on images'**
   String get drawDescription;
+
+  /// Subscription plan selection title in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Select Subscription Plan'**
+  String get selectSubscriptionPlan;
+
+  /// Subscription plan selection description
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your preferred plan'**
+  String get subscriptionDescription;
+
+  /// Unlimited littens feature
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited littens'**
+  String get unlimitedLittens;
+
+  /// Unlimited files feature
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited files'**
+  String get unlimitedFiles;
+
+  /// Premium plan includes all standard features
+  ///
+  /// In en, this message translates to:
+  /// **'All Standard features'**
+  String get allStandardFeatures;
+
+  /// Cloud synchronization feature
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud sync'**
+  String get cloudSync;
+
+  /// Multi-device support feature
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-device support'**
+  String get multiDeviceSupport;
+
+  /// Coming soon label
+  ///
+  /// In en, this message translates to:
+  /// **'Coming Soon'**
+  String get comingSoon;
+
+  /// Login button text
+  ///
+  /// In en, this message translates to:
+  /// **'Login'**
+  String get login;
+
+  /// Login feature coming soon message
+  ///
+  /// In en, this message translates to:
+  /// **'Login feature coming soon'**
+  String get loginComingSoon;
+
+  /// Welcome back message on login screen
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome Back'**
+  String get welcomeBack;
+
+  /// Login screen description
+  ///
+  /// In en, this message translates to:
+  /// **'Login to your account to securely store files in the cloud'**
+  String get loginDescription;
+
+  /// Email input label
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// Email input hint
+  ///
+  /// In en, this message translates to:
+  /// **'example@email.com'**
+  String get emailHint;
+
+  /// Email required validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your email'**
+  String get emailRequired;
+
+  /// Email invalid validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email format'**
+  String get emailInvalid;
+
+  /// Password input label
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get password;
+
+  /// Password input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password'**
+  String get passwordHint;
+
+  /// Password required validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your password'**
+  String get passwordRequired;
+
+  /// Password too short validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters'**
+  String get passwordTooShort;
+
+  /// Forgot password link text
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get forgotPassword;
+
+  /// Social login separator text
+  ///
+  /// In en, this message translates to:
+  /// **'Or login with'**
+  String get orLoginWith;
+
+  /// Login with Google button text
+  ///
+  /// In en, this message translates to:
+  /// **'Login with Google'**
+  String get loginWithGoogle;
+
+  /// Login with Apple button text
+  ///
+  /// In en, this message translates to:
+  /// **'Login with Apple'**
+  String get loginWithApple;
+
+  /// No account message
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account?'**
+  String get noAccount;
+
+  /// Sign up button text
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUp;
+
+  /// Manage subscription dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Subscription'**
+  String get manageSubscription;
+
+  /// Current plan label
+  ///
+  /// In en, this message translates to:
+  /// **'Current Plan'**
+  String get currentPlan;
+
+  /// Available plans label
+  ///
+  /// In en, this message translates to:
+  /// **'Available Plans'**
+  String get availablePlans;
+
+  /// Subscription changed message
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription changed'**
+  String get subscriptionChanged;
+
+  /// Sign up feature coming soon message
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up feature coming soon'**
+  String get signUpComingSoon;
+
+  /// Create account title on sign up screen
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get createAccount;
+
+  /// Sign up screen description
+  ///
+  /// In en, this message translates to:
+  /// **'Create your free account and get started'**
+  String get signUpDescription;
+
+  /// Confirm password input label
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get confirmPassword;
+
+  /// Confirm password input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter your password'**
+  String get confirmPasswordHint;
+
+  /// Confirm password required validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Please confirm your password'**
+  String get confirmPasswordRequired;
+
+  /// Password mismatch validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordMismatch;
+
+  /// Social sign up separator text
+  ///
+  /// In en, this message translates to:
+  /// **'Or sign up with'**
+  String get orSignUpWith;
+
+  /// Sign up with Google button text
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up with Google'**
+  String get signUpWithGoogle;
+
+  /// Sign up with Apple button text
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up with Apple'**
+  String get signUpWithApple;
+
+  /// Already have account message
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account?'**
+  String get alreadyHaveAccount;
+
+  /// Sign up email note
+  ///
+  /// In en, this message translates to:
+  /// **'Please provide your own email for smooth service usage'**
+  String get signUpEmailNote;
+
+  /// Forgot password screen description
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your registered email address and\nwe\'ll send you a password reset link'**
+  String get forgotPasswordDescription;
+
+  /// Send reset link button text
+  ///
+  /// In en, this message translates to:
+  /// **'Send Reset Link'**
+  String get sendResetLink;
+
+  /// Back to login button text
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Login'**
+  String get backToLogin;
+
+  /// Email sent confirmation title
+  ///
+  /// In en, this message translates to:
+  /// **'Email Sent'**
+  String get emailSent;
+
+  /// Password reset email sent description
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ve sent a password reset link to {email}.\n\nPlease check your email and click the link\nto set a new password.'**
+  String resetEmailSentDescription(String email);
+
+  /// Reset email note about spam folder
+  ///
+  /// In en, this message translates to:
+  /// **'If you don\'t see the email, please check your spam folder'**
+  String get resetEmailNote;
+
+  /// Resend email button text
+  ///
+  /// In en, this message translates to:
+  /// **'Resend Email'**
+  String get resendEmail;
+
+  /// Change password menu and screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get changePassword;
+
+  /// Change password menu subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Change your account password'**
+  String get changePasswordDescription;
+
+  /// Change password info message
+  ///
+  /// In en, this message translates to:
+  /// **'Please change your password regularly for security'**
+  String get changePasswordInfo;
+
+  /// Current password input label
+  ///
+  /// In en, this message translates to:
+  /// **'Current Password'**
+  String get currentPassword;
+
+  /// Current password input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current password'**
+  String get currentPasswordHint;
+
+  /// Current password required validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your current password'**
+  String get currentPasswordRequired;
+
+  /// New password input label
+  ///
+  /// In en, this message translates to:
+  /// **'New Password'**
+  String get newPassword;
+
+  /// New password input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your new password'**
+  String get newPasswordHint;
+
+  /// New password required validation message
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your new password'**
+  String get newPasswordRequired;
+
+  /// New password same as current validation message
+  ///
+  /// In en, this message translates to:
+  /// **'New password is the same as current password'**
+  String get newPasswordSameAsCurrent;
+
+  /// Confirm new password input label
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm New Password'**
+  String get confirmNewPassword;
+
+  /// Confirm new password input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter your new password'**
+  String get confirmNewPasswordHint;
+
+  /// Password changed success message
+  ///
+  /// In en, this message translates to:
+  /// **'Password has been changed'**
+  String get passwordChanged;
+
+  /// Password change feature coming soon message
+  ///
+  /// In en, this message translates to:
+  /// **'Password change feature coming soon'**
+  String get passwordChangeComingSoon;
 }
 
 class _AppLocalizationsDelegate

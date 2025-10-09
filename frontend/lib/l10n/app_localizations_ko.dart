@@ -419,4 +419,196 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get drawDescription => '이미지 위에 필기';
+
+  @override
+  String get selectSubscriptionPlan => '구독 플랜 선택';
+
+  @override
+  String get subscriptionDescription => '원하시는 플랜을 선택해주세요';
+
+  @override
+  String get unlimitedLittens => '무제한 리튼';
+
+  @override
+  String get unlimitedFiles => '무제한 파일';
+
+  @override
+  String get allStandardFeatures => '모든 스탠다드 기능';
+
+  @override
+  String get cloudSync => '클라우드 동기화';
+
+  @override
+  String get multiDeviceSupport => '다중 기기 지원';
+
+  @override
+  String get comingSoon => '곧 출시됩니다';
+
+  @override
+  String get login => '로그인';
+
+  @override
+  String get loginComingSoon => '로그인 기능은 곧 출시됩니다';
+
+  @override
+  String get welcomeBack => '다시 오신 것을 환영합니다';
+
+  @override
+  String get loginDescription => '계정에 로그인하여 안전하게 클라우드에 파일을 보관하세요';
+
+  @override
+  String get email => '이메일';
+
+  @override
+  String get emailHint => 'example@email.com';
+
+  @override
+  String get emailRequired => '이메일을 입력해주세요';
+
+  @override
+  String get emailInvalid => '올바른 이메일 형식이 아닙니다';
+
+  @override
+  String get password => '비밀번호';
+
+  @override
+  String get passwordHint => '비밀번호를 입력하세요';
+
+  @override
+  String get passwordRequired => '비밀번호를 입력해주세요';
+
+  @override
+  String get passwordTooShort => '비밀번호는 최소 6자 이상이어야 합니다';
+
+  @override
+  String get forgotPassword => '비밀번호를 잊으셨나요?';
+
+  @override
+  String get orLoginWith => '또는 다음으로 로그인';
+
+  @override
+  String get loginWithGoogle => 'Google로 로그인';
+
+  @override
+  String get loginWithApple => 'Apple로 로그인';
+
+  @override
+  String get noAccount => '계정이 없으신가요?';
+
+  @override
+  String get signUp => '회원가입';
+
+  @override
+  String get manageSubscription => '구독 관리';
+
+  @override
+  String get currentPlan => '현재 플랜';
+
+  @override
+  String get availablePlans => '사용 가능한 플랜';
+
+  @override
+  String get subscriptionChanged => '구독이 변경되었습니다';
+
+  @override
+  String get signUpComingSoon => '회원가입 기능은 곧 출시됩니다';
+
+  @override
+  String get createAccount => '계정 만들기';
+
+  @override
+  String get signUpDescription => '무료로 계정을 만들고 시작하세요';
+
+  @override
+  String get confirmPassword => '비밀번호 확인';
+
+  @override
+  String get confirmPasswordHint => '비밀번호를 다시 입력하세요';
+
+  @override
+  String get confirmPasswordRequired => '비밀번호 확인을 입력해주세요';
+
+  @override
+  String get passwordMismatch => '비밀번호가 일치하지 않습니다';
+
+  @override
+  String get orSignUpWith => '또는 다음으로 가입';
+
+  @override
+  String get signUpWithGoogle => 'Google로 가입';
+
+  @override
+  String get signUpWithApple => 'Apple로 가입';
+
+  @override
+  String get alreadyHaveAccount => '이미 계정이 있으신가요?';
+
+  @override
+  String get signUpEmailNote => '본인의 이메일을 넣으셔야 서비스 이용이 원활합니다';
+
+  @override
+  String get forgotPasswordDescription =>
+      '가입하신 이메일 주소를 입력하시면\n비밀번호 재설정 링크를 보내드립니다';
+
+  @override
+  String get sendResetLink => '재설정 링크 전송';
+
+  @override
+  String get backToLogin => '로그인으로 돌아가기';
+
+  @override
+  String get emailSent => '이메일이 전송되었습니다';
+
+  @override
+  String resetEmailSentDescription(String email) {
+    return '$email로\n비밀번호 재설정 링크를 보내드렸습니다.\n\n이메일을 확인하시고 링크를 클릭하여\n새로운 비밀번호를 설정해주세요.';
+  }
+
+  @override
+  String get resetEmailNote => '이메일이 도착하지 않았다면 스팸함을 확인해주세요';
+
+  @override
+  String get resendEmail => '이메일 다시 보내기';
+
+  @override
+  String get changePassword => '비밀번호 변경';
+
+  @override
+  String get changePasswordDescription => '계정 비밀번호를 변경합니다';
+
+  @override
+  String get changePasswordInfo => '보안을 위해 주기적으로 비밀번호를 변경해주세요';
+
+  @override
+  String get currentPassword => '현재 비밀번호';
+
+  @override
+  String get currentPasswordHint => '현재 비밀번호를 입력하세요';
+
+  @override
+  String get currentPasswordRequired => '현재 비밀번호를 입력해주세요';
+
+  @override
+  String get newPassword => '새 비밀번호';
+
+  @override
+  String get newPasswordHint => '새 비밀번호를 입력하세요';
+
+  @override
+  String get newPasswordRequired => '새 비밀번호를 입력해주세요';
+
+  @override
+  String get newPasswordSameAsCurrent => '새 비밀번호가 현재 비밀번호와 같습니다';
+
+  @override
+  String get confirmNewPassword => '새 비밀번호 확인';
+
+  @override
+  String get confirmNewPasswordHint => '새 비밀번호를 다시 입력하세요';
+
+  @override
+  String get passwordChanged => '비밀번호가 변경되었습니다';
+
+  @override
+  String get passwordChangeComingSoon => '비밀번호 변경 기능은 곧 출시됩니다';
 }

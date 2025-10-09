@@ -11,11 +11,13 @@ import '../services/notification_service.dart';
 import '../services/app_icon_badge_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
+import '../services/auth_service.dart';
 
 class AppStateProvider extends ChangeNotifier {
   final LittenService _littenService = LittenService();
   final NotificationService _notificationService = NotificationService();
   final AppIconBadgeService _appIconBadgeService = AppIconBadgeService();
+  final AuthServiceImpl _authService = AuthServiceImpl();
   
   // 앱 상태
   Locale _locale = const Locale('en');
@@ -60,7 +62,12 @@ class AppStateProvider extends ChangeNotifier {
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
   AppIconBadgeService get appIconBadgeService => _appIconBadgeService;
-  
+
+  // 인증 서비스 관련 Getters
+  AuthServiceImpl get authService => _authService;
+  bool get isLoggedIn => _authService.authStatus == AuthStatus.authenticated;
+  User? get currentUser => _authService.currentUser;
+
   // 캘린더 관련 Getters
   DateTime get selectedDate => _selectedDate;
   DateTime get focusedDate => _focusedDate;
@@ -126,6 +133,10 @@ class AppStateProvider extends ChangeNotifier {
     _selectedDate = today;
     _focusedDate = today;
 
+    // 인증 상태 확인
+    await _authService.checkAuthStatus();
+    _authService.addListener(_onAuthStateChanged);
+
     // 앱 아이콘 배지 서비스 초기화
     _appIconBadgeService.initialize();
 
@@ -136,6 +147,12 @@ class AppStateProvider extends ChangeNotifier {
     _updateNotificationSchedule();
 
     _isInitialized = true;
+    notifyListeners();
+  }
+
+  // 인증 상태 변경 핸들러
+  void _onAuthStateChanged() {
+    debugPrint('[AppStateProvider] 인증 상태 변경: ${_authService.authStatus}');
     notifyListeners();
   }
 
@@ -798,22 +815,30 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   // 온보딩 완료 처리
-  Future<void> completeOnboarding({String? selectedLanguage, AppThemeType? selectedTheme}) async {
+  Future<void> completeOnboarding({
+    String? selectedLanguage,
+    AppThemeType? selectedTheme,
+    SubscriptionType? selectedSubscription,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (selectedLanguage != null) {
       await changeLanguage(selectedLanguage);
     }
-    
+
     if (selectedTheme != null) {
       await changeTheme(selectedTheme);
     }
-    
+
+    if (selectedSubscription != null) {
+      await changeSubscriptionType(selectedSubscription);
+    }
+
     // 온보딩 완료 시점에 기본 리튼들 생성
     await _createDefaultLittensWithLocalization();
     await _loadLittens();
     await _loadSelectedLitten();
-    
+
     // 앱 초기화 완료 표시
     await prefs.setBool('is_app_initialized', true);
     _isFirstLaunch = false;

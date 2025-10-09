@@ -5,6 +5,8 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/background_notification_service.dart';
 import '../config/themes.dart';
+import 'login_screen.dart';
+import 'change_password_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -27,6 +29,7 @@ class SettingsScreen extends StatelessWidget {
                   title: l10n?.userStatus ?? '사용자 상태',
                   subtitle: _getSubscriptionStatusText(appState.subscriptionType, l10n),
                   iconColor: _getSubscriptionColor(appState.subscriptionType),
+                  onTap: () => _showSubscriptionManagementDialog(context, appState),
                 ),
                 _buildSettingsItem(
                   icon: Icons.bar_chart,
@@ -35,6 +38,23 @@ class SettingsScreen extends StatelessWidget {
                   iconColor: Colors.blue,
                   onTap: () => _showUsageDialog(context, appState),
                 ),
+                // 로그인 상태일 때만 비밀번호 변경 메뉴 표시
+                if (appState.isLoggedIn) ...[
+                  _buildSettingsItem(
+                    icon: Icons.lock_reset,
+                    title: l10n?.changePassword ?? '비밀번호 변경',
+                    subtitle: l10n?.changePasswordDescription ?? '계정 비밀번호를 변경합니다',
+                    iconColor: Colors.red,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChangePasswordScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
                 if (appState.subscriptionType == SubscriptionType.free) ...[
                   _buildSettingsItem(
                     icon: Icons.upgrade,
@@ -453,6 +473,188 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(l10n?.close ?? '닫기'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showSubscriptionManagementDialog(
+    BuildContext context,
+    AppStateProvider appState,
+  ) {
+    final l10n = AppLocalizations.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n?.manageSubscription ?? '구독 관리'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n?.currentPlan ?? '현재 플랜',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getSubscriptionStatusText(appState.subscriptionType, l10n),
+              style: TextStyle(
+                color: _getSubscriptionColor(appState.subscriptionType),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              l10n?.availablePlans ?? '사용 가능한 플랜',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildSubscriptionCard(
+              type: SubscriptionType.free,
+              title: l10n?.freeVersion ?? 'Free',
+              price: l10n?.freeWithAds ?? 'Free (with ads)',
+              isCurrentPlan: appState.subscriptionType == SubscriptionType.free,
+              onSelect: () {
+                appState.changeSubscriptionType(SubscriptionType.free);
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n?.subscriptionChanged ?? '구독이 변경되었습니다'),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSubscriptionCard(
+              type: SubscriptionType.standard,
+              title: l10n?.standardVersion ?? 'Standard',
+              price: l10n?.standardMonthly ?? 'Standard (\$4.99/month)',
+              isCurrentPlan: appState.subscriptionType == SubscriptionType.standard,
+              onSelect: () {
+                appState.changeSubscriptionType(SubscriptionType.standard);
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n?.subscriptionChanged ?? '구독이 변경되었습니다'),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSubscriptionCard(
+              type: SubscriptionType.premium,
+              title: l10n?.premiumVersion ?? 'Premium',
+              price: l10n?.premiumMonthly ?? 'Premium (\$9.99/month)',
+              isCurrentPlan: appState.subscriptionType == SubscriptionType.premium,
+              isPremium: true,
+              onSelect: () {
+                Navigator.of(context).pop();
+                // 프리미엄은 로그인 필요
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.close ?? '닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionCard({
+    required SubscriptionType type,
+    required String title,
+    required String price,
+    required bool isCurrentPlan,
+    bool isPremium = false,
+    required VoidCallback onSelect,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isCurrentPlan ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isCurrentPlan ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
+          width: isCurrentPlan ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isCurrentPlan ? Colors.blue : Colors.black87,
+                      ),
+                    ),
+                    if (isCurrentPlan) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Current',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  price,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!isCurrentPlan)
+            ElevatedButton(
+              onPressed: onSelect,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                isPremium ? 'Login' : 'Select',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
         ],
       ),
     );

@@ -429,4 +429,201 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get drawDescription => 'Écriture à la main sur des images';
+
+  @override
+  String get selectSubscriptionPlan => 'Select Subscription Plan';
+
+  @override
+  String get subscriptionDescription => 'Choose your preferred plan';
+
+  @override
+  String get unlimitedLittens => 'Unlimited littens';
+
+  @override
+  String get unlimitedFiles => 'Unlimited files';
+
+  @override
+  String get allStandardFeatures => 'All Standard features';
+
+  @override
+  String get cloudSync => 'Cloud sync';
+
+  @override
+  String get multiDeviceSupport => 'Multi-device support';
+
+  @override
+  String get comingSoon => 'Coming Soon';
+
+  @override
+  String get login => 'Login';
+
+  @override
+  String get loginComingSoon => 'Login feature coming soon';
+
+  @override
+  String get welcomeBack => 'Welcome Back';
+
+  @override
+  String get loginDescription =>
+      'Login to your account to securely store files in the cloud';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get emailHint => 'example@email.com';
+
+  @override
+  String get emailRequired => 'Please enter your email';
+
+  @override
+  String get emailInvalid => 'Invalid email format';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get passwordHint => 'Enter your password';
+
+  @override
+  String get passwordRequired => 'Please enter your password';
+
+  @override
+  String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get forgotPassword => 'Forgot your password?';
+
+  @override
+  String get orLoginWith => 'Or login with';
+
+  @override
+  String get loginWithGoogle => 'Login with Google';
+
+  @override
+  String get loginWithApple => 'Login with Apple';
+
+  @override
+  String get noAccount => 'Don\'t have an account?';
+
+  @override
+  String get signUp => 'Sign Up';
+
+  @override
+  String get manageSubscription => 'Manage Subscription';
+
+  @override
+  String get currentPlan => 'Current Plan';
+
+  @override
+  String get availablePlans => 'Available Plans';
+
+  @override
+  String get subscriptionChanged => 'Subscription changed';
+
+  @override
+  String get signUpComingSoon => 'Sign up feature coming soon';
+
+  @override
+  String get createAccount => 'Create Account';
+
+  @override
+  String get signUpDescription => 'Create your free account and get started';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get confirmPasswordHint => 'Re-enter your password';
+
+  @override
+  String get confirmPasswordRequired => 'Please confirm your password';
+
+  @override
+  String get passwordMismatch => 'Passwords do not match';
+
+  @override
+  String get orSignUpWith => 'Or sign up with';
+
+  @override
+  String get signUpWithGoogle => 'Sign up with Google';
+
+  @override
+  String get signUpWithApple => 'Sign up with Apple';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account?';
+
+  @override
+  String get signUpEmailNote =>
+      'Please provide your own email for smooth service usage';
+
+  @override
+  String get forgotPasswordDescription =>
+      'Enter your registered email address and\nwe\'ll send you a password reset link';
+
+  @override
+  String get sendResetLink => 'Send Reset Link';
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  @override
+  String get emailSent => 'Email Sent';
+
+  @override
+  String resetEmailSentDescription(String email) {
+    return 'We\'ve sent a password reset link to $email.\n\nPlease check your email and click the link\nto set a new password.';
+  }
+
+  @override
+  String get resetEmailNote =>
+      'If you don\'t see the email, please check your spam folder';
+
+  @override
+  String get resendEmail => 'Resend Email';
+
+  @override
+  String get changePassword => 'Change Password';
+
+  @override
+  String get changePasswordDescription => 'Change your account password';
+
+  @override
+  String get changePasswordInfo =>
+      'Please change your password regularly for security';
+
+  @override
+  String get currentPassword => 'Current Password';
+
+  @override
+  String get currentPasswordHint => 'Enter your current password';
+
+  @override
+  String get currentPasswordRequired => 'Please enter your current password';
+
+  @override
+  String get newPassword => 'New Password';
+
+  @override
+  String get newPasswordHint => 'Enter your new password';
+
+  @override
+  String get newPasswordRequired => 'Please enter your new password';
+
+  @override
+  String get newPasswordSameAsCurrent =>
+      'New password is the same as current password';
+
+  @override
+  String get confirmNewPassword => 'Confirm New Password';
+
+  @override
+  String get confirmNewPasswordHint => 'Re-enter your new password';
+
+  @override
+  String get passwordChanged => 'Password has been changed';
+
+  @override
+  String get passwordChangeComingSoon => 'Password change feature coming soon';
 }
