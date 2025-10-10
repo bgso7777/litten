@@ -12,6 +12,8 @@ public interface NoteMemberRepository extends JpaRepository<NoteMember,String> {
 
     NoteMember findByUuidAndState(String uuid, String state);
 
+    NoteMember findByIdAndUuidAndState(String id, String uuid, String state);
+
     List<NoteMember> findByUuid(String uuid);
 
     @Override

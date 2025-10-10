@@ -6,9 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface NoteMemberLogRepository extends JpaRepository<NoteMemberLog,Integer> {
 
-//    NoteMember findByIdAndState(String id, String state);
-//
-//    NoteMember findByUuidAndState(String uuid, String state);
+    NoteMemberLog findByIdAndState(String id, String state);
+
+    NoteMemberLog findByUuidAndState(String uuid, String state);
+
+    NoteMemberLog findByIdAndUuidAndState(String id, String uuid, String state);
 
     @Override
     Page<NoteMemberLog> findAll(Pageable pageable);
