@@ -857,7 +857,8 @@ class AppStateProvider extends ChangeNotifier {
   // 캘린더 관련 메서드들
   void selectDate(DateTime date) {
     debugPrint('📅 날짜 선택: ${DateFormat('yyyy-MM-dd').format(date)}');
-    if (_selectedDate != date) {
+    // 날짜가 다르거나, 같은 날짜라도 아직 선택되지 않은 상태면 선택 처리
+    if (_selectedDate != date || !_isDateSelected) {
       _selectedDate = date;
       _isDateSelected = true;
       debugPrint('✅ 날짜 선택 완료: isDateSelected = $_isDateSelected');
