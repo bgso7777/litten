@@ -296,27 +296,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 24),
 
                       // Google 회원가입 버튼 (2차 개발 예정)
-                      OutlinedButton.icon(
-                        onPressed: null, // 비활성화
-                        icon: const Icon(Icons.g_mobiledata, size: 24),
-                        label: Text(
-                          AppLocalizations.of(context)?.signUpWithGoogle ?? 'Google로 가입',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                      Opacity(
+                        opacity: 0.4, // 비활성화 시 투명도 40%
+                        child: OutlinedButton.icon(
+                          onPressed: null, // 비활성화
+                          icon: const Icon(Icons.g_mobiledata, size: 24),
+                          label: Text(
+                            AppLocalizations.of(context)?.signUpWithGoogle ?? 'Google로 가입',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: Colors.grey[100], // 비활성화 시 배경색 회색
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
 
                       // Apple 회원가입 버튼 (2차 개발 예정)
-                      OutlinedButton.icon(
-                        onPressed: null, // 비활성화
-                        icon: const Icon(Icons.apple, size: 24),
-                        label: Text(
-                          AppLocalizations.of(context)?.signUpWithApple ?? 'Apple로 가입',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                      Opacity(
+                        opacity: 0.4, // 비활성화 시 투명도 40%
+                        child: OutlinedButton.icon(
+                          onPressed: null, // 비활성화
+                          icon: const Icon(Icons.apple, size: 24),
+                          label: Text(
+                            AppLocalizations.of(context)?.signUpWithApple ?? 'Apple로 가입',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: Colors.grey[100], // 비활성화 시 배경색 회색
+                          ),
                         ),
                       ),
                       const SizedBox(height: 32),

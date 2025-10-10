@@ -2492,6 +2492,10 @@ class _HandwritingTabState extends State<HandwritingTab>
                       _selectedTool == '제스처',
                     ),
                     _buildToolSeparator(),
+                    _buildCompactDrawingTool(Icons.zoom_in, '줌인', false),
+                    _buildToolSeparator(),
+                    _buildCompactDrawingTool(Icons.zoom_out, '줌아웃', false),
+                    _buildToolSeparator(),
                     _buildCompactDrawingTool(
                       Icons.edit,
                       '펜',
@@ -2592,12 +2596,6 @@ class _HandwritingTabState extends State<HandwritingTab>
                       Colors.brown,
                       _selectedColor == Colors.brown,
                     ),
-                    _buildToolSeparator(),
-
-                    // 확장 도구들
-                    _buildCompactDrawingTool(Icons.zoom_in, '줌인', false),
-                    _buildToolSeparator(),
-                    _buildCompactDrawingTool(Icons.zoom_out, '줌아웃', false),
                   ],
                 ),
               ),

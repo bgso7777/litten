@@ -330,20 +330,25 @@ class _LoginScreenState extends State<LoginScreen> {
     required VoidCallback? onPressed,
     required Color color,
   }) {
-    return OutlinedButton(
-      onPressed: _isLoading ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
-        ],
+    final isDisabled = onPressed == null;
+    return Opacity(
+      opacity: isDisabled ? 0.4 : 1.0, // 비활성화 시 투명도 40%
+      child: OutlinedButton(
+        onPressed: _isLoading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          side: BorderSide(color: Colors.grey[300]!),
+          backgroundColor: isDisabled ? Colors.grey[100] : null, // 비활성화 시 배경색 회색
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(width: 12),
+            Text(label, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+          ],
+        ),
       ),
     );
   }

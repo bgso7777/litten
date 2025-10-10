@@ -509,9 +509,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           }
         }
 
+        // 저장 후에도 편집 화면 유지 (목록으로 돌아가지 않음)
         setState(() {
-          _isEditing = false;
-          _currentTextFile = null;
+          _currentTextFile = updatedFile; // 업데이트된 파일로 현재 파일 갱신
         });
 
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
@@ -554,9 +554,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           children: [
             Text(
               file.title.isNotEmpty ? file.title : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
-              style: TextStyle(
-                color: Colors.grey.shade600,
+              style: const TextStyle(
+                color: Colors.black87,
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -642,16 +643,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: Colors.blue, width: 3),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  spreadRadius: 2,
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
-                ),
-              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
@@ -672,25 +664,29 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                           autoAdjustHeight: false,
                           spellCheck: false,
                           characterLimit: null,
+                          customOptions: '''
+                            p { margin: 0; padding: 0; line-height: 1.2; }
+                            div { margin: 0; padding: 0; line-height: 1.2; }
+                          ''',
                         ),
                         htmlToolbarOptions: HtmlToolbarOptions(
                           toolbarPosition: ToolbarPosition.aboveEditor,
                           toolbarType: ToolbarType.nativeScrollable,
-                          renderBorder: true,
+                          renderBorder: false,
                           toolbarItemHeight: 32,
                           renderSeparatorWidget: true,
                           separatorWidget: Container(
                             width: 1,
                             height: 24,
-                            color: Colors.grey.shade400,
+                            color: Colors.grey.shade600,
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                           ),
-                          buttonColor: Colors.grey.shade400,
+                          buttonColor: Colors.grey.shade800,
                           buttonSelectedColor: Theme.of(
                             context,
-                          ).colorScheme.primary.withValues(alpha: 0.8),
-                          buttonBorderColor: Colors.grey.shade700,
-                          buttonBorderWidth: 2.0,
+                          ).colorScheme.primary,
+                          buttonBorderColor: Colors.transparent,
+                          buttonBorderWidth: 0,
                           defaultToolbarButtons: const [
                             FontButtons(
                               bold: true,

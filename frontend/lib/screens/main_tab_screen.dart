@@ -128,7 +128,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
-              // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동, 없으면 undefined 리튼 선택
+              // 홈탭(index 0) 터치 시 알림이 있으면 가장 오래된 알림으로 이동, 없으면 오늘 날짜 선택
               if (index == 0) {
                 final notifications = appState.notificationService.firedNotifications;
                 debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
@@ -164,14 +164,19 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
                   debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
                 } else {
-                  // 알림이 없을 경우 undefined 리튼 선택 및 파일 탭(인덱스 0) 선택
+                  // 알림이 없을 경우 오늘 날짜 선택 및 undefined 리튼 선택, 파일 탭(인덱스 0) 선택
+                  final today = DateTime.now();
+                  appState.selectDate(today);
+                  appState.changeFocusedDate(today);
+                  debugPrint('📅 오늘 날짜 선택: $today');
+
                   final undefinedLitten = appState.littens
                       .where((l) => l.title == 'undefined')
                       .firstOrNull;
                   if (undefinedLitten != null) {
                     appState.selectLitten(undefinedLitten);
                     appState.setHomeBottomTabIndex(0);  // 파일 탭 선택
-                    debugPrint('✅ 알림이 없어서 undefined 리튼 선택 및 파일 탭 활성화');
+                    debugPrint('✅ 알림이 없어서 오늘 날짜 선택 및 undefined 리튼 선택, 파일 탭 활성화');
                   }
                 }
               }

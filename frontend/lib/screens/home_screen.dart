@@ -1165,10 +1165,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n?.deleteLitten ?? '리튼 삭제'),
-        content: Text(l10n?.confirmDeleteLitten != null 
-            ? l10n!.confirmDeleteLitten(title)
-            : '\'$title\' 리튼을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 관련된 모든 파일이 함께 삭제됩니다.'),
+        title: const Text('일정 삭제'),
+        content: Text('\'$title\' 일정을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 관련된 모든 파일이 함께 삭제됩니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -1179,13 +1177,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               final appState = Provider.of<AppStateProvider>(context, listen: false);
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
-              
+
               await appState.deleteLitten(littenId);
-              
+
               if (mounted) {
                 navigator.pop();
                 scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text('$title 리튼이 삭제되었습니다.')),
+                  SnackBar(content: Text('$title 일정이 삭제되었습니다.')),
                 );
               }
             },
