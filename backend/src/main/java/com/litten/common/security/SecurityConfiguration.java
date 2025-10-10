@@ -196,6 +196,7 @@ public class SecurityConfiguration {
         .antMatchers("/note/v1/members/**").permitAll()
         .antMatchers("/note/v1/members/install/**").permitAll()
         .antMatchers("/note/v1/members/signup/**").permitAll()
+                .antMatchers("/note/v1/members/password/**").permitAll()
         .antMatchers("/note/v1/members/password-url/**").permitAll()
         .antMatchers("/note/v1/members/login/web/**").permitAll()
         .antMatchers("/note/v1/members/login/mobile/**").permitAll()

@@ -141,7 +141,7 @@ public class NoteMemberController {
     }
 
     @CrossOrigin(origins="*", allowedHeaders="*")
-    @PostMapping("/note/v1/members/password")
+    @PutMapping("/note/v1/members/password")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> postChangePassword(@RequestBody JsonNode requestBody) {
         String servicePackage = "com.litten.note.";
@@ -229,28 +229,28 @@ public class NoteMemberController {
         return ResponseEntity.ok(result);
     }
 
-    @PutMapping("/note/v1/members/{id}")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> updateNoteMember(
-            @PathVariable(value="id", required=false) String id,
-            @RequestParam(value="is-admin", required=false) Boolean isAdmin,
-            @RequestBody JsonNode requestBody ) {
-        Map<String, Object> result = new HashMap<>();
-        if( id==null ) {
-            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
-            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
-        } else {
-            String domainName = "NoteMemberDomain";
-            String columnName = "id";
-            Object value = id;
-            String type = ConstantsDynamic.TYPE_OF_STRING;
-            Boolean isCheckAllowedClassValue = true;
-            if (isAdmin != null && isAdmin)
-                isCheckAllowedClassValue = false;
-            result = controllerDynamicServiceBridge.updateDomainByOneColumn(domainName, isCheckAllowedClassValue, requestBody, columnName, value, type);
-        }
-        return ResponseEntity.ok(result);
-    }
+//    @PutMapping("/note/v1/members/{id}")
+//    @ResponseBody
+//    public ResponseEntity<Map<String, Object>> updateNoteMember(
+//            @PathVariable(value="id", required=false) String id,
+//            @RequestParam(value="is-admin", required=false) Boolean isAdmin,
+//            @RequestBody JsonNode requestBody ) {
+//        Map<String, Object> result = new HashMap<>();
+//        if( id==null ) {
+//            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR);
+//            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_REQUEST_DATA_ERROR_MESSAGE);
+//        } else {
+//            String domainName = "NoteMemberDomain";
+//            String columnName = "id";
+//            Object value = id;
+//            String type = ConstantsDynamic.TYPE_OF_STRING;
+//            Boolean isCheckAllowedClassValue = true;
+//            if (isAdmin != null && isAdmin)
+//                isCheckAllowedClassValue = false;
+//            result = controllerDynamicServiceBridge.updateDomainByOneColumn(domainName, isCheckAllowedClassValue, requestBody, columnName, value, type);
+//        }
+//        return ResponseEntity.ok(result);
+//    }
 
     @DeleteMapping("/note/v1/members/{id}")
     @ResponseBody
