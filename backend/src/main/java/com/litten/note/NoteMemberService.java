@@ -316,12 +316,24 @@ public class NoteMemberService extends CustomHttpService {
             noteMember.setUpdateDateTime(LocalDateTime.now());
             memberRepository.save(noteMember);
             List<NoteMember> noteMembers = memberRepository.findByUuid(noteMember.getUuid());
+
+            // 백업은 try-catch로 감싸서 실패해도 탈퇴는 진행
             for (NoteMember tempNoteMember : noteMembers) {
                 tempNoteMember.setUpdateDateTime(LocalDateTime.now());
-                backup(tempNoteMember,Constants.CODE_LOG_DELETE_QUERY);
+                try {
+                    backup(tempNoteMember,Constants.CODE_LOG_DELETE_QUERY);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // 로그 저장 실패해도 계속 진행
+                }
             }
+
             for (NoteMember tempNoteMember : noteMembers)
                 memberRepository.delete(tempNoteMember);
+
+            // 성공 결과 설정
+            result.put(Constants.TAG_RESULT,Constants.RESULT_SUCCESS);
+            result.put(Constants.TAG_RESULT_MESSAGE,"회원탈퇴 성공");
         }
         return result;
     }

@@ -295,9 +295,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Google 회원가입 버튼
+                      // Google 회원가입 버튼 (2차 개발 예정)
                       OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _handleGoogleSignUp,
+                        onPressed: null, // 비활성화
                         icon: const Icon(Icons.g_mobiledata, size: 24),
                         label: Text(
                           AppLocalizations.of(context)?.signUpWithGoogle ?? 'Google로 가입',
@@ -308,9 +308,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Apple 회원가입 버튼
+                      // Apple 회원가입 버튼 (2차 개발 예정)
                       OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _handleAppleSignUp,
+                        onPressed: null, // 비활성화
                         icon: const Icon(Icons.apple, size: 24),
                         label: Text(
                           AppLocalizations.of(context)?.signUpWithApple ?? 'Apple로 가입',

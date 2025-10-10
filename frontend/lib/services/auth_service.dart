@@ -144,6 +144,7 @@ class AuthServiceImpl extends AuthService {
   static const String _keyToken = 'auth_token';
   static const String _keyEmail = 'user_email';
   static const String _keyUserId = 'user_id';
+  static const String _keyTokenExpiredDate = 'token_expired_date';
   static const String _keyDeviceUuid = 'device_uuid';
   static const String _keyRegisteredEmail = 'registered_email'; // 최초 회원가입한 이메일
 
@@ -235,6 +236,7 @@ class AuthServiceImpl extends AuthService {
     required String token,
     required String email,
     required String userId,
+    int? tokenExpiredDate,
   }) async {
     debugPrint('🔐 AuthService: 로그인 정보 저장 - $email');
 
@@ -242,6 +244,11 @@ class AuthServiceImpl extends AuthService {
     await prefs.setString(_keyToken, token);
     await prefs.setString(_keyEmail, email);
     await prefs.setString(_keyUserId, userId);
+
+    if (tokenExpiredDate != null) {
+      await prefs.setInt(_keyTokenExpiredDate, tokenExpiredDate);
+      debugPrint('🔐 AuthService: 토큰 만료 시간 저장 - $tokenExpiredDate');
+    }
   }
 
   /// 로그인 정보 삭제
@@ -252,6 +259,7 @@ class AuthServiceImpl extends AuthService {
     await prefs.remove(_keyToken);
     await prefs.remove(_keyEmail);
     await prefs.remove(_keyUserId);
+    await prefs.remove(_keyTokenExpiredDate);
   }
 
   /// 회원탈퇴 시 모든 인증 정보 삭제 (registered_email 포함)
@@ -277,14 +285,26 @@ class AuthServiceImpl extends AuthService {
       _authStatus = AuthStatus.loading;
       notifyListeners();
 
+      // UUID 가져오기
+      final uuid = await getDeviceUuid();
+      debugPrint('🔐 AuthService: 로그인 UUID - $uuid');
+
       final response = await _apiService.login(
         email: email,
         password: password,
+        uuid: uuid,
       );
 
       // 응답에서 토큰과 사용자 정보 추출
-      final token = response['token'] as String? ?? 'dummy_token';
-      final userId = response['userId'] as String? ?? email;
+      final token = response['authToken'] as String?;
+      final userId = response['memberId'] as String? ?? email;
+      final tokenExpiredDate = response['tokenExpiredDate'] as int?;
+
+      if (token == null) {
+        throw Exception('로그인 응답에 authToken이 없습니다');
+      }
+
+      debugPrint('🔐 AuthService: 로그인 토큰 받음 - 만료일: $tokenExpiredDate');
 
       // 사용자 객체 생성
       final user = User(
@@ -302,6 +322,7 @@ class AuthServiceImpl extends AuthService {
         token: token,
         email: email,
         userId: userId,
+        tokenExpiredDate: tokenExpiredDate,
       );
 
       notifyListeners();

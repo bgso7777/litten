@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/api_service.dart';
@@ -27,46 +28,26 @@ class _LoginScreenState extends State<LoginScreen> {
     _loadRegisteredEmail();
   }
 
-  /// UUID로 계정 조회하여 이메일 불러오기 (signup 또는 withdraw 상태인 경우)
+  /// SharedPreferences에서 등록된 이메일 불러오기
   Future<void> _loadRegisteredEmail() async {
-    debugPrint('[LoginScreen] _loadRegisteredEmail - UUID로 계정 조회 시작');
-
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final apiService = ApiService();
+    debugPrint(
+      '[LoginScreen] _loadRegisteredEmail - SharedPreferences에서 이메일 조회',
+    );
 
     try {
-      // UUID 가져오기 - AuthService를 통해
-      final uuid = await appState.authService.getDeviceUuid();
-      debugPrint('[LoginScreen] _loadRegisteredEmail - UUID: $uuid');
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString('registered_email');
 
-      // UUID로 계정 조회
-      final accountData = await apiService.findAccountByUuid(uuid: uuid);
-      debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 조회 결과: $accountData');
+      debugPrint('[LoginScreen] _loadRegisteredEmail - 저장된 이메일: $email');
 
-      if (accountData != null && mounted) {
-        // body 필드에서 계정 정보 추출
-        final body = accountData['body'] as Map<String, dynamic>?;
-        if (body != null) {
-          final stateCode = body['stateCode'] as String?;
-          final email = body['id'] as String?;
-
-          debugPrint('[LoginScreen] _loadRegisteredEmail - stateCode: $stateCode, email: $email');
-
-          // stateCode가 'signup' 또는 'withdraw' 상태인 경우 이메일 고정
-          if ((stateCode == 'signup' || stateCode == 'withdraw') && email != null) {
-            debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 고정: $email (상태: $stateCode)');
-            setState(() {
-              _registeredEmail = email;
-              _emailController.text = email;
-            });
-          } else {
-            debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 고정 조건 미충족 (stateCode: $stateCode)');
-          }
-        } else {
-          debugPrint('[LoginScreen] _loadRegisteredEmail - body 필드가 null');
-        }
+      if (email != null && mounted) {
+        setState(() {
+          _registeredEmail = email;
+          _emailController.text = email;
+        });
+        debugPrint('[LoginScreen] _loadRegisteredEmail - 이메일 고정: $email');
       } else {
-        debugPrint('[LoginScreen] _loadRegisteredEmail - 계정 없음 또는 mounted=false');
+        debugPrint('[LoginScreen] _loadRegisteredEmail - 저장된 이메일 없음');
       }
     } catch (e) {
       debugPrint('[LoginScreen] _loadRegisteredEmail - 오류 발생: $e');
@@ -110,10 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('로그인 실패: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('로그인 실패: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -129,7 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)?.loginComingSoon ?? '로그인 기능은 곧 출시됩니다'),
+          content: Text(
+            AppLocalizations.of(context)?.loginComingSoon ?? '로그인 기능은 곧 출시됩니다',
+          ),
         ),
       );
     }
@@ -146,7 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: Icon(Icons.arrow_back),
           onPressed: () {
             // 뒤로가기 버튼 클릭 시 홈 화면으로 이동
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/', (route) => false);
           },
         ),
       ),
@@ -172,9 +154,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   l10n?.loginDescription ?? '계정에 로그인하여 클라우드 동기화를 이용하세요',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 32),
 
@@ -221,7 +203,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             : Icons.visibility,
                       ),
                       onPressed: () {
-                        setState(() => _isPasswordVisible = !_isPasswordVisible);
+                        setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        );
                       },
                     ),
                     border: OutlineInputBorder(
@@ -293,18 +277,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 소셜 로그인 버튼들
+                // 소셜 로그인 버튼들 (2차 개발 예정)
                 _buildSocialLoginButton(
                   icon: Icons.g_mobiledata,
                   label: l10n?.loginWithGoogle ?? 'Google로 로그인',
-                  onPressed: () => _handleSocialLogin('google'),
+                  onPressed: null, // 비활성화
                   color: Colors.red,
                 ),
                 const SizedBox(height: 12),
                 _buildSocialLoginButton(
                   icon: Icons.apple,
                   label: l10n?.loginWithApple ?? 'Apple로 로그인',
-                  onPressed: () => _handleSocialLogin('apple'),
+                  onPressed: null, // 비활성화
                   color: Colors.black,
                 ),
 
@@ -343,16 +327,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildSocialLoginButton({
     required IconData icon,
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required Color color,
   }) {
     return OutlinedButton(
       onPressed: _isLoading ? null : onPressed,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         side: BorderSide(color: Colors.grey[300]!),
       ),
       child: Row(
@@ -360,13 +342,7 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[800],
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
         ],
       ),
     );

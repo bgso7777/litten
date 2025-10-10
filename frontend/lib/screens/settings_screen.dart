@@ -1,156 +1,253 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../services/background_notification_service.dart';
+import '../services/api_service.dart';
 import '../config/themes.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String? _registeredEmail; // signup 상태의 계정 이메일
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisteredAccount();
+  }
+
+  /// UUID로 signup 상태 계정 조회
+  Future<void> _loadRegisteredAccount() async {
+    debugPrint('[SettingsScreen] _loadRegisteredAccount - 시작');
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final apiService = ApiService();
+
+    try {
+      // UUID 가져오기
+      final uuid = await appState.authService.getDeviceUuid();
+      debugPrint('[SettingsScreen] UUID: $uuid');
+
+      // UUID로 계정 조회
+      final accountData = await apiService.findAccountByUuid(uuid: uuid);
+      debugPrint('[SettingsScreen] 계정 조회 결과: $accountData');
+
+      final prefs = await SharedPreferences.getInstance();
+
+      if (accountData != null && mounted) {
+        // Backend는 'noteMember' 필드로 반환
+        final member = accountData['noteMember'] as Map<String, dynamic>?;
+        if (member != null) {
+          final state = member['state'] as String?;
+          final email = member['id'] as String?;
+
+          debugPrint('[SettingsScreen] state: $state, email: $email');
+
+          // signup 상태인 경우 이메일 저장
+          if (state == 'signup' && email != null) {
+            setState(() {
+              _registeredEmail = email;
+            });
+
+            // SharedPreferences에 저장
+            await prefs.setString('registered_email', email);
+            debugPrint('[SettingsScreen] 등록된 계정 저장: $email');
+          } else {
+            // signup 상태가 아니면 삭제
+            setState(() {
+              _registeredEmail = null;
+            });
+            await prefs.remove('registered_email');
+            debugPrint('[SettingsScreen] signup 상태 아님 - 등록된 계정 삭제');
+          }
+        } else {
+          // member가 null이면 삭제
+          setState(() {
+            _registeredEmail = null;
+          });
+          await prefs.remove('registered_email');
+          debugPrint('[SettingsScreen] member null - 등록된 계정 삭제');
+        }
+      } else {
+        // accountData가 null이면 계정 없음 -> 삭제
+        if (mounted) {
+          setState(() {
+            _registeredEmail = null;
+          });
+        }
+        await prefs.remove('registered_email');
+        debugPrint('[SettingsScreen] 계정 없음 - 등록된 계정 삭제');
+      }
+    } catch (e) {
+      debugPrint('[SettingsScreen] 계정 조회 오류: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    
+
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return ListView(
           padding: AppSpacing.paddingL,
           children: [
-            // 계정 및 구독 섹션
-            _buildSettingsSection(
-              l10n?.accountAndSubscription ?? '계정 및 구독',
-              [
-                _buildSettingsItem(
-                  icon: Icons.person,
-                  title: appState.isLoggedIn
-                    ? '사용자 상태(로그인)'
-                    : '사용자 상태(로그아웃)',
-                  subtitle: _getSubscriptionStatusText(appState.subscriptionType, l10n),
-                  iconColor: _getSubscriptionColor(appState.subscriptionType),
-                  onTap: () => _showSubscriptionManagementDialog(context, appState),
+            // 구독 섹션
+            _buildSettingsSection('구독', [
+              _buildSettingsItem(
+                icon: Icons.card_membership,
+                title:
+                    '구독 플랜 (${_getSubscriptionName(appState.subscriptionType, l10n)})',
+                subtitle: _getSubscriptionStatusText(
+                  appState.subscriptionType,
+                  l10n,
                 ),
-                _buildSettingsItem(
-                  icon: Icons.bar_chart,
-                  title: l10n?.usageStatistics ?? '사용량 통계',
-                  subtitle: '${appState.littens.length}${l10n?.littensCount ?? '개 리튼'}, ${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개 파일'}',
-                  iconColor: Colors.blue,
-                  onTap: () => _showUsageDialog(context, appState),
-                ),
-                // 로그인 상태일 때만 비밀번호 변경 및 회원탈퇴 메뉴 표시
-                if (appState.isLoggedIn) ...[
-                  _buildSettingsItem(
-                    icon: Icons.lock_reset,
-                    title: l10n?.changePassword ?? '비밀번호 변경',
-                    subtitle: l10n?.changePasswordDescription ?? '계정 비밀번호를 변경합니다',
-                    iconColor: Colors.orange,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ChangePasswordScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingsItem(
-                    icon: Icons.logout,
-                    title: '로그아웃',
-                    subtitle: '현재 계정에서 로그아웃합니다',
-                    iconColor: Colors.blue,
-                    onTap: () => _showLogoutDialog(context, appState),
-                  ),
-                  _buildSettingsItem(
-                    icon: Icons.person_remove,
-                    title: '회원탈퇴',
-                    subtitle: '계정을 영구적으로 삭제합니다',
-                    iconColor: Colors.red,
-                    onTap: () => _showDeleteAccountDialog(context, appState),
-                  ),
-                ],
-                if (appState.subscriptionType == SubscriptionType.free) ...[
-                  _buildSettingsItem(
-                    icon: Icons.upgrade,
-                    title: l10n?.upgrade ?? '프리미엄 업그레이드',
-                    subtitle: l10n?.removeAdsAndUnlimited ?? '광고 제거 및 무제한 기능',
-                    iconColor: Colors.orange,
-                    onTap: () => _showUpgradeDialog(context, appState),
-                  ),
-                ],
-              ],
-            ),
+                iconColor: _getSubscriptionColor(appState.subscriptionType),
+                onTap: () => _showSubscriptionPlansDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.bar_chart,
+                title: l10n?.usageStatistics ?? '사용량 통계',
+                subtitle:
+                    '${appState.littens.length}${l10n?.littensCount ?? '개 리튼'}, ${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개 파일'}',
+                iconColor: Colors.blue,
+                onTap: () => _showUsageDialog(context, appState),
+              ),
+            ]),
             AppSpacing.verticalSpaceL,
-            
+
             // 앱 설정 섹션
-            _buildSettingsSection(
-              l10n?.appSettings ?? '앱 설정',
-              [
-                _buildSettingsItem(
-                  icon: Icons.palette,
-                  title: l10n?.theme ?? '테마',
-                  subtitle: _getThemeText(appState.themeType, l10n),
-                  iconColor: Colors.purple,
-                  onTap: () => _showThemeDialog(context, appState),
-                ),
-                _buildSettingsItem(
-                  icon: Icons.language,
-                  title: l10n?.language ?? '언어',
-                  subtitle: _getLanguageText(appState.locale.languageCode),
-                  iconColor: Colors.green,
-                  onTap: () => _showLanguageDialog(context, appState),
-                ),
-                _buildSettingsItem(
-                  icon: Icons.home,
-                  title: l10n?.startScreen ?? '시작 화면',
-                  subtitle: l10n?.homeTitle ?? '홈',
-                  iconColor: Colors.blue,
-                ),
-              ],
-            ),
+            _buildSettingsSection(l10n?.appSettings ?? '앱 설정', [
+              _buildSettingsItem(
+                icon: Icons.palette,
+                title: l10n?.theme ?? '테마',
+                subtitle: _getThemeText(appState.themeType, l10n),
+                iconColor: Colors.purple,
+                onTap: () => _showThemeDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.language,
+                title: l10n?.language ?? '언어',
+                subtitle: _getLanguageText(appState.locale.languageCode),
+                iconColor: Colors.green,
+                onTap: () => _showLanguageDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.home,
+                title: l10n?.startScreen ?? '시작 화면',
+                subtitle: l10n?.homeTitle ?? '홈',
+                iconColor: Colors.blue,
+              ),
+            ]),
             AppSpacing.verticalSpaceL,
-            
+
             // 녹음 설정 섹션
-            _buildSettingsSection(
-              l10n?.recordingSettings ?? '듣기 설정',
-              [
-                _buildSettingsItem(
-                  icon: Icons.timer,
-                  title: l10n?.maxRecordingTime ?? '최대 녹음 시간',
-                  subtitle: l10n?.maxRecordingTimeValue ?? '1시간',
-                  iconColor: AppColors.recordingColor,
-                ),
-                _buildSettingsItem(
-                  icon: Icons.headphones,
-                  title: l10n?.audioQuality ?? '오디오 품질',
-                  subtitle: l10n?.standardQuality ?? '표준',
-                  iconColor: AppColors.recordingColor,
-                ),
-              ],
-            ),
+            _buildSettingsSection(l10n?.recordingSettings ?? '듣기 설정', [
+              _buildSettingsItem(
+                icon: Icons.timer,
+                title: l10n?.maxRecordingTime ?? '최대 녹음 시간',
+                subtitle: l10n?.maxRecordingTimeValue ?? '1시간',
+                iconColor: AppColors.recordingColor,
+              ),
+              _buildSettingsItem(
+                icon: Icons.headphones,
+                title: l10n?.audioQuality ?? '오디오 품질',
+                subtitle: l10n?.standardQuality ?? '표준',
+                iconColor: AppColors.recordingColor,
+              ),
+            ]),
             AppSpacing.verticalSpaceL,
-            
+
             // 쓰기 설정 섹션
-            _buildSettingsSection(
-              l10n?.writingSettings ?? '쓰기 설정',
-              [
+            _buildSettingsSection(l10n?.writingSettings ?? '쓰기 설정', [
+              _buildSettingsItem(
+                icon: Icons.save,
+                title: l10n?.autoSaveInterval ?? '자동 저장 간격',
+                subtitle: l10n?.autoSaveIntervalValue ?? '3분',
+                iconColor: AppColors.writingColor,
+              ),
+              _buildSettingsItem(
+                icon: Icons.font_download,
+                title: l10n?.defaultFont ?? '기본 폰트',
+                subtitle: l10n?.systemFont ?? '시스템 폰트',
+                iconColor: AppColors.writingColor,
+              ),
+            ]),
+            AppSpacing.verticalSpaceL,
+
+            // 계정 섹션
+            _buildSettingsSection('계정', [
+              _buildSettingsItem(
+                icon: Icons.person,
+                title: '사용자 상태',
+                subtitle: appState.isLoggedIn
+                    ? '${appState.currentUser?.email ?? ''} (로그인)'
+                    : _registeredEmail != null
+                    ? '$_registeredEmail (로그아웃)'
+                    : '로그아웃',
+                iconColor: appState.isLoggedIn ? Colors.green : Colors.grey,
+                onTap: null,
+              ),
+              // 로그인 상태일 때
+              if (appState.isLoggedIn) ...[
                 _buildSettingsItem(
-                  icon: Icons.save,
-                  title: l10n?.autoSaveInterval ?? '자동 저장 간격',
-                  subtitle: l10n?.autoSaveIntervalValue ?? '3분',
-                  iconColor: AppColors.writingColor,
+                  icon: Icons.lock_reset,
+                  title: l10n?.changePassword ?? '비밀번호 변경',
+                  subtitle: '계정 비밀번호를 변경합니다',
+                  iconColor: Colors.orange,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingsItem(
-                  icon: Icons.font_download,
-                  title: l10n?.defaultFont ?? '기본 폰트',
-                  subtitle: l10n?.systemFont ?? '시스템 폰트',
-                  iconColor: AppColors.writingColor,
+                  icon: Icons.logout,
+                  title: '로그아웃',
+                  subtitle: '현재 계정에서 로그아웃합니다',
+                  iconColor: Colors.blue,
+                  onTap: () => _showLogoutDialog(context, appState),
+                ),
+                _buildSettingsItem(
+                  icon: Icons.person_remove,
+                  title: '회원탈퇴',
+                  subtitle: '계정을 영구적으로 삭제합니다',
+                  iconColor: Colors.red,
+                  onTap: () => _showDeleteAccountDialog(context, appState),
                 ),
               ],
-            ),
-            
+              // 로그아웃 상태일 때
+              if (!appState.isLoggedIn) ...[
+                _buildSettingsItem(
+                  icon: Icons.login,
+                  title: '로그인',
+                  subtitle: '계정에 로그인합니다',
+                  iconColor: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ]),
+
             // 개발자 정보
             AppSpacing.verticalSpaceXL,
             Container(
@@ -197,9 +294,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             child: Text(
               title,
-              style: AppTextStyles.label.copyWith(
-                color: Colors.grey.shade700,
-              ),
+              style: AppTextStyles.label.copyWith(color: Colors.grey.shade700),
             ),
           ),
           ...children,
@@ -226,17 +321,31 @@ class SettingsScreen extends StatelessWidget {
         child: Icon(icon, color: iconColor, size: 20),
       ),
       title: Text(title, style: AppTextStyles.bodyText2),
-      subtitle: subtitle != null 
-          ? Text(subtitle, style: AppTextStyles.caption) 
+      subtitle: subtitle != null
+          ? Text(subtitle, style: AppTextStyles.caption)
           : null,
-      trailing: onTap != null 
-          ? const Icon(Icons.arrow_forward_ios, size: 16) 
+      trailing: onTap != null
+          ? const Icon(Icons.arrow_forward_ios, size: 16)
           : null,
       onTap: onTap,
     );
   }
 
-  String _getSubscriptionStatusText(SubscriptionType type, AppLocalizations? l10n) {
+  String _getSubscriptionName(SubscriptionType type, AppLocalizations? l10n) {
+    switch (type) {
+      case SubscriptionType.free:
+        return l10n?.freeVersion ?? '무료';
+      case SubscriptionType.standard:
+        return l10n?.standardVersion ?? '스탠다드';
+      case SubscriptionType.premium:
+        return l10n?.premiumVersion ?? '프리미엄';
+    }
+  }
+
+  String _getSubscriptionStatusText(
+    SubscriptionType type,
+    AppLocalizations? l10n,
+  ) {
     switch (type) {
       case SubscriptionType.free:
         return l10n?.freeWithAds ?? '무료 (광고 포함)';
@@ -259,7 +368,10 @@ class SettingsScreen extends StatelessWidget {
   }
 
   int _getTotalFileCount(AppStateProvider appState) {
-    return appState.littens.fold(0, (total, litten) => total + litten.totalFileCount);
+    return appState.littens.fold(
+      0,
+      (total, litten) => total + litten.totalFileCount,
+    );
   }
 
   String _getThemeText(AppThemeType themeType, AppLocalizations? l10n) {
@@ -323,19 +435,44 @@ class SettingsScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUsageRow(l10n?.createLitten ?? '리튼 수', '${appState.littens.length}${l10n?.littensCount ?? '개'}', 
-                appState.subscriptionType == SubscriptionType.free ? ' / ${l10n?.maxLittensLimit ?? '최대 5개'}' : ''),
-            _buildUsageRow(l10n?.totalFiles ?? '총 파일 수', '${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개'}', ''),
+            _buildUsageRow(
+              l10n?.createLitten ?? '리튼 수',
+              '${appState.littens.length}${l10n?.littensCount ?? '개'}',
+              appState.subscriptionType == SubscriptionType.free
+                  ? ' / ${l10n?.maxLittensLimit ?? '최대 5개'}'
+                  : '',
+            ),
+            _buildUsageRow(
+              l10n?.totalFiles ?? '총 파일 수',
+              '${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개'}',
+              '',
+            ),
             if (appState.subscriptionType == SubscriptionType.free) ...[
               const Divider(),
               Text(
                 l10n?.freeUserLimits ?? '무료 사용자 제한:',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              _buildUsageRow(l10n?.maxLittens ?? '• 리튼', l10n?.maxLittensLimit ?? '최대 5개', ''),
-              _buildUsageRow(l10n?.maxRecordingFiles ?? '• 녹음 파일', l10n?.maxRecordingFilesLimit ?? '최대 10개', ''),
-              _buildUsageRow(l10n?.maxTextFiles ?? '• 텍스트 파일', l10n?.maxTextFilesLimit ?? '최대 5개', ''),
-              _buildUsageRow(l10n?.maxHandwritingFiles ?? '• 필기 파일', l10n?.maxHandwritingFilesLimit ?? '최대 5개', ''),
+              _buildUsageRow(
+                l10n?.maxLittens ?? '• 리튼',
+                l10n?.maxLittensLimit ?? '최대 5개',
+                '',
+              ),
+              _buildUsageRow(
+                l10n?.maxRecordingFiles ?? '• 녹음 파일',
+                l10n?.maxRecordingFilesLimit ?? '최대 10개',
+                '',
+              ),
+              _buildUsageRow(
+                l10n?.maxTextFiles ?? '• 텍스트 파일',
+                l10n?.maxTextFilesLimit ?? '최대 5개',
+                '',
+              ),
+              _buildUsageRow(
+                l10n?.maxHandwritingFiles ?? '• 필기 파일',
+                l10n?.maxHandwritingFilesLimit ?? '최대 5개',
+                '',
+              ),
             ],
           ],
         ),
@@ -354,40 +491,143 @@ class SettingsScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text('$value$limit'),
+        children: [Text(label), Text('$value$limit')],
+      ),
+    );
+  }
+
+  void _showSubscriptionPlansDialog(
+    BuildContext context,
+    AppStateProvider appState,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('구독 플랜 선택'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildPlanOption(
+              context,
+              appState,
+              SubscriptionType.free,
+              '무료',
+              '광고 포함, 리튼 5개 제한',
+              l10n,
+            ),
+            SizedBox(height: 12),
+            _buildPlanOption(
+              context,
+              appState,
+              SubscriptionType.standard,
+              '스탠다드',
+              '\$4.99/월 - 광고 제거, 무제한',
+              l10n,
+            ),
+            SizedBox(height: 12),
+            _buildPlanOption(
+              context,
+              appState,
+              SubscriptionType.premium,
+              '프리미엄',
+              appState.isLoggedIn
+                ? '\$9.99/월 - 클라우드 동기화'
+                : '\$9.99/월 - 클라우드 동기화 (로그인 필요)',
+              l10n,
+              isDisabled: !appState.isLoggedIn,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.close ?? '닫기'),
+          ),
         ],
       ),
     );
   }
 
-  void _showUpgradeDialog(BuildContext context, AppStateProvider appState) {
-    final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n?.upgradeToStandard ?? '프리미엄 업그레이드'),
-        content: Text(l10n?.upgradeBenefits ?? '스탠다드 플랜으로 업그레이드하시겠습니까?\n\n• 광고 제거\n• 무제한 리튼 및 파일\n• 월 \$4.99'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n?.cancel ?? '취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              appState.updateSubscriptionType(SubscriptionType.standard);
+  Widget _buildPlanOption(
+    BuildContext context,
+    AppStateProvider appState,
+    SubscriptionType type,
+    String title,
+    String description,
+    AppLocalizations? l10n, {
+    bool isDisabled = false,
+  }) {
+    final isSelected = appState.subscriptionType == type;
+    return InkWell(
+      onTap: isDisabled
+          ? null
+          : () {
+              appState.changeSubscriptionType(type);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(l10n?.upgradedToStandard ?? '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
+                  content: Text('$title 플랜으로 변경되었습니다'),
                   backgroundColor: Colors.green,
                 ),
               );
             },
-            child: Text(l10n?.upgrade ?? '업그레이드'),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.blue.withValues(alpha: 0.1)
+              : isDisabled
+              ? Colors.grey.withValues(alpha: 0.05)
+              : Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? Colors.blue
+                : isDisabled
+                ? Colors.grey.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
           ),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isSelected
+                        ? Colors.blue
+                        : isDisabled
+                        ? Colors.grey
+                        : Colors.black87,
+                  ),
+                ),
+                if (isSelected) ...[
+                  SizedBox(width: 8),
+                  Icon(Icons.check_circle, color: Colors.blue, size: 20),
+                ],
+                if (isDisabled) ...[
+                  SizedBox(width: 8),
+                  Icon(Icons.lock, color: Colors.grey, size: 16),
+                ],
+              ],
+            ),
+            SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDisabled ? Colors.grey : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -511,10 +751,7 @@ class SettingsScreen extends StatelessWidget {
             // 사용자 상태 섹션
             Text(
               '사용자 상태',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 12),
             Container(
@@ -534,7 +771,9 @@ class SettingsScreen extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        appState.isLoggedIn ? Icons.person : Icons.person_outline,
+                        appState.isLoggedIn
+                            ? Icons.person
+                            : Icons.person_outline,
                         size: 20,
                         color: appState.isLoggedIn ? Colors.green : Colors.grey,
                       ),
@@ -544,7 +783,9 @@ class SettingsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: appState.isLoggedIn ? Colors.green : Colors.grey,
+                          color: appState.isLoggedIn
+                              ? Colors.green
+                              : Colors.grey,
                         ),
                       ),
                     ],
@@ -553,10 +794,7 @@ class SettingsScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       appState.currentUser!.email,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -587,7 +825,9 @@ class SettingsScreen extends StatelessWidget {
                         style: const TextStyle(fontSize: 14),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: appState.isLoggedIn ? Colors.red : Colors.blue,
+                        backgroundColor: appState.isLoggedIn
+                            ? Colors.red
+                            : Colors.blue,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -599,10 +839,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               l10n?.availablePlans ?? '사용 가능한 플랜',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 16),
             _buildSubscriptionCard(
@@ -625,7 +862,8 @@ class SettingsScreen extends StatelessWidget {
               type: SubscriptionType.standard,
               title: l10n?.standardVersion ?? 'Standard',
               price: l10n?.standardMonthly ?? 'Standard (\$4.99/month)',
-              isCurrentPlan: appState.subscriptionType == SubscriptionType.standard,
+              isCurrentPlan:
+                  appState.subscriptionType == SubscriptionType.standard,
               onSelect: () {
                 appState.changeSubscriptionType(SubscriptionType.standard);
                 Navigator.of(context).pop();
@@ -641,7 +879,8 @@ class SettingsScreen extends StatelessWidget {
               type: SubscriptionType.premium,
               title: l10n?.premiumVersion ?? 'Premium',
               price: l10n?.premiumMonthly ?? 'Premium (\$9.99/month)',
-              isCurrentPlan: appState.subscriptionType == SubscriptionType.premium,
+              isCurrentPlan:
+                  appState.subscriptionType == SubscriptionType.premium,
               isDisabled: !appState.isLoggedIn, // 로그아웃 상태면 비활성화
               onSelect: () {
                 if (appState.isLoggedIn) {
@@ -690,15 +929,15 @@ class SettingsScreen extends StatelessWidget {
         color: isCurrentPlan
             ? Colors.blue.withValues(alpha: 0.1)
             : isDisabled
-                ? Colors.grey.withValues(alpha: 0.03)
-                : Colors.grey.withValues(alpha: 0.05),
+            ? Colors.grey.withValues(alpha: 0.03)
+            : Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isCurrentPlan
               ? Colors.blue
               : isDisabled
-                  ? Colors.grey.withValues(alpha: 0.2)
-                  : Colors.grey.withValues(alpha: 0.3),
+              ? Colors.grey.withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.3),
           width: isCurrentPlan ? 2 : 1,
         ),
       ),
@@ -718,14 +957,17 @@ class SettingsScreen extends StatelessWidget {
                         color: isCurrentPlan
                             ? Colors.blue
                             : isDisabled
-                                ? Colors.grey.withValues(alpha: 0.5)
-                                : Colors.black87,
+                            ? Colors.grey.withValues(alpha: 0.5)
+                            : Colors.black87,
                       ),
                     ),
                     if (isCurrentPlan) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue,
                           borderRadius: BorderRadius.circular(4),
@@ -767,14 +1009,14 @@ class SettingsScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: isDisabled ? null : onSelect,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 minimumSize: const Size(0, 0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Select',
-                style: TextStyle(fontSize: 12),
-              ),
+              child: const Text('Select', style: TextStyle(fontSize: 12)),
             ),
         ],
       ),
@@ -846,7 +1088,10 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, AppStateProvider appState) {
+  void _showDeleteAccountDialog(
+    BuildContext context,
+    AppStateProvider appState,
+  ) {
     final l10n = AppLocalizations.of(context);
 
     showDialog(
@@ -865,16 +1110,10 @@ class SettingsScreen extends StatelessWidget {
           children: [
             Text(
               '정말로 회원탈퇴를 진행하시겠습니까?',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             SizedBox(height: 16),
-            Text(
-              '회원탈퇴 시 다음 사항에 유의해주세요:',
-              style: TextStyle(fontSize: 14),
-            ),
+            Text('회원탈퇴 시 다음 사항에 유의해주세요:', style: TextStyle(fontSize: 14)),
             SizedBox(height: 12),
             _buildWarningItem('• 모든 데이터가 영구적으로 삭제됩니다'),
             _buildWarningItem('• 서버에 저장된 파일이 모두 삭제됩니다'),
@@ -908,10 +1147,7 @@ class SettingsScreen extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 13,
-          color: Colors.red.shade700,
-        ),
+        style: TextStyle(fontSize: 13, color: Colors.red.shade700),
       ),
     );
   }
@@ -933,10 +1169,7 @@ class SettingsScreen extends StatelessWidget {
             SizedBox(height: 16),
             Text(
               '탈퇴하시려면 "삭제 확인" 버튼을 눌러주세요',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -976,6 +1209,13 @@ class SettingsScreen extends StatelessWidget {
               try {
                 // 회원탈퇴 실행 (로컬 파일 유지, 무료 플랜 전환)
                 await appState.authService.deleteAccountAndAllData();
+
+                // 설정 화면의 registered_email 상태 초기화
+                if (mounted) {
+                  setState(() {
+                    _registeredEmail = null;
+                  });
+                }
 
                 navigator.pop(); // 로딩 닫기
 
