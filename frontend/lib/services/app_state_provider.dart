@@ -45,6 +45,7 @@ class AppStateProvider extends ChangeNotifier {
   // 캘린더 상태
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
+  bool _isDateSelected = false; // 날짜 선택 여부
 
   // 구독 상태
   SubscriptionType _subscriptionType = SubscriptionType.free;
@@ -77,6 +78,7 @@ class AppStateProvider extends ChangeNotifier {
   // 캘린더 관련 Getters
   DateTime get selectedDate => _selectedDate;
   DateTime get focusedDate => _focusedDate;
+  bool get isDateSelected => _isDateSelected;
   
   // 선택된 날짜의 리튼들
   List<Litten> get littensForSelectedDate {
@@ -854,12 +856,22 @@ class AppStateProvider extends ChangeNotifier {
   
   // 캘린더 관련 메서드들
   void selectDate(DateTime date) {
+    debugPrint('📅 날짜 선택: ${DateFormat('yyyy-MM-dd').format(date)}');
     if (_selectedDate != date) {
       _selectedDate = date;
+      _isDateSelected = true;
+      debugPrint('✅ 날짜 선택 완료: isDateSelected = $_isDateSelected');
       notifyListeners();
+    } else {
+      debugPrint('⚠️ 이미 선택된 날짜입니다.');
     }
   }
-  
+
+  void clearDateSelection() {
+    _isDateSelected = false;
+    notifyListeners();
+  }
+
   void changeFocusedDate(DateTime date) {
     if (_focusedDate != date) {
       _focusedDate = date;
