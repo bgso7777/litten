@@ -64,6 +64,7 @@ public class NoteMemberService extends CustomHttpService {
 
         String value1 = objectNode.get("id").textValue();
         String value2 = objectNode.get("password").textValue();
+        String uuid = objectNode.get("uuid").textValue();
 
         HttpServletRequest httpServletRequest = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
         String host = httpServletRequest.getRemoteHost();
@@ -89,40 +90,45 @@ public class NoteMemberService extends CustomHttpService {
         } else {
             String encryptPassword = noteMember.getPassword().substring(8);
             if (Crypto.matchesMemberPassword(value2, encryptPassword)) {
-                try {
-                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(value1, value2); // id, pw
-                    AuthenticationManagerBuilder authenticationManagerBuilder = BeanUtil.getBean2(AuthenticationManagerBuilder.class);
-                    org.springframework.security.core.Authentication authentication = null;
-                    authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                if( noteMember.getUuid().equals(uuid) ) {
+                    try {
+                        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(value1, value2); // id, pw
+                        AuthenticationManagerBuilder authenticationManagerBuilder = BeanUtil.getBean2(AuthenticationManagerBuilder.class);
+                        org.springframework.security.core.Authentication authentication = null;
+                        authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                    // jwt token 생성
-                    Long tokenValidityInMilliseconds;
-                    if (isMobile)
-                        tokenValidityInMilliseconds = Config.getInstance().getMobileTokenValidityInMilliseconds();
-                    else
-                        tokenValidityInMilliseconds = Config.getInstance().getTokenValidityInMilliseconds();
-                    TokenProvider tokenProvider = BeanUtil.getBean2(TokenProvider.class);
-                    String jwt = tokenProvider.createToken(authentication, tokenValidityInMilliseconds, isMobile);
-                    Integer tokenExpiredDate = (Integer) tokenProvider.getValue(jwt, Constants.TAG_JWT_EXPIRED_DATE);
-                    result.put(Constants.TAG_SEQUENCE, noteMember.getSequence());
-                    result.put(Constants.TAG_UUID, noteMember.getUuid());
-                    result.put(Constants.TAG_AUTH_TOKEN, jwt);
-                    result.put(Constants.TAG_TOKEN_EXPIRED_DATE, tokenExpiredDate);
-                    result.put(Constants.TAG_MEMBER_ID, noteMember.getId());
+                        // jwt token 생성
+                        Long tokenValidityInMilliseconds;
+                        if (isMobile)
+                            tokenValidityInMilliseconds = Config.getInstance().getMobileTokenValidityInMilliseconds();
+                        else
+                            tokenValidityInMilliseconds = Config.getInstance().getTokenValidityInMilliseconds();
+                        TokenProvider tokenProvider = BeanUtil.getBean2(TokenProvider.class);
+                        String jwt = tokenProvider.createToken(authentication, tokenValidityInMilliseconds, isMobile);
+                        Integer tokenExpiredDate = (Integer) tokenProvider.getValue(jwt, Constants.TAG_JWT_EXPIRED_DATE);
+                        result.put(Constants.TAG_SEQUENCE, noteMember.getSequence());
+                        result.put(Constants.TAG_UUID, noteMember.getUuid());
+                        result.put(Constants.TAG_AUTH_TOKEN, jwt);
+                        result.put(Constants.TAG_TOKEN_EXPIRED_DATE, tokenExpiredDate);
+                        result.put(Constants.TAG_MEMBER_ID, noteMember.getId());
 
-                    HttpServletResponse httpServletResponse = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
-                    httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_AUTH_TOKEN, jwt);
-                    httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_TOKEN_EXPIRED_DATE, tokenExpiredDate.toString());
+                        HttpServletResponse httpServletResponse = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
+                        httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_AUTH_TOKEN, jwt);
+                        httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_TOKEN_EXPIRED_DATE, tokenExpiredDate.toString());
 
-                } catch (BadCredentialsException e) {
-                    log.error("Authentication.get", e);
-                    result.put(Constants.TAG_RESULT, Constants.RESULT_BAD_CREDENTIALS);
-                    result.put(Constants.TAG_RESULT_MESSAGE, "bad credentials");
+                    } catch (BadCredentialsException e) {
+                        log.error("Authentication.get", e);
+                        result.put(Constants.TAG_RESULT, Constants.RESULT_BAD_CREDENTIALS);
+                        result.put(Constants.TAG_RESULT_MESSAGE, "bad credentials");
+                    }
+                } else {
+                    result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+                    result.put(Constants.TAG_RESULT_MESSAGE, "다른 장치에서 가입된 계정입니다. id-->"+value1+" uuid-->"+uuid);
                 }
             } else {
                 result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
-                result.put(Constants.TAG_RESULT_MESSAGE, "비번 불일치");
+                result.put(Constants.TAG_RESULT_MESSAGE, "비번 불일치 id-->"+value1);
             }
         }
         return result;
@@ -304,6 +310,7 @@ public class NoteMemberService extends CustomHttpService {
         return result;
     }
 
+    @Transactional
     public Map<String, Object> delete(String id) throws Exception {
         Map<String, Object> result = new HashMap<>();
         NoteMemberRepository memberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
@@ -317,19 +324,19 @@ public class NoteMemberService extends CustomHttpService {
             memberRepository.save(noteMember);
             List<NoteMember> noteMembers = memberRepository.findByUuid(noteMember.getUuid());
 
-            // 백업은 try-catch로 감싸서 실패해도 탈퇴는 진행
             for (NoteMember tempNoteMember : noteMembers) {
                 tempNoteMember.setUpdateDateTime(LocalDateTime.now());
                 try {
                     backup(tempNoteMember,Constants.CODE_LOG_DELETE_QUERY);
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    // 로그 저장 실패해도 계속 진행
+                    log.error(e);
                 }
             }
 
-            for (NoteMember tempNoteMember : noteMembers)
-                memberRepository.delete(tempNoteMember);
+//            for (NoteMember tempNoteMember : noteMembers)
+//                memberRepository.delete(tempNoteMember);
+
+            memberRepository.deleteByUuid(noteMember.getUuid());
 
             // 성공 결과 설정
             result.put(Constants.TAG_RESULT,Constants.RESULT_SUCCESS);
@@ -338,6 +345,7 @@ public class NoteMemberService extends CustomHttpService {
         return result;
     }
 
+    @Transactional
     public int backup(Object backupDomain, String queryCode) throws Exception {
         int ret = -1;
         if(backupDomain==null) {
