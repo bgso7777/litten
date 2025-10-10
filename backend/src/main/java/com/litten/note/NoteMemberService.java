@@ -1,6 +1,7 @@
 package com.litten.note;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.litten.Constants;
 import com.litten.common.config.Config;
@@ -12,6 +13,7 @@ import com.litten.common.util.Crypto;
 import com.litten.common.util.DateUtil;
 import com.litten.common.util.Mailer;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -78,7 +80,7 @@ public class NoteMemberService extends CustomHttpService {
         log.debug("-->"+value1+" -->"+value2);
 
         NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
-        NoteMember noteMember = noteMemberRepository.findByIdAndStateCode(value1,"signup");
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(value1,"signup");
 
         if (noteMember==null) {
             result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
@@ -134,7 +136,7 @@ public class NoteMemberService extends CustomHttpService {
         String value2 = requestBody.get("password").textValue();
 
         NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
-        NoteMember noteMember = noteMemberRepository.findByIdAndStateCode(value1,"signup");
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(value1,"signup");
 
         if (noteMember==null) {
             result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
@@ -161,36 +163,6 @@ public class NoteMemberService extends CustomHttpService {
         return result;
     }
 
-//    public Map<String, Object> postChangePasswordUrl(JsonNode requestBody) throws Exception {
-//        Map<String, Object> result = new HashMap<>();
-//        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
-//
-//        ?
-//
-////        // 아이디 중복 확인용
-////        if (members.size() >= 2) {
-////            result.put(Constants.TAG_RESULT, Constants.RESULT_DUPLICATED);
-////            result.put(Constants.TAG_RESULT_MESSAGE, "duplicated member id");
-////            Mailer mailer = new Mailer();
-////            StringBuffer content = new StringBuffer();
-////            content.append("<p>");
-////            content.append("class : " + this.getClass().getSimpleName() + "<p>");
-////            content.append("method : get" + "<p>");
-////            content.append("line : 175" + "<p>");
-////            content.append("value1 : " + value1 + "<p>");
-////            content.append("member ids : ");
-////            for (NoteMember member : members)
-////                content.append(member.getId() + " ");
-////            content.append("<p>");
-////            content.append("member size : " + members.size() + "<p>");
-////            content.append("date : " + DateUtil.getCurrentDate(Constants.TAG_DATE_PATTERN_OF_ADMIN_DISPLAY) + "<p>");
-////            content.append("<p>");
-////            mailer.sendDeveloper("[account manager] exist duplicated member id", content.toString());
-////        }
-//
-//        return result;
-//    }
-
     /**
      * 비밀번호 초기화
      *   1.회원에게 비밀번호 변경 이메일을 보낸다. (전용 url생성)
@@ -204,7 +176,7 @@ public class NoteMemberService extends CustomHttpService {
         String id = requestBody.get(Constants.TAG_ID).asText();
         try {
             NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
-            NoteMember noteMember = noteMemberRepository.findByIdAndStateCode(id,"signup");
+            NoteMember noteMember = noteMemberRepository.findByIdAndState(id,"signup");
             if (noteMember == null) {
                 result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
             } else {
@@ -317,7 +289,7 @@ public class NoteMemberService extends CustomHttpService {
             result.put(Constants.TAG_RESULT,Constants.RESULT_NOT_FOUND);
         } else {
             NoteMemberRepository memberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
-            NoteMember noteMember = memberRepository.findByIdAndStateCode(plainMemberId, "signup");
+            NoteMember noteMember = memberRepository.findByIdAndState(plainMemberId, "signup");
             if ( noteMember==null ) {
                 result.put(Constants.TAG_RESULT,Constants.RESULT_NOT_FOUND);
             } else {
@@ -330,5 +302,51 @@ public class NoteMemberService extends CustomHttpService {
             }
         }
         return result;
+    }
+
+    public Map<String, Object> delete(String id) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        NoteMemberRepository memberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = memberRepository.findByIdAndState(id, "signup");
+        if ( noteMember==null ) {
+            result.put(Constants.TAG_RESULT,Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE,Constants.RESULT_NOT_FOUND_MESSAGE+" id-->"+id+" state-->signup");
+        } else {
+            noteMember.setState("withdraw");
+            noteMember.setUpdateDateTime(LocalDateTime.now());
+            memberRepository.save(noteMember);
+            List<NoteMember> noteMembers = memberRepository.findByUuid(noteMember.getUuid());
+            for (NoteMember tempNoteMember : noteMembers) {
+                tempNoteMember.setUpdateDateTime(LocalDateTime.now());
+                backup(tempNoteMember,Constants.CODE_LOG_DELETE_QUERY);
+            }
+            for (NoteMember tempNoteMember : noteMembers)
+                memberRepository.delete(tempNoteMember);
+        }
+        return result;
+    }
+
+    public int backup(Object backupDomain, String queryCode) throws Exception {
+        int ret = -1;
+        if(backupDomain==null) {
+            return Constants.RESULT_NOT_FOUND;
+        } else {
+            NoteMember deleteNoteMember = (NoteMember)backupDomain;
+            ObjectMapper objectMapper = new ObjectMapper();
+            String companyLogJson = objectMapper.writeValueAsString(deleteNoteMember);
+            NoteMemberLog noteMemberLog = objectMapper.readValue(companyLogJson, NoteMemberLog.class);
+            noteMemberLog.setQueryCode(queryCode);
+            noteMemberLog.setQueryDate(LocalDateTime.now());
+//            try{
+//                companyLog.setQueryTokenId(getJwtMemberId(((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse()));
+//            } catch(Exception e) {
+//                // batch job으로 실행될 경우
+//                e.printStackTrace();
+//            }
+            NoteMemberLogRepository noteMemberLogRepository = BeanUtil.getBean2(NoteMemberLogRepository.class);
+            noteMemberLogRepository.save(noteMemberLog);
+            ret = noteMemberLog.getSequence().intValue();
+        }
+        return ret;
     }
 }

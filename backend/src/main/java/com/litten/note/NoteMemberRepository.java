@@ -4,9 +4,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface NoteMemberRepository extends JpaRepository<NoteMember,String> {
 
-    NoteMember findByIdAndStateCode(String id, String stateCode);
+    NoteMember findByIdAndState(String id, String state);
+
+    NoteMember findByUuidAndState(String uuid, String state);
+
+    List<NoteMember> findByUuid(String uuid);
 
     @Override
     Page<NoteMember> findAll(Pageable pageable);

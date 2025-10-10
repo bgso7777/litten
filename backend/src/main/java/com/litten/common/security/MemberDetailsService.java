@@ -41,7 +41,7 @@ public class MemberDetailsService implements UserDetailsService {
                 domainUserDetails = createMemberAdminAdmin(username, adminUser);
             } else {
                 NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
-                NoteMember noteMember = noteMemberRepository.findByIdAndStateCode(username, "signup");
+                NoteMember noteMember = noteMemberRepository.findByIdAndState(username, "signup");
                 if ( noteMember==null ) {
                     // 앞단에서 미리 id와 pw의 일치 여부를 체크 함.
                     throw new UsernameNotFoundException("User [" + username + "] was not found in the database");

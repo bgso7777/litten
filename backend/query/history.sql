@@ -31,6 +31,41 @@ CREATE TABLE `note_member` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='회원';
 
 
+DROP TABLE IF EXISTS `note_member_log`;
+CREATE TABLE `note_member_log` (
+  `sequence_log` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '계정로그',
+  `sequence` BIGINT(20) NULL COMMENT '계정',
+  `uuid` VARCHAR(64) NULL COMMENT '계정UUID',
+  `id` VARCHAR(128) NULL COMMENT '회원아이디',
+  `password` VARCHAR(512) NULL COMMENT '직원 pw[단방향]',
+  `id_insert_date_time` TIMESTAMP NULL DEFAULT NULL COMMENT 'ID 등록일시',
+  `is_change_password` TINYINT(1) NOT NULL DEFAULT '0' COMMENT '패스워드 변경 여부',
+  `change_password_date_time` TIMESTAMP NULL COMMENT '패스워드 변경 일시',
+  `name` VARCHAR(64) NULL COMMENT '직원 이름',
+  `name_english` VARCHAR(64) NULL COMMENT '직원 이름 영어',
+  `mobile` VARCHAR(64) NULL COMMENT '직원 휴대전화',
+  `mobile_type` VARCHAR(64) NULL COMMENT '직원 휴대전화 통신사',
+  `mobile_verify_date_time` DATETIME NULL COMMENT '본인인증일시',
+  `email` VARCHAR(64) NULL COMMENT '이메일',
+  `state_code` VARCHAR(64) NULL COMMENT '활성화 상태',
+	`query_code` VARCHAR(10) NULL COMMENT '쿼리 코드',
+	`query_date` TIMESTAMP NULL COMMENT '쿼리 실행 일시',
+	`query_token_id` VARCHAR(128) NULL COMMENT '쿼리 실행 로그인 id' ,  
+  `insert_date_time` TIMESTAMP NULL DEFAULT current_timestamp() COMMENT '[직원]등록일시',
+  `update_pk` BIGINT(20) NULL COMMENT '[직원]수정자 fk',
+  `update_date_time` TIMESTAMP NULL COMMENT '[직원]수정일시',
+  `insert_pk` BIGINT(20) NULL COMMENT '[직원]등록자 fk',
+	PRIMARY KEY (`sequence_log`) USING BTREE,
+	INDEX `index_of_sequence` (`sequence`) USING BTREE,
+	INDEX `index_of_id` (`id`) USING BTREE,
+	INDEX `index_of_uuid` (`uuid`) USING BTREE,  
+   INDEX `index_of_mobile` (`mobile`),
+   INDEX `index_of_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='회원로그';
+
+
+
+
 
 CREATE TABLE `tbl_company_staff` (
 	`pk_company_staff` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '직원 pk',
