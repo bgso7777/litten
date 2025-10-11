@@ -251,18 +251,23 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     int textCount = 0;
     int handwritingCount = 0;
 
-    if (appState.selectedLitten != null) {
-      // 선택된 리튼의 파일 수 표시
-      audioCount = appState.selectedLitten!.audioCount;
-      textCount = appState.selectedLitten!.textCount;
-      handwritingCount = appState.selectedLitten!.handwritingCount;
-    } else {
-      // 전체 리튼의 파일 수 합계 표시
+    // undefined 리튼이거나 리튼이 선택되지 않은 경우 전체 파일 수 표시
+    if (appState.selectedLitten == null || appState.selectedLitten!.title == 'undefined') {
+      // 전체 리튼의 파일 수 합계 표시 (undefined 포함)
+      debugPrint('📊 파일 수 표시: 전체 리튼 합계');
       for (final litten in appState.littens) {
         audioCount += litten.audioCount;
         textCount += litten.textCount;
         handwritingCount += litten.handwritingCount;
       }
+      debugPrint('📊 전체 파일 수 - 텍스트: $textCount, 필기: $handwritingCount, 녹음: $audioCount');
+    } else {
+      // 선택된 리튼의 파일 수 표시
+      debugPrint('📊 파일 수 표시: 선택된 리튼 "${appState.selectedLitten!.title}"');
+      audioCount = appState.selectedLitten!.audioCount;
+      textCount = appState.selectedLitten!.textCount;
+      handwritingCount = appState.selectedLitten!.handwritingCount;
+      debugPrint('📊 선택된 리튼 파일 수 - 텍스트: $textCount, 필기: $handwritingCount, 녹음: $audioCount');
     }
 
     final badges = <Widget>[];
