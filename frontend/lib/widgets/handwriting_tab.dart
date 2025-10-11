@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -813,8 +812,8 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfBytes = result.files.single.bytes!;
       final fileName = result.files.single.name ?? 'PDF';
 
-      // 웹에서는 바로 PDF 변환 다이얼로그 표시
-      await _showWebPdfConversionDialog(pdfBytes, fileName);
+      // 웹에서는 바로 필기용으로 변환
+      await _convertWebPdfToPngAndAddToHandwriting(pdfBytes, fileName);
     }
   }
 
@@ -822,146 +821,23 @@ class _HandwritingTabState extends State<HandwritingTab>
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
-      withData: false, // flutter_pdfview는 파일 경로를 사용
+      withData: false, // PDF 파일 경로 사용
     );
 
     if (result != null && result.files.single.path != null) {
       print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
 
       final pdfPath = result.files.single.path!;
+      final fileName = result.files.single.name ?? 'PDF';
 
-      // 임시 디렉토리에 PDF 파일 복사
-      final tempDir = await getTemporaryDirectory();
-      final tempPdfFile = File('${tempDir.path}/temp_pdf.pdf');
-
-      // 선택한 파일을 임시 디렉토리로 복사
-      final originalFile = File(pdfPath);
-      await originalFile.copy(tempPdfFile.path);
-
-      print('DEBUG: PDF 파일 임시 디렉토리로 복사됨 - ${tempPdfFile.path}');
-
-      // flutter_pdfview를 사용한 PDF 뷰어 표시
-      await _showPdfViewer(tempPdfFile.path, result.files.single.name ?? 'PDF');
+      // 바로 필기용으로 변환
+      await _convertPdfToPngAndAddToHandwriting(
+        pdfPath,
+        fileName,
+      );
     }
   }
 
-  Future<void> _showWebPdfConversionDialog(
-    Uint8List pdfBytes,
-    String fileName,
-  ) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('PDF 변환 - $fileName'),
-        content: const Text(
-          '웹에서는 PDF를 직접 필기용으로 변환할 수 있습니다.\n'
-          '변환 후 각 페이지를 배경으로 하여 필기할 수 있습니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _convertWebPdfToPngAndAddToHandwriting(pdfBytes, fileName);
-            },
-            icon: const Icon(Icons.draw),
-            label: const Text('필기용으로 변환'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showPdfViewer(String pdfPath, String fileName) async {
-    int totalPages = 1;
-    int currentPage = 0;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog.fullscreen(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(fileName),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('닫기'),
-              ),
-            ],
-          ),
-          body: PDFView(
-            filePath: pdfPath,
-            enableSwipe: true,
-            swipeHorizontal: true,
-            autoSpacing: false,
-            pageSnap: true,
-            onRender: (pages) {
-              print('DEBUG: PDF 렌더링 완료 - 총 $pages 페이지');
-              totalPages = pages ?? 1;
-            },
-            onError: (error) {
-              print('ERROR: PDF 렌더링 에러 - $error');
-            },
-            onPageError: (page, error) {
-              print('ERROR: PDF 페이지 $page 에러 - $error');
-            },
-            onPageChanged: (int? page, int? total) {
-              print('DEBUG: PDF 페이지 변경 - $page/$total');
-              currentPage = page ?? 0;
-            },
-          ),
-          bottomNavigationBar: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _convertPdfToPngAndAddToHandwriting(
-                            pdfPath,
-                            fileName,
-                          );
-                        },
-                        icon: const Icon(Icons.draw),
-                        label: const Text('필기용으로 변환'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.visibility),
-                        label: const Text('보기만'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   void _showConversionProgressDialog() {
     showDialog(

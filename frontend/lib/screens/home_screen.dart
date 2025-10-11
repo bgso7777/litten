@@ -863,7 +863,8 @@ class _HomeScreenState extends State<HomeScreen> {
           DateTime updatedAt;
 
           if (file is AudioFile) {
-            updatedAt = file.updatedAt;
+            // 녹음 파일은 수정이 없으므로 생성 시간을 사용
+            updatedAt = createdAt;
           } else if (file is TextFile) {
             updatedAt = file.updatedAt;
           } else if (file is HandwritingFile) {
@@ -893,8 +894,16 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
 
-        // 수정 시간 순으로 정렬 (최신순)
-        unifiedItems.sort((a, b) => (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime));
+        // 수정 시간 순으로 정렬 (최신순), 같으면 생성 시간 순으로 정렬 (최신순)
+        unifiedItems.sort((a, b) {
+          // 1. 수정 시간으로 먼저 비교 (최신순)
+          int updatedCompare = (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime);
+          if (updatedCompare != 0) {
+            return updatedCompare;
+          }
+          // 2. 수정 시간이 같으면 생성 시간으로 비교 (최신순)
+          return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
+        });
 
         if (unifiedItems.isEmpty) {
           return const EmptyState(
