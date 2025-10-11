@@ -32,7 +32,6 @@
     <Loggers>
         <!-- Application Loggers -->
         <Logger name="com.aice" level="DEBUG" additivity="false">
-            <AppenderRef ref="asyncFileAppender"/>
             <AppenderRef ref="consoleAppender" />
         </Logger>
         <!-- Hibernate Loggers -->
@@ -67,7 +66,6 @@
 
         <!-- FATAL, ERROR, WARN, INFO, DEBUG, TRACE -->
         <Root level="INFO" >
-            <AppenderRef ref="asyncFileAppender"/>
             <AppenderRef ref="consoleAppender" />
         </Root>
     </Loggers>

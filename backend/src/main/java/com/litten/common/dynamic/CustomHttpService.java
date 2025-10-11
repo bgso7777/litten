@@ -3,6 +3,7 @@ package com.litten.common.dynamic;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,8 +30,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in get method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in get method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -55,8 +61,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in post method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in post method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -81,8 +92,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in put method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in put method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -111,8 +127,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in patch method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in patch method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -137,8 +158,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in delete method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in delete method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -163,8 +189,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in count method [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in count method [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }
@@ -194,8 +225,13 @@ public class CustomHttpService extends RepositorySupport implements CustomDynami
                 result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NO_SUCH_METHOD);
                 result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_NO_SUCH_METHOD_MESSAGE);
             }
+        } catch(InvocationTargetException e) {
+            log.error("InvocationTargetException in reflextionCustomServiceClass [" + methodName + "]", e);
+            log.error("Real cause: ", e.getCause());
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         } catch(Exception e) {
-            log.error(e);
+            log.error("Exception in reflextionCustomServiceClass [" + methodName + "]", e);
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_FAIL_MESSAGE);
         }

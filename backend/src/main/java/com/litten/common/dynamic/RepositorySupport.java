@@ -13,8 +13,8 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.support.Repositories;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import javax.persistence.EntityManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

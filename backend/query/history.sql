@@ -1,7 +1,12 @@
-CREATE DATABASE litten;
+CREATE DATABASE litten7;
+grant all privileges on *.* to 'litten7'@'localhost' identified by 'zaq1!@2wsxN';
+FLUSH PRIVILEGES;
 
+DROP USER IF EXISTS 'litten7'@'localhost';
+CREATE USER 'litten7'@'localhost' IDENTIFIED BY 'zaq1!@2wsxN';
+GRANT ALL PRIVILEGES ON *.* TO 'litten7'@'localhost';
+FLUSH PRIVILEGES;
 
-grant all privileges on *.* to 'litten'@'localhost' identified by 'litten1234';
 
 DROP TABLE IF EXISTS `note_member`;
 CREATE TABLE `note_member` (

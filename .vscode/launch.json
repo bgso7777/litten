@@ -3,13 +3,12 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Spring Boot-StartAccountManagerApplication",
+            "name": "Spring Boot-StartLittenApplication",
             "request": "launch",
             "cwd": "${workspaceFolder}/backend",
-            "mainClass": "com.litten.StartAccountManagerApplication",
+            "mainClass": "com.litten.StartLittenApplication",
             "projectName": "litten-backend",
             "args": "",
-            "vmArgs": "-Dspring.profiles.active=local",
             "envFile": "${workspaceFolder}/backend/.env"
         },
         {

@@ -7,12 +7,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 @EnableScheduling
 @Async
 @SpringBootApplication
-public class StartAccountManagerApplication {
+public class StartLittenApplication {
 
 	@Value("${spring.security.filter.ips}")
 	private String filterIps;
@@ -44,7 +44,7 @@ public class StartAccountManagerApplication {
 	@Value("${server.message-kakao-url}")
 	private String messageKakaoUrl;
 
-	@Value("${spring.config.activate.on-profile}")
+	@Value("${spring.config.activate.on-profile:local}")
 	private String activateOnProfile;
 
 	@Value("${server.talkbot-url}")
@@ -75,7 +75,7 @@ public class StartAccountManagerApplication {
 	private String ploonettotaldatasourcePassword;
 
 	public static void main(String[] args) {
-		SpringApplication.run(StartAccountManagerApplication.class, args);
+		SpringApplication.run(StartLittenApplication.class, args);
 	}
 
 	@PostConstruct

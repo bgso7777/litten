@@ -12,10 +12,10 @@ import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.Properties;
 
-import javax.activation.CommandMap;
-import javax.activation.MailcapCommandMap;
-import javax.mail.*;
-import javax.mail.internet.*;
+import jakarta.activation.CommandMap;
+import jakarta.activation.MailcapCommandMap;
+import jakarta.mail.*;
+import jakarta.mail.internet.*;
 
 @Log4j2
 public class Mailer {
