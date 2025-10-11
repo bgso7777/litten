@@ -1,8 +1,8 @@
 server:
-  port: ${PORT:8989}  # 환경변수 PORT 사용, 없으면 기본값 8989
+  port: 8989
   shutdown: graceful
   protocol: http
-  domain: www.litten7.com
+  domain: localhost
   prefix-path: /litten/anon/svc
   developer-mail: byoungkyu.so@saltlux.com # 중요 에러 시 메일 발송
   servlet:
@@ -20,7 +20,7 @@ server:
 
 
 logging:
-  config: classpath:log4j2/log4j2-local.xml
+  config: classpath:log4j2/log4j2-${spring.config.activate.on-profile}.xml
   level:
     root: debug
   multifile:
@@ -45,12 +45,11 @@ spring:
     suffix=: .ftl
   application:
     name: accountManager
-#  config:
-#    activate:
-#      on-profile: local
+  config:
+    activate:
+      on-profile: local
   datasource:
-    # url: jdbc:mariadb://www.litten7.com:3306/litten7
-    url: jdbc:mariadb://localhost:3306/litten7
+    url: jdbc:mariadb://localhost:3306/litten7?autoReconnect=true
     username: litten7
     password: zaq1!@2wsxN
     driver-class-name: org.mariadb.jdbc.Driver
@@ -61,15 +60,13 @@ spring:
   jpa:
     hibernate:
       use-new-id-generator-mappings: false
-      ddl-auto: none # update the schema with the given values
+    ddl-auto: none # update the schema with the given values
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MariaDBDialect
         show_sql: true
         format_sql: true
         allow_update_outside_transaction: true
-    generate-ddl: false
-    database-platform: org.hibernate.dialect.MariaDBDialect
+    generate-ddl: true
 #    defer-datasource-initialization: true
   devtools:
     livereload:

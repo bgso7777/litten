@@ -9,6 +9,7 @@
             "mainClass": "com.litten.StartLittenApplication",
             "projectName": "litten-backend",
             "args": "",
+            "vmArgs": "-Dspring.profiles.active=local",
             "envFile": "${workspaceFolder}/backend/.env"
         },
         {

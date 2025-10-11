@@ -22,7 +22,7 @@ aos, ios 시뮬레이터에서 실행된 앱 죽이고, 다시 빌드해서,
 backend에서 로그인 시 uuid도 체크  
 
 
-42 - backend 웹페이지 추가 및 배포    
+41 - backend 웹페이지 추가 및 배포    
 ---------------------------------------
 
 backend 를 tomcat10.0 JSP3.0 servlet5.0 jdk17 
@@ -30,9 +30,24 @@ mariadb10 환경에 배포하려고 하거든 문제 없는지 확인해줘
 
 일단 spring boot 3.2.0으로 바꿨거든 빌드해줘봐
 
+war 업로드 
+scp /Users/mymac/Desktop/litten/backend/target/litten-backend-0.0.1.war litten7@www.litten7.com:/litten7/tomcat/webapps
+
+서버가 실행 됐는데 www.litten7.com
+./webapp/ROOT에 있는 index.html만 접근 가능해 
+www.litten7.com/litten 접속하면 404이고 
+
+로그 다운로드 
+scp litten7@www.litten7.com:/litten7/tomcat/logs/catalina.out /Users/mymac/Desktop/litten/catalina.log
 
 
-42 - 핵심 기능 보완   
+
+42 - 로컬 파일 서버 저장   
+---------------------------------------
+
+
+
+43 - 핵심 기능 보완   
 ---------------------------------------
 
 알림이 설정되어 있는데 알림이 작동을 안해. 다른 탭으로 옮기거나
