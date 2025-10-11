@@ -58,6 +58,8 @@ class NotificationService extends ChangeNotifier {
   final List<NotificationEvent> _pendingNotifications = [];
   final List<NotificationEvent> _firedNotifications = [];
   final Map<String, Litten> _littenMap = {}; // 리튼 ID -> 리튼 객체 매핑
+  DateTime? _lastCheckTime; // 마지막 체크 시간 추적
+  bool _isInBackground = false; // 백그라운드 상태 추적
 
   // 백그라운드 알림 서비스
   final BackgroundNotificationService _backgroundService = BackgroundNotificationService();
@@ -69,9 +71,11 @@ class NotificationService extends ChangeNotifier {
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
 
   void startNotificationChecker() {
-    // 30초마다 알림 체크 (웹에서 더 자주 체크)
+    debugPrint('🚀 알림 체커 시작 - 30초마다 자동 체크');
+    // 30초마다 알림 체크 (백그라운드에서도 계속 작동)
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      debugPrint('⏰ Timer 실행: ${DateTime.now()}');
       _checkNotifications();
     });
 
@@ -80,8 +84,36 @@ class NotificationService extends ChangeNotifier {
   }
 
   void stopNotificationChecker() {
+    debugPrint('🛑 알림 체커 중지');
     _timer?.cancel();
     _timer = null;
+  }
+
+  /// 앱이 백그라운드로 갈 때 호출
+  void onAppPaused() {
+    debugPrint('⏸️ 앱 일시정지 - 백그라운드로 전환');
+    _isInBackground = true;
+    _lastCheckTime = DateTime.now();
+    // Timer는 계속 실행되도록 유지
+  }
+
+  /// 앱이 포그라운드로 돌아올 때 호출
+  void onAppResumed() {
+    debugPrint('▶️ 앱 재개 - 포그라운드로 전환');
+    _isInBackground = false;
+
+    // 백그라운드에 있는 동안 놓친 알림이 있는지 체크
+    if (_lastCheckTime != null) {
+      final missedDuration = DateTime.now().difference(_lastCheckTime!);
+      debugPrint('⏱️ 백그라운드 기간: ${missedDuration.inSeconds}초');
+
+      if (missedDuration.inSeconds > 30) {
+        debugPrint('🔍 놓친 알림 체크 시작');
+        _checkNotifications();
+      }
+    }
+
+    _lastCheckTime = DateTime.now();
   }
 
   Future<void> _checkNotifications() async {
@@ -106,7 +138,8 @@ class NotificationService extends ChangeNotifier {
     }).toList();
 
     // 디버그 정보 출력
-    debugPrint('🕒 알림 체크: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)}');
+    final bgStatus = _isInBackground ? '🌙 백그라운드' : '☀️ 포그라운드';
+    debugPrint('🕒 알림 체크: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)} ($bgStatus)');
     debugPrint('   현재 분: ${DateFormat('yyyy-MM-dd HH:mm').format(currentMinute)}');
     debugPrint('   체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)}');
     debugPrint('   대기 중인 알림: ${_pendingNotifications.length}개');

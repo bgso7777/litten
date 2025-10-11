@@ -13,16 +13,21 @@ import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 
-class AppStateProvider extends ChangeNotifier {
+class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final LittenService _littenService = LittenService();
   final NotificationService _notificationService = NotificationService();
   final AppIconBadgeService _appIconBadgeService = AppIconBadgeService();
   final AuthServiceImpl _authService = AuthServiceImpl();
+  final AudioService _audioService = AudioService();
 
-  // 생성자: AuthService 리스너 등록
+  // 생성자: AuthService 리스너 등록 및 앱 생명주기 관찰자 등록
   AppStateProvider() {
     // AuthService의 상태 변경을 감지하여 UI 업데이트
     _authService.addListener(_onAuthStateChanged);
+
+    // 앱 생명주기 관찰자 등록
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('🔄 AppStateProvider: 앱 생명주기 관찰자 등록 완료');
   }
 
   // 앱 상태
@@ -356,9 +361,47 @@ class AppStateProvider extends ChangeNotifier {
 
   // 리튼 선택
   Future<void> selectLitten(Litten litten) async {
+    debugPrint('🔄 리튼 선택 시도: ${litten.title} (${litten.id})');
+
+    // 녹음 중인지 확인
+    if (_audioService.isRecording) {
+      debugPrint('⚠️ 녹음 중에는 리튼을 변경할 수 없습니다.');
+      throw Exception('녹음 중에는 리튼을 변경할 수 없습니다. 녹음을 중지한 후 다시 시도해주세요.');
+    }
+
     _selectedLitten = litten;
     await _littenService.setSelectedLittenId(litten.id);
+    await _saveSelectedLittenState();
     notifyListeners();
+    debugPrint('✅ 리튼 선택 완료 및 영구 저장');
+  }
+
+  // 선택된 리튼 상태 저장
+  Future<void> _saveSelectedLittenState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_selectedLitten != null) {
+      await prefs.setString('selected_litten_id', _selectedLitten!.id);
+      debugPrint('💾 선택된 리튼 ID 저장: ${_selectedLitten!.id}');
+    } else {
+      await prefs.remove('selected_litten_id');
+      debugPrint('💾 선택된 리튼 ID 제거');
+    }
+  }
+
+  // 선택된 리튼 상태 복원
+  Future<void> _restoreSelectedLittenState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedLittenId = prefs.getString('selected_litten_id');
+
+    if (selectedLittenId != null) {
+      final litten = await _littenService.getLittenById(selectedLittenId);
+      if (litten != null) {
+        _selectedLitten = litten;
+        debugPrint('🔄 선택된 리튼 복원: ${litten.title} (${litten.id})');
+      } else {
+        debugPrint('⚠️ 저장된 리튼 ID를 찾을 수 없음: $selectedLittenId');
+      }
+    }
   }
 
   // 리튼 생성
@@ -527,6 +570,8 @@ class AppStateProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    debugPrint('🔄 AppStateProvider: 리소스 정리 시작');
+    WidgetsBinding.instance.removeObserver(this);
     _authService.removeListener(_onAuthStateChanged);
     _notificationService.removeListener(_onNotificationChanged);
     _notificationService.dispose();
@@ -1235,6 +1280,41 @@ class AppStateProvider extends ChangeNotifier {
 
     debugPrint('📁 선택된 리튼의 총 파일 개수: ${allFiles.length}개');
     return allFiles;
+  }
+
+  /// 앱 생명주기 상태 변경 시 호출
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    debugPrint('🔄 앱 생명주기 변경: $state');
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // 앱이 포그라운드로 돌아옴
+        debugPrint('▶️ 앱 포그라운드 전환 - 상태 복원 및 알림 서비스 재개');
+        _restoreSelectedLittenState();
+        _notificationService.onAppResumed();
+        break;
+      case AppLifecycleState.inactive:
+        // 앱이 비활성 상태 (예: 전화 수신, 알림 센터 열기)
+        debugPrint('⏸️ 앱 비활성 상태');
+        break;
+      case AppLifecycleState.paused:
+        // 앱이 백그라운드로 감
+        debugPrint('⏸️ 앱 백그라운드 전환 - 상태 저장 및 알림 서비스 일시정지');
+        _saveSelectedLittenState();
+        _notificationService.onAppPaused();
+        break;
+      case AppLifecycleState.detached:
+        // 앱이 종료됨
+        debugPrint('🛑 앱 종료');
+        break;
+      case AppLifecycleState.hidden:
+        // 앱이 숨겨짐 (일부 플랫폼에서 사용)
+        debugPrint('👁️ 앱 숨김 상태');
+        break;
+    }
   }
 }
 

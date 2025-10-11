@@ -932,7 +932,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   return LittenItem(
                     litten: litten,
                     isSelected: appState.selectedLitten?.id == litten.id,
-                    onTap: () => appState.selectLitten(litten),
+                    onTap: () async {
+                      try {
+                        await appState.selectLitten(litten);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
                     onDelete: () => _showDeleteDialog(litten.id, litten.title),
                     onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
                   );
