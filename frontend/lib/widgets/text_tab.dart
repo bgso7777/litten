@@ -509,24 +509,23 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           }
         }
 
-        // 저장 후에도 편집 화면 유지 (목록으로 돌아가지 않음)
-        setState(() {
-          _currentTextFile = updatedFile; // 업데이트된 파일로 현재 파일 갱신
-        });
-
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
 
-        // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
-        await appState.refreshLittens();
-
+        // 저장 완료 알림
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${updatedFile.displayTitle} 파일이 저장되었습니다.'),
-              backgroundColor: Colors.green,
+              content: Text('저장되었습니다'),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
+
+        // 편집 모드를 유지하고 화면 전환하지 않음
+        // setState(() {
+        //   _isEditing = false;
+        //   _currentTextFile = null;
+        // });
       } catch (e) {
         print('에러: 텍스트 파일 저장 실패 - $e');
         if (mounted) {
@@ -655,19 +654,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       height: constraints.maxHeight,
                       child: HtmlEditor(
                         controller: _htmlController,
-                        htmlEditorOptions: HtmlEditorOptions(
+                        htmlEditorOptions: const HtmlEditorOptions(
                           hint: '여기에 텍스트를 입력하세요...',
                           shouldEnsureVisible: true,
-                          initialText: _currentTextFile?.content ?? '',
                           adjustHeightForKeyboard: true,
                           darkMode: false,
                           autoAdjustHeight: false,
                           spellCheck: false,
-                          characterLimit: null,
-                          customOptions: '''
-                            p { margin: 0; padding: 0; line-height: 1.2; }
-                            div { margin: 0; padding: 0; line-height: 1.2; }
-                          ''',
                         ),
                         htmlToolbarOptions: HtmlToolbarOptions(
                           toolbarPosition: ToolbarPosition.aboveEditor,
@@ -706,6 +699,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                         callbacks: Callbacks(
                           onInit: () {
                             print('HTML 에디터 초기화 완료');
+                            // CSS 주입으로 줄 간격 유지
+                            _htmlController.editorController?.evaluateJavascript(source: '''
+                              setTimeout(function() {
+                                var style = document.createElement('style');
+                                style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; }';
+                                document.head.appendChild(style);
+                              }, 500);
+                            ''');
                           },
                           onFocus: () {
                             print('HTML 에디터 포커스됨');

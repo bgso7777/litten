@@ -120,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: l10n?.usageStatistics ?? '사용량 통계',
                 subtitle:
                     '${appState.littens.length}${l10n?.littensCount ?? '개 리튼'}, ${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개 파일'}',
-                iconColor: Colors.blue,
+                iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showUsageDialog(context, appState),
               ),
             ]),
@@ -132,21 +132,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.palette,
                 title: l10n?.theme ?? '테마',
                 subtitle: _getThemeText(appState.themeType, l10n),
-                iconColor: Colors.purple,
+                iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showThemeDialog(context, appState),
               ),
               _buildSettingsItem(
                 icon: Icons.language,
                 title: l10n?.language ?? '언어',
                 subtitle: _getLanguageText(appState.locale.languageCode),
-                iconColor: Colors.green,
+                iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showLanguageDialog(context, appState),
               ),
               _buildSettingsItem(
                 icon: Icons.home,
                 title: l10n?.startScreen ?? '시작 화면',
                 subtitle: l10n?.homeTitle ?? '홈',
-                iconColor: Colors.blue,
+                iconColor: Theme.of(context).primaryColor,
               ),
             ]),
             AppSpacing.verticalSpaceL,
@@ -157,13 +157,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.timer,
                 title: l10n?.maxRecordingTime ?? '최대 녹음 시간',
                 subtitle: l10n?.maxRecordingTimeValue ?? '1시간',
-                iconColor: AppColors.recordingColor,
+                iconColor: Theme.of(context).primaryColor,
               ),
               _buildSettingsItem(
                 icon: Icons.headphones,
                 title: l10n?.audioQuality ?? '오디오 품질',
                 subtitle: l10n?.standardQuality ?? '표준',
-                iconColor: AppColors.recordingColor,
+                iconColor: Theme.of(context).primaryColor,
               ),
             ]),
             AppSpacing.verticalSpaceL,
@@ -174,13 +174,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.save,
                 title: l10n?.autoSaveInterval ?? '자동 저장 간격',
                 subtitle: l10n?.autoSaveIntervalValue ?? '3분',
-                iconColor: AppColors.writingColor,
+                iconColor: Theme.of(context).primaryColor,
               ),
               _buildSettingsItem(
                 icon: Icons.font_download,
                 title: l10n?.defaultFont ?? '기본 폰트',
                 subtitle: l10n?.systemFont ?? '시스템 폰트',
-                iconColor: AppColors.writingColor,
+                iconColor: Theme.of(context).primaryColor,
               ),
             ]),
             AppSpacing.verticalSpaceL,
@@ -195,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : _registeredEmail != null
                     ? '$_registeredEmail (로그아웃)'
                     : '로그아웃',
-                iconColor: appState.isLoggedIn ? Colors.green : Colors.grey,
+                iconColor: Theme.of(context).primaryColor,
                 onTap: null,
               ),
               // 로그인 상태일 때
@@ -204,7 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.lock_reset,
                   title: l10n?.changePassword ?? '비밀번호 변경',
                   subtitle: '계정 비밀번호를 변경합니다',
-                  iconColor: Colors.orange,
+                  iconColor: Theme.of(context).primaryColor,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -218,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.logout,
                   title: '로그아웃',
                   subtitle: '현재 계정에서 로그아웃합니다',
-                  iconColor: Colors.blue,
+                  iconColor: Theme.of(context).primaryColor,
                   onTap: () => _showLogoutDialog(context, appState),
                 ),
                 _buildSettingsItem(
@@ -235,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.login,
                   title: '로그인',
                   subtitle: '계정에 로그인합니다',
-                  iconColor: Colors.blue,
+                  iconColor: Theme.of(context).primaryColor,
                   onTap: () {
                     Navigator.push(
                       context,
