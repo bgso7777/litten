@@ -614,8 +614,13 @@ class _HandwritingTabState extends State<HandwritingTab>
               _handleTap(screenCenter);
             },
             onTapDown: (TapDownDetails details) {
+              // 텍스트 도구가 선택되었을 때는 내부 GestureDetector가 처리하므로 무시
+              if (_selectedTool == '텍스트') {
+                print('DEBUG: 텍스트 도구 선택됨 - 외부 GestureDetector 무시');
+                return;
+              }
               // 더 정확한 탭 위치 사용
-              _handleTap(details.localPosition);
+              _handleTap(details.localPosition, details.globalPosition);
             },
             child: InteractiveViewer(
               transformationController: _transformationController,
@@ -718,31 +723,38 @@ class _HandwritingTabState extends State<HandwritingTab>
                     // 텍스트 입력 전용 제스처 감지 레이어
                     if (_isTextInputMode)
                       Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTapDown: (details) {
-                            // 터치 좌표를 캔버스 좌표로 변환
-                            final canvasPosition =
-                                _transformLocalToCanvasCoordinates(
-                                  details.localPosition,
-                                );
-                            print(
-                              'DEBUG: 터치 좌표 변환 - 로컬: ${details.localPosition}, 캔버스: $canvasPosition',
+                        child: Builder(
+                          builder: (BuildContext gestureContext) {
+                            return GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTapDown: (details) {
+                                print('DEBUG: ========== 텍스트 입력 터치 시작 ==========');
+                                print('DEBUG: details.localPosition: ${details.localPosition}');
+
+                                // 캔버스 좌표 계산 (줌/팬 고려) - 텍스트 렌더링용
+                                final canvasPosition =
+                                    _transformLocalToCanvasCoordinates(
+                                      details.localPosition,
+                                    );
+
+                                // TextField 배치 위치 계산
+                                // details.localPosition은 InteractiveViewer 내부 좌표계이므로
+                                // TextField도 같은 Stack 내부에 있어서 좌표계가 동일함
+                                final screenPosition = _calculateGlobalTextInputPosition(details.localPosition);
+
+                                print('DEBUG: 캔버스 좌표 (텍스트 렌더링): $canvasPosition');
+                                print('DEBUG: 화면 좌표 (TextField 배치): $screenPosition');
+                                print('DEBUG: ========================================');
+
+                                setState(() {
+                                  _textInputPosition = canvasPosition;
+                                  _screenTextInputPosition = screenPosition;
+                                });
+                                _showCanvasTextInput();
+                              },
+                              child: Container(),
                             );
-
-                            // 전체 Stack에서의 위치 계산 (헤더, 툴바 높이 고려)
-                            final globalPosition =
-                                _calculateGlobalTextInputPosition(
-                                  details.localPosition,
-                                );
-
-                            setState(() {
-                              _textInputPosition = canvasPosition;
-                              _screenTextInputPosition = globalPosition;
-                            });
-                            _showCanvasTextInput();
                           },
-                          child: Container(),
                         ),
                       ),
                     // 텍스트 입력 오버레이는 InteractiveViewer 외부로 이동
@@ -1900,34 +1912,26 @@ class _HandwritingTabState extends State<HandwritingTab>
     }
   }
 
-  /// 터치 위치를 전체 Stack에서의 위치로 계산 (헤더, 툴바 높이 고려)
+  /// 터치 위치를 InteractiveViewer 내부 좌표 그대로 사용 (TextField도 같은 Stack 내부)
   Offset _calculateGlobalTextInputPosition(Offset localPosition) {
     try {
-      // 헤더 높이 (AppBar와 상단 헤더)
-      const double headerHeight = kToolbarHeight + 56; // AppBar + 상단 헤더
-      // 필기 도구 패널 높이
-      const double toolbarHeight = 40;
-      // 동기화 상태 바 높이 (있는 경우)
-      const double syncBarHeight = 0; // 현재는 별도 높이 없음
+      // TextField와 터치 좌표가 같은 coordinate space에 있음
+      // localPosition은 InteractiveViewer 내부 기준, TextField도 같은 Stack 내부
+      // 따라서 그대로 사용하되, TextField의 내부 패딩만 보정
 
-      // 전체 오프셋 계산
-      final double totalTopOffset =
-          headerHeight + toolbarHeight + syncBarHeight;
+      const double textFieldPaddingX = 0; // TextField contentPadding = 0
+      const double textFieldPaddingY = 0; // TextField contentPadding = 0
 
-      // InteractiveViewer 내의 로컬 좌표를 전체 Stack 좌표로 변환
-      final double globalX = localPosition.dx;
-      final double globalY = localPosition.dy + totalTopOffset;
+      final double globalX = localPosition.dx - textFieldPaddingX;
+      final double globalY = localPosition.dy - textFieldPaddingY;
 
       final Offset globalPosition = Offset(globalX, globalY);
 
-      print('DEBUG: 전체 위치 계산 - 로컬: $localPosition → 전체: $globalPosition');
-      print(
-        'DEBUG: 상단 오프셋: ${totalTopOffset}px (헤더: ${headerHeight}px + 툴바: ${toolbarHeight}px)',
-      );
+      print('DEBUG: TextField 위치 계산 - 로컬: $localPosition → 사용: $globalPosition');
 
       return globalPosition;
     } catch (e) {
-      print('DEBUG: 전체 위치 계산 실패 - $e, 원본 좌표 반환');
+      print('DEBUG: TextField 위치 계산 실패 - $e, 원본 좌표 반환');
       return localPosition;
     }
   }
@@ -1946,10 +1950,23 @@ class _HandwritingTabState extends State<HandwritingTab>
           ),
         );
 
+        // 텍스트 렌더링 위치 조정
+        // TextField의 텍스트 baseline과 일치시키기 위해 위치 보정
+        // - 우측으로 약간 이동 (TextField border 보정)
+        // - 아래로 약간 이동 (텍스트 baseline 보정)
+        const double textOffsetX = 2; // 우측으로 약간 이동
+        const double textOffsetY = 12; // 아래로 이동 (fontSize 16의 약 75% - baseline 위치)
+        final adjustedPosition = Offset(
+          _textInputPosition!.dx + textOffsetX,
+          _textInputPosition!.dy + textOffsetY,
+        );
+
+        print('DEBUG: 텍스트 렌더링 위치 조정 - 원본: ${_textInputPosition!} → 조정: $adjustedPosition (오프셋: +$textOffsetX, +$textOffsetY)');
+
         // 텍스트를 직접 추가하는 방법 시도
         final textDrawable = TextDrawable(
           text: text,
-          position: _textInputPosition!,
+          position: adjustedPosition,
           style: TextStyle(
             color: _selectedColor,
             fontSize: 16,
@@ -2627,7 +2644,6 @@ class _HandwritingTabState extends State<HandwritingTab>
               constraints: const BoxConstraints(
                 minWidth: 50,
                 maxWidth: 300,
-                minHeight: 25,
               ),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.95),
@@ -2649,13 +2665,11 @@ class _HandwritingTabState extends State<HandwritingTab>
                   color: _selectedColor,
                   fontSize: 16,
                   fontWeight: FontWeight.normal,
+                  height: 1.0,
                 ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
-                  ),
+                  contentPadding: EdgeInsets.zero,
                   hintText: '입력...',
                   hintStyle: TextStyle(fontSize: 14),
                   isDense: true,
@@ -2792,13 +2806,13 @@ class _HandwritingTabState extends State<HandwritingTab>
   }
 
   /// 탭 이벤트 처리 (더블 탭 감지)
-  void _handleTap(Offset position) {
+  void _handleTap(Offset position, [Offset? globalPosition]) {
     final now = DateTime.now();
 
     // 텍스트 도구가 선택된 경우 즉시 텍스트 입력 모드 시작
     if (_selectedTool == '텍스트') {
       print('DEBUG: 텍스트 도구 선택됨 - 즉시 입력 모드 시작');
-      _handleTextToolTap(position);
+      _handleTextToolTap(position, globalPosition);
       return;
     }
 
@@ -2828,18 +2842,23 @@ class _HandwritingTabState extends State<HandwritingTab>
     print('DEBUG: 단일 탭 감지 - 더블 탭 대기 중');
   }
 
-  void _handleTextToolTap(Offset position) {
+  void _handleTextToolTap(Offset position, [Offset? globalPosition]) {
     try {
-      print('DEBUG: 텍스트 도구 탭 처리 시작 - 위치: $position');
+      print('DEBUG: ========== 텍스트 도구 탭 처리 시작 ==========');
+      print('DEBUG: localPosition: $position');
+      print('DEBUG: globalPosition: $globalPosition');
 
       // 터치 위치를 캔버스 좌표계로 변환
       final canvasPosition = _transformLocalToCanvasCoordinates(position);
+      print('DEBUG: canvasPosition: $canvasPosition');
 
       // 캔버스 좌표 저장
       _textInputPosition = canvasPosition;
 
       // 화면 좌표 계산 (UI 배치용)
-      final screenPosition = _calculateGlobalTextInputPosition(position);
+      // globalPosition이 있으면 사용, 없으면 기존 방식 사용
+      final screenPosition = globalPosition ?? _calculateGlobalTextInputPosition(position);
+      print('DEBUG: screenPosition (TextField 배치): $screenPosition');
 
       // 텍스트 컨트롤러 초기화
       _canvasTextController?.clear();
@@ -2850,10 +2869,9 @@ class _HandwritingTabState extends State<HandwritingTab>
       });
 
       print('DEBUG: 텍스트 입력 모드 즉시 시작 완료');
-      print('DEBUG: 캔버스 위치: $canvasPosition');
-      print('DEBUG: 화면 위치: $screenPosition');
+      print('DEBUG: ==========================================');
     } catch (e) {
-      print('DEBUG: 텍스트 도구 탭 처리 중 오류 - $e');
+      print('ERROR: 텍스트 도구 탭 처리 중 오류 - $e');
     }
   }
 
