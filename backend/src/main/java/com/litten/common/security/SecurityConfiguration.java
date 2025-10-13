@@ -90,7 +90,7 @@ public class SecurityConfiguration {
         .frameOptions()
         .disable()
         .addHeaderWriter(new StaticHeadersWriter("X-FRAME-OPTIONS", "ALLOW-FROM " + "127.0.0.1"))
-        .addHeaderWriter(new StaticHeadersWriter("X-FRAME-OPTIONS", "ALLOW-FROM " + "dev-backdoor.ploonet.com"))
+        .addHeaderWriter(new StaticHeadersWriter("X-FRAME-OPTIONS", "ALLOW-FROM " + "www.litten7.com"))
         .and()
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,109 +110,104 @@ public class SecurityConfiguration {
         // 로그인 전 서비스 처리
         //////////////////////////////////////////////////////
         // administrator 인증 토큰 발행
-        .requestMatchers("/account/administrator/svc/authentication/**").access(hasIpAddress.toString())
-        .requestMatchers("/account/administrator/svc/authentication-mobile/**").access(hasIpAddress.toString())
-
-        // administrator 서비스
-        .requestMatchers("/account/administrator/**").access(hasIpAddress.toString())
-        .requestMatchers("/account/administrator/**").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
-
-        // 버젼 조회
-        .requestMatchers("/account/anon/version/**").access(hasIpAddress.toString())
-
-        // 로그인, 아이디중복조회, 아이디찾기, 인증토큰발행(anonymous), 사용자정보유효성확인, 비번변경
-        .requestMatchers("/account/anon/**").access(hasIpAddress.toString())
-
-        // 롤백
-        .requestMatchers("/account/anon/svc/member/rollback/**").access(hasIpAddress.toString())
-
-        // health check
-        .requestMatchers("/aice/account/health/check/**").permitAll()
-        .requestMatchers("/health/check/**").permitAll()
-
-        // support page
-//        .requestMatchers("/support/sample/html/**").permitAll()
-        .requestMatchers("/account/anon/svc/support/sample/html/**").permitAll()
-
-        // file upload
-        .requestMatchers("/account/staff/file/**").permitAll()
-
-        // account v2 members
-        .requestMatchers("/account/v2/members/**").permitAll()
-
-        // 로그인 후 서비스 처리
-        //////////////////////////////////////////////////////
-//        .requestMatchers("/account/**").hasAnyAuthority(AuthoritiesConstants.MEMBER,AuthoritiesConstants.ADMIN)
-
-//        .requestMatchers("/account/**")
-//        .access("hasIpAddress('0:0:0:0:0:0:0:1') or " +
-//                         "hasIpAddress('192.168.100.100') " +
-//                         "and hasAnyAuthority('"+AuthoritiesConstants.MEMBER+"','"+AuthoritiesConstants.ADMIN+"')")
-
-//        .access(hasIpAddress.toString() +
-//                " and hasAnyAuthority('"+AuthoritiesConstants.MEMBER+"','"+AuthoritiesConstants.ADMIN+"')")
-
-        // anonymous용 토큰 발행 보류 20220128
-//        .requestMatchers("/account/svc/authentication").access(hasIpAddress.toString())
-//        .requestMatchers("/account/svc/authentication").hasAnyAuthority( AuthoritiesConstants.ANONYMOUS )
-
-        .requestMatchers("/account/member-temporary/**").access(hasIpAddress.toString())
-        .requestMatchers("/account/member-temporary/**").hasAnyAuthority(   AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
-                                                                                    AuthoritiesConstants.MEMBER_INDIVIDUAL,
-                                                                                    AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
-                                                                                    AuthoritiesConstants.MEMBER_COMPANY,
-                                                                                    AuthoritiesConstants.MEMBER_COMPANY_MASTER,
-                                                                                    AuthoritiesConstants.ANONYMOUS)
-
-        .requestMatchers("/account/member-temporary/*/dummy/*").access(hasIpAddress.toString())
-        .requestMatchers("/account/member-temporary/*/dummy/*").hasAnyAuthority(   AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
-                                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL,
-                                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
-                                                                                        AuthoritiesConstants.MEMBER_COMPANY,
-                                                                                        AuthoritiesConstants.MEMBER_COMPANY_MASTER,
-                                                                                        AuthoritiesConstants.ANONYMOUS)
-
-        .requestMatchers("/account/**").access(hasIpAddress.toString())
-        .requestMatchers("/account/**").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
-                                                                AuthoritiesConstants.MEMBER_INDIVIDUAL,
-                                                                AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
-                                                                AuthoritiesConstants.MEMBER_COMPANY,
-                                                                AuthoritiesConstants.MEMBER_COMPANY_MASTER,
-                                                                AuthoritiesConstants.ANONYMOUS )
-
-        .requestMatchers("/account/staff").access(hasIpAddress.toString())
-        .requestMatchers("/account/staff").hasAnyAuthority(  AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
-                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL,
-                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
-                                                                        AuthoritiesConstants.MEMBER_COMPANY,
-                                                                        AuthoritiesConstants.MEMBER_COMPANY_MASTER,
-                                                                        AuthoritiesConstants.ANONYMOUS )
-
-        .requestMatchers("/account/brand/member").access(hasIpAddress.toString())
-        .requestMatchers("/account/brand/member").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
+//        .requestMatchers("/account/administrator/svc/authentication/**").access(hasIpAddress.toString())
+//        .requestMatchers("/account/administrator/svc/authentication-mobile/**").access(hasIpAddress.toString())
+//
+//        // administrator 서비스
+//        .requestMatchers("/account/administrator/**").access(hasIpAddress.toString())
+//        .requestMatchers("/account/administrator/**").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
+//
+//        // 버젼 조회
+//        .requestMatchers("/account/anon/version/**").access(hasIpAddress.toString())
+//
+//        // 로그인, 아이디중복조회, 아이디찾기, 인증토큰발행(anonymous), 사용자정보유효성확인, 비번변경
+//        .requestMatchers("/account/anon/**").access(hasIpAddress.toString())
+//
+//        // 롤백
+//        .requestMatchers("/account/anon/svc/member/rollback/**").access(hasIpAddress.toString())
+//
+//        // health check
+//        .requestMatchers("/aice/account/health/check/**").permitAll()
+//        .requestMatchers("/health/check/**").permitAll()
+//
+//        // support page
+////        .requestMatchers("/support/sample/html/**").permitAll()
+//        .requestMatchers("/account/anon/svc/support/sample/html/**").permitAll()
+//
+//        // file upload
+//        .requestMatchers("/account/staff/file/**").permitAll()
+//
+//        // account v2 members
+//        .requestMatchers("/account/v2/members/**").permitAll()
+//
+//        // 로그인 후 서비스 처리
+//        //////////////////////////////////////////////////////
+////        .requestMatchers("/account/**").hasAnyAuthority(AuthoritiesConstants.MEMBER,AuthoritiesConstants.ADMIN)
+//
+////        .requestMatchers("/account/**")
+////        .access("hasIpAddress('0:0:0:0:0:0:0:1') or " +
+////                         "hasIpAddress('192.168.100.100') " +
+////                         "and hasAnyAuthority('"+AuthoritiesConstants.MEMBER+"','"+AuthoritiesConstants.ADMIN+"')")
+//
+////        .access(hasIpAddress.toString() +
+////                " and hasAnyAuthority('"+AuthoritiesConstants.MEMBER+"','"+AuthoritiesConstants.ADMIN+"')")
+//
+//        // anonymous용 토큰 발행 보류 20220128
+////        .requestMatchers("/account/svc/authentication").access(hasIpAddress.toString())
+////        .requestMatchers("/account/svc/authentication").hasAnyAuthority( AuthoritiesConstants.ANONYMOUS )
+//
+//        .requestMatchers("/account/member-temporary/**").access(hasIpAddress.toString())
+//        .requestMatchers("/account/member-temporary/**").hasAnyAuthority(   AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
+//                                                                                    AuthoritiesConstants.MEMBER_INDIVIDUAL,
+//                                                                                    AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+//                                                                                    AuthoritiesConstants.MEMBER_COMPANY,
+//                                                                                    AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+//                                                                                    AuthoritiesConstants.ANONYMOUS)
+//
+//        .requestMatchers("/account/member-temporary/*/dummy/*").access(hasIpAddress.toString())
+//        .requestMatchers("/account/member-temporary/*/dummy/*").hasAnyAuthority(   AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
+//                                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL,
+//                                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+//                                                                                        AuthoritiesConstants.MEMBER_COMPANY,
+//                                                                                        AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+//                                                                                        AuthoritiesConstants.ANONYMOUS)
+//
+//        .requestMatchers("/account/**").access(hasIpAddress.toString())
+//        .requestMatchers("/account/**").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
+//                                                                AuthoritiesConstants.MEMBER_INDIVIDUAL,
+//                                                                AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+//                                                                AuthoritiesConstants.MEMBER_COMPANY,
+//                                                                AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+//                                                                AuthoritiesConstants.ANONYMOUS )
+//
+//        .requestMatchers("/account/staff").access(hasIpAddress.toString())
+//        .requestMatchers("/account/staff").hasAnyAuthority(  AuthoritiesConstants.MEMBER_ADMIN_ADMIN,
+//                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL,
+//                                                                        AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+//                                                                        AuthoritiesConstants.MEMBER_COMPANY,
+//                                                                        AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+//                                                                        AuthoritiesConstants.ANONYMOUS )
+//
+//        .requestMatchers("/account/brand/member").access(hasIpAddress.toString())
+//        .requestMatchers("/account/brand/member").hasAnyAuthority( AuthoritiesConstants.MEMBER_ADMIN_ADMIN )
 
 
         // litten
-        .requestMatchers("/note/v1/members/**").permitAll()
-        .requestMatchers("/note/v1/members/install/**").permitAll()
-        .requestMatchers("/note/v1/members/signup/**").permitAll()
-                .requestMatchers("/note/v1/members/password/**").permitAll()
-        .requestMatchers("/note/v1/members/password-url/**").permitAll()
-        .requestMatchers("/note/v1/members/login/web/**").permitAll()
-        .requestMatchers("/note/v1/members/login/mobile/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/install/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/signup/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/password/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/password-url/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/login/web/**").permitAll()
+        .requestMatchers("/litten/note/v1/members/login/mobile/**").permitAll()
 
-//        .requestMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
-//        .requestMatchers("/litten/anon/svc/members/change-password2/**/**").permitAll()
-//        .requestMatchers("/litten/anon/svc/members/change-password2/**").permitAll()
-//        .requestMatchers("/litten/anon/svc/members/change-password3/**").permitAll()
+        .requestMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
+//        .requestMatchers("/anon/svc/members/change-password2/**/**").permitAll()
+        .requestMatchers("/litten/anon/svc/members/change-password2/**").permitAll()
+        .requestMatchers("/litten/anon/svc/members/change-password2/**").permitAll()
+        .requestMatchers("/litten/anon/svc/members/change-password3/**").permitAll()
 
-        .requestMatchers("/anon/svc/support/sample/html/**").permitAll()
-        .requestMatchers("/anon/svc/members/change-password2/**/**").permitAll()
-        .requestMatchers("/anon/svc/members/change-password2/**").permitAll()
-        .requestMatchers("/anon/svc/members/change-password3/**").permitAll()
-
-        .requestMatchers("/anon/**").access(hasIpAddress.toString())
-        .requestMatchers("/anon/svc/support/sample/html/**").permitAll()
+        .requestMatchers("/litten/anon/**").access(hasIpAddress.toString())
         .requestMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
 
         .anyRequest().authenticated()

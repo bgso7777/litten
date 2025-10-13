@@ -49,7 +49,8 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:mariadb://localhost:3306/litten7?autoReconnect=true
+#    url: jdbc:mariadb://localhost:3306/litten7?autoReconnect=true
+    url: jdbc:mariadb://www.litten7.com:3306/litten7?autoReconnect=true
     username: litten7
     password: zaq1!@2wsxN
     driver-class-name: org.mariadb.jdbc.Driver
