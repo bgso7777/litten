@@ -201,6 +201,10 @@ public class SecurityConfiguration {
         .requestMatchers("/litten/note/v1/members/login/web/**").permitAll()
         .requestMatchers("/litten/note/v1/members/login/mobile/**").permitAll()
 
+        // Static resources (HTML pages)
+        .requestMatchers("/", "/index.html", "/note.html", "/test").permitAll()
+        .requestMatchers("/*.html", "/*.css", "/*.js", "/*.png", "/*.jpg", "/*.ico").permitAll()
+
         .requestMatchers("/litten/anon/svc/support/sample/html/**").permitAll()
 //        .requestMatchers("/anon/svc/members/change-password2/**/**").permitAll()
         .requestMatchers("/litten/anon/svc/members/change-password2/**").permitAll()
