@@ -598,9 +598,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context);
     return Column(
       children: [
-        // 상단 헤더
+        // 상단 헤더 (폭 20% 감소)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(bottom: BorderSide(color: Colors.grey.shade200)),

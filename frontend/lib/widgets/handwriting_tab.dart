@@ -2375,9 +2375,9 @@ class _HandwritingTabState extends State<HandwritingTab>
       children: [
         Column(
           children: [
-            // 상단 헤더
+            // 상단 헤더 (텍스트 탭과 일치)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -2399,7 +2399,7 @@ class _HandwritingTabState extends State<HandwritingTab>
                     child: Text(
                       _currentHandwritingFile?.displayTitle ?? '새 필기',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
                       textAlign: TextAlign.center,

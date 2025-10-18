@@ -131,7 +131,7 @@ class _LittenItemState extends State<LittenItem> {
             onLongPress: widget.onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: 8.0), // 50% 축소 (16.0 → 8.0)
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.0), // 10% 축소 (AppSpacing.l → 14)
               child: Row(
                 children: [
                   // Leading icon
@@ -296,7 +296,7 @@ class _LittenItemState extends State<LittenItem> {
           onLongPress: widget.onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: 8.0), // 50% 축소 (16.0 → 8.0)
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.0), // 10% 축소 (AppSpacing.l → 14)
             child: Row(
             children: [
               // Leading icon

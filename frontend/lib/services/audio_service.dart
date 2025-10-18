@@ -5,6 +5,7 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/audio_file.dart';
 import '../models/litten.dart';
 
@@ -413,6 +414,96 @@ class AudioService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[AudioService] 파일 이름 변경 에러: $e');
       rethrow;
+    }
+  }
+
+  /// 녹음 상태 저장 (백그라운드 대비)
+  Future<void> saveRecordingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      if (_isRecording && _currentRecordingPath != null) {
+        await prefs.setBool('is_recording', true);
+        await prefs.setString('recording_path', _currentRecordingPath!);
+        await prefs.setInt('recording_duration_seconds', _recordingDuration.inSeconds);
+        await prefs.setInt('recording_start_time', DateTime.now().millisecondsSinceEpoch - _recordingDuration.inMilliseconds);
+        debugPrint('💾 녹음 상태 저장: $_currentRecordingPath (${_recordingDuration.inSeconds}초)');
+      } else {
+        await prefs.remove('is_recording');
+        await prefs.remove('recording_path');
+        await prefs.remove('recording_duration_seconds');
+        await prefs.remove('recording_start_time');
+        debugPrint('💾 녹음 상태 제거 (녹음 중 아님)');
+      }
+    } catch (e) {
+      debugPrint('❌ 녹음 상태 저장 실패: $e');
+    }
+  }
+
+  /// 녹음 상태 복원 (앱 재개 시)
+  Future<bool> restoreRecordingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final wasRecording = prefs.getBool('is_recording') ?? false;
+
+      if (!wasRecording) {
+        debugPrint('🔄 복원할 녹음 상태 없음');
+        return false;
+      }
+
+      final recordingPath = prefs.getString('recording_path');
+      final startTimeMs = prefs.getInt('recording_start_time');
+
+      if (recordingPath == null || startTimeMs == null) {
+        debugPrint('⚠️ 녹음 상태 정보 불완전, 초기화');
+        await prefs.remove('is_recording');
+        return false;
+      }
+
+      // 파일이 실제로 존재하는지 확인
+      final file = File(recordingPath);
+      if (!await file.exists()) {
+        debugPrint('⚠️ 녹음 파일이 존재하지 않음: $recordingPath');
+        await prefs.remove('is_recording');
+        await prefs.remove('recording_path');
+        await prefs.remove('recording_duration_seconds');
+        await prefs.remove('recording_start_time');
+        return false;
+      }
+
+      // 녹음 상태 복원
+      _isRecording = true;
+      _currentRecordingPath = recordingPath;
+
+      // 경과 시간 계산
+      final elapsedMs = DateTime.now().millisecondsSinceEpoch - startTimeMs;
+      _recordingDuration = Duration(milliseconds: elapsedMs);
+
+      debugPrint('🔄 녹음 상태 복원 성공: $recordingPath');
+      debugPrint('   경과 시간: ${_recordingDuration.inSeconds}초');
+
+      // 타이머 재시작
+      _startRecordingTimer();
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('❌ 녹음 상태 복원 실패: $e');
+      return false;
+    }
+  }
+
+  /// 녹음 상태 정리
+  Future<void> clearRecordingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('is_recording');
+      await prefs.remove('recording_path');
+      await prefs.remove('recording_duration_seconds');
+      await prefs.remove('recording_start_time');
+      debugPrint('🗑️ 녹음 상태 정리 완료');
+    } catch (e) {
+      debugPrint('❌ 녹음 상태 정리 실패: $e');
     }
   }
 

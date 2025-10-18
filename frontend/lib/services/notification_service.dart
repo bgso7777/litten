@@ -198,7 +198,7 @@ class NotificationService extends ChangeNotifier {
     }
   }
 
-  void scheduleNotifications(List<Litten> littens) {
+  void scheduleNotifications(List<Litten> littens) async {
     try {
       debugPrint('🔔 알림 스케줄링 시작: ${littens.length}개 리튼');
 
@@ -206,11 +206,15 @@ class NotificationService extends ChangeNotifier {
       _littenMap.clear();
       final now = DateTime.now();
       int totalScheduled = 0;
+      int totalNativeScheduled = 0;
 
       // 리튼 맵 업데이트
       for (final litten in littens) {
         _littenMap[litten.id] = litten;
       }
+
+      // 기존 OS 네이티브 알림 모두 취소
+      await _backgroundService.cancelAllNotifications();
 
       for (final litten in littens) {
         if (litten.schedule == null) continue;
@@ -228,14 +232,33 @@ class NotificationService extends ChangeNotifier {
             final notifications = _calculateNotificationTimes(litten, schedule, rule, now);
             _pendingNotifications.addAll(notifications);
             totalScheduled += notifications.length;
+
+            // OS 네이티브 예약 알림도 함께 등록 (향후 7일간만)
+            final nativeNotifications = notifications.where((n) =>
+              n.triggerTime.difference(now).inDays < 7
+            ).toList();
+
+            for (int i = 0; i < nativeNotifications.length; i++) {
+              final notification = nativeNotifications[i];
+              await _backgroundService.scheduleNotification(
+                id: litten.id.hashCode + i,
+                title: '리튼 알림',
+                body: notification.message,
+                scheduledDate: notification.triggerTime,
+                littenId: litten.id,
+              );
+              totalNativeScheduled++;
+            }
+
             debugPrint('✅ 알림 추가: ${notifications.length}개 (${rule.frequency.label} ${rule.timing.label})');
+            debugPrint('   - OS 네이티브 알림: ${nativeNotifications.length}개 등록');
           } catch (e) {
             debugPrint('❌ 알림 계산 실패: "${litten.title}" - $e');
           }
         }
       }
 
-      debugPrint('🔔 알림 스케줄링 완료: 총 $totalScheduled개 알림 예약');
+      debugPrint('🔔 알림 스케줄링 완료: 총 $totalScheduled개 알림 예약 (OS 네이티브: $totalNativeScheduled개)');
       notifyListeners();
     } catch (e) {
       debugPrint('❌ 알림 스케줄링 에러: $e');

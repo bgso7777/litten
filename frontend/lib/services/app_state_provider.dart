@@ -8,6 +8,7 @@ import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
+import '../services/background_notification_service.dart';
 import '../services/app_icon_badge_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
@@ -158,6 +159,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _notificationService.startNotificationChecker();
     _notificationService.addListener(_onNotificationChanged);
     _updateNotificationSchedule();
+
+    // 백그라운드 알림 작업 등록
+    await BackgroundNotificationService().registerBackgroundTask();
+    debugPrint('✅ 백그라운드 알림 작업 등록 완료');
 
     _isInitialized = true;
     notifyListeners();
@@ -1294,6 +1299,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 앱이 포그라운드로 돌아옴
         debugPrint('▶️ 앱 포그라운드 전환 - 상태 복원 및 알림 서비스 재개');
         _restoreSelectedLittenState();
+        _audioService.restoreRecordingState();
         _notificationService.onAppResumed();
         break;
       case AppLifecycleState.inactive:
@@ -1304,11 +1310,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 앱이 백그라운드로 감
         debugPrint('⏸️ 앱 백그라운드 전환 - 상태 저장 및 알림 서비스 일시정지');
         _saveSelectedLittenState();
+        _audioService.saveRecordingState();
         _notificationService.onAppPaused();
         break;
       case AppLifecycleState.detached:
         // 앱이 종료됨
         debugPrint('🛑 앱 종료');
+        _saveSelectedLittenState();
+        _audioService.saveRecordingState();
         break;
       case AppLifecycleState.hidden:
         // 앱이 숨겨짐 (일부 플랫폼에서 사용)
