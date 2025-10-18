@@ -730,6 +730,7 @@ class _HandwritingTabState extends State<HandwritingTab>
                               onTapDown: (details) {
                                 print('DEBUG: ========== 텍스트 입력 터치 시작 ==========');
                                 print('DEBUG: details.localPosition: ${details.localPosition}');
+                                print('DEBUG: details.globalPosition: ${details.globalPosition}');
 
                                 // 캔버스 좌표 계산 (줌/팬 고려) - 텍스트 렌더링용
                                 final canvasPosition =
@@ -738,9 +739,25 @@ class _HandwritingTabState extends State<HandwritingTab>
                                     );
 
                                 // TextField 배치 위치 계산
-                                // details.localPosition은 InteractiveViewer 내부 좌표계이므로
-                                // TextField도 같은 Stack 내부에 있어서 좌표계가 동일함
-                                final screenPosition = _calculateGlobalTextInputPosition(details.localPosition);
+                                // RenderBox를 통해 GestureDetector의 localPosition을 화면 전체 좌표로 변환
+                                final RenderBox? box = gestureContext.findRenderObject() as RenderBox?;
+                                Offset screenPosition;
+                                if (box != null) {
+                                  // GestureDetector의 localPosition을 화면 전체 좌표로 변환
+                                  final globalPos = box.localToGlobal(details.localPosition);
+
+                                  // TextField의 텍스트 커서가 Container 상단에서 약간 아래에 위치하므로
+                                  // Y 좌표를 위로 조정 (값을 빼면 위로 이동)
+                                  const double textFieldOffset = 163.0;
+                                  screenPosition = Offset(globalPos.dx, globalPos.dy - textFieldOffset);
+
+                                  print('DEBUG: RenderBox를 통한 화면 좌표 변환 성공: $globalPos');
+                                  print('DEBUG: TextField 오프셋 조정 후: $screenPosition');
+                                } else {
+                                  // fallback: globalPosition 사용
+                                  screenPosition = details.globalPosition;
+                                  print('DEBUG: RenderBox 없음 - globalPosition 사용: $screenPosition');
+                                }
 
                                 print('DEBUG: 캔버스 좌표 (텍스트 렌더링): $canvasPosition');
                                 print('DEBUG: 화면 좌표 (TextField 배치): $screenPosition');
@@ -1912,22 +1929,34 @@ class _HandwritingTabState extends State<HandwritingTab>
     }
   }
 
-  /// 터치 위치를 InteractiveViewer 내부 좌표 그대로 사용 (TextField도 같은 Stack 내부)
+  /// 터치 위치를 TextField 배치 좌표로 변환
+  ///
+  /// TextField의 텍스트 커서가 터치한 위치에 오도록 조정합니다.
+  /// - TextField는 Positioned로 Stack에 배치됨
+  /// - 터치 위치에 텍스트 커서(baseline)가 오도록 Y축을 위로 조정
   Offset _calculateGlobalTextInputPosition(Offset localPosition) {
     try {
-      // TextField와 터치 좌표가 같은 coordinate space에 있음
-      // localPosition은 InteractiveViewer 내부 기준, TextField도 같은 Stack 내부
-      // 따라서 그대로 사용하되, TextField의 내부 패딩만 보정
+      // TextField의 텍스트는 Container 상단에서 약간 떨어진 위치에 표시됨
+      // fontSize 16px + line-height 등을 고려하여 위로 이동
+      //
+      // TextField 구조:
+      // - Container (border, padding 등)
+      //   - TextField
+      //     - 텍스트 (baseline이 Container 상단에서 약 12-14px 아래)
+      //
+      // 목표: 터치한 위치 = 텍스트 baseline 위치
 
-      const double textFieldPaddingX = 0; // TextField contentPadding = 0
-      const double textFieldPaddingY = 0; // TextField contentPadding = 0
+      const double textBaselineOffset = 6.0; // 텍스트 baseline까지의 오프셋
 
-      final double globalX = localPosition.dx - textFieldPaddingX;
-      final double globalY = localPosition.dy - textFieldPaddingY;
+      final double globalX = localPosition.dx;
+      final double globalY = localPosition.dy - textBaselineOffset; // 위로 올림
 
       final Offset globalPosition = Offset(globalX, globalY);
 
-      print('DEBUG: TextField 위치 계산 - 로컬: $localPosition → 사용: $globalPosition');
+      print('DEBUG: TextField 위치 계산');
+      print('  - 터치 위치: $localPosition');
+      print('  - TextField 배치: $globalPosition');
+      print('  - Y축 조정: -$textBaselineOffset (텍스트 baseline 정렬)');
 
       return globalPosition;
     } catch (e) {

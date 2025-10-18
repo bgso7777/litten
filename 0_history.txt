@@ -65,181 +65,51 @@ frontend 핵심 기능 보완 - 이전에 실패한 필기 도구의
 1 기본 크기에서 텍스트 툴바 누르고 제목 옆을 클릭했을 때.png
 2 텍스트에 입력창에 2222222222 을 입력했을 때.png
 
-???????????????????????????????????
-네, 정리해드리겠습니다.
-텍스트 입력 위치 제어 핵심 정보
-파일: /Users/mymac/Desktop/litten/frontend/lib/widgets/handwriting_tab.dart
-1️⃣ TextField 입력창 위치
-위치: 라인 730-754 (Inner GestureDetector의 onTapDown)
-onTapDown: (details) {
-  // 캔버스 좌표 (텍스트 렌더링용)
-  final canvasPosition = _transformLocalToCanvasCoordinates(details.localPosition);
-  
-  // TextField 배치 위치 (화면 UI용)
-  final screenPosition = _calculateGlobalTextInputPosition(details.localPosition);
-  
-  setState(() {
-    _textInputPosition = canvasPosition;      // 텍스트가 렌더링될 위치
-    _screenTextInputPosition = screenPosition; // TextField가 표시될 위치
-  });
-}
-수정 포인트: _screenTextInputPosition 변수가 TextField의 위치를 결정합니다.
-2️⃣ TextField 위치 계산 함수
-위치: 라인 1916-1937 (_calculateGlobalTextInputPosition)
-Offset _calculateGlobalTextInputPosition(Offset localPosition) {
-  // 현재: localPosition 그대로 사용
-  const double textFieldPaddingX = 0;
-  const double textFieldPaddingY = 0;
-  
-  final double globalX = localPosition.dx - textFieldPaddingX;
-  final double globalY = localPosition.dy - textFieldPaddingY;
-  
-  return Offset(globalX, globalY);
-}
-수정 방법:
-TextField를 위로 올리려면: globalY에서 픽셀 값 빼기 (예: - 50)
-TextField를 아래로 내리려면: globalY에 픽셀 값 더하기 (예: + 50)
-TextField를 왼쪽으로: globalX에서 빼기
-TextField를 오른쪽으로: globalX에 더하기
-3️⃣ 렌더링된 텍스트 위치
-위치: 라인 1945-1996 (_addTextToCanvas)
-void _addTextToCanvas(String text) {
-  if (_textInputPosition != null) {
-    // 텍스트 렌더링 위치 조정
-    const double textOffsetX = 2;  // 우측으로 이동
-    const double textOffsetY = 12; // 아래로 이동
-    
-    final adjustedPosition = Offset(
-      _textInputPosition!.dx + textOffsetX,
-      _textInputPosition!.dy + textOffsetY,
-    );
-    
-    final textDrawable = TextDrawable(
-      text: text,
-      position: adjustedPosition,  // 여기가 최종 렌더링 위치!
-      ...
-    );
-  }
-}
-수정 방법:
-textOffsetX: 양수 = 오른쪽, 음수 = 왼쪽
-textOffsetY: 양수 = 아래, 음수 = 위
-4️⃣ TextField UI 위젯
-위치: 라인 2637-2705 (Positioned TextField)
-if (_screenTextInputPosition != null)
-  Positioned(
-    left: _screenTextInputPosition!.dx,  // X 위치
-    top: _screenTextInputPosition!.dy,   // Y 위치
-    child: TextField(
-      decoration: const InputDecoration(
-        contentPadding: EdgeInsets.zero,  // 내부 패딩 제거
-        ...
-      ),
-    ),
-  ),
-참고: 이 위젯은 _screenTextInputPosition 값을 따라갑니다.
-🎯 빠른 테스트 방법
-TextField 위치만 수정하려면:
-라인 1916-1937 에서 다음과 같이 수정:
-Offset _calculateGlobalTextInputPosition(Offset localPosition) {
-  // 예시: TextField를 50px 아래로 이동
-  final double globalX = localPosition.dx;
-  final double globalY = localPosition.dy + 50;  // ← 이 값 조정!
-  
-  return Offset(globalX, globalY);
-}
-렌더링된 텍스트 위치만 수정하려면:
-라인 1979-1984 에서 다음과 같이 수정:
-const double textOffsetX = 10;  // ← 오른쪽으로 10px
-const double textOffsetY = 20;  // ← 아래로 20px
-📌 핵심 요약
-수정 대상	파일 위치	변수명	효과
-TextField 위치	라인 1916-1937	globalX, globalY	입력창 위치
-렌더링 텍스트 위치	라인 1979-1984	textOffsetX, textOffsetY	확정된 텍스트 위치
-다음 세션에 이 정보로 정확한 위치 조정을 진행하시면 됩니다!
-
-
-네, 가능합니다! 확대/축소 시 TextField와 입력된 텍스트의 폰트 크기를 InteractiveViewer의 스케일에 맞춰 조정할 수 있습니다.
-해결 방법
-핵심 아이디어:
-InteractiveViewer의 현재 스케일 값을 가져와서:
-TextField 폰트 크기 = 기본 크기 / 스케일 (확대하면 작게, 축소하면 크게)
-렌더링된 텍스트 폰트 크기 = 기본 크기 (고정, 캔버스에 그려지므로)
-📝 다음 세션에 적용할 수정 사항
-파일: /Users/mymac/Desktop/litten/frontend/lib/widgets/handwriting_tab.dart
-1️⃣ 스케일 값 저장 변수 추가 (라인 200 근처)
-Offset? _textInputPosition;
-Offset? _screenTextInputPosition;
-double _currentScale = 1.0;  // ← 추가: 현재 스케일 값 저장
-2️⃣ TextField에 스케일 적용 (라인 2637-2705)
-if (_screenTextInputPosition != null)
-  Positioned(
-    left: _screenTextInputPosition!.dx,
-    top: _screenTextInputPosition!.dy,
-    child: Transform.scale(
-      scale: 1.0 / _currentScale,  // ← 추가: 스케일 역수로 크기 조정
-      alignment: Alignment.topLeft,
-      child: TextField(
-        controller: _canvasTextController,
-        style: TextStyle(
-          color: _selectedColor,
-          fontSize: 16,  // 기본 크기는 고정
-          fontWeight: FontWeight.normal,
-          height: 1.0,
-        ),
-        ...
-      ),
-    ),
-  ),
-3️⃣ 스케일 값 업데이트 (InteractiveViewer의 onInteractionUpdate)
-InteractiveViewer에 다음 콜백 추가 (라인 600 근처):
-InteractiveViewer(
-  transformationController: _transformationController,
-  onInteractionUpdate: (ScaleUpdateDetails details) {
-    // 현재 스케일 값 저장
-    final Matrix4 matrix = _transformationController.value;
-    setState(() {
-      _currentScale = matrix.getMaxScaleOnAxis();
-    });
-  },
-  child: Center(
-    ...
-  ),
-),
-🎯 기대 효과
-확대 시 (스케일 2.0):
-TextField 폰트: 16 / 2.0 = 8px (화면에서 작게 보임 → 확대된 캔버스에 맞춤)
-렌더링 텍스트: 16px (캔버스에 고정 크기로 그려짐)
-축소 시 (스케일 0.5):
-TextField 폰트: 16 / 0.5 = 32px (화면에서 크게 보임 → 축소된 캔버스에 맞춤)
-렌더링 텍스트: 16px (캔버스에 고정 크기로 그려짐)
-📌 추가로 고려할 점
-TextField 테두리도 스케일 조정:
-decoration: InputDecoration(
-  border: OutlineInputBorder(
-    borderSide: BorderSide(
-      width: 2.0 / _currentScale,  // ← 테두리 두께도 조정
-    ),
-  ),
-  ...
-),
-렌더링 텍스트는 고정:
-final textDrawable = TextDrawable(
-  text: text,
-  position: adjustedPosition,
-  style: TextStyle(
-    color: _selectedColor,
-    fontSize: 16,  // ← 항상 16px 고정 (캔버스 크기 기준)
-    fontWeight: FontWeight.normal,
-  ),
-);
-다음 세션에 이 수정사항들을 한꺼번에 적용하면 확대/축소 시에도 텍스트 크기가 자연스럽게 조정됩니다!
-
-???????????????????????????????????
-
 
 이미지에서 현 상태의 제목 텍스트의 위치 폰트를 확인할 수 있어? 
 
+지금 상태가 이상해져서 소스를 원복했어. 
+일단 하나하나 해결합시다. 
+첫번째로 텍스트 필드 입력창의 캔버스내 위치 잡기와 입력한 텍스트의 위치 잡기
+두번째로 입력한 텍스트의 크기
+일단 첫번째 작업부터 할건데 지금 터치한 위치보다 텍스트 입력 창이 상당히 위로 가있어
+이게 터치한 위치에 입력창을 놓는게 맞는지 확인하고 수정해줘
+
+textBaselineOffset = 12.0
+textBaselineOffset = 6.0
+
+
+
+textFieldOffset = 163.0
+
+1. TextField 입력창 위치 관련
+위치: handwriting_tab.dart:741-769
+
+변수명	타입	값	위치	설명
+textFieldOffset	double	163.0	Line 751	TextField를 터치 위치 위로 올리는 오프셋 (픽셀)
+_screenTextInputPosition	Offset?	계산값	Line 80, 768	TextField가 화면에 배치될 최종 좌표 (화면 전체 좌표계)
+screenPosition	Offset	계산값	Line 744, 752	RenderBox로 변환된 좌표에서 textFieldOffset을 뺀 위치
+globalPos	Offset	계산값	Line 747	RenderBox.localToGlobal()로 변환된 화면 전체 좌표
+계산식:
+screenPosition = Offset(globalPos.dx, globalPos.dy - textFieldOffset)
+// globalPos.dy - 163.0 = TextField Y 좌표
+
+2. 캔버스에 렌더링되는 텍스트 위치 관련
+위치: handwriting_tab.dart:1982-1991
+변수명	타입	값	위치	설명
+textOffsetX	double	2.0	Line 1986	텍스트를 우측으로 이동 (TextField border 보정)
+textOffsetY	double	12.0	Line 1987	텍스트를 아래로 이동 (baseline 위치 보정)
+_textInputPosition	Offset?	계산값	Line 79, 767	캔버스 좌표계에서의 터치 위치 (줌/팬 고려)
+adjustedPosition	Offset	계산값	Line 1988-1991	최종 텍스트 렌더링 위치
+계산식:
+adjustedPosition = Offset(
+  _textInputPosition!.dx + textOffsetX,  // 원본 X + 2.0
+  _textInputPosition!.dy + textOffsetY,  // 원본 Y + 12.0
+)
+
+요약
+TextField 위치: 터치한 위치에서 위로 163픽셀 올려서 배치
+렌더링 텍스트 위치: TextField 위치와 일치시키기 위해 우측 +2px, 아래 +12px 조정
 
 
 
