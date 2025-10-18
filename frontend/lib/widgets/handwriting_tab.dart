@@ -82,6 +82,11 @@ class _HandwritingTabState extends State<HandwritingTab>
   bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
 
+  // 텍스트 도구 고급 설정
+  double _textFontSize = 16.0;
+  bool _textBold = false;
+  bool _textItalic = false;
+
   // 줌 기능 관련
   late TransformationController _transformationController;
   static const double _minScale = 0.3;
@@ -1673,6 +1678,19 @@ class _HandwritingTabState extends State<HandwritingTab>
             _showAdvancedTools = !_showAdvancedTools;
           });
           break;
+        case '글자크기':
+          _showFontSizePicker();
+          break;
+        case '굵게':
+          setState(() {
+            _textBold = !_textBold;
+          });
+          break;
+        case '기울임':
+          setState(() {
+            _textItalic = !_textItalic;
+          });
+          break;
       }
     });
 
@@ -1998,8 +2016,9 @@ class _HandwritingTabState extends State<HandwritingTab>
           position: adjustedPosition,
           style: TextStyle(
             color: _selectedColor,
-            fontSize: 16,
-            fontWeight: FontWeight.normal,
+            fontSize: _textFontSize,
+            fontWeight: _textBold ? FontWeight.bold : FontWeight.normal,
+            fontStyle: _textItalic ? FontStyle.italic : FontStyle.normal,
           ),
         );
 
@@ -2050,6 +2069,44 @@ class _HandwritingTabState extends State<HandwritingTab>
             child: const Text('확인'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFontSizePicker() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('글자 크기 선택'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Slider(
+                value: _textFontSize,
+                min: 8.0,
+                max: 48.0,
+                divisions: 40,
+                label: '${_textFontSize.round()}px',
+                onChanged: (value) {
+                  setDialogState(() {
+                    _textFontSize = value;
+                  });
+                  setState(() {
+                    _textFontSize = value;
+                  });
+                },
+              ),
+              Text('현재 크기: ${_textFontSize.round()}px'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2441,6 +2498,29 @@ class _HandwritingTabState extends State<HandwritingTab>
                       '텍스트',
                       _selectedTool == '텍스트',
                     ),
+
+                    // 텍스트 도구 선택 시 텍스트 포맷 버튼들 표시
+                    if (_selectedTool == '텍스트') ...[
+                      _buildToolSeparator(),
+                      _buildCompactDrawingTool(
+                        Icons.format_size,
+                        '글자크기',
+                        false,
+                      ),
+                      _buildToolSeparator(),
+                      _buildCompactDrawingTool(
+                        Icons.format_bold,
+                        '굵게',
+                        _textBold,
+                      ),
+                      _buildToolSeparator(),
+                      _buildCompactDrawingTool(
+                        Icons.format_italic,
+                        '기울임',
+                        _textItalic,
+                      ),
+                    ],
+
                     _buildToolSeparator(),
                     _buildCompactDrawingTool(
                       Icons.remove,
