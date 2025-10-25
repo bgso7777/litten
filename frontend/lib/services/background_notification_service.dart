@@ -21,10 +21,17 @@ class BackgroundNotificationService {
 
   // 초기화
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized) {
+      debugPrint('🎯 BackgroundNotificationService 이미 초기화됨');
+      return;
+    }
 
-    try {
-      debugPrint('🔔 BackgroundNotificationService 초기화 시작');
+    int retryCount = 0;
+    const maxRetries = 3;
+
+    while (!_initialized && retryCount < maxRetries) {
+      try {
+        debugPrint('🔔 BackgroundNotificationService 초기화 시도 ${retryCount + 1}/$maxRetries');
 
       // Android 초기화 설정
       const AndroidInitializationSettings initializationSettingsAndroid =
@@ -61,10 +68,20 @@ class BackgroundNotificationService {
       // 배지 초기화
       await _initializeBadge();
 
-      _initialized = true;
-      debugPrint('✅ BackgroundNotificationService 초기화 완료');
-    } catch (e) {
-      debugPrint('❌ BackgroundNotificationService 초기화 실패: $e');
+        _initialized = true;
+        debugPrint('✅ BackgroundNotificationService 초기화 성공');
+        return;
+      } catch (e) {
+        retryCount++;
+        debugPrint('❌ BackgroundNotificationService 초기화 실패 (시도 $retryCount/$maxRetries): $e');
+        if (retryCount < maxRetries) {
+          await Future.delayed(Duration(seconds: retryCount * 2));
+        }
+      }
+    }
+
+    if (!_initialized) {
+      debugPrint('🔴 BackgroundNotificationService 초기화 최종 실패');
     }
   }
 
@@ -136,13 +153,23 @@ class BackgroundNotificationService {
     }
   }
 
-  // 알림 표시
+  // 알림 표시 (안전 버전)
   Future<void> showNotification({
     required String title,
     required String body,
     required String littenId,
     String? payload,
   }) async {
+    // 초기화 확인
+    if (!_initialized) {
+      debugPrint('⚠️ 알림 서비스 미초기화 - 초기화 시도');
+      await initialize();
+      if (!_initialized) {
+        debugPrint('❌ 알림 표시 실패 - 서비스 초기화 불가');
+        return;
+      }
+    }
+
     try {
       _notificationId++;
       _badgeCount++;

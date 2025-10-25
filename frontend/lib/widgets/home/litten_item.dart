@@ -95,7 +95,9 @@ class _LittenItemState extends State<LittenItem> {
   }
 
   Widget _buildLittenItem(BuildContext context, DateFormat timeFormat, l10n) {
-    
+    // Child 리튼인지 확인
+    final isChildLitten = widget.litten.isChildLitten;
+
     return Draggable<String>(
       data: widget.litten.id,
       feedback: Material(
@@ -135,18 +137,76 @@ class _LittenItemState extends State<LittenItem> {
               child: Row(
                 children: [
                   // Leading icon
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(
-                      Icons.folder_outlined,
-                      color: Colors.grey.shade400,
-                      size: 20,
-                    ),
+                  Stack(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isChildLitten
+                              ? Colors.blue.shade100  // Child 리튼은 파란색 배경
+                              : _isHighlighted
+                                  ? Colors.orange.shade100
+                                  : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(6),
+                          border: isChildLitten
+                              ? Border.all(color: Colors.blue.shade300, width: 1)  // Child 리튼 테두리
+                              : null,
+                        ),
+                        child: Icon(
+                          isChildLitten
+                              ? Icons.subdirectory_arrow_right  // Child 리튼 아이콘
+                              : Icons.folder_outlined,
+                          color: isChildLitten
+                              ? Colors.blue.shade700  // Child 리튼 아이콘 색상
+                              : _isHighlighted
+                                  ? Colors.orange.shade600
+                                  : Colors.grey.shade400,
+                          size: 20,
+                        ),
+                      ),
+                      if (_isHighlighted && !isChildLitten)  // Parent 리튼만 알림 표시
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.notifications,
+                              size: 8,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      if (isChildLitten)  // Child 리튼 표시 배지
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade600,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'R',  // Recurring(반복) 표시
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   AppSpacing.horizontalSpaceM,
                   // Content
@@ -215,10 +275,10 @@ class _LittenItemState extends State<LittenItem> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -243,7 +303,7 @@ class _LittenItemState extends State<LittenItem> {
                                   Icon(
                                     Icons.note,
                                     size: 14,
-                                    color: Theme.of(context).primaryColor.withOpacity(0.7),
+                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
                                   ),
                                 ],
                               ],
@@ -279,26 +339,30 @@ class _LittenItemState extends State<LittenItem> {
           ),
         ),
       ),
-      child: Card(
-        margin: EdgeInsets.only(bottom: AppSpacing.s),
-        elevation: widget.isSelected ? 4 : (_isHighlighted ? 6 : 2),
-        color: _isHighlighted ? Colors.orange.shade50 : null,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: widget.isSelected
-              ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
-              : _isHighlighted
-                  ? BorderSide(color: Colors.orange, width: 2)
-                  : BorderSide.none,
-        ),
-        child: InkWell(
-          onTap: _handleTap,
-          onLongPress: widget.onLongPress,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.0), // 10% 축소 (AppSpacing.l → 14)
-            child: Row(
-            children: [
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        child: Card(
+          margin: EdgeInsets.only(bottom: AppSpacing.s),
+          elevation: widget.isSelected ? 4 : (_isHighlighted ? 8 : 2),
+          color: _isHighlighted
+              ? Colors.orange.shade50.withValues(alpha: 0.9)
+              : null,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: widget.isSelected
+                ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
+                : _isHighlighted
+                    ? BorderSide(color: Colors.orange.shade400, width: 3)
+                    : BorderSide.none,
+          ),
+          child: InkWell(
+            onTap: _handleTap,
+            onLongPress: widget.onLongPress,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.0), // 10% 축소 (AppSpacing.l → 14)
+              child: Row(
+                children: [
               // Leading icon
               Container(
                 width: 32,
@@ -402,11 +466,12 @@ class _LittenItemState extends State<LittenItem> {
                 iconSize: 20,
                 tooltip: l10n?.delete ?? '삭제',
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 

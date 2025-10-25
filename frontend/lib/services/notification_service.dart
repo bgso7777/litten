@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/litten.dart';
 import 'background_notification_service.dart';
+import 'recurring_notification_service.dart';
 
 class NotificationEvent {
   final String littenId;
@@ -55,11 +56,15 @@ class NotificationEvent {
 
 class NotificationService extends ChangeNotifier {
   Timer? _timer;
+  Timer? _healthCheckTimer; // 상태 체크 타이머
   final List<NotificationEvent> _pendingNotifications = [];
   final List<NotificationEvent> _firedNotifications = [];
   final Map<String, Litten> _littenMap = {}; // 리튼 ID -> 리튼 객체 매핑
   DateTime? _lastCheckTime; // 마지막 체크 시간 추적
+  DateTime? _lastHealthCheckTime; // 마지막 헬스 체크 시간
   bool _isInBackground = false; // 백그라운드 상태 추적
+  bool _isRunning = false; // 알림 서비스 작동 상태
+  int _failureCount = 0; // 실패 횟수 추적
 
   // 백그라운드 알림 서비스
   final BackgroundNotificationService _backgroundService = BackgroundNotificationService();
@@ -69,24 +74,40 @@ class NotificationService extends ChangeNotifier {
 
   List<NotificationEvent> get pendingNotifications => List.unmodifiable(_pendingNotifications);
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
+  bool get isRunning => _isRunning;
 
   void startNotificationChecker() {
     debugPrint('🚀 알림 체커 시작 - 30초마다 자동 체크');
-    // 30초마다 알림 체크 (백그라운드에서도 계속 작동)
+    _isRunning = true;
+    _failureCount = 0;
+
+    // 기존 타이머 정리
     _timer?.cancel();
+    _healthCheckTimer?.cancel();
+
+    // 30초마다 알림 체크 (백그라운드에서도 계속 작동)
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
       debugPrint('⏰ Timer 실행: ${DateTime.now()}');
-      _checkNotifications();
+      _safeCheckNotifications();
+    });
+
+    // 5분마다 헬스 체크 타이머
+    _healthCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      _performHealthCheck();
     });
 
     // 즉시 한 번 체크
-    _checkNotifications();
+    _safeCheckNotifications();
+    _lastHealthCheckTime = DateTime.now();
   }
 
   void stopNotificationChecker() {
     debugPrint('🛑 알림 체커 중지');
+    _isRunning = false;
     _timer?.cancel();
     _timer = null;
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
   }
 
   /// 앱이 백그라운드로 갈 때 호출
@@ -116,15 +137,90 @@ class NotificationService extends ChangeNotifier {
     _lastCheckTime = DateTime.now();
   }
 
+  /// 안전한 알림 체크 (오류 처리 포함)
+  Future<void> _safeCheckNotifications() async {
+    try {
+      await _checkNotifications();
+      _failureCount = 0; // 성공 시 실패 카운트 리셋
+    } catch (e) {
+      _failureCount++;
+      debugPrint('❌ 알림 체크 실패 (${_failureCount}회): $e');
+
+      // 3번 연속 실패 시 서비스 재시작
+      if (_failureCount >= 3) {
+        debugPrint('🔄 알림 서비스 재시작 시도');
+        await _restartService();
+      }
+    }
+  }
+
+  /// 서비스 상태 확인 및 복구
+  Future<void> _performHealthCheck() async {
+    debugPrint('🏥 알림 서비스 헬스 체크');
+
+    final now = DateTime.now();
+
+    // 타이머가 멈췄는지 확인
+    if (_timer == null || !_timer!.isActive) {
+      debugPrint('⚠️ 알림 타이머가 멈췄 - 재시작');
+      await _restartService();
+      return;
+    }
+
+    // 마지막 체크 시간 확인 (10분 이상 지났으면 문제)
+    if (_lastCheckTime != null) {
+      final timeSinceLastCheck = now.difference(_lastCheckTime!);
+      if (timeSinceLastCheck.inMinutes > 10) {
+        debugPrint('⚠️ 알림 체크가 10분 이상 안 됨 - 재시작');
+        await _restartService();
+        return;
+      }
+    }
+
+    _lastHealthCheckTime = now;
+    debugPrint('✅ 알림 서비스 정상 작동 중');
+  }
+
+  /// 서비스 재시작
+  Future<void> _restartService() async {
+    try {
+      debugPrint('🔄 알림 서비스 재시작 시작');
+
+      // 기존 타이머 정리
+      stopNotificationChecker();
+
+      // 약간 대기 후 재시작
+      await Future.delayed(const Duration(seconds: 2));
+
+      // 서비스 재시작
+      startNotificationChecker();
+
+      debugPrint('✅ 알림 서비스 재시작 완료');
+    } catch (e) {
+      debugPrint('❌ 알림 서비스 재시작 실패: $e');
+    }
+  }
+
   Future<void> _checkNotifications() async {
+    // 오래된 Child 리튼 정리
+    await RecurringNotificationService().cleanupOldChildLittens();
+
     final now = DateTime.now();
     final currentMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute);
+    _lastCheckTime = now; // 체크 시간 업데이트
 
     // 현재 시간과 정확히 일치하거나 1분 이내에 지난 알림을 찾습니다
     final checkStartTime = currentMinute.subtract(const Duration(minutes: 1));
     final checkEndTime = currentMinute.add(const Duration(minutes: 1));
 
+    // Parent 리튼의 알림만 체크
     final notifications = _pendingNotifications.where((notification) {
+      // Parent 리튼인지 확인
+      final litten = _littenMap[notification.littenId];
+      if (litten != null && litten.isChildLitten) {
+        return false; // Child 리튼은 체크하지 않음
+      }
+
       final triggerMinute = DateTime(
         notification.triggerTime.year,
         notification.triggerTime.month,
@@ -198,9 +294,15 @@ class NotificationService extends ChangeNotifier {
     }
   }
 
-  void scheduleNotifications(List<Litten> littens) async {
+  Future<void> scheduleNotifications(List<Litten> littens) async {
     try {
       debugPrint('🔔 알림 스케줄링 시작: ${littens.length}개 리튼');
+
+      // 서비스가 실행 중이 아니면 시작
+      if (!_isRunning) {
+        debugPrint('🔄 알림 서비스가 중지됨 - 재시작');
+        startNotificationChecker();
+      }
 
       _pendingNotifications.clear();
       _littenMap.clear();
@@ -208,15 +310,75 @@ class NotificationService extends ChangeNotifier {
       int totalScheduled = 0;
       int totalNativeScheduled = 0;
 
+      // Parent 리튼만 필터링
+      final parentLittens = littens.where((l) => !l.isChildLitten).toList();
+      debugPrint('👪 Parent 리튼: ${parentLittens.length}개');
+
+      // Child 리튼 생성은 비동기로 처리하여 알림 서비스가 블록되지 않도록 함
+      List<Litten> todayChildren = [];
+      List<Litten> tomorrowChildren = [];
+
+      try {
+        // 오늘/내일에 대한 Child 리튼 자동 생성 (시간 제한 설정)
+        final recurringService = RecurringNotificationService();
+        todayChildren = await recurringService.generateChildLittensForRecurring(
+          parentLittens: parentLittens,
+          targetDate: now,
+        ).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () {
+            debugPrint('⚠️ Child 리튼 생성 타임아웃 (오늘)');
+            return [];
+          },
+        );
+
+        tomorrowChildren = await recurringService.generateChildLittensForRecurring(
+          parentLittens: parentLittens,
+          targetDate: now.add(const Duration(days: 1)),
+        ).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () {
+            debugPrint('⚠️ Child 리튼 생성 타임아웃 (내일)');
+            return [];
+          },
+        );
+      } catch (e) {
+        debugPrint('❌ Child 리튼 생성 중 오류 (무시): $e');
+      }
+
+      debugPrint('🔄 생성된 Child 리튼: 오늘 ${todayChildren.length}개, 내일 ${tomorrowChildren.length}개');
+
+      // 모든 리튼 합치기 (Parent + 기존 Child + 새 Child)
+      final allLittens = [...parentLittens];
+      allLittens.addAll(littens.where((l) => l.isChildLitten));
+      allLittens.addAll(todayChildren);
+      allLittens.addAll(tomorrowChildren);
+
       // 리튼 맵 업데이트
-      for (final litten in littens) {
+      for (final litten in allLittens) {
         _littenMap[litten.id] = litten;
       }
 
       // 기존 OS 네이티브 알림 모두 취소
       await _backgroundService.cancelAllNotifications();
 
-      for (final litten in littens) {
+      // Parent 리튼과 오늘/내일의 Child 리튼만 알림 체크
+      final littensToCheck = allLittens.where((litten) {
+        if (!litten.isChildLitten) return true; // Parent는 항상 체크
+        if (litten.schedule == null) return false;
+
+        // Child는 오늘/내일 것만 체크
+        final scheduleDate = litten.schedule!.date;
+        final today = DateTime(now.year, now.month, now.day);
+        final tomorrow = today.add(const Duration(days: 1));
+        final littenDay = DateTime(scheduleDate.year, scheduleDate.month, scheduleDate.day);
+
+        return littenDay.isAtSameMomentAs(today) || littenDay.isAtSameMomentAs(tomorrow);
+      }).toList();
+
+      debugPrint('🔍 알림 체크 대상: ${littensToCheck.length}개 리튼');
+
+      for (final litten in littensToCheck) {
         if (litten.schedule == null) continue;
 
         final schedule = litten.schedule!;
@@ -481,7 +643,10 @@ class NotificationService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    stopNotificationChecker();
+    _pendingNotifications.clear();
+    _firedNotifications.clear();
+    _littenMap.clear();
     super.dispose();
   }
 }

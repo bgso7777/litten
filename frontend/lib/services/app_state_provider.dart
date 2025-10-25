@@ -154,15 +154,35 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 앱 아이콘 배지 서비스 초기화
     _appIconBadgeService.initialize();
 
-    // 알림 서비스 시작
-    _notificationService.onCreateChildLitten = _createChildLitten;
-    _notificationService.startNotificationChecker();
-    _notificationService.addListener(_onNotificationChanged);
-    _updateNotificationSchedule();
+    // 알림 서비스 초기화 및 시작 (재시도 로직 포함)
+    try {
+      debugPrint('🔔 알림 서비스 초기화 시작');
 
-    // 백그라운드 알림 작업 등록
-    await BackgroundNotificationService().registerBackgroundTask();
-    debugPrint('✅ 백그라운드 알림 작업 등록 완료');
+      // 백그라운드 알림 서비스 초기화 (재시도 포함)
+      final bgService = BackgroundNotificationService();
+      await bgService.initialize();
+
+      // 알림 체커 시작
+      _notificationService.onCreateChildLitten = _createChildLitten;
+      _notificationService.startNotificationChecker();
+      _notificationService.addListener(_onNotificationChanged);
+
+      // 알림 스케줄 업데이트
+      _updateNotificationSchedule();
+
+      // 백그라운드 작업 등록
+      await bgService.registerBackgroundTask();
+
+      debugPrint('✅ 알림 서비스 초기화 완료');
+    } catch (e) {
+      debugPrint('❌ 알림 서비스 초기화 실패: $e');
+      // 초기화 실패해도 앱은 계속 실행
+      // 5초 후 재시도
+      Future.delayed(const Duration(seconds: 5), () {
+        _notificationService.startNotificationChecker();
+        _updateNotificationSchedule();
+      });
+    }
 
     _isInitialized = true;
     notifyListeners();
@@ -399,12 +419,45 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final selectedLittenId = prefs.getString('selected_litten_id');
 
     if (selectedLittenId != null) {
+      // 메모리에서 먼저 찾기
+      final memoryLitten = _littens.firstWhere(
+        (l) => l.id == selectedLittenId,
+        orElse: () => Litten(
+          id: '',
+          title: '',
+          description: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      if (memoryLitten.id.isNotEmpty) {
+        _selectedLitten = memoryLitten;
+        debugPrint('🔄 메모리에서 리튼 복원: ${memoryLitten.title} (${memoryLitten.id})');
+        notifyListeners();
+        return;
+      }
+
+      // 메모리에 없으면 스토리지에서 로드
       final litten = await _littenService.getLittenById(selectedLittenId);
       if (litten != null) {
         _selectedLitten = litten;
-        debugPrint('🔄 선택된 리튼 복원: ${litten.title} (${litten.id})');
+        // 메모리 리스트도 업데이트
+        final index = _littens.indexWhere((l) => l.id == litten.id);
+        if (index != -1) {
+          _littens[index] = litten;
+        } else {
+          _littens.add(litten);
+        }
+        debugPrint('🔄 스토리지에서 리튼 복원: ${litten.title} (${litten.id})');
+        notifyListeners();
       } else {
         debugPrint('⚠️ 저장된 리튼 ID를 찾을 수 없음: $selectedLittenId');
+        // undefined 리튼으로 폴백
+        _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
+        if (_selectedLitten != null) {
+          await _saveSelectedLittenState();
+        }
       }
     }
   }
@@ -564,13 +617,45 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void _updateNotificationSchedule() {
-    _notificationService.scheduleNotifications(_littens);
+  void _updateNotificationSchedule() async {
+    // Child 리튼 생성이 녹음이나 리튼 선택을 방해하지 않도록 비동기 처리
+    try {
+      await _notificationService.scheduleNotifications(_littens).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('⚠️ 알림 스케줄링 타임아웃');
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ 알림 스케줄링 오류: $e');
+    }
   }
 
   void _onNotificationChanged() {
     final notificationCount = _notificationService.firedNotifications.length;
     _appIconBadgeService.updateBadge(notificationCount);
+  }
+
+  /// 알림 서비스가 실행 중인지 확인하고 필요시 재시작
+  void _ensureNotificationServiceRunning() {
+    try {
+      debugPrint('🔍 알림 서비스 상태 확인');
+
+      // NotificationService의 타이머가 활성화되어 있는지 확인
+      // 타이머가 없거나 비활성화되어 있으면 재시작
+      if (!_notificationService.isRunning) {
+        debugPrint('⚠️ 알림 서비스가 중지됨 - 재시작');
+        _notificationService.startNotificationChecker();
+        _updateNotificationSchedule();
+      } else {
+        debugPrint('✅ 알림 서비스 정상 작동 중');
+      }
+    } catch (e) {
+      debugPrint('❌ 알림 서비스 상태 확인 실패: $e');
+      // 오류 발생 시 안전하게 재시작
+      _notificationService.startNotificationChecker();
+      _updateNotificationSchedule();
+    }
   }
 
   @override
@@ -1298,9 +1383,17 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         // 앱이 포그라운드로 돌아옴
         debugPrint('▶️ 앱 포그라운드 전환 - 상태 복원 및 알림 서비스 재개');
+
+        // 선택된 리튼과 녹음 상태 복원 (Child 리튼 생성과 독립적)
         _restoreSelectedLittenState();
         _audioService.restoreRecordingState();
+
+        // 알림 서비스 재개 (Child 리튼 생성은 비동기로 처리됨)
         _notificationService.onAppResumed();
+
+        // 알림 서비스가 멈췄을 수 있으므로 확인 후 재시작
+        // Child 리튼 생성은 타임아웃 설정으로 블로킹되지 않음
+        _ensureNotificationServiceRunning();
         break;
       case AppLifecycleState.inactive:
         // 앱이 비활성 상태 (예: 전화 수신, 알림 센터 열기)
@@ -1310,14 +1403,18 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 앱이 백그라운드로 감
         debugPrint('⏸️ 앱 백그라운드 전환 - 상태 저장 및 알림 서비스 일시정지');
         _saveSelectedLittenState();
-        _audioService.saveRecordingState();
+        _audioService.saveRecordingState(
+          littenId: _selectedLitten?.id,
+        );
         _notificationService.onAppPaused();
         break;
       case AppLifecycleState.detached:
         // 앱이 종료됨
         debugPrint('🛑 앱 종료');
         _saveSelectedLittenState();
-        _audioService.saveRecordingState();
+        _audioService.saveRecordingState(
+          littenId: _selectedLitten?.id,
+        );
         break;
       case AppLifecycleState.hidden:
         // 앱이 숨겨짐 (일부 플랫폼에서 사용)

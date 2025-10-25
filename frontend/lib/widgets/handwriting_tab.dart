@@ -912,9 +912,11 @@ class _HandwritingTabState extends State<HandwritingTab>
               actions: [
                 TextButton(
                   onPressed: () {
-                    setState(() {
-                      _conversionCancelled = true;
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _conversionCancelled = true;
+                      });
+                    }
                     Navigator.of(dialogContext).pop();
                   },
                   child: const Text('취소'),
@@ -935,13 +937,15 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: PDF를 PNG로 변환 시작 - $fileName');
 
       // 변환 상태 초기화
-      setState(() {
-        _isConverting = true;
-        _convertedPages = 0;
-        _totalPagesToConvert = 0;
-        _conversionStatus = '페이지 수 확인 중...';
-        _conversionCancelled = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isConverting = true;
+          _convertedPages = 0;
+          _totalPagesToConvert = 0;
+          _conversionStatus = '페이지 수 확인 중...';
+          _conversionCancelled = false;
+        });
+      }
 
       // 진행률 다이얼로그 표시
       _showConversionProgressDialog();
@@ -954,7 +958,7 @@ class _HandwritingTabState extends State<HandwritingTab>
       int totalPages = 0;
       await for (final _ in Printing.raster(pdfBytes, dpi: 150)) {
         totalPages++;
-        if (totalPages % 10 == 0) {
+        if (totalPages % 10 == 0 && mounted) {
           setState(() {
             _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
           });
@@ -964,10 +968,12 @@ class _HandwritingTabState extends State<HandwritingTab>
         }
       }
 
-      setState(() {
-        _totalPagesToConvert = totalPages;
-        _conversionStatus = '변환 시작...';
-      });
+      if (mounted) {
+        setState(() {
+          _totalPagesToConvert = totalPages;
+          _conversionStatus = '변환 시작...';
+        });
+      }
 
       print('DEBUG: 총 $totalPages개 페이지 감지됨');
 
@@ -1019,9 +1025,11 @@ class _HandwritingTabState extends State<HandwritingTab>
           (index) => startPage + index,
         );
 
-        setState(() {
-          _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
-        });
+        if (mounted) {
+          setState(() {
+            _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
+          });
+        }
 
         print('DEBUG: 배치 변환 시작 - 페이지 ${startPage + 1} - $endPage');
 
@@ -1039,10 +1047,12 @@ class _HandwritingTabState extends State<HandwritingTab>
           // 원본 크기로 PNG 변환
           batchImages.add(await page.toPng());
 
-          setState(() {
-            _convertedPages++;
-            _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
-          });
+          if (mounted) {
+            setState(() {
+              _convertedPages++;
+              _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+            });
+          }
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
 
@@ -1082,9 +1092,11 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: 모든 페이지 변환 및 저장 완료');
 
       if (pageImagePaths.isNotEmpty) {
-        setState(() {
-          _conversionStatus = '필기 파일 생성 중...';
-        });
+        if (mounted) {
+          setState(() {
+            _conversionStatus = '필기 파일 생성 중...';
+          });
+        }
 
         // 메인 파일을 실제 페이지 정보로 업데이트 (비율 정보 포함)
         final newHandwritingFile = mainHandwritingFile.copyWith(
@@ -1100,14 +1112,16 @@ class _HandwritingTabState extends State<HandwritingTab>
         );
 
         // 필기 파일 목록에 추가
-        setState(() {
-          _handwritingFiles.add(newHandwritingFile);
-          _currentHandwritingFile = newHandwritingFile;
-          _isEditing = true;
-          _isConverting = false;
-          _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-          _isGestureMode = true; // 제스처 모드 활성화
-        });
+        if (mounted) {
+          setState(() {
+            _handwritingFiles.add(newHandwritingFile);
+            _currentHandwritingFile = newHandwritingFile;
+            _isEditing = true;
+            _isConverting = false;
+            _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
+            _isGestureMode = true; // 제스처 모드 활성화
+          });
+        }
 
         // 필기 파일 목록을 SharedPreferences에 저장
         await storage.saveHandwritingFiles(
@@ -1154,9 +1168,11 @@ class _HandwritingTabState extends State<HandwritingTab>
           );
         }
       } else {
-        setState(() {
-          _isConverting = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isConverting = false;
+          });
+        }
 
         // 진행률 다이얼로그 닫기
         if (Navigator.canPop(context)) {
@@ -1175,9 +1191,11 @@ class _HandwritingTabState extends State<HandwritingTab>
         }
       }
     } catch (e) {
-      setState(() {
-        _isConverting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isConverting = false;
+        });
+      }
 
       // 진행률 다이얼로그 닫기
       if (Navigator.canPop(context)) {
@@ -1224,13 +1242,15 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: 웹에서 PDF를 PNG로 변환 시작 - $fileName');
 
       // 변환 상태 초기화
-      setState(() {
-        _isConverting = true;
-        _convertedPages = 0;
-        _totalPagesToConvert = 0;
-        _conversionStatus = '페이지 수 확인 중...';
-        _conversionCancelled = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isConverting = true;
+          _convertedPages = 0;
+          _totalPagesToConvert = 0;
+          _conversionStatus = '페이지 수 확인 중...';
+          _conversionCancelled = false;
+        });
+      }
 
       // 진행률 다이얼로그 표시
       _showConversionProgressDialog();
@@ -1239,7 +1259,7 @@ class _HandwritingTabState extends State<HandwritingTab>
       int totalPages = 0;
       await for (final _ in Printing.raster(pdfBytes, dpi: 150)) {
         totalPages++;
-        if (totalPages % 10 == 0) {
+        if (totalPages % 10 == 0 && mounted) {
           setState(() {
             _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
           });
@@ -1249,10 +1269,12 @@ class _HandwritingTabState extends State<HandwritingTab>
         }
       }
 
-      setState(() {
-        _totalPagesToConvert = totalPages;
-        _conversionStatus = '변환 시작...';
-      });
+      if (mounted) {
+        setState(() {
+          _totalPagesToConvert = totalPages;
+          _conversionStatus = '변환 시작...';
+        });
+      }
 
       print('DEBUG: 총 $totalPages개 페이지 감지됨');
 
@@ -1298,9 +1320,11 @@ class _HandwritingTabState extends State<HandwritingTab>
           (index) => startPage + index,
         );
 
-        setState(() {
-          _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
-        });
+        if (mounted) {
+          setState(() {
+            _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
+          });
+        }
 
         print('DEBUG: 배치 변환 시작 - 페이지 ${startPage + 1} - $endPage');
 
@@ -1322,9 +1346,11 @@ class _HandwritingTabState extends State<HandwritingTab>
             final codec = await ui.instantiateImageCodec(imageBytes);
             final frame = await codec.getNextFrame();
             aspectRatio = frame.image.width / frame.image.height;
-            setState(() {
-              _backgroundImageAspectRatio = aspectRatio;
-            });
+            if (mounted) {
+              setState(() {
+                _backgroundImageAspectRatio = aspectRatio;
+              });
+            }
             print('DEBUG: PDF 종횡비 계산됨 - $aspectRatio');
           }
 
@@ -1334,10 +1360,12 @@ class _HandwritingTabState extends State<HandwritingTab>
           await storage.saveImageBytesToWeb(pageKey, imageBytes);
           pageImagePaths.add(pageKey);
 
-          setState(() {
-            _convertedPages++;
-            _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
-          });
+          if (mounted) {
+            setState(() {
+              _convertedPages++;
+              _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+            });
+          }
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
 
@@ -1362,14 +1390,16 @@ class _HandwritingTabState extends State<HandwritingTab>
         );
 
         // 필기 파일 목록에 추가
-        setState(() {
-          _handwritingFiles.add(newHandwritingFile);
-          _currentHandwritingFile = newHandwritingFile;
-          _isEditing = true;
-          _isConverting = false;
-          _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-          _isGestureMode = true; // 제스처 모드 활성화
-        });
+        if (mounted) {
+          setState(() {
+            _handwritingFiles.add(newHandwritingFile);
+            _currentHandwritingFile = newHandwritingFile;
+            _isEditing = true;
+            _isConverting = false;
+            _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
+            _isGestureMode = true; // 제스처 모드 활성화
+          });
+        }
 
         // 필기 파일 목록을 저장
         await storage.saveHandwritingFiles(
@@ -1432,9 +1462,11 @@ class _HandwritingTabState extends State<HandwritingTab>
         }
       }
     } catch (e) {
-      setState(() {
-        _isConverting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isConverting = false;
+        });
+      }
 
       // 진행률 다이얼로그 닫기
       if (Navigator.canPop(context)) {
@@ -1964,17 +1996,23 @@ class _HandwritingTabState extends State<HandwritingTab>
       //
       // 목표: 터치한 위치 = 텍스트 baseline 위치
 
-      const double textBaselineOffset = 6.0; // 텍스트 baseline까지의 오프셋
+      const double textBaselineOffset = 20.0; // 텍스트 baseline까지의 오프셋 증가
+      const double horizontalOffset = -10.0; // 좌측으로 약간 이동
 
-      final double globalX = localPosition.dx;
+      final double globalX = localPosition.dx + horizontalOffset;
       final double globalY = localPosition.dy - textBaselineOffset; // 위로 올림
 
-      final Offset globalPosition = Offset(globalX, globalY);
+      // 화면 경계 체크
+      final screenSize = MediaQuery.of(context).size;
+      final safeX = globalX.clamp(10.0, screenSize.width - 310.0); // 최소 10px 여백, 최대 너비 300 고려
+      final safeY = globalY.clamp(10.0, screenSize.height - 100.0); // 최소 10px 여백, TextField 높이 고려
+
+      final Offset globalPosition = Offset(safeX, safeY);
 
       print('DEBUG: TextField 위치 계산');
       print('  - 터치 위치: $localPosition');
       print('  - TextField 배치: $globalPosition');
-      print('  - Y축 조정: -$textBaselineOffset (텍스트 baseline 정렬)');
+      print('  - X축 조정: $horizontalOffset, Y축 조정: -$textBaselineOffset');
 
       return globalPosition;
     } catch (e) {
@@ -2001,8 +2039,8 @@ class _HandwritingTabState extends State<HandwritingTab>
         // TextField의 텍스트 baseline과 일치시키기 위해 위치 보정
         // - 우측으로 약간 이동 (TextField border 보정)
         // - 아래로 약간 이동 (텍스트 baseline 보정)
-        const double textOffsetX = 2; // 우측으로 약간 이동
-        const double textOffsetY = 12; // 아래로 이동 (fontSize 16의 약 75% - baseline 위치)
+        const double textOffsetX = 12; // 우측으로 이동 (TextField padding 보정)
+        const double textOffsetY = 16; // 아래로 이동 (fontSize 16 + padding)
         final adjustedPosition = Offset(
           _textInputPosition!.dx + textOffsetX,
           _textInputPosition!.dy + textOffsetY,

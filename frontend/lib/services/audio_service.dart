@@ -122,6 +122,45 @@ class AudioService extends ChangeNotifier {
     }
   }
 
+  /// 듣기(녹음) 취소 (파일 저장 없이 중단)
+  Future<void> cancelRecording() async {
+    debugPrint('[AudioService] cancelRecording 진입');
+
+    if (!_isRecording) {
+      debugPrint('[AudioService] 녹음 중이 아닙니다.');
+      return;
+    }
+
+    try {
+      // 녹음 중지
+      final path = await _recorder.stop();
+
+      // 파일이 생성되었다면 삭제
+      if (path != null) {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('[AudioService] 🗑️ 녹음 파일 삭제됨: $path');
+        }
+      }
+
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+      _currentRecordingPath = null;
+      await clearRecordingState();
+
+      debugPrint('[AudioService] 녹음 취소 완료');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AudioService] 녹음 취소 오류: $e');
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+      _currentRecordingPath = null;
+      await clearRecordingState();
+      notifyListeners();
+    }
+  }
+
   /// 듣기(녹음) 중지 및 파일 저장
   Future<AudioFile?> stopRecording(Litten litten) async {
     debugPrint('[AudioService] stopRecording 진입 - littenId: ${litten.id}');
@@ -135,6 +174,38 @@ class AudioService extends ChangeNotifier {
       final path = await _recorder.stop();
       
       if (path != null && _currentRecordingPath != null) {
+        // 파일 무결성 검증
+        final file = File(path);
+        if (!await file.exists()) {
+          debugPrint('[AudioService] ⚠️ 녹음 파일이 생성되지 않음');
+          _isRecording = false;
+          _recordingDuration = Duration.zero;
+          _currentRecordingPath = null;
+          await clearRecordingState();
+          notifyListeners();
+          return null;
+        }
+
+        final fileSize = await file.length();
+        debugPrint('[AudioService] 파일 크기: ${fileSize / 1024}KB');
+
+        // 최소 파일 크기 검증 (1KB)
+        if (fileSize < 1024) {
+          debugPrint('[AudioService] ⚠️ 파일이 너무 작음 - 깨진 파일 의심');
+          try {
+            await file.delete();
+            debugPrint('[AudioService] 🗑️ 깨진 파일 삭제됨');
+          } catch (e) {
+            debugPrint('[AudioService] ❌ 파일 삭제 실패: $e');
+          }
+          _isRecording = false;
+          _recordingDuration = Duration.zero;
+          _currentRecordingPath = null;
+          await clearRecordingState();
+          notifyListeners();
+          return null;
+        }
+
         // AudioFile 모델 생성
         final audioFile = AudioFile(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -148,11 +219,13 @@ class AudioService extends ChangeNotifier {
         debugPrint('[AudioService] 오디오 파일 저장됨: ${audioFile.fileName}');
         debugPrint('[AudioService] 파일 경로: ${audioFile.filePath}');
         debugPrint('[AudioService] 녹음 시간: ${audioFile.duration}');
+        debugPrint('[AudioService] 파일 크기: ${fileSize / 1024}KB');
 
         _isRecording = false;
         _recordingDuration = Duration.zero;
         _currentRecordingPath = null;
-        
+        await clearRecordingState();
+
         notifyListeners();
         return audioFile;
       }
@@ -418,7 +491,7 @@ class AudioService extends ChangeNotifier {
   }
 
   /// 녹음 상태 저장 (백그라운드 대비)
-  Future<void> saveRecordingState() async {
+  Future<void> saveRecordingState({String? littenId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -427,12 +500,15 @@ class AudioService extends ChangeNotifier {
         await prefs.setString('recording_path', _currentRecordingPath!);
         await prefs.setInt('recording_duration_seconds', _recordingDuration.inSeconds);
         await prefs.setInt('recording_start_time', DateTime.now().millisecondsSinceEpoch - _recordingDuration.inMilliseconds);
+        if (littenId != null) {
+          await prefs.setString('recording_litten_id', littenId);
+        }
         debugPrint('💾 녹음 상태 저장: $_currentRecordingPath (${_recordingDuration.inSeconds}초)');
+        if (littenId != null) {
+          debugPrint('   리튼 ID: $littenId');
+        }
       } else {
-        await prefs.remove('is_recording');
-        await prefs.remove('recording_path');
-        await prefs.remove('recording_duration_seconds');
-        await prefs.remove('recording_start_time');
+        await clearRecordingState();
         debugPrint('💾 녹음 상태 제거 (녹음 중 아님)');
       }
     } catch (e) {
@@ -453,10 +529,11 @@ class AudioService extends ChangeNotifier {
 
       final recordingPath = prefs.getString('recording_path');
       final startTimeMs = prefs.getInt('recording_start_time');
+      final littenId = prefs.getString('recording_litten_id');
 
       if (recordingPath == null || startTimeMs == null) {
         debugPrint('⚠️ 녹음 상태 정보 불완전, 초기화');
-        await prefs.remove('is_recording');
+        await clearRecordingState();
         return false;
       }
 
@@ -464,23 +541,44 @@ class AudioService extends ChangeNotifier {
       final file = File(recordingPath);
       if (!await file.exists()) {
         debugPrint('⚠️ 녹음 파일이 존재하지 않음: $recordingPath');
-        await prefs.remove('is_recording');
-        await prefs.remove('recording_path');
-        await prefs.remove('recording_duration_seconds');
-        await prefs.remove('recording_start_time');
+        await clearRecordingState();
+        return false;
+      }
+
+      // 파일 크기 확인 (최소 1KB)
+      final fileSize = await file.length();
+      if (fileSize < 1024) {
+        debugPrint('⚠️ 녹음 파일이 너무 작음 (깨진 파일 의심): ${fileSize}바이트');
+        await clearRecordingState();
+        // 깨진 파일 삭제
+        try {
+          await file.delete();
+          debugPrint('🗑️ 깨진 녹음 파일 삭제됨');
+        } catch (e) {
+          debugPrint('❌ 파일 삭제 실패: $e');
+        }
+        return false;
+      }
+
+      // 경과 시간 확인 (24시간 이상이면 무시)
+      final elapsedMs = DateTime.now().millisecondsSinceEpoch - startTimeMs;
+      if (elapsedMs > 24 * 60 * 60 * 1000) {
+        debugPrint('⚠️ 녹음 시작 시간이 24시간 이상 경과, 녹음 중단');
+        await clearRecordingState();
         return false;
       }
 
       // 녹음 상태 복원
       _isRecording = true;
       _currentRecordingPath = recordingPath;
-
-      // 경과 시간 계산
-      final elapsedMs = DateTime.now().millisecondsSinceEpoch - startTimeMs;
       _recordingDuration = Duration(milliseconds: elapsedMs);
 
       debugPrint('🔄 녹음 상태 복원 성공: $recordingPath');
       debugPrint('   경과 시간: ${_recordingDuration.inSeconds}초');
+      debugPrint('   파일 크기: ${fileSize / 1024}KB');
+      if (littenId != null) {
+        debugPrint('   리튼 ID: $littenId');
+      }
 
       // 타이머 재시작
       _startRecordingTimer();
@@ -489,6 +587,7 @@ class AudioService extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('❌ 녹음 상태 복원 실패: $e');
+      await clearRecordingState();
       return false;
     }
   }
@@ -501,6 +600,7 @@ class AudioService extends ChangeNotifier {
       await prefs.remove('recording_path');
       await prefs.remove('recording_duration_seconds');
       await prefs.remove('recording_start_time');
+      await prefs.remove('recording_litten_id');
       debugPrint('🗑️ 녹음 상태 정리 완료');
     } catch (e) {
       debugPrint('❌ 녹음 상태 정리 실패: $e');
