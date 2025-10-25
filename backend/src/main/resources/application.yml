@@ -87,7 +87,7 @@ spring:
     timeout-per-shutdown-phase: 20s
   security:
     filter:
-      ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost
+      ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost,203.245.29.74
 #  mail:
 #    host: smtp-mail.outlook.com
 #    port: 587

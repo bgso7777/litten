@@ -1,12 +1,15 @@
 
-WSL 환경인데 윈도우에 플로터 C:\src\flutter
-안드로이드 SDK ANDROID_HOME=C:\Users\bgso7\AppData\Local\Android\Sdk
-자바 JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot\
-
+WSL 환경인데 윈도우에 
+플로터 FLUTTER_HOME=/mnt/c/work/download/flutter
+안드로이드 SDK ANDROID_HOME=/mnt/c/Users/bgso/AppData/Local/Android/Sdk
+자바 JAVA_HOME=/mnt/c/work/ploonet/3.development/openjdk-17+35_windows-x64_bin/jdk-17
+크롬 CHROME_EXECUTABLE="c:/Program Files/Google/Chrome/Application/chrome.exe"
 web으로 재빌드하고 edge에서 접속할 수 있도록 실행해줘. 
 
-ios, aos 재빌드 하고 시뮬레이터에서 실행해줘.
+맥OS 환경인데 
+ios, aos 재빌드하고 시뮬레이터에서 실행해줘.
 
+맥OS 환경인데
 aos, ios, web 재빌드하고 
 aos, ios 시뮬레이터에서 실행하고 
 web용은 브라우져에서 접속할 수 있게 실행해 주고
@@ -21,7 +24,33 @@ aos, ios 시뮬레이터에서 실행된 앱 죽이고,
 다시 빌드해서, 새 기능이 추가된 버젼으로 실행해줘
 
 
-47 - frontend 핵심 기능 보완 - 필기 
+47 - backend 설정 
+---------------------------------------
+
+
+mariadb 계정에 mariadb를 설치 
+www 계정에 nginx, apache
+note 계정에 git, flutter
+backend: java, tomcat
+패스워드는 모두 zaq1!@2wsxN
+
+서버: 203.245.29.74
+root패스워드: zaq1!@2wsxN
+계정:mariadb
+패스워드: zaq1!@2wsxN
+
+
+sudo pkill -u mariadb
+sudo userdel -r mariadb
+sudo useradd -m mariadb
+
+sudo pkill -u www
+sudo userdel -r www
+sudo useradd -m www
+
+
+
+48 - frontend 핵심 기능 보완 - 필기 
 ---------------------------------------
 
 
@@ -2176,3 +2205,46 @@ ios에서 "듣기 시작에 실패 했습니다. 권한을 확인해주세요." 
 
 최종 상태: 에러 0개, 경고 30개 (모두 info 레벨)
 ==================================================================
+
+
+========================================
+✓✓✓ 설정 완료! ✓✓✓
+========================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 서비스별 접속 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  Nginx (정적 파일)
+   URL:      http://www.litten7.com
+   웹 루트:  /home/www/www/nginx
+
+2️⃣  Apache
+   URL:      http://www.litten7.com:8080
+   웹 루트:  /home/www/www/apache
+
+3️⃣  Tomcat (Spring Boot)
+   URL:      http://www.litten7.com:8081
+   웹 루트:  /home/backend/tomcat/webapps
+
+4️⃣  MariaDB
+   접속:     203.245.29.74:3306
+   계정:     root / mariadb
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📁 홈 디렉토리
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+www:      /home/www
+  Nginx:  /home/www/www/nginx
+  Apache: /home/www/www/apache
+
+backend:  /home/backend
+  Tomcat: /home/backend/tomcat
+
+note:     /home/note
+  Flutter: /home/note/flutter
+
+mariadb:  /home/mariadb
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
