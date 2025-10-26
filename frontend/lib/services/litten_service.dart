@@ -255,18 +255,31 @@ class LittenService {
   }
 
   Future<void> _updateLittenHandwritingFiles(String littenId, String fileId, bool add) async {
+    print('[LittenService] _updateLittenHandwritingFiles 시작 - littenId: $littenId, fileId: $fileId, add: $add');
+
     final litten = await getLittenById(littenId);
-    if (litten == null) return;
+    if (litten == null) {
+      print('[LittenService] ERROR: 리튼을 찾을 수 없음 - ID: $littenId');
+      return;
+    }
+
+    print('[LittenService] 리튼 찾음 - 제목: ${litten.title}, 기존 필기 파일 수: ${litten.handwritingFileIds.length}');
 
     final handwritingFileIds = List<String>.from(litten.handwritingFileIds);
     if (add && !handwritingFileIds.contains(fileId)) {
       handwritingFileIds.add(fileId);
+      print('[LittenService] 필기 파일 ID 추가됨 - 새 목록 크기: ${handwritingFileIds.length}');
     } else if (!add) {
       handwritingFileIds.remove(fileId);
+      print('[LittenService] 필기 파일 ID 제거됨 - 새 목록 크기: ${handwritingFileIds.length}');
+    } else {
+      print('[LittenService] 필기 파일 ID 이미 존재함 - 변경 없음');
     }
 
+    print('[LittenService] 리튼 저장 시작...');
     final updatedLitten = litten.copyWith(handwritingFileIds: handwritingFileIds);
     await saveLitten(updatedLitten);
+    print('[LittenService] 리튼 저장 완료');
   }
 
   // 공개 API 메서드들
@@ -287,7 +300,9 @@ class LittenService {
   }
 
   Future<void> addHandwritingFileToLitten(String littenId, String fileId) async {
+    print('[LittenService] addHandwritingFileToLitten 호출됨');
     await _updateLittenHandwritingFiles(littenId, fileId, true);
+    print('[LittenService] addHandwritingFileToLitten 완료');
   }
 
   Future<void> removeHandwritingFileFromLitten(String littenId, String fileId) async {

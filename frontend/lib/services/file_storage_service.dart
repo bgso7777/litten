@@ -177,7 +177,7 @@ class FileStorageService {
       } else {
         // 모바일에서는 기존 파일 시스템 사용
         final directory = await getApplicationDocumentsDirectory();
-        final littenDir = Directory('${directory.path}/litten_${textFile.littenId}');
+        final littenDir = Directory('${directory.path}/littens/${textFile.littenId}/text');
 
         if (!await littenDir.exists()) {
           await littenDir.create(recursive: true);
@@ -247,7 +247,7 @@ class FileStorageService {
       } else {
         // 모바일에서는 기존 파일 시스템 사용
         final directory = await getApplicationDocumentsDirectory();
-        final littenDir = Directory('${directory.path}/litten_${handwritingFile.littenId}');
+        final littenDir = Directory('${directory.path}/littens/${handwritingFile.littenId}/handwriting');
 
         if (!await littenDir.exists()) {
           await littenDir.create(recursive: true);
@@ -304,7 +304,7 @@ class FileStorageService {
       
       // 파일 시스템에서 디렉토리 삭제
       final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_$littenId');
+      final littenDir = Directory('${directory.path}/littens/$littenId');
       
       if (await littenDir.exists()) {
         await littenDir.delete(recursive: true);
@@ -325,7 +325,7 @@ class FileStorageService {
       
       // 파일 시스템에서 삭제
       final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_${textFile.littenId}');
+      final littenDir = Directory('${directory.path}/littens/${textFile.littenId}/text');
       final file = File('${littenDir.path}/${textFile.id}.html');
       
       if (await file.exists()) {
@@ -347,7 +347,7 @@ class FileStorageService {
       
       // 파일 시스템에서 삭제
       final directory = await getApplicationDocumentsDirectory();
-      final littenDir = Directory('${directory.path}/litten_${handwritingFile.littenId}');
+      final littenDir = Directory('${directory.path}/littens/${handwritingFile.littenId}/handwriting');
       final file = File('${littenDir.path}/${handwritingFile.id}.png');
       
       if (await file.exists()) {
