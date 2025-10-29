@@ -16,6 +16,7 @@ import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/handwriting_file.dart';
+import '../models/litten.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 
@@ -262,6 +263,8 @@ class _HandwritingTabState extends State<HandwritingTab>
       final selectedLitten = appState.selectedLitten;
 
       if (selectedLitten != null) {
+        print('📂 [파일 목록 로드] 대상 리튼 - ID: ${selectedLitten.id}, 이름: ${selectedLitten.title}');
+
         final storage = FileStorageService.instance;
 
         // 필기 파일 로드
@@ -852,11 +855,42 @@ class _HandwritingTabState extends State<HandwritingTab>
   }
 
   Future<void> _loadPdfFileForMobile() async {
+    // ✅ 파일 선택 전에 context 관련 데이터를 미리 가져오기
+    if (!mounted) {
+      print('❌ Widget이 unmounted 상태 - PDF 로드 중단');
+      return;
+    }
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+
+    if (selectedLitten == null) {
+      print('❌ 리튼이 선택되지 않음 - PDF 로드 중단');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('리튼을 먼저 선택해주세요'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    print('✅ 선택된 리튼 확인 완료 - ID: ${selectedLitten.id}');
+
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       withData: false, // PDF 파일 경로 사용
     );
+
+    print('🔍 FilePicker 결과: result = ${result != null ? '있음' : 'null'}');
+    if (result != null) {
+      print('🔍 파일 개수: ${result.files.length}');
+      print('🔍 첫 번째 파일 이름: ${result.files.single.name}');
+      print('🔍 첫 번째 파일 경로: ${result.files.single.path}');
+    }
 
     if (result != null && result.files.single.path != null) {
       print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
@@ -864,11 +898,15 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfPath = result.files.single.path!;
       final fileName = result.files.single.name ?? 'PDF';
 
-      // 바로 필기용으로 변환
+      // 바로 필기용으로 변환 (selectedLitten을 인자로 전달)
+      // 다이얼로그는 변환 함수 내부에서 표시
       await _convertPdfToPngAndAddToHandwriting(
         pdfPath,
         fileName,
+        selectedLitten,
       );
+    } else {
+      print('❌ PDF 파일 선택 실패 - result가 null이거나 파일 경로가 없음');
     }
   }
 
@@ -929,20 +967,77 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
+  // FilePicker 후 위젯이 다시 mount될 때까지 기다렸다가 UI 업데이트
+  Future<void> _waitForMountedAndUpdateUI(
+    HandwritingFile newHandwritingFile,
+    List<String> pageImagePaths,
+    Directory littenDir,
+    String titleWithoutExtension,
+    int totalPages,
+  ) async {
+    print('DEBUG: _waitForMountedAndUpdateUI 시작 - mounted=$mounted');
+
+    // 최대 5초 동안 100ms 간격으로 mounted 체크
+    for (int i = 0; i < 50; i++) {
+      if (mounted) {
+        print('DEBUG: Widget mounted 확인됨 (${i * 100}ms 후)');
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (!mounted) {
+      print('ERROR: 5초 대기 후에도 widget이 unmounted 상태 - UI 업데이트 포기');
+      return;
+    }
+
+    // UI 업데이트
+    setState(() {
+      _currentHandwritingFile = newHandwritingFile;
+      _isEditing = true;
+      _isConverting = false;
+      _selectedTool = '제스처';
+      _isGestureMode = true;
+    });
+    print('DEBUG: UI 상태 업데이트 완료');
+
+    // 첫 번째 페이지 이미지 로드
+    final firstPageFileName = pageImagePaths.first;
+    final firstPageFile = File('${littenDir.path}/$firstPageFileName');
+
+    if (await firstPageFile.exists()) {
+      final firstPageBytes = await firstPageFile.readAsBytes();
+      await _setBackgroundFromBytes(firstPageBytes);
+      print('DEBUG: 첫 페이지 배경 이미지 로드 완료');
+    }
+
+    // 성공 메시지 표시
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$titleWithoutExtension ($totalPages페이지)이(가) 필기 파일로 추가되었습니다.',
+          ),
+          backgroundColor: Colors.green,
+          action: SnackBarAction(
+            label: '편집',
+            onPressed: () {
+              // 이미 편집 모드로 설정됨
+            },
+          ),
+        ),
+      );
+      print('DEBUG: 성공 메시지 표시 완료');
+    }
+  }
+
   Future<void> _convertPdfToPngAndAddToHandwriting(
     String pdfPath,
     String fileName,
+    Litten selectedLitten, // ✅ selectedLitten을 파라미터로 받음
   ) async {
     try {
       print('DEBUG: PDF를 PNG로 변환 시작 - $fileName');
-
-      // ✅ Context 관련 데이터를 비동기 작업 전에 미리 가져오기
-      final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final selectedLitten = appState.selectedLitten;
-
-      if (selectedLitten == null) {
-        throw Exception('리튼이 선택되지 않았습니다.');
-      }
       print('DEBUG: 선택된 리튼 확인 완료 - ID: ${selectedLitten.id}');
 
       final storage = FileStorageService.instance;
@@ -958,29 +1053,37 @@ class _HandwritingTabState extends State<HandwritingTab>
         });
       }
 
-      // 진행률 다이얼로그 표시
-      _showConversionProgressDialog();
-
       // PDF 파일을 Uint8List로 읽기 (백그라운드에서 처리)
       final pdfFile = File(pdfPath);
       print('DEBUG: PDF 파일 읽기 시작 - 크기: ${await pdfFile.length()} bytes');
       final pdfBytes = await pdfFile.readAsBytes();
       print('DEBUG: PDF 파일 읽기 완료');
 
+      // PDF 파일 읽기 완료 후 다이얼로그 표시 (이 시점에서는 widget이 안정적으로 mounted 상태)
+      if (mounted) {
+        print('🔍 PDF 변환 다이얼로그 표시 시도 - mounted: $mounted');
+        _showConversionProgressDialog();
+        print('✅ PDF 변환 다이얼로그 표시 완료');
+      } else {
+        print('❌ Widget unmounted - 다이얼로그 표시 불가');
+      }
+
       // 먼저 총 페이지 수만 확인 (메모리 절약) - 타임아웃 30초
       int totalPages = 0;
       try {
-        print('DEBUG: PDF 페이지 수 확인 시작 (타임아웃: 30초)');
+        print('🔍 PDF 변환 시작 - 파일: $pdfPath');
+        print('🔍 PDF 페이지 수 확인 시작 (타임아웃: 30초)');
+        print('🔍 Printing.raster() 호출 직전');
         await for (final _ in Printing.raster(pdfBytes, dpi: 150)
             .timeout(
               const Duration(seconds: 30),
               onTimeout: (sink) {
-                print('DEBUG: 페이지 수 확인 타임아웃 - pdf 패키지 대체 방법 사용');
+                print('⚠️ 페이지 수 확인 타임아웃 - pdf 패키지 대체 방법 사용');
                 sink.close();
               },
             )) {
           totalPages++;
-          print('DEBUG: 페이지 감지 - 현재 $totalPages개');
+          print('✅ 페이지 감지 - 현재 $totalPages개');
           if (totalPages % 10 == 0 && mounted) {
             setState(() {
               _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
@@ -990,7 +1093,7 @@ class _HandwritingTabState extends State<HandwritingTab>
             throw Exception('변환이 취소되었습니다.');
           }
         }
-        print('DEBUG: Printing.raster로 총 $totalPages개 페이지 확인 완료');
+        print('✅ Printing.raster() 완료 - 페이지 수: $totalPages');
       } on TimeoutException catch (e) {
         print('ERROR: PDF 페이지 수 확인 타임아웃 (30초 초과)');
         if (mounted) {
@@ -1027,6 +1130,9 @@ class _HandwritingTabState extends State<HandwritingTab>
         await littenDir.create(recursive: true);
         print('DEBUG: 필기 디렉토리 생성 - ${littenDir.path}');
       }
+
+      print('🗂️ [PDF 변환] 저장 대상 리튼 - ID: ${selectedLitten.id}, 이름: ${selectedLitten.title}');
+      print('🗂️ [PDF 변환] 저장 경로 - ${littenDir.path}');
 
       final titleWithoutExtension = fileName.replaceAll(
         RegExp(r'\.pdf$', caseSensitive: false),
@@ -1100,14 +1206,17 @@ class _HandwritingTabState extends State<HandwritingTab>
               '${mainHandwritingFile.id}_page_${pageIndex + 1}.png';
           final pageFilePath = '${littenDir.path}/$pageFileName';
 
+          print('💾 PNG 파일 저장 시작 - 경로: $pageFilePath');
+          print('💾 PNG 바이트 크기: ${batchImages[i].length} bytes');
+
           // 직접 파일로 저장 (FileStorageService를 거치지 않음)
           final pageFile = File(pageFilePath);
           await pageFile.writeAsBytes(batchImages[i]);
 
+          print('✅ PNG 파일 저장 완료 - 파일명: $pageFileName');
+
           // 페이지 경로를 가상 경로로 저장 (나중에 실제 파일명으로 변환할 수 있도록)
           pageImagePaths.add(pageFileName);
-
-          print('DEBUG: 페이지 ${pageIndex + 1} 이미지 저장 완료: $pageFileName');
         }
 
         // 배치 이미지 메모리 해제
@@ -1173,52 +1282,14 @@ class _HandwritingTabState extends State<HandwritingTab>
 
         print('DEBUG: PDF to PNG 변환 및 다중 페이지 필기 파일 추가 완료');
 
-        // UI 업데이트는 mounted 상태에서만
-        if (mounted) {
-          setState(() {
-            _currentHandwritingFile = newHandwritingFile;
-            _isEditing = true;
-            _isConverting = false;
-            _selectedTool = '제스처'; // 제스처(손바닥) 도구를 기본으로 선택
-            _isGestureMode = true; // 제스처 모드 활성화
-          });
-          print('DEBUG: UI 상태 업데이트 완료 (mounted)');
-        } else {
-          print('DEBUG: Widget unmounted - UI 업데이트 생략, 파일 저장은 완료됨');
-        }
-
-        // mounted 상태에서만 UI 관련 작업 수행
-        if (mounted) {
-          // 첫 번째 페이지 이미지를 로드하여 캔버스 배경으로 설정
-          final firstPageFileName = pageImagePaths.first;
-          final firstPageFile = File('${littenDir.path}/$firstPageFileName');
-
-          if (await firstPageFile.exists()) {
-            final firstPageBytes = await firstPageFile.readAsBytes();
-            await _setBackgroundFromBytes(firstPageBytes);
-          }
-
-          // 진행률 다이얼로그 닫기
-          Navigator.of(context).pop();
-
-          // 성공 메시지 표시
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '$titleWithoutExtension ($totalPages페이지)이(가) 필기 파일로 추가되었습니다.',
-              ),
-              backgroundColor: Colors.green,
-              action: SnackBarAction(
-                label: '편집',
-                onPressed: () {
-                  // 이미 편집 모드로 설정됨
-                },
-              ),
-            ),
-          );
-        } else {
-          print('DEBUG: Widget unmounted - 진행 다이얼로그 및 성공 메시지 표시 생략');
-        }
+        // FilePicker 후 위젯이 unmount되므로 다시 mount될 때까지 기다림
+        await _waitForMountedAndUpdateUI(
+          newHandwritingFile,
+          pageImagePaths,
+          littenDir,
+          titleWithoutExtension,
+          totalPages,
+        );
       } else {
         if (mounted) {
           setState(() {
@@ -1559,6 +1630,11 @@ class _HandwritingTabState extends State<HandwritingTab>
 
   Future<void> _setBackgroundFromBytes(Uint8List imageBytes) async {
     try {
+      // 이미지 캐시 클리어 - 이전 파일의 캐시된 이미지가 표시되는 것을 방지
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      print('🧹 이미지 캐시 클리어 완료');
+
       // Uint8List를 ui.Image로 변환 후 배경으로 설정
       final codec = await ui.instantiateImageCodec(imageBytes);
       final frameInfo = await codec.getNextFrame();
@@ -2304,6 +2380,9 @@ class _HandwritingTabState extends State<HandwritingTab>
   }
 
   Widget _buildHandwritingFileItem(HandwritingFile file) {
+    // UI 렌더링 시 파일 상태 로그
+    print('🎨 UI 렌더링: ${file.displayTitle} - totalPages=${file.totalPages}, isMultiPage=${file.isMultiPage}');
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
@@ -3245,8 +3324,16 @@ class _HandwritingTabState extends State<HandwritingTab>
   }
 
   Future<void> _loadHandwritingImageForMobile(HandwritingFile file) async {
+    print('📖 [파일 선택] 선택된 파일 - ID: ${file.id}, 제목: ${file.title}');
+    print('📖 [파일 선택] 파일이 속한 리튼 ID: ${file.littenId}');
+    print('📖 [파일 선택] imagePath: ${file.imagePath}');
+    print('📖 [파일 선택] pageImagePaths: ${file.pageImagePaths}');
+    print('📖 [파일 선택] totalPages: ${file.totalPages}, currentPageIndex: ${file.currentPageIndex}');
+
     final directory = await getApplicationDocumentsDirectory();
     final littenDir = Directory('${directory.path}/littens/${file.littenId}/handwriting');
+
+    print('📖 [파일 선택] 로드 경로 - ${littenDir.path}');
 
     // 다중 페이지인 경우 현재 페이지의 이미지 경로를 사용
     String targetPath;

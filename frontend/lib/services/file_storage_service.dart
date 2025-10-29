@@ -88,6 +88,12 @@ class FileStorageService {
           handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           print('디버그: 필기 파일 ${handwritingFiles.length}개 로드 완료 (최신순 정렬)');
+          for (final file in handwritingFiles) {
+            print('  - ${file.title}: totalPages=${file.totalPages}, isMultiPage=${file.isMultiPage}, pageImagePaths=${file.pageImagePaths.length}');
+            print('    ID: ${file.id}');
+            print('    imagePath: ${file.imagePath}');
+            print('    pageImagePaths: ${file.pageImagePaths}');
+          }
           return handwritingFiles;
         }
       } else {

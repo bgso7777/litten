@@ -224,6 +224,15 @@ class Litten {
   }
 
   factory Litten.fromJson(Map<String, dynamic> json) {
+    // parentId가 List<String>으로 저장된 경우 첫 번째 요소만 사용 (이전 버전 호환성)
+    String? parentId;
+    final parentIdData = json['parentId'];
+    if (parentIdData is String) {
+      parentId = parentIdData;
+    } else if (parentIdData is List && parentIdData.isNotEmpty) {
+      parentId = parentIdData[0] as String?;
+    }
+
     return Litten(
       id: json['id'],
       title: json['title'],
@@ -234,7 +243,7 @@ class Litten {
       textFileIds: List<String>.from(json['textFileIds'] ?? []),
       handwritingFileIds: List<String>.from(json['handwritingFileIds'] ?? []),
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
-      parentId: json['parentId'],
+      parentId: parentId,
       isChildLitten: json['isChildLitten'] ?? false,
       notificationCount: json['notificationCount'] ?? 0,
     );
