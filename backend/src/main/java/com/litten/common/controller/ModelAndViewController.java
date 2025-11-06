@@ -34,7 +34,7 @@ public class ModelAndViewController {
      * @return
      */
     @CrossOrigin(origins="*", allowedHeaders="*")
-    @RequestMapping("/anon/svc/members/change-password2/{value1}/{value2}")
+    @GetMapping("/anon/svc/members/change-password2/{value1}/{value2}")
     public ModelAndView changePasswordStep2( @PathVariable("value1") String value1,
                                              @PathVariable("value2") String value2) {
         NoteMemberService memberService = new NoteMemberService();
@@ -58,7 +58,7 @@ public class ModelAndViewController {
      * @return
      */
     @CrossOrigin(origins="*", allowedHeaders="*")
-    @RequestMapping(value = "/anon/svc/members/change-password3")
+    @PostMapping(value = "/anon/svc/members/change-password3")
     public ModelAndView changePasswordStep3(HttpServletRequest httpServletRequest) {
         ModelAndView modelAndView = new ModelAndView(Constants.PAGE_CHANGEPASSWORD_STEP3);
         initCommonModelAndView(modelAndView);

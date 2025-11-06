@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 /// 백엔드 API와의 통신을 담당합니다.
 class ApiService {
   // 서버 주소
-  static const String baseUrl = 'http://192.168.219.101:8989';
+  static const String baseUrl = 'http://www.litten7.com:8081';
 
   // API 엔드포인트
   static const String _installEndpoint = '/litten/note/v1/members/install';

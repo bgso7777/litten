@@ -148,10 +148,10 @@ public class Mailer {
 	public void completeChangePassword(String toMail, String toName) throws Exception {
 
 		String from = "aice@saltlux.com";
-		String subject = "다이퀘스트 계정의 비밀번호를 재설정 했습니다.";
+		String subject = "계정의 비밀번호를 재설정 했습니다.";
 		String content = toName+"("+toMail+")님 계정에 대해 비밀번호 재설정을 완료 하였습니다.<p>";
 			   content += "새로운 비밀번호로 사용 하시기 바랍니다.<p>";
-			   content += "본인의 요청이 아닌 경우 다이퀘스트 고객센터로 연락 바랍니다. ";
+//			   content += "본인의 요청이 아닌 경우 다이퀘스트 고객센터로 연락 바랍니다. ";
 
 		MimeMessage mail = javaMailSender.createMimeMessage();
 		MimeMessageHelper mailHelper = new MimeMessageHelper(mail,true,"UTF-8");

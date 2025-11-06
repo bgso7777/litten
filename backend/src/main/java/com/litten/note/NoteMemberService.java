@@ -199,16 +199,17 @@ public class NoteMemberService extends CustomHttpService {
                 // https://api.ploonet.com/api/account/v1/members/change-password2
                 // https://api.ploonet.com/api/account/v1/members/change-password3
 
-                if (Config.getInstance().getProtocol().equals("http")) {
-                    if (Config.getInstance().getDomain().equals("80"))
-                        memberUrl = "http://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
-                    else
-                        memberUrl = "http://" + Config.getInstance().getDomain() + ":" + Config.getInstance().getPort() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
-                } else if (Config.getInstance().getProtocol().equals("https")) {
-                    memberUrl = "https://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
-                } else {
-                    memberUrl = Config.getInstance().getProtocol() + "://" + Config.getInstance().getDomain() + ":" + Config.getInstance().getPort() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
-                }
+//                if (Config.getInstance().getProtocol().equals("http")) {
+//                    if (Config.getInstance().getPort().equals("80"))
+//                        memberUrl = "http://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
+//                    else
+//                        memberUrl = "http://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
+//                } else if (Config.getInstance().getProtocol().equals("https")) {
+//                    memberUrl = "https://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
+//                } else {
+//                    memberUrl = Config.getInstance().getProtocol() + "://" + Config.getInstance().getDomain() + ":" + Config.getInstance().getPort() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
+//                }
+                memberUrl = Config.getInstance().getProtocol()+"://" + Config.getInstance().getDomain() + Config.getInstance().getPrefixPath() + Constants.PATH_OF_CHANGE_PASSWORD_PATH;
 
                 String cypherMemberId = Crypto.encryptChangePasswordMemberId(noteMember.getId());
                 String cypherDueDate = Crypto.encryptChangePasswordDueDate(DateUtil.getchangePasswordDueDate(Constants.CHANGE_PASSWORD_DUE_MINUTE));

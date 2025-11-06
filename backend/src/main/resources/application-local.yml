@@ -2,7 +2,7 @@ server:
   port: 8989
   shutdown: graceful
   protocol: http
-  domain: localhost
+  domain: localhost:8989
   prefix-path: /litten/anon/svc
   developer-mail: byoungkyu.so@saltlux.com # 중요 에러 시 메일 발송
   servlet:
@@ -85,7 +85,7 @@ spring:
     timeout-per-shutdown-phase: 20s
   security:
     filter:
-      ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost,203.245.29.74
+      ips: 0:0:0:0:0:0:0:1,127.0.0.1,localhost,203.245.29.74,121.135.170.2
 #  mail:
 #    host: smtp-mail.outlook.com
 #    port: 587
@@ -137,6 +137,12 @@ spring:
 #    withdraw-fail:
 #      exchange: v1.ex.events
 #      routionkey: v1.events.account.leave
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
+    enabled: true
 
 jwt:
   token-validity-in-milliseconds: 43200000 # 600000(10분), 43200000(12시간), 86400000(24시간), 31536000000(365일)
