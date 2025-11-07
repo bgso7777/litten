@@ -120,3 +120,4 @@ app.*.symbols
 
 setting*.loca*.json
 nul
+.idea/

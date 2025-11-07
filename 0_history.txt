@@ -1,17 +1,10 @@
 
-WSL 환경인데 윈도우에 
-플로터 FLUTTER_HOME=/mnt/c/work/download/flutter
-안드로이드 SDK ANDROID_HOME=/mnt/c/Users/bgso/AppData/Local/Android/Sdk
-자바 JAVA_HOME=/mnt/c/work/ploonet/3.development/openjdk-17+35_windows-x64_bin/jdk-17
-크롬 CHROME_EXECUTABLE="c:/Program Files/Google/Chrome/Application/chrome.exe"
-web으로 재빌드하고 edge에서 접속할 수 있도록 실행해줘. 
-
 윈도우 환경인데 
-플로터 c:/work/download/flutter
-안드로이드 SDK c:/Users/bgso/AppData/Local/Android/Sdk
-자바 c:/work/ploonet/3.development/openjdk-17+35_windows-x64_bin/jdk-17
-크롬 CHROME_EXECUTABLE="c:/Program Files/Google/Chrome/Application/chrome.exe"
-aos 용으로 재빌드하고 에뮬레이터에서 실행해줘 
+litten mobile source 위치 C:\work\litten\litten\frontend
+flutter 위치 C:\work\litten\flutter
+자바 위치 C:\work\litten\openjdk-17+35_windows-x64_bin\jdk-17
+안드로이드스튜디오 C:\work\litten\AndroidStudio2
+aos 용으로 재빌드해줘
 
 맥OS 환경인데 
 ios, aos 재빌드하고 에뮬레이터에서 실행해줘.
@@ -165,7 +158,7 @@ _painterController.background 미초기화: 새 배경 설정 전에 이전 배�
   제목: 회의 - 주간 (샘플) 
   설명: 
 
-온보드에서 구독 요금제 선택하는 단계를 없애줘. 
+온보드에서 3번째 스텝 "구독 플랜 선택"하는 단계를 없애줘. 
 
 리튼앱에 해상도에 따라 깨지지 않게 해줘.
 
