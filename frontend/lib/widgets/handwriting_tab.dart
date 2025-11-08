@@ -99,6 +99,10 @@ class _HandwritingTabState extends State<HandwritingTab>
   int _totalPagesToConvert = 0;
   String _conversionStatus = '';
   bool _conversionCancelled = false;
+  BuildContext? _conversionDialogContext; // 다이얼로그 context 저장
+
+  // 다이얼로그 업데이트 콜백 (위젯 unmount 후에도 다이얼로그 업데이트 가능)
+  void Function(VoidCallback)? _updateDialog;
 
   // 편집 상태
   HandwritingFile? _currentHandwritingFile;
@@ -916,9 +920,14 @@ class _HandwritingTabState extends State<HandwritingTab>
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return StreamBuilder<void>(
-          stream: Stream.periodic(const Duration(milliseconds: 100)),
-          builder: (context, snapshot) {
+        // 다이얼로그 context 저장 (나중에 닫기 위해)
+        _conversionDialogContext = dialogContext;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // 다이얼로그 업데이트 콜백 저장 (위젯 unmount 후에도 다이얼로그 업데이트 가능)
+            _updateDialog = setState;
+
             return AlertDialog(
               title: const Text('PDF 변환 중'),
               content: Column(
@@ -988,10 +997,24 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     if (!mounted) {
       print('ERROR: 5초 대기 후에도 widget이 unmounted 상태 - UI 업데이트 포기');
+
+      // 저장된 다이얼로그 context로 닫기 시도
+      if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
+        Navigator.of(_conversionDialogContext!).pop();
+        _conversionDialogContext = null;
+        print('DEBUG: 다이얼로그 닫기 완료 (unmounted 상태, 저장된 context 사용)');
+      }
       return;
     }
 
-    // UI 업데이트
+    // 저장된 다이얼로그 context로 닫기
+    if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
+      Navigator.of(_conversionDialogContext!).pop();
+      _conversionDialogContext = null;
+      print('DEBUG: PDF 변환 다이얼로그 닫기 완료 (저장된 context 사용)');
+    }
+
+    // UI 업데이트 (파일은 이미 _handwritingFiles에 추가됨)
     setState(() {
       _currentHandwritingFile = newHandwritingFile;
       _isEditing = true;
@@ -1011,7 +1034,7 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: 첫 페이지 배경 이미지 로드 완료');
     }
 
-    // 성공 메시지 표시
+    // 성공 메시지 표시 및 필기 탭으로 전환
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1019,12 +1042,7 @@ class _HandwritingTabState extends State<HandwritingTab>
             '$titleWithoutExtension ($totalPages페이지)이(가) 필기 파일로 추가되었습니다.',
           ),
           backgroundColor: Colors.green,
-          action: SnackBarAction(
-            label: '편집',
-            onPressed: () {
-              // 이미 편집 모드로 설정됨
-            },
-          ),
+          duration: const Duration(seconds: 3),
         ),
       );
       print('DEBUG: 성공 메시지 표시 완료');
@@ -1175,7 +1193,7 @@ class _HandwritingTabState extends State<HandwritingTab>
         await for (final page in Printing.raster(
           pdfBytes,
           pages: pageIndices,
-          dpi: 300, // 표준 인쇄 품질 DPI (메모리 최적화)
+          dpi: 150, // 모바일 화면용 DPI (메모리 최적화: 300 대비 1/4 메모리)
         )) {
           if (_conversionCancelled) {
             throw Exception('변환이 취소되었습니다.');
@@ -1184,12 +1202,11 @@ class _HandwritingTabState extends State<HandwritingTab>
           // 원본 크기로 PNG 변환
           batchImages.add(await page.toPng());
 
-          if (mounted) {
-            setState(() {
-              _convertedPages++;
-              _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
-            });
-          }
+          // 다이얼로그 업데이트 (위젯이 unmount 되어도 작동)
+          _convertedPages++;
+          _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+
+          _updateDialog?.call(() {});
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
 
@@ -1455,7 +1472,7 @@ class _HandwritingTabState extends State<HandwritingTab>
         await for (final page in Printing.raster(
           pdfBytes,
           pages: pageIndices,
-          dpi: 200, // 웹 최적화 DPI
+          dpi: 150, // 웹 메모리 최적화 DPI
         )) {
           if (_conversionCancelled) {
             throw Exception('변환이 취소되었습니다.');
@@ -1483,12 +1500,11 @@ class _HandwritingTabState extends State<HandwritingTab>
           await storage.saveImageBytesToWeb(pageKey, imageBytes);
           pageImagePaths.add(pageKey);
 
-          if (mounted) {
-            setState(() {
-              _convertedPages++;
-              _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
-            });
-          }
+          // 다이얼로그 업데이트 (위젯이 unmount 되어도 작동)
+          _convertedPages++;
+          _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+
+          _updateDialog?.call(() {});
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
 
@@ -1635,10 +1651,16 @@ class _HandwritingTabState extends State<HandwritingTab>
       PaintingBinding.instance.imageCache.clearLiveImages();
       print('🧹 이미지 캐시 클리어 완료');
 
+      // 🔍 바이트 데이터 해시 출력하여 실제 로드되는 이미지 확인
+      final hash = imageBytes.fold<int>(0, (prev, byte) => prev ^ byte);
+      print('🔍 [_setBackgroundFromBytes] 이미지 바이트 해시: $hash, 크기: ${imageBytes.length} bytes');
+
       // Uint8List를 ui.Image로 변환 후 배경으로 설정
       final codec = await ui.instantiateImageCodec(imageBytes);
       final frameInfo = await codec.getNextFrame();
       final uiImage = frameInfo.image;
+
+      print('🔍 [_setBackgroundFromBytes] 변환된 이미지 크기: ${uiImage.width}x${uiImage.height}');
 
       // 원본 이미지 크기 정보 로그 및 비율 계산
       print(
@@ -3208,9 +3230,11 @@ class _HandwritingTabState extends State<HandwritingTab>
     if (_currentHandwritingFile!.isMultiPage &&
         _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
       // 다중 페이지인 경우 필기 레이어 키 생성
-      drawingKey =
-          '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
-      print('DEBUG: 웹 - 다중 페이지 필기 레이어 저장 - $drawingKey');
+      // pageImagePaths에서 실제 파일명 가져오기 (예: "abc123_page_1.png")
+      final pageFileName = _currentHandwritingFile!.pageImagePaths[_currentHandwritingFile!.currentPageIndex];
+      // "_page_N.png"를 "_page_N_drawing.png"로 변경
+      drawingKey = pageFileName.replaceAll('.png', '_drawing.png');
+      print('DEBUG: 웹 - 다중 페이지 필기 레이어 저장 - $drawingKey (from $pageFileName)');
     } else {
       // 단일 페이지인 경우 필기 레이어 키 생성
       drawingKey = '${_currentHandwritingFile!.id}_drawing.png';
@@ -3231,16 +3255,18 @@ class _HandwritingTabState extends State<HandwritingTab>
     // 현재 페이지의 이미지를 직접 파일로 저장
     final directory = await getApplicationDocumentsDirectory();
     final littenDir = Directory(
-      '${directory.path}/litten_${_currentHandwritingFile!.littenId}',
+      '${directory.path}/littens/${_currentHandwritingFile!.littenId}/handwriting',
     );
 
     String fileName;
     if (_currentHandwritingFile!.isMultiPage &&
         _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
       // 다중 페이지인 경우 필기 레이어 파일명 생성
-      fileName =
-          '${_currentHandwritingFile!.id}_page_${_currentHandwritingFile!.currentPageIndex + 1}_drawing.png';
-      print('DEBUG: 모바일 - 다중 페이지 필기 레이어 저장 - $fileName');
+      // pageImagePaths에서 실제 파일명 가져오기 (예: "abc123_page_1.png")
+      final pageFileName = _currentHandwritingFile!.pageImagePaths[_currentHandwritingFile!.currentPageIndex];
+      // "_page_N.png"를 "_page_N_drawing.png"로 변경
+      fileName = pageFileName.replaceAll('.png', '_drawing.png');
+      print('DEBUG: 모바일 - 다중 페이지 필기 레이어 저장 - $fileName (from $pageFileName)');
     } else {
       // 단일 페이지인 경우 필기 레이어 파일명 생성
       fileName = '${_currentHandwritingFile!.id}_drawing.png';
@@ -3307,7 +3333,11 @@ class _HandwritingTabState extends State<HandwritingTab>
     // 2. 필기 레이어 로드 (있으면)
     String drawingKey;
     if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-      drawingKey = '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+      // pageImagePaths에서 실제 파일명 가져오기 (예: "abc123_page_1.png")
+      final pageFileName = file.pageImagePaths[file.currentPageIndex];
+      // "_page_N.png"를 "_page_N_drawing.png"로 변경
+      drawingKey = pageFileName.replaceAll('.png', '_drawing.png');
+      print('DEBUG: 웹 - 다중 페이지 필기 레이어 파일명 생성 - $drawingKey (from $pageFileName)');
     } else {
       drawingKey = '${file.id}_drawing.png';
     }
@@ -3373,8 +3403,11 @@ class _HandwritingTabState extends State<HandwritingTab>
     // 필기 레이어 파일 확인 및 로드
     String drawingFileName;
     if (file.isMultiPage && file.pageImagePaths.isNotEmpty) {
-      drawingFileName =
-          '${file.id}_page_${file.currentPageIndex + 1}_drawing.png';
+      // pageImagePaths에서 실제 파일명 가져오기 (예: "abc123_page_1.png")
+      final pageFileName = file.pageImagePaths[file.currentPageIndex];
+      // "_page_N.png"를 "_page_N_drawing.png"로 변경
+      drawingFileName = pageFileName.replaceAll('.png', '_drawing.png');
+      print('DEBUG: 다중 페이지 필기 레이어 파일명 생성 - $drawingFileName (from $pageFileName)');
     } else {
       drawingFileName = '${file.id}_drawing.png';
     }
@@ -3398,10 +3431,19 @@ class _HandwritingTabState extends State<HandwritingTab>
       final backgroundFileName = file.pageImagePaths[file.currentPageIndex];
       final backgroundFile = File('${littenDir.path}/$backgroundFileName');
 
+      print('🔍 [_loadHandwritingFile] 로드할 파일 경로: ${backgroundFile.path}');
+
       if (await backgroundFile.exists()) {
+        print('🔍 [_loadHandwritingFile] 파일 크기: ${await backgroundFile.length()} bytes');
+
         final backgroundBytes = await backgroundFile.readAsBytes();
+        final hash = backgroundBytes.fold<int>(0, (prev, byte) => prev ^ byte);
+        print('🔍 [_loadHandwritingFile] 읽은 파일 바이트 해시: $hash');
+
         await _setBackgroundFromBytes(backgroundBytes);
         print('DEBUG: 모바일 - 배경 이미지 로드 완료 - $backgroundFileName');
+      } else {
+        print('❌ [_loadHandwritingFile] 파일이 존재하지 않음: ${backgroundFile.path}');
       }
     }
 
