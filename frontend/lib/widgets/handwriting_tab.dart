@@ -883,6 +883,11 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     print('✅ 선택된 리튼 확인 완료 - ID: ${selectedLitten.id}');
 
+    // ✅ FilePicker 호출 전에 필기 탭으로 미리 전환 (탭 유지 보장)
+    final appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
+    appStateProvider.setTargetWritingTab('handwriting');
+    print('🎯 PDF 변환 전 필기 탭으로 사전 전환 완료');
+
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
@@ -900,10 +905,26 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: PDF 파일 선택됨 - ${result.files.single.name}');
 
       final pdfPath = result.files.single.path!;
-      final fileName = result.files.single.name ?? 'PDF';
+      final fileName = result.files.single.name;
+
+      // ✅ Issue 1 해결: FilePicker 후 즉시 다이얼로그 표시 (mounted 상태에서)
+      if (mounted) {
+        setState(() {
+          _isConverting = true;
+          _convertedPages = 0;
+          _totalPagesToConvert = 0;
+          _conversionStatus = 'PDF 변환 준비 중...';
+        });
+
+        // 다이얼로그 먼저 표시
+        _showConversionProgressDialog();
+        print('✅ Issue 1: FilePicker 직후 다이얼로그 표시 완료');
+      }
+
+      // 다이얼로그 표시 후 잠시 대기하여 UI가 완전히 렌더링되도록 함
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // 바로 필기용으로 변환 (selectedLitten을 인자로 전달)
-      // 다이얼로그는 변환 함수 내부에서 표시
       await _convertPdfToPngAndAddToHandwriting(
         pdfPath,
         fileName,
@@ -911,69 +932,85 @@ class _HandwritingTabState extends State<HandwritingTab>
       );
     } else {
       print('❌ PDF 파일 선택 실패 - result가 null이거나 파일 경로가 없음');
+      // 선택 취소 시에도 필기 탭 유지
+      appStateProvider.setTargetWritingTab('handwriting');
     }
   }
 
 
   void _showConversionProgressDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        // 다이얼로그 context 저장 (나중에 닫기 위해)
-        _conversionDialogContext = dialogContext;
+    print('🔍 _showConversionProgressDialog 호출 - mounted: $mounted');
 
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // 다이얼로그 업데이트 콜백 저장 (위젯 unmount 후에도 다이얼로그 업데이트 가능)
-            _updateDialog = setState;
+    if (!mounted) {
+      print('⚠️ Widget이 mounted 되지 않아 다이얼로그 표시 불가');
+      return;
+    }
 
-            return AlertDialog(
-              title: const Text('PDF 변환 중'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LinearProgressIndicator(
-                    value: _totalPagesToConvert > 0
-                        ? _convertedPages / _totalPagesToConvert
-                        : 0,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '$_convertedPages / $_totalPagesToConvert 페이지 변환됨',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  if (_conversionStatus.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _conversionStatus,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                      textAlign: TextAlign.center,
+    // ✅ BuildContext 유효성 재확인
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) {
+          print('✅ 다이얼로그 builder 실행됨');
+          // 다이얼로그 context 저장 (나중에 닫기 위해)
+          _conversionDialogContext = dialogContext;
+
+          return StatefulBuilder(
+            builder: (context, setState) {
+              // 다이얼로그 업데이트 콜백 저장 (위젯 unmount 후에도 다이얼로그 업데이트 가능)
+              _updateDialog = setState;
+
+              return AlertDialog(
+                title: const Text('PDF 변환 중'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(
+                      value: _totalPagesToConvert > 0
+                          ? _convertedPages / _totalPagesToConvert
+                          : 0,
                     ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '$_convertedPages / $_totalPagesToConvert 페이지 변환됨',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    if (_conversionStatus.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _conversionStatus,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    if (mounted) {
-                      setState(() {
-                        _conversionCancelled = true;
-                      });
-                    }
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('취소'),
                 ),
-              ],
-            );
-          },
-        );
-      },
-    );
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      if (mounted) {
+                        setState(() {
+                          _conversionCancelled = true;
+                        });
+                      }
+                      Navigator.of(dialogContext).pop();
+                    },
+                    child: const Text('취소'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      print('✅ showDialog 호출 완료');
+    } catch (e) {
+      print('❌ 다이얼로그 표시 에러: $e');
+    }
   }
 
   // FilePicker 후 위젯이 다시 mount될 때까지 기다렸다가 UI 업데이트
@@ -1014,15 +1051,28 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: PDF 변환 다이얼로그 닫기 완료 (저장된 context 사용)');
     }
 
-    // UI 업데이트 (파일은 이미 _handwritingFiles에 추가됨)
+    // UI 업데이트 (파일 목록 최신화 및 에디터 열기)
     setState(() {
+      // 파일 목록 최신화 (중복 추가 방지)
+      _handwritingFiles.removeWhere((file) => file.id == newHandwritingFile.id);
+      _handwritingFiles.insert(0, newHandwritingFile); // 맨 앞에 추가
+
       _currentHandwritingFile = newHandwritingFile;
       _isEditing = true;
       _isConverting = false;
       _selectedTool = '제스처';
       _isGestureMode = true;
     });
-    print('DEBUG: UI 상태 업데이트 완료');
+    print('DEBUG: UI 상태 업데이트 완료 - 파일 목록 크기: ${_handwritingFiles.length}');
+
+    // ✅ SharedPreferences에 파일 목록 저장하여 다른 곳에서도 보이도록 함
+    final storage = FileStorageService.instance;
+    await storage.saveHandwritingFiles(newHandwritingFile.littenId, _handwritingFiles);
+    print('DEBUG: 필기 파일 목록 SharedPreferences 저장 완료 - ${_handwritingFiles.length}개 파일');
+
+    // ✅ Issue 3 해결: 파일 목록 다시 로드하여 UI에 즉시 반영
+    await _loadFiles();
+    print('✅ Issue 3: 파일 목록 재로드 완료 - UI에 변환된 파일이 즉시 표시됨');
 
     // 첫 번째 페이지 이미지 로드
     final firstPageFileName = pageImagePaths.first;
@@ -1065,21 +1115,8 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       final storage = FileStorageService.instance;
 
-      // 변환 상태 초기화 및 즉시 다이얼로그 표시
-      if (mounted) {
-        setState(() {
-          _isConverting = true;
-          _convertedPages = 0;
-          _totalPagesToConvert = 0;
-          _conversionStatus = 'PDF 파일 읽는 중...';
-          _conversionCancelled = false;
-        });
-
-        // PDF 파일 선택 직후 즉시 다이얼로그 표시
-        print('🔍 PDF 변환 다이얼로그 즉시 표시 - mounted: $mounted');
-        _showConversionProgressDialog();
-        print('✅ PDF 변환 다이얼로그 표시 완료');
-      }
+      // ✅ Issue 1 해결: 다이얼로그는 이미 FilePicker 직후에 표시되었으므로 여기서는 변환 작업만 수행
+      print('DEBUG: PDF 변환 작업 시작 (다이얼로그는 이미 표시됨)');
 
       // PDF 파일을 Uint8List로 읽기 (백그라운드에서 처리)
       final pdfFile = File(pdfPath);
