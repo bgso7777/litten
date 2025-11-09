@@ -1034,8 +1034,13 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('DEBUG: 첫 페이지 배경 이미지 로드 완료');
     }
 
-    // 성공 메시지 표시 및 필기 탭으로 전환
+    // 성공 메시지 표시 및 필기 탭 유지
     if (mounted) {
+      // 필기 탭 유지
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      appState.setTargetWritingTab('handwriting');
+      print('DEBUG: PDF 변환 완료 - 필기 탭 유지 설정');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1060,15 +1065,20 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       final storage = FileStorageService.instance;
 
-      // 변환 상태 초기화
+      // 변환 상태 초기화 및 즉시 다이얼로그 표시
       if (mounted) {
         setState(() {
           _isConverting = true;
           _convertedPages = 0;
           _totalPagesToConvert = 0;
-          _conversionStatus = '페이지 수 확인 중...';
+          _conversionStatus = 'PDF 파일 읽는 중...';
           _conversionCancelled = false;
         });
+
+        // PDF 파일 선택 직후 즉시 다이얼로그 표시
+        print('🔍 PDF 변환 다이얼로그 즉시 표시 - mounted: $mounted');
+        _showConversionProgressDialog();
+        print('✅ PDF 변환 다이얼로그 표시 완료');
       }
 
       // PDF 파일을 Uint8List로 읽기 (백그라운드에서 처리)
@@ -1077,13 +1087,10 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfBytes = await pdfFile.readAsBytes();
       print('DEBUG: PDF 파일 읽기 완료');
 
-      // PDF 파일 읽기 완료 후 다이얼로그 표시 (이 시점에서는 widget이 안정적으로 mounted 상태)
       if (mounted) {
-        print('🔍 PDF 변환 다이얼로그 표시 시도 - mounted: $mounted');
-        _showConversionProgressDialog();
-        print('✅ PDF 변환 다이얼로그 표시 완료');
-      } else {
-        print('❌ Widget unmounted - 다이얼로그 표시 불가');
+        setState(() {
+          _conversionStatus = '페이지 수 확인 중...';
+        });
       }
 
       // 먼저 총 페이지 수만 확인 (메모리 절약) - 타임아웃 30초

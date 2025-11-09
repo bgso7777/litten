@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="리튼(Litten) - 듣기, 쓰기, 필기를 하나로 통합한 크로스 플랫폼 노트 앱">
     <title>Litten - 듣기, 쓰기, 필기를 하나로</title>
     <style>
         * {
@@ -42,7 +43,10 @@
         .logo {
             font-size: 1.8rem;
             font-weight: 700;
-            color: #2563eb;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             text-decoration: none;
         }
 
@@ -60,7 +64,7 @@
         }
 
         .nav-links a:hover {
-            color: #2563eb;
+            color: #667eea;
         }
 
         /* 히어로 섹션 */
@@ -74,36 +78,67 @@
             justify-content: center;
             text-align: center;
             padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
         }
 
         .hero-content h1 {
-            font-size: 3.5rem;
+            font-size: 4rem;
             margin-bottom: 1.5rem;
             animation: fadeInUp 1s ease;
+            font-weight: 800;
         }
 
-        .hero-content p {
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
+        .hero-content .tagline {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            opacity: 0.95;
             animation: fadeInUp 1s ease 0.2s backwards;
+            font-weight: 300;
+        }
+
+        .hero-content .description {
+            font-size: 1.3rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            animation: fadeInUp 1s ease 0.4s backwards;
+            line-height: 1.8;
         }
 
         .cta-buttons {
             display: flex;
             gap: 1rem;
             justify-content: center;
-            animation: fadeInUp 1s ease 0.4s backwards;
+            animation: fadeInUp 1s ease 0.6s backwards;
+            flex-wrap: wrap;
         }
 
         .btn {
-            padding: 1rem 2.5rem;
+            padding: 1.2rem 3rem;
             border-radius: 50px;
             text-decoration: none;
             font-weight: 600;
             font-size: 1.1rem;
             transition: all 0.3s;
             border: 2px solid white;
+            display: inline-block;
         }
 
         .btn-primary {
@@ -112,8 +147,8 @@
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
         }
 
         .btn-secondary {
@@ -126,17 +161,92 @@
             color: #667eea;
         }
 
+        /* 브랜드 스토리 섹션 */
+        .brand-story {
+            padding: 6rem 2rem;
+            background: #f8fafc;
+        }
+
+        .brand-story-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .brand-story h2 {
+            font-size: 3rem;
+            margin-bottom: 2rem;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .brand-story p {
+            font-size: 1.3rem;
+            color: #64748b;
+            line-height: 2;
+            max-width: 900px;
+            margin: 0 auto 2rem;
+        }
+
+        .brand-values {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .value-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .value-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .value-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .value-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .value-card p {
+            color: #64748b;
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
         /* 기능 섹션 */
         .features {
-            padding: 5rem 2rem;
-            background: #f8fafc;
+            padding: 6rem 2rem;
+            background: white;
         }
 
         .section-title {
             text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 3rem;
+            font-size: 3rem;
+            margin-bottom: 1rem;
             color: #1e293b;
+            font-weight: 700;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.3rem;
+            color: #64748b;
+            margin-bottom: 4rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .features-grid {
@@ -148,26 +258,28 @@
         }
 
         .feature-card {
-            background: white;
-            padding: 2.5rem;
+            background: #f8fafc;
+            padding: 3rem 2.5rem;
             border-radius: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s;
             text-align: center;
+            border: 2px solid transparent;
         }
 
         .feature-card:hover {
             transform: translateY(-10px);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
         }
 
         .feature-icon {
-            font-size: 3rem;
+            font-size: 4rem;
             margin-bottom: 1.5rem;
         }
 
         .feature-card h3 {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             margin-bottom: 1rem;
             color: #1e293b;
         }
@@ -175,45 +287,70 @@
         .feature-card p {
             color: #64748b;
             line-height: 1.8;
+            font-size: 1.1rem;
         }
 
-        /* 앱 소개 섹션 */
-        .app-showcase {
-            padding: 5rem 2rem;
+        /* 서비스 소개 섹션 */
+        .services {
+            padding: 6rem 2rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+
+        .services-container {
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        .showcase-grid {
+        .service-preview {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 4rem;
             align-items: center;
-            margin-bottom: 4rem;
         }
 
-        .showcase-grid:nth-child(even) {
+        .service-preview:nth-child(even) {
             direction: rtl;
         }
 
-        .showcase-grid:nth-child(even) > * {
+        .service-preview:nth-child(even) > * {
             direction: ltr;
         }
 
-        .showcase-content h2 {
-            font-size: 2rem;
+        .service-content h3 {
+            font-size: 2.5rem;
             margin-bottom: 1.5rem;
             color: #1e293b;
         }
 
-        .showcase-content p {
+        .service-content p {
             color: #64748b;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             line-height: 1.8;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
 
-        .showcase-image {
+        .service-link {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .service-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .service-image {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 20px;
             height: 400px;
@@ -221,12 +358,53 @@
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
+            font-weight: 600;
         }
 
-        /* 플랜 섹션 */
+        /* 하이라이트 섹션 */
+        .highlights {
+            padding: 6rem 2rem;
+            background: white;
+        }
+
+        .highlights-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .highlight-card {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .highlight-number {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .highlight-card p {
+            color: #64748b;
+            line-height: 1.8;
+        }
+
+        /* 요금제 섹션 */
         .pricing {
-            padding: 5rem 2rem;
+            padding: 6rem 2rem;
             background: #f8fafc;
         }
 
@@ -240,35 +418,57 @@
 
         .pricing-card {
             background: white;
-            padding: 2.5rem;
+            padding: 3rem 2.5rem;
             border-radius: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
             transition: all 0.3s;
+            position: relative;
         }
 
         .pricing-card:hover {
-            transform: scale(1.05);
+            transform: translateY(-10px);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         }
 
         .pricing-card.featured {
-            border: 3px solid #2563eb;
+            border: 3px solid #667eea;
             transform: scale(1.05);
         }
 
+        .pricing-card.featured::before {
+            content: '인기';
+            position: absolute;
+            top: -15px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
         .plan-name {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: 700;
             margin-bottom: 1rem;
             color: #1e293b;
         }
 
         .plan-price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #2563eb;
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             margin-bottom: 1.5rem;
+        }
+
+        .plan-price span {
+            font-size: 1.2rem;
+            color: #64748b;
         }
 
         .plan-features {
@@ -278,8 +478,9 @@
         }
 
         .plan-features li {
-            padding: 0.5rem 0;
+            padding: 0.8rem 0;
             color: #64748b;
+            font-size: 1.05rem;
         }
 
         .plan-features li:before {
@@ -287,18 +488,76 @@
             color: #10b981;
             font-weight: 700;
             margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        /* CTA 섹션 */
+        .cta-section {
+            padding: 6rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+        }
+
+        .cta-section p {
+            font-size: 1.3rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.95;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         /* 푸터 */
         footer {
             background: #1e293b;
             color: white;
-            padding: 3rem 2rem;
-            text-align: center;
+            padding: 4rem 2rem 2rem;
         }
 
-        footer p {
-            opacity: 0.8;
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-section a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.6);
         }
 
         /* 애니메이션 */
@@ -319,26 +578,43 @@
                 font-size: 2.5rem;
             }
 
-            .hero-content p {
-                font-size: 1.2rem;
+            .hero-content .tagline {
+                font-size: 1.3rem;
+            }
+
+            .hero-content .description {
+                font-size: 1.1rem;
             }
 
             .cta-buttons {
                 flex-direction: column;
             }
 
-            .showcase-grid {
+            .service-preview {
                 grid-template-columns: 1fr;
                 gap: 2rem;
             }
 
-            .showcase-grid:nth-child(even) {
+            .service-preview:nth-child(even) {
                 direction: ltr;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .brand-story h2 {
+                font-size: 2rem;
             }
 
             .nav-links {
                 gap: 1rem;
                 flex-wrap: wrap;
+                font-size: 0.9rem;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
             }
         }
     </style>
@@ -349,10 +625,10 @@
         <div class="nav-container">
             <a href="#" class="logo">Litten</a>
             <ul class="nav-links">
+                <li><a href="#story">브랜드</a></li>
                 <li><a href="#features">기능</a></li>
-                <li><a href="#note">노트</a></li>
+                <li><a href="services.html">서비스</a></li>
                 <li><a href="#pricing">요금제</a></li>
-                <li><a href="note.html">노트 자세히 보기</a></li>
             </ul>
         </div>
     </nav>
@@ -360,11 +636,51 @@
     <!-- 히어로 섹션 -->
     <section class="hero">
         <div class="hero-content">
-            <h1>듣기, 쓰기, 필기를 하나로</h1>
-            <p>리튼과 함께 모든 학습과 작업을 더 스마트하게</p>
+            <h1>Litten</h1>
+            <p class="tagline">듣기, 쓰기, 필기를 하나로</p>
+            <p class="description">모든 학습과 작업을 더 스마트하게 통합 관리하는 크로스 플랫폼 노트 앱</p>
             <div class="cta-buttons">
-                <a href="#" class="btn btn-primary">무료로 시작하기</a>
+                <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
                 <a href="#features" class="btn btn-secondary">더 알아보기</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 브랜드 스토리 섹션 -->
+    <section id="story" class="brand-story">
+        <div class="brand-story-container">
+            <h2>리튼의 이야기</h2>
+            <p>
+                리튼(Litten)은 "듣기(Listen)"와 "쓰기(Write)"를 결합한 이름입니다. 
+                우리는 하나의 앱에서 음성 녹음, 텍스트 작성, 필기를 모두 통합하여 
+                사용자가 더 효율적으로 학습하고 작업할 수 있도록 돕고 있습니다.
+            </p>
+            <p>
+                전 세계 30개 언어를 지원하며, 어떤 기기를 사용하든 동일한 경험을 제공합니다. 
+                리튼과 함께 모든 아이디어와 기록을 한 곳에서 관리하세요.
+            </p>
+
+            <div class="brand-values">
+                <div class="value-card">
+                    <div class="value-icon">🌍</div>
+                    <h3>글로벌 지원</h3>
+                    <p>30개 언어를 지원하여 전 세계 어디서나 사용할 수 있습니다.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon">🔄</div>
+                    <h3>통합 관리</h3>
+                    <p>듣기, 쓰기, 필기를 하나의 리튼 공간에서 통합 관리합니다.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon">📱</div>
+                    <h3>크로스 플랫폼</h3>
+                    <p>iOS와 Android 모두에서 동일한 경험을 제공합니다.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon">✨</div>
+                    <h3>직관적 UI</h3>
+                    <p>언어와 문화에 관계없이 누구나 쉽게 사용할 수 있습니다.</p>
+                </div>
             </div>
         </div>
     </section>
@@ -372,60 +688,88 @@
     <!-- 기능 섹션 -->
     <section id="features" class="features">
         <h2 class="section-title">핵심 기능</h2>
+        <p class="section-subtitle">리튼의 강력한 기능으로 모든 것을 한 곳에서 관리하세요</p>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">🎵</div>
-                <h3>듣기</h3>
+                <h3>듣기 (녹음)</h3>
                 <p>강의, 회의, 인터뷰를 고품질로 녹음하세요. 언제든지 다시 듣고 중요한 순간을 놓치지 마세요.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">✍️</div>
-                <h3>쓰기</h3>
+                <h3>쓰기 (텍스트)</h3>
                 <p>풍부한 텍스트 편집 기능으로 아이디어를 정리하세요. 포맷팅, 링크, 이미지를 쉽게 추가할 수 있습니다.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🎨</div>
-                <h3>필기</h3>
+                <h3>필기 (그리기)</h3>
                 <p>PDF나 이미지 위에 자유롭게 필기하세요. 손글씨로 메모하고 주석을 달아 생각을 시각화하세요.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📁</div>
+                <h3>리튼 공간</h3>
+                <p>하나의 프로젝트나 주제를 위한 모든 자료를 리튼 공간에 모아보세요. 모든 것이 한 곳에 있습니다.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3>30개 언어 지원</h3>
+                <p>전 세계 어디서나 모국어로 리튼을 사용하세요. 시스템 언어를 자동으로 감지합니다.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>크로스 플랫폼</h3>
+                <p>어떤 기기를 사용하든 리튼과 함께하세요. 프리미엄 플랜에서는 기기 간 자동 동기화를 지원합니다.</p>
             </div>
         </div>
     </section>
 
-    <!-- 앱 소개 섹션 -->
-    <section id="note" class="app-showcase">
-        <div class="showcase-grid">
-            <div class="showcase-content">
-                <h2>리튼 공간으로 모든 것을 통합 관리</h2>
-                <p>하나의 프로젝트나 주제를 위한 모든 자료를 리튼 공간에 모아보세요.</p>
-                <p>듣기, 쓰기, 필기 파일이 하나의 공간에서 유기적으로 연결됩니다.</p>
-                <p>더 이상 파일을 찾아 헤매지 마세요. 모든 것이 한 곳에 있습니다.</p>
-            </div>
-            <div class="showcase-image">
-                <span>📁 리튼 공간 미리보기</span>
+    <!-- 서비스 소개 섹션 -->
+    <section id="services" class="services">
+        <div class="services-container">
+            <h2 class="section-title">서비스 소개</h2>
+            <p class="section-subtitle">리튼의 다양한 서비스를 만나보세요</p>
+
+            <div class="service-preview">
+                <div class="service-content">
+                    <h3>📝 리튼 서비스</h3>
+                    <p>
+                        리튼은 듣기, 쓰기, 필기를 통합한 다양한 서비스를 제공합니다.
+                    </p>
+                    <p>
+                        노트 서비스를 시작으로 학습, 비즈니스 등 다양한 분야의 서비스가 준비 중입니다.
+                        모든 서비스를 하나의 플랫폼에서 통합 관리할 수 있습니다.
+                    </p>
+                    <a href="services.html" class="service-link">서비스 전체 보기 →</a>
+                </div>
+                <div class="service-image">
+                    🚀 리튼 서비스 미리보기
+                </div>
             </div>
         </div>
+    </section>
 
-        <div class="showcase-grid">
-            <div class="showcase-content">
-                <h2>30개 언어 지원</h2>
-                <p>전 세계 어디서나 모국어로 리튼을 사용하세요.</p>
-                <p>영어, 중국어, 한국어, 일본어를 비롯한 30개 언어를 지원합니다.</p>
-                <p>시스템 언어를 자동으로 감지하여 첫 실행부터 편리하게 사용할 수 있습니다.</p>
+    <!-- 하이라이트 섹션 -->
+    <section class="highlights">
+        <div class="highlights-grid">
+            <div class="highlight-card">
+                <div class="highlight-number">30</div>
+                <h3>지원 언어</h3>
+                <p>전 세계 30개 언어를 지원합니다</p>
             </div>
-            <div class="showcase-image">
-                <span>🌍 글로벌 언어 지원</span>
+            <div class="highlight-card">
+                <div class="highlight-number">2</div>
+                <h3>플랫폼</h3>
+                <p>iOS와 Android 모두 지원</p>
             </div>
-        </div>
-
-        <div class="showcase-grid">
-            <div class="showcase-content">
-                <h2>iOS와 Android 모두 지원</h2>
-                <p>어떤 기기를 사용하든 리튼과 함께하세요.</p>
-                <p>스마트폰, 태블릿에서 동일한 경험을 제공합니다.</p>
-                <p>프리미엄 플랜에서는 기기 간 자동 동기화를 지원합니다.</p>
+            <div class="highlight-card">
+                <div class="highlight-number">3</div>
+                <h3>통합 기능</h3>
+                <p>듣기, 쓰기, 필기를 하나로</p>
             </div>
-            <div class="showcase-image">
-                <span>📱 크로스 플랫폼</span>
+            <div class="highlight-card">
+                <div class="highlight-number">∞</div>
+                <h3>무한 가능</h3>
+                <p>프리미엄 플랜으로 무제한 사용</p>
             </div>
         </div>
     </section>
@@ -433,15 +777,17 @@
     <!-- 요금제 섹션 -->
     <section id="pricing" class="pricing">
         <h2 class="section-title">요금제</h2>
+        <p class="section-subtitle">나에게 맞는 플랜을 선택하세요</p>
         <div class="pricing-grid">
             <div class="pricing-card">
                 <div class="plan-name">무료</div>
-                <div class="plan-price">₩0</div>
+                <div class="plan-price">₩0<span>/월</span></div>
                 <ul class="plan-features">
                     <li>리튼 최대 5개</li>
                     <li>듣기 파일 최대 10개</li>
                     <li>쓰기 텍스트 최대 5개</li>
                     <li>필기 최대 5개</li>
+                    <li>30개 언어 지원</li>
                     <li>광고 포함</li>
                 </ul>
                 <a href="#" class="btn btn-primary">무료로 시작</a>
@@ -449,35 +795,81 @@
 
             <div class="pricing-card featured">
                 <div class="plan-name">스탠다드</div>
-                <div class="plan-price">₩4,900<span style="font-size: 1rem;">/월</span></div>
+                <div class="plan-price">₩4,900<span>/월</span></div>
                 <ul class="plan-features">
                     <li>무제한 리튼 생성</li>
                     <li>무제한 파일 저장</li>
                     <li>광고 제거</li>
                     <li>우선 고객 지원</li>
+                    <li>30개 언어 지원</li>
+                    <li>크로스 플랫폼 지원</li>
                 </ul>
                 <a href="#" class="btn btn-primary">지금 시작</a>
             </div>
 
             <div class="pricing-card">
                 <div class="plan-name">프리미엄</div>
-                <div class="plan-price">₩9,900<span style="font-size: 1rem;">/월</span></div>
+                <div class="plan-price">₩9,900<span>/월</span></div>
                 <ul class="plan-features">
                     <li>스탠다드의 모든 기능</li>
                     <li>사용자 로그인</li>
                     <li>클라우드 서버 동기화</li>
                     <li>기기 간 자동 백업</li>
                     <li>프리미엄 고객 지원</li>
+                    <li>데이터 암호화</li>
                 </ul>
                 <a href="#" class="btn btn-primary">프리미엄 시작</a>
             </div>
         </div>
     </section>
 
+    <!-- CTA 섹션 -->
+    <section class="cta-section">
+        <h2>지금 바로 리튼을 시작하세요</h2>
+        <p>듣기, 쓰기, 필기를 하나로 통합한 리튼과 함께 더 효율적인 학습과 작업을 시작하세요</p>
+        <div class="cta-buttons">
+            <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
+            <a href="services.html" class="btn btn-secondary">서비스 알아보기</a>
+        </div>
+    </section>
+
     <!-- 푸터 -->
     <footer>
-        <p>&copy; 2025 Litten. All rights reserved.</p>
-        <p>듣기, 쓰기, 필기를 하나로 - 리튼</p>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>Litten</h3>
+                <p style="color: rgba(255, 255, 255, 0.8); margin-top: 1rem;">
+                    듣기, 쓰기, 필기를 하나로 통합한 크로스 플랫폼 노트 앱
+                </p>
+            </div>
+            <div class="footer-section">
+                <h3>제품</h3>
+                <ul>
+                    <li><a href="#features">기능</a></li>
+                    <li><a href="services.html">서비스</a></li>
+                    <li><a href="#pricing">요금제</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>회사</h3>
+                <ul>
+                    <li><a href="#story">브랜드 스토리</a></li>
+                    <li><a href="#">블로그</a></li>
+                    <li><a href="#">연락처</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>지원</h3>
+                <ul>
+                    <li><a href="#">도움말</a></li>
+                    <li><a href="#">문의하기</a></li>
+                    <li><a href="#">이용약관</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Litten. All rights reserved.</p>
+        </div>
     </footer>
 
     <script>
@@ -509,8 +901,21 @@
             });
         }, observerOptions);
 
-        document.querySelectorAll('.feature-card, .showcase-grid, .pricing-card').forEach(el => {
+        document.querySelectorAll('.feature-card, .value-card, .service-preview, .pricing-card, .highlight-card').forEach(el => {
             observer.observe(el);
+        });
+
+        // 네비게이션 스크롤 시 스타일 변경
+        let lastScroll = 0;
+        const nav = document.querySelector('nav');
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll > 100) {
+                nav.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
+            } else {
+                nav.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+            }
+            lastScroll = currentScroll;
         });
     </script>
 </body>

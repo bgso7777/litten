@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>노트 기능 - Litten</title>
+    <meta name="description" content="리튼 노트 서비스 - 듣기, 쓰기, 필기를 통합한 강력한 노트 기능">
+    <title>노트 서비스 - Litten</title>
     <style>
         * {
             margin: 0;
@@ -42,7 +43,10 @@
         .logo {
             font-size: 1.8rem;
             font-weight: 700;
-            color: #2563eb;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             text-decoration: none;
         }
 
@@ -60,7 +64,7 @@
         }
 
         .nav-links a:hover {
-            color: #2563eb;
+            color: #10b981;
         }
 
         /* 히어로 섹션 */
@@ -70,18 +74,40 @@
             color: white;
             padding: 5rem 2rem;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
         }
 
         .hero h1 {
-            font-size: 3rem;
+            font-size: 3.5rem;
             margin-bottom: 1.5rem;
+            font-weight: 800;
         }
 
         .hero p {
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             max-width: 800px;
-            margin: 0 auto 2rem;
-            opacity: 0.9;
+            margin: 0 auto;
+            opacity: 0.95;
+            line-height: 1.8;
         }
 
         /* 탭 메뉴 */
@@ -105,11 +131,11 @@
         }
 
         .tab-button {
-            padding: 0.8rem 2rem;
+            padding: 1rem 2.5rem;
             border: 2px solid #e5e7eb;
             background: white;
             border-radius: 50px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -119,12 +145,14 @@
         .tab-button:hover {
             border-color: #10b981;
             color: #10b981;
+            transform: translateY(-2px);
         }
 
         .tab-button.active {
-            background: #10b981;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             border-color: #10b981;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
         /* 컨텐츠 섹션 */
@@ -168,20 +196,22 @@
         }
 
         .feature-text h2 {
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             margin-bottom: 1.5rem;
             color: #1e293b;
+            font-weight: 700;
         }
 
         .feature-text h3 {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             margin: 2rem 0 1rem;
             color: #10b981;
+            font-weight: 600;
         }
 
         .feature-text p {
             color: #64748b;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             line-height: 1.8;
             margin-bottom: 1rem;
         }
@@ -192,9 +222,10 @@
         }
 
         .feature-text ul li {
-            padding: 0.8rem 0;
+            padding: 1rem 0;
             color: #64748b;
-            font-size: 1.05rem;
+            font-size: 1.1rem;
+            line-height: 1.8;
         }
 
         .feature-text ul li:before {
@@ -202,35 +233,41 @@
             color: #10b981;
             font-weight: 700;
             margin-right: 0.5rem;
+            font-size: 1.3rem;
         }
 
         .feature-image {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             border-radius: 20px;
-            height: 450px;
+            height: 500px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
+            font-weight: 600;
             box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
         }
 
         .highlight-box {
             background: #f0fdf4;
             border-left: 4px solid #10b981;
-            padding: 1.5rem;
+            padding: 2rem;
             margin: 2rem 0;
             border-radius: 8px;
         }
 
         .highlight-box h4 {
             color: #10b981;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.8rem;
+            font-size: 1.3rem;
+            font-weight: 600;
         }
 
         .highlight-box p {
             color: #059669;
+            font-size: 1.1rem;
+            margin: 0;
         }
 
         /* Use Cases */
@@ -243,31 +280,101 @@
 
         .use-case-card {
             background: white;
-            padding: 2rem;
+            padding: 2.5rem;
             border-radius: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s;
+            border: 2px solid transparent;
         }
 
         .use-case-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #10b981;
         }
 
         .use-case-card h4 {
-            font-size: 1.3rem;
+            font-size: 1.5rem;
             margin-bottom: 1rem;
             color: #1e293b;
+            font-weight: 600;
         }
 
         .use-case-card p {
             color: #64748b;
             line-height: 1.8;
+            font-size: 1.05rem;
         }
 
         .use-case-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin: 4rem 0 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* 통합 사용 섹션 */
+        .integration-section {
+            padding: 4rem 2rem;
+            background: #f8fafc;
+            margin: 4rem 0;
+            border-radius: 20px;
+        }
+
+        .integration-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .integration-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: #1e293b;
+        }
+
+        .integration-content p {
+            font-size: 1.2rem;
+            color: #64748b;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+        }
+
+        .integration-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .integration-feature {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .integration-feature-icon {
             font-size: 2.5rem;
             margin-bottom: 1rem;
+        }
+
+        .integration-feature h4 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+
+        .integration-feature p {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin: 0;
         }
 
         /* CTA 섹션 */
@@ -282,17 +389,21 @@
         .cta-section h2 {
             font-size: 2.5rem;
             margin-bottom: 1.5rem;
+            font-weight: 800;
         }
 
         .cta-section p {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             margin-bottom: 2rem;
-            opacity: 0.9;
+            opacity: 0.95;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .btn {
             display: inline-block;
-            padding: 1rem 2.5rem;
+            padding: 1.2rem 3rem;
             border-radius: 50px;
             text-decoration: none;
             font-weight: 600;
@@ -301,11 +412,22 @@
             border: 2px solid white;
             background: white;
             color: #10b981;
+            margin: 0.5rem;
         }
 
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #10b981;
         }
 
         /* 푸터 */
@@ -323,7 +445,7 @@
         /* 반응형 */
         @media (max-width: 768px) {
             .hero h1 {
-                font-size: 2rem;
+                font-size: 2.2rem;
             }
 
             .hero p {
@@ -340,12 +462,20 @@
             }
 
             .feature-image {
-                height: 300px;
+                height: 350px;
             }
 
             .tab-button {
-                font-size: 0.9rem;
-                padding: 0.6rem 1.5rem;
+                font-size: 0.95rem;
+                padding: 0.8rem 2rem;
+            }
+
+            .feature-text h2 {
+                font-size: 2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
             }
         }
     </style>
@@ -357,8 +487,8 @@
             <a href="index.html" class="logo">Litten</a>
             <ul class="nav-links">
                 <li><a href="index.html#features">기능</a></li>
+                <li><a href="services.html">서비스</a></li>
                 <li><a href="index.html#pricing">요금제</a></li>
-                <li><a href="note.html">노트 기능</a></li>
                 <li><a href="index.html">홈으로</a></li>
             </ul>
         </div>
@@ -366,8 +496,10 @@
 
     <!-- 히어로 섹션 -->
     <section class="hero">
-        <h1>📝 리튼의 강력한 노트 기능</h1>
-        <p>듣기, 쓰기, 필기 - 세 가지 방식으로 당신의 아이디어를 기록하세요</p>
+        <div class="hero-content">
+            <h1>📝 리튼 노트 서비스</h1>
+            <p>듣기, 쓰기, 필기 - 세 가지 강력한 방식으로 당신의 아이디어를 기록하고 관리하세요</p>
+        </div>
     </section>
 
     <!-- 탭 메뉴 -->
@@ -388,17 +520,19 @@
 
                 <h3>주요 기능</h3>
                 <ul>
-                    <li>고품질 오디오 녹음 (44.1kHz)</li>
+                    <li>고품질 오디오 녹음 (44.1kHz 이상)</li>
                     <li>백그라운드 녹음 지원</li>
-                    <li>녹음 중 일시정지/재개</li>
+                    <li>녹음 중 일시정지/재개 기능</li>
                     <li>재생 속도 조절 (0.5x ~ 2.0x)</li>
                     <li>특정 구간 반복 재생</li>
                     <li>오디오 파일 공유 및 내보내기</li>
+                    <li>녹음 시간 표시 및 진행률 표시</li>
+                    <li>음질 설정 (고/중/저)</li>
                 </ul>
 
                 <div class="highlight-box">
                     <h4>💡 Pro Tip</h4>
-                    <p>녹음과 동시에 텍스트나 필기 노트를 작성하여 나중에 쉽게 찾아볼 수 있습니다.</p>
+                    <p>녹음과 동시에 텍스트나 필기 노트를 작성하여 나중에 쉽게 찾아볼 수 있습니다. 리튼 공간에서 모든 자료가 유기적으로 연결됩니다.</p>
                 </div>
             </div>
             <div class="feature-image">
@@ -406,22 +540,27 @@
             </div>
         </div>
 
-        <h2 style="text-align: center; margin: 4rem 0 2rem; font-size: 2rem;">활용 사례</h2>
+        <h2 class="section-title">활용 사례</h2>
         <div class="use-cases">
             <div class="use-case-card">
                 <div class="use-case-icon">🎓</div>
                 <h4>학생</h4>
-                <p>강의를 녹음하고 나중에 복습할 때 중요한 부분만 골라 들으세요. 시험 기간에 큰 도움이 됩니다.</p>
+                <p>강의를 녹음하고 나중에 복습할 때 중요한 부분만 골라 들으세요. 재생 속도 조절 기능으로 학습 효율을 극대화할 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">💼</div>
                 <h4>비즈니스</h4>
-                <p>회의 내용을 녹음하여 중요한 결정사항을 놓치지 마세요. 회의록 작성도 훨씬 쉬워집니다.</p>
+                <p>회의 내용을 녹음하여 중요한 결정사항을 놓치지 마세요. 회의록 작성도 훨씬 쉬워지고, 언제든 다시 확인할 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">🎙️</div>
                 <h4>인터뷰</h4>
-                <p>인터뷰 내용을 정확하게 기록하고, 나중에 다시 들으며 중요한 인사이트를 발견하세요.</p>
+                <p>인터뷰 내용을 정확하게 기록하고, 나중에 다시 들으며 중요한 인사이트를 발견하세요. 특정 구간 반복 재생으로 정확한 전사가 가능합니다.</p>
+            </div>
+            <div class="use-case-card">
+                <div class="use-case-icon">📚</div>
+                <h4>연구원</h4>
+                <p>연구 자료 수집이나 현장 조사 시 음성 메모로 빠르게 기록하세요. 나중에 텍스트로 정리할 때 큰 도움이 됩니다.</p>
             </div>
         </div>
     </div>
@@ -439,15 +578,17 @@
                     <li>볼드, 이탤릭, 밑줄 등 포맷팅</li>
                     <li>글머리 기호 및 번호 매기기</li>
                     <li>색상 및 하이라이트</li>
-                    <li>링크 삽입</li>
-                    <li>이미지 첨부</li>
-                    <li>표(테이블) 삽입</li>
-                    <li>코드 블록 지원</li>
+                    <li>링크 삽입 및 편집</li>
+                    <li>이미지 첨부 및 정렬</li>
+                    <li>표(테이블) 삽입 및 편집</li>
+                    <li>코드 블록 지원 (문법 하이라이트)</li>
+                    <li>인용구 및 구분선</li>
+                    <li>실시간 저장 및 자동 백업</li>
                 </ul>
 
                 <div class="highlight-box">
                     <h4>✨ 특별한 기능</h4>
-                    <p>작성한 텍스트를 PDF로 내보낼 수 있어 다른 사람과 공유하거나 보관하기 편리합니다.</p>
+                    <p>작성한 텍스트를 PDF로 내보낼 수 있어 다른 사람과 공유하거나 보관하기 편리합니다. 또한 HTML 형식으로도 내보낼 수 있습니다.</p>
                 </div>
             </div>
             <div class="feature-image">
@@ -455,27 +596,27 @@
             </div>
         </div>
 
-        <h2 style="text-align: center; margin: 4rem 0 2rem; font-size: 2rem;">활용 사례</h2>
+        <h2 class="section-title">활용 사례</h2>
         <div class="use-cases">
             <div class="use-case-card">
                 <div class="use-case-icon">📚</div>
                 <h4>학습 노트</h4>
-                <p>강의 내용을 정리하고, 중요한 개념을 하이라이트하여 효과적으로 복습하세요.</p>
+                <p>강의 내용을 정리하고, 중요한 개념을 하이라이트하여 효과적으로 복습하세요. 표와 이미지를 활용해 시각적으로 정리할 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">💡</div>
                 <h4>아이디어 정리</h4>
-                <p>떠오르는 아이디어를 빠르게 기록하고, 나중에 체계적으로 정리하세요.</p>
+                <p>떠오르는 아이디어를 빠르게 기록하고, 나중에 체계적으로 정리하세요. 링크와 이미지를 추가하여 더 풍부한 내용을 만들 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">📋</div>
                 <h4>회의록</h4>
-                <p>회의 내용을 구조화하여 작성하고, 액션 아이템을 명확하게 정리하세요.</p>
+                <p>회의 내용을 구조화하여 작성하고, 액션 아이템을 명확하게 정리하세요. 표를 활용해 일정과 담당자를 체계적으로 관리할 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">✏️</div>
                 <h4>블로그 초안</h4>
-                <p>블로그 글을 작성하기 전에 리튼에서 초안을 작성하고 다듬으세요.</p>
+                <p>블로그 글을 작성하기 전에 리튼에서 초안을 작성하고 다듬으세요. 완성된 글을 HTML로 내보내어 블로그에 바로 사용할 수 있습니다.</p>
             </div>
         </div>
     </div>
@@ -491,17 +632,19 @@
                 <ul>
                     <li>PDF 파일을 PNG로 변환하여 필기</li>
                     <li>이미지 위에 자유로운 그리기</li>
-                    <li>다양한 펜 색상 및 두께</li>
-                    <li>형광펜 도구</li>
-                    <li>지우개 도구</li>
-                    <li>실행 취소/다시 실행</li>
-                    <li>확대/축소 및 팬</li>
+                    <li>다양한 펜 색상 및 두께 설정</li>
+                    <li>형광펜 도구 (다양한 색상)</li>
+                    <li>지우개 도구 (부분/전체)</li>
+                    <li>실행 취소/다시 실행 (무제한)</li>
+                    <li>확대/축소 및 팬 기능</li>
                     <li>필기 레이어 관리</li>
+                    <li>완성된 필기 PDF로 내보내기</li>
+                    <li>멀티터치 제스처 지원</li>
                 </ul>
 
                 <div class="highlight-box">
                     <h4>🎯 강력한 기능</h4>
-                    <p>여러 페이지 PDF를 PNG로 변환하여 각 페이지마다 필기할 수 있습니다. 완성된 필기는 다시 PDF로 내보낼 수 있습니다.</p>
+                    <p>여러 페이지 PDF를 PNG로 변환하여 각 페이지마다 필기할 수 있습니다. 완성된 필기는 다시 PDF로 내보내어 다른 사람과 공유하거나 보관할 수 있습니다.</p>
                 </div>
             </div>
             <div class="feature-image">
@@ -512,45 +655,81 @@
         <div class="feature-showcase">
             <div class="feature-text">
                 <h3>PDF → PNG 변환 후 필기</h3>
-                <p>PDF 파일을 가져오면 자동으로 각 페이지를 고품질 PNG 이미지로 변환합니다.</p>
-                <p>변환된 이미지 위에서 자유롭게 펜으로 그리거나 형광펜으로 하이라이트할 수 있습니다.</p>
-                <p>멀티터치를 지원하여 확대/축소하며 세밀한 필기가 가능합니다.</p>
+                <p>PDF 파일을 가져오면 자동으로 각 페이지를 고품질 PNG 이미지로 변환합니다. 변환된 이미지 위에서 자유롭게 펜으로 그리거나 형광펜으로 하이라이트할 수 있습니다.</p>
+                <p>멀티터치를 지원하여 확대/축소하며 세밀한 필기가 가능합니다. 손가락 두 개로 핀치 제스처를 사용하여 원하는 크기로 조절할 수 있습니다.</p>
+                <p>필기한 내용은 레이어로 관리되어 나중에 수정하거나 삭제할 수 있습니다. 완성된 필기는 원본 PDF와 함께 새 PDF 파일로 내보낼 수 있습니다.</p>
             </div>
             <div class="feature-image">
                 <span>📄 PDF 필기 예시</span>
             </div>
         </div>
 
-        <h2 style="text-align: center; margin: 4rem 0 2rem; font-size: 2rem;">활용 사례</h2>
+        <h2 class="section-title">활용 사례</h2>
         <div class="use-cases">
             <div class="use-case-card">
                 <div class="use-case-icon">📖</div>
                 <h4>교재 필기</h4>
-                <p>전자책이나 강의 자료 PDF에 직접 필기하며 공부하세요. 종이 교재처럼 사용할 수 있습니다.</p>
+                <p>전자책이나 강의 자료 PDF에 직접 필기하며 공부하세요. 종이 교재처럼 사용할 수 있고, 언제든지 지우고 다시 쓸 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">📊</div>
                 <h4>문서 검토</h4>
-                <p>업무 문서를 검토하며 수정사항을 펜으로 표시하고 코멘트를 남기세요.</p>
+                <p>업무 문서를 검토하며 수정사항을 펜으로 표시하고 코멘트를 남기세요. 형광펜으로 중요한 부분을 하이라이트할 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">🎨</div>
                 <h4>스케치</h4>
-                <p>빈 캔버스에서 자유롭게 스케치하고 아이디어를 시각화하세요.</p>
+                <p>빈 캔버스에서 자유롭게 스케치하고 아이디어를 시각화하세요. 다양한 펜과 색상을 사용하여 창의적인 작품을 만들 수 있습니다.</p>
             </div>
             <div class="use-case-card">
                 <div class="use-case-icon">📝</div>
                 <h4>양식 작성</h4>
-                <p>PDF 양식을 불러와서 직접 손글씨로 작성하고 서명하세요.</p>
+                <p>PDF 양식을 불러와서 직접 손글씨로 작성하고 서명하세요. 완성된 양식을 PDF로 내보내어 제출할 수 있습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 통합 사용 섹션 -->
+    <div class="integration-section">
+        <div class="integration-content">
+            <h2>🔄 세 가지 기능을 하나로 통합</h2>
+            <p>
+                리튼의 노트 서비스는 듣기, 쓰기, 필기를 하나의 리튼 공간에서 통합하여 사용할 수 있습니다. 
+                강의를 녹음하면서 동시에 텍스트 노트를 작성하고, PDF 자료에 필기를 추가할 수 있습니다.
+            </p>
+            <div class="integration-features">
+                <div class="integration-feature">
+                    <div class="integration-feature-icon">📁</div>
+                    <h4>리튼 공간</h4>
+                    <p>모든 자료를 하나의 공간에 모아 관리</p>
+                </div>
+                <div class="integration-feature">
+                    <div class="integration-feature-icon">🔗</div>
+                    <h4>유기적 연결</h4>
+                    <p>녹음과 필기가 시간적으로 연결</p>
+                </div>
+                <div class="integration-feature">
+                    <div class="integration-feature-icon">🔍</div>
+                    <h4>빠른 검색</h4>
+                    <p>모든 콘텐츠를 빠르게 찾기</p>
+                </div>
+                <div class="integration-feature">
+                    <div class="integration-feature-icon">💾</div>
+                    <h4>자동 저장</h4>
+                    <p>작업 내용이 자동으로 저장됨</p>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- CTA 섹션 -->
     <section class="cta-section">
-        <h2>지금 바로 리튼을 시작하세요</h2>
+        <h2>지금 바로 리튼 노트를 시작하세요</h2>
         <p>듣기, 쓰기, 필기 - 세 가지 강력한 노트 기능을 무료로 사용해보세요</p>
-        <a href="index.html#pricing" class="btn">무료로 시작하기</a>
+        <div>
+            <a href="index.html#pricing" class="btn">무료로 시작하기</a>
+            <a href="services.html" class="btn btn-secondary">다른 서비스 보기</a>
+        </div>
     </section>
 
     <!-- 푸터 -->
@@ -594,8 +773,21 @@
             });
         }, observerOptions);
 
-        document.querySelectorAll('.feature-showcase, .use-case-card').forEach(el => {
+        document.querySelectorAll('.feature-showcase, .use-case-card, .integration-feature').forEach(el => {
             observer.observe(el);
+        });
+
+        // 네비게이션 스크롤 시 스타일 변경
+        let lastScroll = 0;
+        const nav = document.querySelector('nav');
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll > 100) {
+                nav.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
+            } else {
+                nav.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+            }
+            lastScroll = currentScroll;
         });
     </script>
 </body>

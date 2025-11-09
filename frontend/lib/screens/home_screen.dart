@@ -87,6 +87,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
+        // 반응형 레이아웃: 화면 크기와 방향을 고려한 동적 비율 계산
+        final screenHeight = MediaQuery.of(context).size.height;
+        final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
+        // 화면 크기 분류
+        final isSmallScreen = screenHeight < 600;   // 작은 폰
+        final isMediumScreen = screenHeight >= 600 && screenHeight < 800; // 중간 폰
+        // isLargeScreen (>= 800): 큰 폰 or 태블릿
+
+        // 동적 flex 비율 계산 - 간격 없이 밀착
+        int calendarFlex;
+        int listFlex;
+
+        if (isPortrait) {
+          // 세로 모드
+          if (isSmallScreen) {
+            calendarFlex = 7;  // 35% - 작은 화면에서는 캘린더 최소화
+            listFlex = 13;     // 65%
+          } else if (isMediumScreen) {
+            calendarFlex = 9;  // 45% - 중간 화면에서 균형
+            listFlex = 11;     // 55%
+          } else {
+            calendarFlex = 10; // 50% - 큰 화면에서 균형있게
+            listFlex = 10;     // 50%
+          }
+        } else {
+          // 가로 모드 - 캘린더 비율 축소
+          calendarFlex = 8;    // 40%
+          listFlex = 12;       // 60%
+        }
+
         return Scaffold(
           appBar: null,
           body: Stack(
@@ -95,14 +126,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 상단 45% - 캘린더
+              // 상단 - 캘린더 (반응형 비율)
               Expanded(
-                flex: 9,
+                flex: calendarFlex,
                 child: _buildCalendarSection(appState, l10n),
               ),
-              // 하단 55% - 통합 리스트 (일정 + 파일)
+              // 하단 - 통합 리스트 (일정 + 파일)
               Expanded(
-                flex: 11,
+                flex: listFlex,
                 child: _buildUnifiedListSection(appState, l10n),
               ),
             ],
@@ -574,13 +605,13 @@ class _HomeScreenState extends State<HomeScreen> {
         left: AppSpacing.paddingM.left,
         right: AppSpacing.paddingM.left,
         top: 0,
-        bottom: 0,
+        bottom: 16, // 하단 패딩 추가하여 캘린더 영역 확보
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min, // max에서 min으로 변경하여 공백 최소화
         children: [
           // 월 네비게이션 헤더
           Row(
@@ -618,185 +649,183 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           // 캘린더
-          Expanded(
-            child: Transform.translate(
-              offset: const Offset(0, 8), // 캘린더를 8px 아래로 이동하여 탭과 가깝게
-              child: Transform.scale(
-                scale: 0.9, // 캘린더를 90% 크기로 축소
-                child: TableCalendar<dynamic>(
-              firstDay: DateTime.utc(2020, 1, 1),
-              lastDay: DateTime.utc(2030, 12, 31),
-              focusedDay: appState.focusedDate,
-              daysOfWeekHeight: ResponsiveUtils.getCalendarDaysOfWeekHeight(context),
-              rowHeight: ResponsiveUtils.getCalendarRowHeight(context),
-              selectedDayPredicate: (day) {
-                // 날짜가 선택된 경우에만 선택 표시
-                if (!appState.isDateSelected) return false;
-                return isSameDay(appState.selectedDate, day);
-              },
-              onDaySelected: (selectedDay, focusedDay) {
-                appState.selectDate(selectedDay);
-                appState.changeFocusedDate(focusedDay);
-              },
-              onPageChanged: (focusedDay) {
-                appState.changeFocusedDate(focusedDay);
-              },
-              calendarFormat: CalendarFormat.month,
-              availableCalendarFormats: const {
-                CalendarFormat.month: 'Month',
-              },
-              headerVisible: false, // 커스텀 헤더를 사용하므로 기본 헤더 숨김
-              calendarStyle: CalendarStyle(
-                outsideDaysVisible: false,
-                weekendTextStyle: TextStyle(color: Colors.red[400]),
-                holidayTextStyle: TextStyle(color: Colors.red[400]),
-                selectedDecoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  shape: BoxShape.circle,
+          Flexible(
+            fit: FlexFit.tight,
+            child: Transform.scale(
+              scale: 0.95, // 캘린더를 95% 크기로 축소 (간격 최소화)
+              child: TableCalendar<dynamic>(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: appState.focusedDate,
+                daysOfWeekHeight: ResponsiveUtils.getCalendarDaysOfWeekHeight(context),
+                rowHeight: ResponsiveUtils.getCalendarRowHeight(context),
+                selectedDayPredicate: (day) {
+                  // 날짜가 선택된 경우에만 선택 표시
+                  if (!appState.isDateSelected) return false;
+                  return isSameDay(appState.selectedDate, day);
+                },
+                onDaySelected: (selectedDay, focusedDay) {
+                  appState.selectDate(selectedDay);
+                  appState.changeFocusedDate(focusedDay);
+                },
+                onPageChanged: (focusedDay) {
+                  appState.changeFocusedDate(focusedDay);
+                },
+                calendarFormat: CalendarFormat.month,
+                availableCalendarFormats: const {
+                  CalendarFormat.month: 'Month',
+                },
+                headerVisible: false, // 커스텀 헤더를 사용하므로 기본 헤더 숨김
+                calendarStyle: CalendarStyle(
+                  outsideDaysVisible: false,
+                  weekendTextStyle: TextStyle(color: Colors.red[400]),
+                  holidayTextStyle: TextStyle(color: Colors.red[400]),
+                  selectedDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  todayDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  markerDecoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  markersMaxCount: 3,
                 ),
-                todayDecoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
+                eventLoader: (day) {
+                  // 해당 날짜에 생성된 리튼이 있으면 마커 표시
+                  final count = appState.getLittenCountForDate(day);
+                  return List.generate(count > 3 ? 3 : count, (index) => 'litten');
+                },
+                locale: appState.locale.languageCode,
+                calendarBuilders: CalendarBuilders(
+                  defaultBuilder: (context, day, focusedDay) {
+                    return DragTarget<String>(
+                      onAcceptWithDetails: (details) async {
+                        // 리튼을 해당 날짜로 이동
+                        await appState.moveLittenToDate(details.data, day);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      onWillAcceptWithDetails: (details) => true,
+                      builder: (context, candidateData, rejectedData) {
+                        final isHovered = candidateData.isNotEmpty;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isHovered
+                                ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                                : null,
+                            shape: BoxShape.circle,
+                            border: isHovered
+                                ? Border.all(
+                                    color: Theme.of(context).primaryColor,
+                                    width: 2,
+                                  )
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle().copyWith(
+                                color: isHovered
+                                    ? Theme.of(context).primaryColor
+                                    : null,
+                                fontWeight: isHovered ? FontWeight.bold : null,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  selectedBuilder: (context, day, focusedDay) {
+                    return DragTarget<String>(
+                      onAcceptWithDetails: (details) async {
+                        await appState.moveLittenToDate(details.data, day);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      onWillAcceptWithDetails: (details) => true,
+                      builder: (context, candidateData, rejectedData) {
+                        final isHovered = candidateData.isNotEmpty;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isHovered
+                                ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
+                                : Theme.of(context).primaryColor,
+                            shape: BoxShape.circle,
+                            border: isHovered
+                                ? Border.all(color: Colors.white, width: 2)
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle().copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  todayBuilder: (context, day, focusedDay) {
+                    return DragTarget<String>(
+                      onAcceptWithDetails: (details) async {
+                        await appState.moveLittenToDate(details.data, day);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      onWillAcceptWithDetails: (details) => true,
+                      builder: (context, candidateData, rejectedData) {
+                        final isHovered = candidateData.isNotEmpty;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isHovered
+                                ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
+                                : Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                            border: isHovered
+                                ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle().copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
-                markerDecoration: BoxDecoration(
-                  color: Colors.orange,
-                  shape: BoxShape.circle,
-                ),
-                markersMaxCount: 3,
               ),
-              eventLoader: (day) {
-                // 해당 날짜에 생성된 리튼이 있으면 마커 표시
-                final count = appState.getLittenCountForDate(day);
-                return List.generate(count > 3 ? 3 : count, (index) => 'litten');
-              },
-              locale: appState.locale.languageCode,
-              calendarBuilders: CalendarBuilders(
-                defaultBuilder: (context, day, focusedDay) {
-                  return DragTarget<String>(
-                    onAcceptWithDetails: (details) async {
-                      // 리튼을 해당 날짜로 이동
-                      await appState.moveLittenToDate(details.data, day);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    onWillAcceptWithDetails: (details) => true,
-                    builder: (context, candidateData, rejectedData) {
-                      final isHovered = candidateData.isNotEmpty;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: isHovered 
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
-                              : null,
-                          shape: BoxShape.circle,
-                          border: isHovered 
-                              ? Border.all(
-                                  color: Theme.of(context).primaryColor, 
-                                  width: 2,
-                                )
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: isHovered 
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                              fontWeight: isHovered ? FontWeight.bold : null,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-                selectedBuilder: (context, day, focusedDay) {
-                  return DragTarget<String>(
-                    onAcceptWithDetails: (details) async {
-                      await appState.moveLittenToDate(details.data, day);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    onWillAcceptWithDetails: (details) => true,
-                    builder: (context, candidateData, rejectedData) {
-                      final isHovered = candidateData.isNotEmpty;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: isHovered 
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
-                              : Theme.of(context).primaryColor,
-                          shape: BoxShape.circle,
-                          border: isHovered 
-                              ? Border.all(color: Colors.white, width: 2)
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-                todayBuilder: (context, day, focusedDay) {
-                  return DragTarget<String>(
-                    onAcceptWithDetails: (details) async {
-                      await appState.moveLittenToDate(details.data, day);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    onWillAcceptWithDetails: (details) => true,
-                    builder: (context, candidateData, rejectedData) {
-                      final isHovered = candidateData.isNotEmpty;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: isHovered 
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
-                              : Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                          border: isHovered 
-                              ? Border.all(color: Theme.of(context).primaryColor, width: 2)
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            ),
             ),
           ),
         ],
@@ -806,17 +835,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 통합 리스트 섹션 빌드 (일정 + 파일 통합)
   Widget _buildUnifiedListSection(AppStateProvider appState, AppLocalizations? l10n) {
-    return Transform.translate(
-      offset: const Offset(0, -8), // 리스트를 8px 위로 이동하여 캘린더와 가깝게
-      child: Container(
-        padding: EdgeInsets.only(
-          left: AppSpacing.paddingM.left,
-          right: AppSpacing.paddingM.right,
-          top: 0,
-          bottom: AppSpacing.paddingM.left,
-        ),
-        child: _buildUnifiedList(appState, l10n),
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingM.left,
+        right: AppSpacing.paddingM.right,
+        top: 8, // 상단 여백 최소화
+        bottom: AppSpacing.paddingM.left,
       ),
+      child: _buildUnifiedList(appState, l10n),
     );
   }
 
