@@ -883,11 +883,6 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     print('✅ 선택된 리튼 확인 완료 - ID: ${selectedLitten.id}');
 
-    // ✅ FilePicker 호출 전에 필기 탭으로 미리 전환 (탭 유지 보장)
-    final appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
-    appStateProvider.setTargetWritingTab('handwriting');
-    print('🎯 PDF 변환 전 필기 탭으로 사전 전환 완료');
-
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
@@ -907,7 +902,7 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfPath = result.files.single.path!;
       final fileName = result.files.single.name;
 
-      // ✅ Issue 1 해결: FilePicker 후 즉시 다이얼로그 표시 (mounted 상태에서)
+      // 상태 초기화 및 다이얼로그 표시 (FilePicker 직후, mounted 상태)
       if (mounted) {
         setState(() {
           _isConverting = true;
@@ -915,14 +910,14 @@ class _HandwritingTabState extends State<HandwritingTab>
           _totalPagesToConvert = 0;
           _conversionStatus = 'PDF 변환 준비 중...';
         });
-
-        // 다이얼로그 먼저 표시
         _showConversionProgressDialog();
-        print('✅ Issue 1: FilePicker 직후 다이얼로그 표시 완료');
-      }
+        print('✅ PDF 변환 다이얼로그 표시 완료 (FilePicker 직후)');
 
-      // 다이얼로그 표시 후 잠시 대기하여 UI가 완전히 렌더링되도록 함
-      await Future.delayed(const Duration(milliseconds: 100));
+        // 다이얼로그 표시 후 필기 탭으로 전환
+        final appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
+        appStateProvider.setTargetWritingTab('handwriting');
+        print('🎯 다이얼로그 표시 후 필기 탭으로 전환 완료');
+      }
 
       // 바로 필기용으로 변환 (selectedLitten을 인자로 전달)
       await _convertPdfToPngAndAddToHandwriting(
@@ -932,8 +927,6 @@ class _HandwritingTabState extends State<HandwritingTab>
       );
     } else {
       print('❌ PDF 파일 선택 실패 - result가 null이거나 파일 경로가 없음');
-      // 선택 취소 시에도 필기 탭 유지
-      appStateProvider.setTargetWritingTab('handwriting');
     }
   }
 
@@ -1034,22 +1027,11 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     if (!mounted) {
       print('ERROR: 5초 대기 후에도 widget이 unmounted 상태 - UI 업데이트 포기');
-
-      // 저장된 다이얼로그 context로 닫기 시도
-      if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
-        Navigator.of(_conversionDialogContext!).pop();
-        _conversionDialogContext = null;
-        print('DEBUG: 다이얼로그 닫기 완료 (unmounted 상태, 저장된 context 사용)');
-      }
       return;
     }
 
-    // 저장된 다이얼로그 context로 닫기
-    if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
-      Navigator.of(_conversionDialogContext!).pop();
-      _conversionDialogContext = null;
-      print('DEBUG: PDF 변환 다이얼로그 닫기 완료 (저장된 context 사용)');
-    }
+    // 다이얼로그는 이미 변환 완료 시점에 닫혔음
+    print('DEBUG: PDF 변환 완료 후 UI 업데이트 시작');
 
     // UI 업데이트 (파일 목록 최신화 및 에디터 열기)
     setState(() {
@@ -1115,7 +1097,7 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       final storage = FileStorageService.instance;
 
-      // ✅ Issue 1 해결: 다이얼로그는 이미 FilePicker 직후에 표시되었으므로 여기서는 변환 작업만 수행
+      // 다이얼로그는 FilePicker 직후에 이미 표시되었음
       print('DEBUG: PDF 변환 작업 시작 (다이얼로그는 이미 표시됨)');
 
       // PDF 파일을 Uint8List로 읽기 (백그라운드에서 처리)
@@ -1124,11 +1106,10 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfBytes = await pdfFile.readAsBytes();
       print('DEBUG: PDF 파일 읽기 완료');
 
-      if (mounted) {
-        setState(() {
-          _conversionStatus = '페이지 수 확인 중...';
-        });
-      }
+      // 다이얼로그에 초기 상태 설정
+      _updateDialog?.call(() {
+        _conversionStatus = '페이지 수 확인 중...';
+      });
 
       // 먼저 총 페이지 수만 확인 (메모리 절약) - 타임아웃 30초
       int totalPages = 0;
@@ -1146,11 +1127,12 @@ class _HandwritingTabState extends State<HandwritingTab>
             )) {
           totalPages++;
           print('✅ 페이지 감지 - 현재 $totalPages개');
-          if (totalPages % 10 == 0 && mounted) {
-            setState(() {
-              _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
-            });
-          }
+
+          // 다이얼로그 업데이트 (매 페이지마다)
+          _updateDialog?.call(() {
+            _conversionStatus = '페이지 수 확인 중... ($totalPages페이지 감지)';
+          });
+
           if (_conversionCancelled) {
             throw Exception('변환이 취소되었습니다.');
           }
@@ -1167,12 +1149,11 @@ class _HandwritingTabState extends State<HandwritingTab>
         throw Exception('PDF 파일이 너무 크거나 복잡하여 처리할 수 없습니다.\n파일 크기나 페이지 수를 줄여주세요.');
       }
 
-      if (mounted) {
-        setState(() {
-          _totalPagesToConvert = totalPages;
-          _conversionStatus = '변환 시작...';
-        });
-      }
+      // 다이얼로그에 총 페이지 수 설정
+      _totalPagesToConvert = totalPages;
+      _updateDialog?.call(() {
+        _conversionStatus = '변환 시작...';
+      });
 
       print('DEBUG: 총 $totalPages개 페이지 감지됨');
       if (!mounted) {
@@ -1224,11 +1205,10 @@ class _HandwritingTabState extends State<HandwritingTab>
           (index) => startPage + index,
         );
 
-        if (mounted) {
-          setState(() {
-            _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
-          });
-        }
+        // 다이얼로그 업데이트
+        _updateDialog?.call(() {
+          _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
+        });
 
         print('DEBUG: 배치 변환 시작 - 페이지 ${startPage + 1} - $endPage');
 
@@ -1248,11 +1228,23 @@ class _HandwritingTabState extends State<HandwritingTab>
 
           // 다이얼로그 업데이트 (위젯이 unmount 되어도 작동)
           _convertedPages++;
-          _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
 
-          _updateDialog?.call(() {});
+          // setState 내부에서 상태 변경하여 다이얼로그 UI 업데이트
+          _updateDialog?.call(() {
+            _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+          });
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
+
+          // 모든 페이지 변환 완료 체크
+          if (_convertedPages == _totalPagesToConvert) {
+            print('✅ 모든 페이지 변환 완료 ($_convertedPages/$_totalPagesToConvert)');
+
+            // 다이얼로그 업데이트
+            _updateDialog?.call(() {
+              _conversionStatus = '변환 완료! 파일 저장 중...';
+            });
+          }
 
           // UI 업데이트를 위한 짧은 대기
           await Future.delayed(const Duration(milliseconds: 50));
@@ -1343,6 +1335,17 @@ class _HandwritingTabState extends State<HandwritingTab>
 
         print('DEBUG: PDF to PNG 변환 및 다중 페이지 필기 파일 추가 완료');
 
+        // 다이얼로그 닫기
+        if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
+          Navigator.of(_conversionDialogContext!).pop();
+          _conversionDialogContext = null;
+          print('DEBUG: 모든 페이지 변환 완료 - 다이얼로그 닫기');
+        }
+
+        // 파일 목록 새로고침
+        await _loadFiles();
+        print('DEBUG: 변환 완료 후 파일 목록 새로고침 완료');
+
         // FilePicker 후 위젯이 unmount되므로 다시 mount될 때까지 기다림
         await _waitForMountedAndUpdateUI(
           newHandwritingFile,
@@ -1359,9 +1362,16 @@ class _HandwritingTabState extends State<HandwritingTab>
         }
 
         // 진행률 다이얼로그 닫기
-        if (Navigator.canPop(context)) {
+        if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
+          Navigator.of(_conversionDialogContext!).pop();
+          _conversionDialogContext = null;
+        } else if (Navigator.canPop(context)) {
           Navigator.of(context).pop();
         }
+
+        // 파일 목록 새로고침
+        await _loadFiles();
+        print('DEBUG: 변환 실패 후 파일 목록 새로고침 완료');
 
         print('ERROR: PDF 변환 결과 이미지가 없음');
         if (mounted) {
@@ -1504,11 +1514,10 @@ class _HandwritingTabState extends State<HandwritingTab>
           (index) => startPage + index,
         );
 
-        if (mounted) {
-          setState(() {
-            _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
-          });
-        }
+        // 다이얼로그 업데이트
+        _updateDialog?.call(() {
+          _conversionStatus = '페이지 ${startPage + 1} - $endPage 변환 중...';
+        });
 
         print('DEBUG: 배치 변환 시작 - 페이지 ${startPage + 1} - $endPage');
 
@@ -1546,9 +1555,11 @@ class _HandwritingTabState extends State<HandwritingTab>
 
           // 다이얼로그 업데이트 (위젯이 unmount 되어도 작동)
           _convertedPages++;
-          _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
 
-          _updateDialog?.call(() {});
+          // setState 내부에서 상태 변경하여 다이얼로그 UI 업데이트
+          _updateDialog?.call(() {
+            _conversionStatus = '페이지 $_convertedPages/$totalPages 변환 완료';
+          });
 
           print('DEBUG: 페이지 $_convertedPages 변환 완료');
 
