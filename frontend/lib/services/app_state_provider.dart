@@ -384,6 +384,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 파일 목록 변경 알림 (PDF 변환 등으로 파일이 추가/삭제될 때 호출)
+  void notifyFileListChanged() {
+    debugPrint('📄 AppStateProvider: 파일 목록 변경 알림 - UI 강제 새로고침');
+    notifyListeners();
+  }
+
   // 리튼 선택
   Future<void> selectLitten(Litten litten) async {
     debugPrint('🔄 리튼 선택 시도: ${litten.title} (${litten.id})');

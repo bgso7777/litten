@@ -255,16 +255,25 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
-  Future<void> _loadFiles() async {
-    if (!mounted) return; // 위젯이 dispose된 경우 return
-
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _loadFiles([Litten? targetLitten]) async {
+    // mounted 상태가 아니어도 파일 로드는 진행 (PDF 변환 중에도 작동하도록)
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
-      final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final selectedLitten = appState.selectedLitten;
+      // targetLitten이 제공되지 않으면 Provider에서 가져오기 (mounted 상태 필요)
+      Litten? selectedLitten = targetLitten;
+      if (selectedLitten == null) {
+        if (!mounted) {
+          print('DEBUG: widget unmounted 상태 - targetLitten 없이 파일 로드 불가');
+          return;
+        }
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        selectedLitten = appState.selectedLitten;
+      }
 
       if (selectedLitten != null) {
         print('📂 [파일 목록 로드] 대상 리튼 - ID: ${selectedLitten.id}, 이름: ${selectedLitten.title}');
@@ -282,14 +291,16 @@ class _HandwritingTabState extends State<HandwritingTab>
 
         final loadedHandwritingFiles = results[0] as List<HandwritingFile>;
 
-        // 한 번의 setState로 모든 상태 업데이트
+        // unmounted 상태에서도 파일 목록 업데이트 (PDF 변환 중에도 작동하도록)
+        _handwritingFiles
+          ..clear()
+          ..addAll(loadedHandwritingFiles);
+        // 최신순으로 정렬 (createdAt 기준 내림차순)
+        _handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        // mounted 상태일 때만 setState 호출
         if (mounted) {
           setState(() {
-            _handwritingFiles
-              ..clear()
-              ..addAll(loadedHandwritingFiles);
-            // 최신순으로 정렬 (createdAt 기준 내림차순)
-            _handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
             _isLoading = false;
           });
         }
@@ -902,6 +913,9 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfPath = result.files.single.path!;
       final fileName = result.files.single.name;
 
+      // ✅ FilePicker 직후 AppStateProvider 참조 저장 (context가 유효할 때)
+      AppStateProvider? appStateProvider;
+
       // 상태 초기화 및 다이얼로그 표시 (FilePicker 직후, mounted 상태)
       if (mounted) {
         setState(() {
@@ -913,17 +927,19 @@ class _HandwritingTabState extends State<HandwritingTab>
         _showConversionProgressDialog();
         print('✅ PDF 변환 다이얼로그 표시 완료 (FilePicker 직후)');
 
-        // 다이얼로그 표시 후 필기 탭으로 전환
-        final appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
+        // ✅ AppStateProvider 참조를 미리 저장 (async 작업 전에)
+        appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
         appStateProvider.setTargetWritingTab('handwriting');
         print('🎯 다이얼로그 표시 후 필기 탭으로 전환 완료');
+        print('✅ AppStateProvider 참조 저장 완료 - 나중에 UI 갱신에 사용');
       }
 
-      // 바로 필기용으로 변환 (selectedLitten을 인자로 전달)
+      // 바로 필기용으로 변환 (selectedLitten과 appStateProvider를 인자로 전달)
       await _convertPdfToPngAndAddToHandwriting(
         pdfPath,
         fileName,
         selectedLitten,
+        appStateProvider, // ✅ 저장된 Provider 참조 전달
       );
     } else {
       print('❌ PDF 파일 선택 실패 - result가 null이거나 파일 경로가 없음');
@@ -1090,6 +1106,7 @@ class _HandwritingTabState extends State<HandwritingTab>
     String pdfPath,
     String fileName,
     Litten selectedLitten, // ✅ selectedLitten을 파라미터로 받음
+    AppStateProvider? appStateProvider, // ✅ AppStateProvider 참조를 받음
   ) async {
     try {
       print('DEBUG: PDF를 PNG로 변환 시작 - $fileName');
@@ -1335,6 +1352,14 @@ class _HandwritingTabState extends State<HandwritingTab>
 
         print('DEBUG: PDF to PNG 변환 및 다중 페이지 필기 파일 추가 완료');
 
+        // 파일 목록 새로고침 (다이얼로그 닫기 전에 먼저 실행)
+        print('DEBUG: 파일 목록 새로고침 시작...');
+        await _loadFiles(selectedLitten);  // selectedLitten을 전달하여 unmounted 상태에서도 작동하도록
+        print('DEBUG: 파일 목록 새로고침 완료 - 로드된 파일 수: ${_handwritingFiles.length}');
+
+        // 다이얼로그 닫기 전에 잠시 대기하여 widget이 remount될 시간을 줌
+        await Future.delayed(const Duration(milliseconds: 100));
+
         // 다이얼로그 닫기
         if (_conversionDialogContext != null && Navigator.canPop(_conversionDialogContext!)) {
           Navigator.of(_conversionDialogContext!).pop();
@@ -1342,18 +1367,30 @@ class _HandwritingTabState extends State<HandwritingTab>
           print('DEBUG: 모든 페이지 변환 완료 - 다이얼로그 닫기');
         }
 
-        // 파일 목록 새로고침
-        await _loadFiles();
-        print('DEBUG: 변환 완료 후 파일 목록 새로고침 완료');
+        // ✅ AppStateProvider를 통한 전역 UI 강제 새로고침
+        // widget이 unmounted 상태여도 Provider는 작동하므로,
+        // 모든 listening widget을 rebuild하여 파일 목록이 즉시 반영되도록 함
+        if (appStateProvider != null) {
+          print('DEBUG: AppStateProvider를 통해 전역 UI 새로고침 시작');
+          appStateProvider.notifyFileListChanged();
+          print('DEBUG: 전역 UI 새로고침 완료 - 파일 목록 크기: ${_handwritingFiles.length}');
+        } else {
+          print('⚠️ AppStateProvider가 null - UI 갱신 불가');
+        }
 
-        // FilePicker 후 위젯이 unmount되므로 다시 mount될 때까지 기다림
-        await _waitForMountedAndUpdateUI(
-          newHandwritingFile,
-          pageImagePaths,
-          littenDir,
-          titleWithoutExtension,
-          totalPages,
-        );
+        // ✅ 성공 메시지 표시 (context는 async gap 이후에도 유효함)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '$titleWithoutExtension ($totalPages페이지)이(가) 필기 파일로 추가되었습니다.',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          print('DEBUG: 성공 메시지 표시 완료');
+        }
       } else {
         if (mounted) {
           setState(() {
@@ -3661,6 +3698,10 @@ class _HandwritingTabState extends State<HandwritingTab>
       }
 
       print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
+
+      // 파일 목록 새로고침하여 카운트 업데이트
+      await _loadFiles();
+      print('디버그: 삭제 후 파일 목록 새로고침 완료');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
