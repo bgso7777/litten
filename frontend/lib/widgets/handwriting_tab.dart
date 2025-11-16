@@ -1068,6 +1068,10 @@ class _HandwritingTabState extends State<HandwritingTab>
     await storage.saveHandwritingFiles(newHandwritingFile.littenId, _handwritingFiles);
     print('DEBUG: 필기 파일 목록 SharedPreferences 저장 완료 - ${_handwritingFiles.length}개 파일');
 
+    // 파일 카운트 업데이트
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    await appState.updateFileCount();
+
     // ✅ Issue 3 해결: 파일 목록 다시 로드하여 UI에 즉시 반영
     await _loadFiles();
     print('✅ Issue 3: 파일 목록 재로드 완료 - UI에 변환된 파일이 즉시 표시됨');

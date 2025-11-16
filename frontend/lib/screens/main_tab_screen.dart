@@ -103,7 +103,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                     l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
                     style: const TextStyle(fontSize: 14),
                   ),
-            actions: _buildFileCountBadgesOnly(appState, context),
+            actions: [_buildFileCountBadgesOnly(appState, context)],
           ),
           body: Column(
             children: [
@@ -257,29 +257,20 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     );
   }
 
-  List<Widget>? _buildFileCountBadgesOnly(AppStateProvider appState, BuildContext context) {
-    int audioCount = 0;
-    int textCount = 0;
-    int handwritingCount = 0;
+  Widget _buildFileCountBadgesOnly(AppStateProvider appState, BuildContext context) {
+    // 실제 파일 카운트 상태 변수 사용
+    final audioCount = appState.actualAudioCount;
+    final textCount = appState.actualTextCount;
+    final handwritingCount = appState.actualHandwritingCount;
 
-    // undefined 리튼이거나 리튼이 선택되지 않은 경우 전체 파일 수 표시
-    if (appState.selectedLitten == null || appState.selectedLitten!.title == 'undefined') {
-      // 전체 리튼의 파일 수 합계 표시 (undefined 포함)
-      debugPrint('📊 파일 수 표시: 전체 리튼 합계');
-      for (final litten in appState.littens) {
-        audioCount += litten.audioCount;
-        textCount += litten.textCount;
-        handwritingCount += litten.handwritingCount;
-      }
-      debugPrint('📊 전체 파일 수 - 텍스트: $textCount, 필기: $handwritingCount, 녹음: $audioCount');
-    } else {
-      // 선택된 리튼의 파일 수 표시
-      debugPrint('📊 파일 수 표시: 선택된 리튼 "${appState.selectedLitten!.title}"');
-      audioCount = appState.selectedLitten!.audioCount;
-      textCount = appState.selectedLitten!.textCount;
-      handwritingCount = appState.selectedLitten!.handwritingCount;
-      debugPrint('📊 선택된 리튼 파일 수 - 텍스트: $textCount, 필기: $handwritingCount, 녹음: $audioCount');
-    }
+    final badges = _buildFileCountBadges(context, audioCount, textCount, handwritingCount);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: badges,
+    );
+  }
+
+  List<Widget> _buildFileCountBadges(BuildContext context, int audioCount, int textCount, int handwritingCount) {
 
     final badges = <Widget>[];
 

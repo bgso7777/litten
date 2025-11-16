@@ -507,6 +507,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               updatedFile.id,
             );
           }
+
+          // 파일 카운트 업데이트
+          await appState.updateFileCount();
         }
 
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
