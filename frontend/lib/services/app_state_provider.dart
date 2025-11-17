@@ -412,6 +412,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _selectedLitten = litten;
     await _littenService.setSelectedLittenId(litten.id);
     await _saveSelectedLittenState();
+
+    // 리튼 선택 시 파일 카운트 업데이트
+    await updateFileCount();
+
     notifyListeners();
     debugPrint('✅ 리튼 선택 완료 및 영구 저장');
   }

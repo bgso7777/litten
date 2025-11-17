@@ -77,6 +77,10 @@ class _RecordingTabState extends State<RecordingTab> {
         // refreshLittens() 호출하지 않음 - Consumer rebuild 방지
         await _loadAudioFiles(); // 목록 새로고침
 
+        // 파일 카운트 업데이트
+        await appState.updateFileCount();
+        print('[RecordingTab] 파일 카운트 업데이트 완료');
+
         print('[RecordingTab] 파일 목록 새로고침 완료, mounted: $mounted');
 
         if (mounted) {
@@ -170,6 +174,10 @@ class _RecordingTabState extends State<RecordingTab> {
     if (confirm == true) {
       final success = await _audioService.deleteAudioFile(audioFile);
       if (mounted && success) {
+        // 파일 카운트 업데이트
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        await appState.updateFileCount();
+
         await _loadAudioFiles(); // 목록 새로고침
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

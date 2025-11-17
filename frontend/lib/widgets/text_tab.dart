@@ -427,6 +427,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
       print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
 
+      // 파일 카운트 업데이트
+      await appState.updateFileCount();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1377,6 +1377,11 @@ class _HandwritingTabState extends State<HandwritingTab>
         if (appStateProvider != null) {
           print('DEBUG: AppStateProvider를 통해 전역 UI 새로고침 시작');
           appStateProvider.notifyFileListChanged();
+
+          // 파일 카운트 업데이트
+          await appStateProvider.updateFileCount();
+          print('DEBUG: 파일 카운트 업데이트 완료');
+
           print('DEBUG: 전역 UI 새로고침 완료 - 파일 목록 크기: ${_handwritingFiles.length}');
         } else {
           print('⚠️ AppStateProvider가 null - UI 갱신 불가');
@@ -3703,6 +3708,9 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
 
+      // 파일 카운트 업데이트
+      await appState.updateFileCount();
+
       // 파일 목록 새로고침하여 카운트 업데이트
       await _loadFiles();
       print('디버그: 삭제 후 파일 목록 새로고침 완료');
@@ -3801,6 +3809,10 @@ class _HandwritingTabState extends State<HandwritingTab>
             duration: const Duration(seconds: 1),
           ),
         );
+
+        // 파일 카운트 업데이트
+        await appState.updateFileCount();
+        print('[HandwritingTab] 필기 파일 저장 후 파일 카운트 업데이트 완료');
 
         // 편집 모드를 유지하고 화면 전환하지 않음
         // setState(() {
