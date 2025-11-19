@@ -3810,9 +3810,9 @@ class _HandwritingTabState extends State<HandwritingTab>
           ),
         );
 
-        // 파일 카운트 업데이트
-        await appState.updateFileCount();
-        print('[HandwritingTab] 필기 파일 저장 후 파일 카운트 업데이트 완료');
+        // 파일 카운트 업데이트는 파일 추가/삭제 시에만 필요 (저장 시에는 불필요)
+        // await appState.updateFileCount();
+        print('✅ [필기 저장 완료] 편집 모드 유지 - 화면 전환하지 않음');
 
         // 편집 모드를 유지하고 화면 전환하지 않음
         // setState(() {

@@ -183,6 +183,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               }
 
               appState.changeTabIndex(index);
+              appState.setCurrentMainTab(index); // ⭐ 메인 탭 위치 저장
             },
             type: BottomNavigationBarType.fixed,
             items: [

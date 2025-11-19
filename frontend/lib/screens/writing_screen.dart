@@ -65,7 +65,7 @@ class _WritingScreenState extends State<WritingScreen> {
         final draggableTabLayout = DraggableTabLayout(
           key: ValueKey(appState.targetWritingTabId), // targetWritingTabId가 바뀌면 위젯 재생성
           tabs: _tabs,
-          initialActiveTabId: appState.targetWritingTabId,
+          initialActiveTabId: appState.currentWritingTabId, // ⭐ AppStateProvider에 저장된 현재 탭 사용
           onTabPositionChanged: (tabId, newPosition) {
             setState(() {
               for (final tab in _tabs) {
@@ -75,6 +75,11 @@ class _WritingScreenState extends State<WritingScreen> {
                 }
               }
             });
+          },
+          onTabChanged: (tabId) {
+            // ⭐ 탭이 변경될 때마다 AppStateProvider에 저장
+            debugPrint('[WritingScreen] 탭 변경됨: $tabId');
+            appState.setCurrentWritingTab(tabId);
           },
         );
         // 리튼이 선택되지 않았을 때

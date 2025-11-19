@@ -511,8 +511,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             );
           }
 
-          // 파일 카운트 업데이트
-          await appState.updateFileCount();
+          // 파일 카운트 업데이트는 파일 추가/삭제 시에만 필요 (저장 시에는 불필요)
+          // await appState.updateFileCount();
         }
 
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
@@ -527,6 +527,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           );
         }
 
+        print('✅ [텍스트 저장 완료] 편집 모드 유지 - 화면 전환하지 않음');
         // 편집 모드를 유지하고 화면 전환하지 않음
         // setState(() {
         //   _isEditing = false;

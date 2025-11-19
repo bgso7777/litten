@@ -30,6 +30,7 @@ class DraggableTabLayout extends StatefulWidget {
   final List<TabItem> tabs;
   final Function(String tabId, TabPosition newPosition)? onTabPositionChanged;
   final Function(String tabId)? onTabTapped;
+  final Function(String tabId)? onTabChanged; // ⭐ 탭 변경 콜백 추가
   final String? initialActiveTabId; // 초기 활성 탭 ID
 
   const DraggableTabLayout({
@@ -37,6 +38,7 @@ class DraggableTabLayout extends StatefulWidget {
     required this.tabs,
     this.onTabPositionChanged,
     this.onTabTapped,
+    this.onTabChanged, // ⭐ 콜백 파라미터 추가
     this.initialActiveTabId,
   });
 
@@ -655,12 +657,13 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       ),
       child: InkWell(
         onTap: () {
-          print('[DraggableTabLayout] 탭 클릭: ${tab.id} (${tab.title})');
+          debugPrint('[DraggableTabLayout] 탭 클릭: ${tab.id} (${tab.title})');
           setState(() {
             _activeTabId = tab.id;
           });
-          print('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
+          debugPrint('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
           widget.onTabTapped?.call(tab.id);
+          widget.onTabChanged?.call(tab.id); // ⭐ 탭 변경 콜백 호출
         },
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
