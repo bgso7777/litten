@@ -47,6 +47,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // WritingScreen 내부 탭 선택 상태
   String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
 
+  // ⭐ 현재 활성 탭 위치 저장 (위젯 재생성 시에도 유지)
+  String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
+  int _currentMainTabIndex = 0; // 메인 탭 인덱스 (0: 홈, 1: 쓰기, 2: 설정)
+
   // HomeScreen 하단 탭 선택 상태 (0: 파일, 1: 일정)
   int _homeBottomTabIndex = 0;
 
@@ -73,6 +77,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;
   bool get isStandardUser => _subscriptionType == SubscriptionType.standard;
   bool get isPremiumPlusUser => _subscriptionType == SubscriptionType.premium;
+
+  // ⭐ 현재 활성 탭 위치 Getters
+  String get currentWritingTabId => _currentWritingTabId;
+  int get currentMainTabIndex => _currentMainTabIndex;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -977,6 +985,25 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _homeBottomTabIndex = index;
     notifyListeners();
     debugPrint('🏠 홈 화면 하단 탭 인덱스 변경: $index');
+  }
+
+  // ⭐ 현재 활성 탭 위치 저장 메서드들
+  /// WritingScreen 내부 탭 위치 저장 (text, handwriting, audio, browser)
+  void setCurrentWritingTab(String tabId) {
+    if (_currentWritingTabId != tabId) {
+      _currentWritingTabId = tabId;
+      debugPrint('✅ [AppStateProvider] 쓰기 탭 위치 저장: $tabId');
+      // notifyListeners()를 호출하지 않음 - 탭 변경만으로 UI 전체 재빌드 불필요
+    }
+  }
+
+  /// 메인 탭 인덱스 저장 (0: 홈, 1: 쓰기, 2: 설정)
+  void setCurrentMainTab(int index) {
+    if (_currentMainTabIndex != index) {
+      _currentMainTabIndex = index;
+      debugPrint('✅ [AppStateProvider] 메인 탭 위치 저장: $index');
+      // notifyListeners()를 호출하지 않음 - 탭 변경만으로 UI 전체 재빌드 불필요
+    }
   }
 
   Future<void> updateSubscriptionType(SubscriptionType subscriptionType) async {
