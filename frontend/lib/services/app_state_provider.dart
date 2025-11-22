@@ -51,6 +51,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
   int _currentMainTabIndex = 0; // 메인 탭 인덱스 (0: 홈, 1: 쓰기, 2: 설정)
 
+  // ⭐ WritingScreen 탭 위치 저장 (text, handwriting, audio, browser 각각의 위치)
+  Map<String, String> _writingTabPositions = {
+    'text': 'topLeft',
+    'handwriting': 'topLeft',
+    'audio': 'topLeft',
+    'browser': 'topLeft',
+  };
+
   // HomeScreen 하단 탭 선택 상태 (0: 파일, 1: 일정)
   int _homeBottomTabIndex = 0;
 
@@ -81,6 +89,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 현재 활성 탭 위치 Getters
   String get currentWritingTabId => _currentWritingTabId;
   int get currentMainTabIndex => _currentMainTabIndex;
+  Map<String, String> get writingTabPositions => _writingTabPositions;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -90,6 +99,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   AuthServiceImpl get authService => _authService;
   bool get isLoggedIn => _authService.authStatus == AuthStatus.authenticated;
   User? get currentUser => _authService.currentUser;
+
+  // 오디오 서비스 관련 Getters
+  AudioService get audioService => _audioService;
+  bool get isRecording => _audioService.isRecording;
 
   // 실제 파일 카운트 Getters
   int get actualAudioCount => _actualAudioCount;
@@ -212,14 +225,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 설정 로드
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // 첫 실행 여부 확인
     _isFirstLaunch = !prefs.containsKey('is_app_initialized');
-    
+
     // 언어 설정 로드
     final languageCode = prefs.getString('language_code') ?? _getSystemLanguage();
     _locale = Locale(languageCode);
-    
+
     // 테마 설정 로드
     final themeIndex = prefs.getInt('theme_type');
     if (themeIndex != null) {
@@ -233,6 +246,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 구독 상태 로드
     final subscriptionIndex = prefs.getInt('subscription_type') ?? 0;
     _subscriptionType = SubscriptionType.values[subscriptionIndex];
+
+    // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
+    _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';
+    debugPrint('✅ [AppStateProvider] 저장된 쓰기 탭 위치 복원: $_currentWritingTabId');
+
+    // ⭐ 각 탭의 위치 복원 (text, handwriting, audio, browser)
+    _writingTabPositions = {
+      'text': prefs.getString('tab_position_text') ?? 'topLeft',
+      'handwriting': prefs.getString('tab_position_handwriting') ?? 'topLeft',
+      'audio': prefs.getString('tab_position_audio') ?? 'topLeft',
+      'browser': prefs.getString('tab_position_browser') ?? 'topLeft',
+    };
+    debugPrint('✅ [AppStateProvider] 저장된 탭 위치들 복원: $_writingTabPositions');
   }
 
   String _getSystemLanguage() {
@@ -584,6 +610,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 리튼 삭제
   Future<void> deleteLitten(String littenId) async {
+    debugPrint('🗑️ 리튼 삭제 시도: $littenId');
+
+    // 녹음 중인지 확인
+    if (_audioService.isRecording) {
+      debugPrint('⚠️ 녹음 중에는 리튼을 삭제할 수 없습니다.');
+      throw Exception('녹음 중에는 리튼을 삭제할 수 없습니다. 녹음을 중지한 후 다시 시도해주세요.');
+    }
+
     await _littenService.deleteLitten(littenId);
     await refreshLittens();
 
@@ -602,6 +636,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 리튼 날짜 이동
   Future<void> moveLittenToDate(String littenId, DateTime targetDate) async {
+    debugPrint('📅 리튼 날짜 이동 시도: $littenId');
+
+    // 녹음 중인지 확인
+    if (_audioService.isRecording) {
+      debugPrint('⚠️ 녹음 중에는 리튼 날짜를 이동할 수 없습니다.');
+      throw Exception('녹음 중에는 리튼 날짜를 이동할 수 없습니다. 녹음을 중지한 후 다시 시도해주세요.');
+    }
+
     final litten = _littens.firstWhere((l) => l.id == littenId);
     
     // 기존 시간을 유지하면서 날짜만 변경
@@ -989,10 +1031,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ⭐ 현재 활성 탭 위치 저장 메서드들
   /// WritingScreen 내부 탭 위치 저장 (text, handwriting, audio, browser)
-  void setCurrentWritingTab(String tabId) {
+  void setCurrentWritingTab(String tabId) async {
     if (_currentWritingTabId != tabId) {
       _currentWritingTabId = tabId;
       debugPrint('✅ [AppStateProvider] 쓰기 탭 위치 저장: $tabId');
+
+      // ⭐ SharedPreferences에 영구 저장
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_writing_tab_id', tabId);
+      debugPrint('💾 [AppStateProvider] 쓰기 탭 위치 영구 저장 완료: $tabId');
+
       // notifyListeners()를 호출하지 않음 - 탭 변경만으로 UI 전체 재빌드 불필요
     }
   }
@@ -1003,6 +1051,22 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _currentMainTabIndex = index;
       debugPrint('✅ [AppStateProvider] 메인 탭 위치 저장: $index');
       // notifyListeners()를 호출하지 않음 - 탭 변경만으로 UI 전체 재빌드 불필요
+    }
+  }
+
+  /// WritingScreen 탭의 위치 저장 (text, handwriting, audio, browser 각각의 위치)
+  /// position: 'topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'fullScreen'
+  Future<void> setWritingTabPosition(String tabId, String position) async {
+    if (_writingTabPositions[tabId] != position) {
+      _writingTabPositions[tabId] = position;
+      debugPrint('✅ [AppStateProvider] $tabId 탭 위치 저장: $position');
+
+      // ⭐ SharedPreferences에 영구 저장
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('tab_position_$tabId', position);
+      debugPrint('💾 [AppStateProvider] $tabId 탭 위치 영구 저장 완료: $position');
+
+      // notifyListeners()를 호출하지 않음 - 탭 위치 변경만으로 UI 전체 재빌드 불필요
     }
   }
 

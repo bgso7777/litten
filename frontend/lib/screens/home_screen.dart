@@ -705,14 +705,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     return DragTarget<String>(
                       onAcceptWithDetails: (details) async {
                         // 리튼을 해당 날짜로 이동
-                        await appState.moveLittenToDate(details.data, day);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
+                        try {
+                          await appState.moveLittenToDate(details.data, day);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceAll('Exception: ', '')),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
                         }
                       },
                       onWillAcceptWithDetails: (details) => true,
@@ -749,14 +761,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   selectedBuilder: (context, day, focusedDay) {
                     return DragTarget<String>(
                       onAcceptWithDetails: (details) async {
-                        await appState.moveLittenToDate(details.data, day);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
+                        try {
+                          await appState.moveLittenToDate(details.data, day);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceAll('Exception: ', '')),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
                         }
                       },
                       onWillAcceptWithDetails: (details) => true,
@@ -788,14 +812,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   todayBuilder: (context, day, focusedDay) {
                     return DragTarget<String>(
                       onAcceptWithDetails: (details) async {
-                        await appState.moveLittenToDate(details.data, day);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
+                        try {
+                          await appState.moveLittenToDate(details.data, day);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceAll('Exception: ', '')),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
                         }
                       },
                       onWillAcceptWithDetails: (details) => true,
@@ -852,13 +888,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool hasSelectedDate = appState.isDateSelected;
 
     // 날짜 선택 여부에 따라 리튼 필터링
+    // ⭐ 날짜 선택 시에만 undefined 제외, 날짜 미선택 시에는 모든 리튼 표시
     final displayLittens = hasSelectedDate
         ? appState.littensForSelectedDate
             .where((litten) => litten.title != 'undefined')
             .toList()
-        : appState.littens
-            .where((litten) => litten.title != 'undefined')
-            .toList();
+        : appState.littens.toList(); // 날짜 미선택 시 undefined 포함 전체 표시
 
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: appState.getAllFiles(),
@@ -896,11 +931,21 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
 
+        // 날짜가 선택되었을 때 표시할 리튼 ID 목록 생성
+        final Set<String> displayLittenIds = displayLittens.map((l) => l.id).toSet();
+
         // 파일 추가 (날짜 선택 시 필터링)
         for (final fileData in allFiles) {
           final file = fileData['file'];
           final createdAt = fileData['createdAt'] as DateTime;
+          final littenTitle = fileData['littenTitle'] as String;
+          final littenId = fileData['littenId'] as String;
           DateTime updatedAt;
+
+          // ⭐ 날짜 선택 시에만 undefined 리튼의 파일 제외
+          if (hasSelectedDate && littenTitle == 'undefined') {
+            continue;
+          }
 
           if (file is AudioFile) {
             // 녹음 파일은 수정이 없으므로 생성 시간을 사용
@@ -913,9 +958,9 @@ class _HomeScreenState extends State<HomeScreen> {
             updatedAt = DateTime.now();
           }
 
-          // 날짜가 선택되었을 때는 해당 날짜에 생성된 파일만 표시
+          // ⭐ 날짜가 선택되었을 때는 선택된 날짜의 리튼에 속한 모든 파일만 표시
           if (hasSelectedDate) {
-            if (isSameDay(createdAt, appState.selectedDate)) {
+            if (displayLittenIds.contains(littenId)) {
               unifiedItems.add({
                 'type': 'file',
                 'data': fileData,
@@ -1038,33 +1083,48 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint('   - 파일 타입: $fileType');
         debugPrint('   - 리튼 ID: ${fileData['littenId']}');
 
-        // 파일이 속한 리튼 선택
-        final littenId = fileData['littenId'] as String;
-        final litten = appState.littens.firstWhere((l) => l.id == littenId);
-        debugPrint('   - 선택할 리튼: ${litten.title}');
+        try {
+          // 파일이 속한 리튼 선택
+          final littenId = fileData['littenId'] as String;
+          final litten = appState.littens.firstWhere((l) => l.id == littenId);
+          debugPrint('   - 선택할 리튼: ${litten.title}');
 
-        await appState.selectLitten(litten);
-        debugPrint('✅ 리튼 선택 완료');
+          await appState.selectLitten(litten);
+          debugPrint('✅ 리튼 선택 완료');
 
-        // WritingScreen 내부 탭 설정
-        String targetWritingTabId;
-        if (fileType == 'audio') {
-          targetWritingTabId = 'audio';
-        } else if (fileType == 'text') {
-          targetWritingTabId = 'text';
-        } else {
-          targetWritingTabId = 'handwriting';
+          // WritingScreen 내부 탭 설정
+          String targetWritingTabId;
+          if (fileType == 'audio') {
+            targetWritingTabId = 'audio';
+          } else if (fileType == 'text') {
+            targetWritingTabId = 'text';
+          } else {
+            targetWritingTabId = 'handwriting';
+          }
+          debugPrint('   - 목표 WritingScreen 탭: $targetWritingTabId');
+
+          // ⭐ 현재 탭과 목표 탭을 모두 설정하여 즉시 해당 탭으로 전환
+          appState.setCurrentWritingTab(targetWritingTabId);
+          appState.setTargetWritingTab(targetWritingTabId);
+
+          // 노트 탭(WritingScreen)으로 이동 (인덱스 1)
+          const targetTabIndex = 1;
+          debugPrint('🔄 노트 탭으로 이동 (인덱스 $targetTabIndex)');
+
+          await Future.delayed(const Duration(milliseconds: 100));
+          appState.changeTab(targetTabIndex);
+          debugPrint('✅ 탭 변경 완료');
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceAll('Exception: ', '')),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         }
-        debugPrint('   - 목표 WritingScreen 탭: $targetWritingTabId');
-        appState.setTargetWritingTab(targetWritingTabId);
-
-        // 노트 탭(WritingScreen)으로 이동 (인덱스 1)
-        const targetTabIndex = 1;
-        debugPrint('🔄 노트 탭으로 이동 (인덱스 $targetTabIndex)');
-
-        await Future.delayed(const Duration(milliseconds: 100));
-        appState.changeTab(targetTabIndex);
-        debugPrint('✅ 탭 변경 완료');
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -1136,13 +1196,26 @@ class _HomeScreenState extends State<HomeScreen> {
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-              await appState.deleteLitten(littenId);
+              try {
+                await appState.deleteLitten(littenId);
 
-              if (mounted) {
-                navigator.pop();
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text('$title 일정이 삭제되었습니다.')),
-                );
+                if (mounted) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('$title 일정이 삭제되었습니다.')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),

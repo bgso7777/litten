@@ -23,36 +23,57 @@ class _WritingScreenState extends State<WritingScreen> {
   @override
   void initState() {
     super.initState();
+    // 탭 초기화는 build()에서 AppStateProvider의 저장된 위치를 사용하여 수행
+  }
 
-    // 탭 초기화 - 첫 화면에는 텍스트 탭만 좌상단에 배치
+  void _initializeTabs(Map<String, String> savedPositions) {
+    // 저장된 위치를 TabPosition enum으로 변환하는 헬퍼 함수
+    TabPosition parsePosition(String positionStr) {
+      switch (positionStr) {
+        case 'topLeft':
+          return TabPosition.topLeft;
+        case 'topRight':
+          return TabPosition.topRight;
+        case 'bottomLeft':
+          return TabPosition.bottomLeft;
+        case 'bottomRight':
+          return TabPosition.bottomRight;
+        case 'fullScreen':
+          return TabPosition.fullScreen;
+        default:
+          return TabPosition.topLeft;
+      }
+    }
+
+    // ⭐ AppStateProvider에서 저장된 위치로 탭 초기화
     _tabs = [
       TabItem(
         id: 'text',
         title: '텍스트',
         icon: Icons.keyboard,
         content: TextTab(),
-        position: TabPosition.topLeft,
+        position: parsePosition(savedPositions['text'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'handwriting',
         title: '필기',
         icon: Icons.draw,
         content: HandwritingTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'audio',
         title: '녹음',
         icon: Icons.mic,
         content: RecordingTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: parsePosition(savedPositions['audio'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'browser',
         title: '검색',
         icon: Icons.public,
         content: const BrowserTab(),
-        position: TabPosition.topLeft, // 초기에는 같은 위치에 배치 (사용자가 이동할 수 있음)
+        position: parsePosition(savedPositions['browser'] ?? 'topLeft'),
       ),
     ];
   }
@@ -61,6 +82,25 @@ class _WritingScreenState extends State<WritingScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
+        // ⭐ 저장된 탭 위치로 초기화
+        _initializeTabs(appState.writingTabPositions);
+
+        // TabPosition enum을 문자열로 변환하는 헬퍼 함수
+        String positionToString(TabPosition position) {
+          switch (position) {
+            case TabPosition.topLeft:
+              return 'topLeft';
+            case TabPosition.topRight:
+              return 'topRight';
+            case TabPosition.bottomLeft:
+              return 'bottomLeft';
+            case TabPosition.bottomRight:
+              return 'bottomRight';
+            case TabPosition.fullScreen:
+              return 'fullScreen';
+          }
+        }
+
         // DraggableTabLayout을 매번 생성하되, initialActiveTabId를 전달
         final draggableTabLayout = DraggableTabLayout(
           key: ValueKey(appState.targetWritingTabId), // targetWritingTabId가 바뀌면 위젯 재생성
@@ -75,6 +115,11 @@ class _WritingScreenState extends State<WritingScreen> {
                 }
               }
             });
+
+            // ⭐ 탭 위치가 변경될 때마다 AppStateProvider에 저장
+            final positionStr = positionToString(newPosition);
+            debugPrint('[WritingScreen] 탭 위치 변경됨: $tabId -> $positionStr');
+            appState.setWritingTabPosition(tabId, positionStr);
           },
           onTabChanged: (tabId) {
             // ⭐ 탭이 변경될 때마다 AppStateProvider에 저장
