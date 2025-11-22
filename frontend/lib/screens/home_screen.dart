@@ -872,6 +872,19 @@ class _HomeScreenState extends State<HomeScreen> {
         // 일정과 파일을 하나의 리스트로 통합
         final List<Map<String, dynamic>> unifiedItems = [];
 
+        // 각 리튼별 실제 파일 카운트 계산 (allFiles에서)
+        final Map<String, Map<String, int>> littenFileCounts = {};
+        for (final litten in displayLittens) {
+          final littenId = litten.id;
+          final littenFiles = allFiles.where((f) => f['littenId'] == littenId).toList();
+
+          littenFileCounts[littenId] = {
+            'text': littenFiles.where((f) => f['type'] == 'text').length,
+            'handwriting': littenFiles.where((f) => f['type'] == 'handwriting').length,
+            'audio': littenFiles.where((f) => f['type'] == 'audio').length,
+          };
+        }
+
         // 일정 추가
         for (final litten in displayLittens) {
           unifiedItems.add({
@@ -879,6 +892,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'data': litten,
             'updatedAt': litten.updatedAt,
             'createdAt': litten.createdAt,
+            'fileCounts': littenFileCounts[litten.id] ?? {'text': 0, 'handwriting': 0, 'audio': 0},
           });
         }
 
@@ -955,9 +969,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 if (itemType == 'litten') {
                   final litten = item['data'] as Litten;
+                  final fileCounts = item['fileCounts'] as Map<String, int>;
                   return LittenItem(
                     litten: litten,
                     isSelected: appState.selectedLitten?.id == litten.id,
+                    textCount: fileCounts['text'] ?? 0,
+                    handwritingCount: fileCounts['handwriting'] ?? 0,
+                    audioCount: fileCounts['audio'] ?? 0,
                     onTap: () async {
                       try {
                         await appState.selectLitten(litten);

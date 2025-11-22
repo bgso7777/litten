@@ -13,6 +13,9 @@ class LittenItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback? onLongPress;
+  final int? textCount;
+  final int? handwritingCount;
+  final int? audioCount;
 
   const LittenItem({
     super.key,
@@ -21,6 +24,9 @@ class LittenItem extends StatefulWidget {
     required this.onTap,
     required this.onDelete,
     this.onLongPress,
+    this.textCount,
+    this.handwritingCount,
+    this.audioCount,
   });
 
   @override
@@ -247,21 +253,21 @@ class _LittenItemState extends State<LittenItem> {
                               children: [
                                 _buildFileBadge(
                                   Icons.keyboard,
-                                  widget.litten.textCount,
+                                  widget.textCount ?? widget.litten.textCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
                                 AppSpacing.horizontalSpaceXS,
                                 _buildFileBadge(
                                   Icons.draw,
-                                  widget.litten.handwritingCount,
+                                  widget.handwritingCount ?? widget.litten.handwritingCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
                                 AppSpacing.horizontalSpaceXS,
                                 _buildFileBadge(
                                   Icons.mic,
-                                  widget.litten.audioCount,
+                                  widget.audioCount ?? widget.litten.audioCount,
                                   Colors.grey.shade300,
                                   isActive: false,
                                 ),
@@ -414,29 +420,29 @@ class _LittenItemState extends State<LittenItem> {
                           children: [
                             _buildFileBadge(
                               Icons.keyboard,
-                              widget.litten.textCount,
-                              widget.litten.textCount > 0
+                              widget.textCount ?? widget.litten.textCount,
+                              (widget.textCount ?? widget.litten.textCount) > 0
                                   ? Theme.of(context).primaryColor
                                   : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                              isActive: widget.litten.textCount > 0,
+                              isActive: (widget.textCount ?? widget.litten.textCount) > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
                             _buildFileBadge(
                               Icons.draw,
-                              widget.litten.handwritingCount,
-                              widget.litten.handwritingCount > 0
+                              widget.handwritingCount ?? widget.litten.handwritingCount,
+                              (widget.handwritingCount ?? widget.litten.handwritingCount) > 0
                                   ? Theme.of(context).primaryColor
                                   : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                              isActive: widget.litten.handwritingCount > 0,
+                              isActive: (widget.handwritingCount ?? widget.litten.handwritingCount) > 0,
                             ),
                             AppSpacing.horizontalSpaceXS,
                             _buildFileBadge(
                               Icons.mic,
-                              widget.litten.audioCount,
-                              widget.litten.audioCount > 0
+                              widget.audioCount ?? widget.litten.audioCount,
+                              (widget.audioCount ?? widget.litten.audioCount) > 0
                                   ? Theme.of(context).primaryColor
                                   : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                              isActive: widget.litten.audioCount > 0,
+                              isActive: (widget.audioCount ?? widget.litten.audioCount) > 0,
                             ),
                           ],
                         ),

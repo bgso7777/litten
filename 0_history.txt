@@ -27,7 +27,6 @@ aos, ios 에뮬레이터에서 실행된 앱 죽이고,
 48 - frontend 핵심 기능 보완 
 ---------------------------------------
 
-홈탭의 리튼 일정에 텍스트, 필기, 녹음 카운트가 맞지가 않아.
 
 필기에서 다시 불러 왔을 때 이전의 내용이 수정이 안되는데
 
@@ -50,11 +49,18 @@ aos, ios 에뮬레이터에서 실행된 앱 죽이고,
   제목: 회의 - 주간 (샘플) 
   설명: 
 
-온보드에서 3번째 스텝 "구독 플랜 선택"하는 단계를 없애줘. 
+처음으로 홈텝에 들어오면 호출하는 url 앱 생성 시 최초 한번만 호출  
+/note/v1/members/install
+{"uuid":"첫 설치 시 발생한 uuid"}
+
+온보드에서 3번째 스텝 "구독 플랜 선택"하는 단계를 없애줘.
 
 리튼앱에 해상도에 따라 깨지지 않게 해줘.
 
 아이콘 좌측 위 메인, 듣기 아이콘 변경 
+
+홈페이지 기능 설명
+스케쥴, 알림, PDF필기, 캔버스필기, 텍스트, 녹음, 브라우져 검색  
 
 광고 
 admob 
@@ -74,10 +80,10 @@ vosk_flutter 음성인식
 ios, aos 에뮬레이터에서 실행된 앱 죽이고 재빌드 해서 
 새 기능이 추가된 버젼의 앱으로 다시 실행해줘
 
-cd frontend && 
-flutter build apk --release && 
-cd .. && 
-~/Library/Android/sdk/platform-tools/adb -s emulator-5554 install frontend/build/app/outputs/flutter-apk/app-release.apk && 
+cd frontend 
+flutter build apk --release 
+cd .. 
+~/Library/Android/sdk/platform-tools/adb -s emulator-5554 install frontend/build/app/outputs/flutter-apk/app-release.apk 
 
 ~/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell monkey -p com.litten.app 1
 
