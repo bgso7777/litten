@@ -395,9 +395,10 @@ class NotificationService extends ChangeNotifier {
             _pendingNotifications.addAll(notifications);
             totalScheduled += notifications.length;
 
-            // OS 네이티브 예약 알림도 함께 등록 (향후 7일간만)
+            // OS 네이티브 예약 알림도 함께 등록 (향후 30일간)
+            // iOS/Android가 백그라운드에서도 알림을 발생시킬 수 있도록 OS에 등록
             final nativeNotifications = notifications.where((n) =>
-              n.triggerTime.difference(now).inDays < 7
+              n.triggerTime.difference(now).inDays < 30
             ).toList();
 
             for (int i = 0; i < nativeNotifications.length; i++) {

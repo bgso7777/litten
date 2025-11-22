@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -1242,56 +1243,88 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 반복 알림 발생 시 중복 체크 후 카운트 증가 또는 자식 리튼 생성하는 메서드
+  // 반복 알림 발생 시 Child 리튼 생성 (알림 없는 일정)
   Future<void> _createChildLitten(Litten parentLitten, NotificationEvent notification) async {
     try {
-      debugPrint('🏗️ 알림 처리 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
+      debugPrint('🏗️ Child 리튼 생성 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
 
-      // 같은 이름의 기존 리튼 찾기 (부모 리튼과 동일한 title을 가진 리튼)
-      final existingLitten = _littens.firstWhere(
-        (litten) => litten.title == parentLitten.title && !litten.isChildLitten,
-        orElse: () => parentLitten, // 없으면 부모 리튼 자체를 반환
+      // 알림 발생 시간을 날짜로 변환
+      final triggerDate = DateTime(
+        notification.triggerTime.year,
+        notification.triggerTime.month,
+        notification.triggerTime.day,
       );
 
-      if (existingLitten.id == parentLitten.id) {
-        // 기존 리튼이 부모 리튼과 같은 경우: 알림 카운트 증가
-        debugPrint('🔢 기존 리튼에 알림 카운트 증가: ${existingLitten.title} (${existingLitten.notificationCount} → ${existingLitten.notificationCount + 1})');
-
-        // 알림 카운트를 증가시킨 새로운 리튼 생성
-        final updatedLitten = existingLitten.copyWith(
-          notificationCount: existingLitten.notificationCount + 1,
+      // 같은 날짜에 이미 Child 리튼이 있는지 확인
+      Litten? existingChild;
+      try {
+        existingChild = _littens.firstWhere(
+          (litten) {
+            if (litten.parentId != parentLitten.id || !litten.isChildLitten || litten.schedule == null) {
+              return false;
+            }
+            final scheduleDate = litten.schedule!.date;
+            return scheduleDate.year == triggerDate.year &&
+                   scheduleDate.month == triggerDate.month &&
+                   scheduleDate.day == triggerDate.day;
+          },
         );
-
-        // 기존 리튼을 업데이트된 리튼으로 교체
-        final index = _littens.indexWhere((litten) => litten.id == existingLitten.id);
-        if (index != -1) {
-          _littens[index] = updatedLitten;
-
-          // 업데이트된 리튼 저장
-          await _littenService.saveLitten(updatedLitten);
-
-          debugPrint('✅ 알림 카운트 업데이트 완료: ${updatedLitten.title} (카운트: ${updatedLitten.notificationCount})');
-        }
-      } else {
-        // 다른 기존 리튼이 있는 경우: 해당 리튼의 알림 카운트 증가
-        debugPrint('🔢 중복 이름 리튼에 알림 카운트 증가: ${existingLitten.title} (${existingLitten.notificationCount} → ${existingLitten.notificationCount + 1})');
-
-        // 알림 카운트를 증가시킨 새로운 리튼 생성
-        final updatedLitten = existingLitten.copyWith(
-          notificationCount: existingLitten.notificationCount + 1,
-        );
-
-        // 기존 리튼을 업데이트된 리튼으로 교체
-        final index = _littens.indexWhere((litten) => litten.id == existingLitten.id);
-        if (index != -1) {
-          _littens[index] = updatedLitten;
-
-          // 업데이트된 리튼 저장
-          await _littenService.saveLitten(updatedLitten);
-
-          debugPrint('✅ 기존 리튼 알림 카운트 업데이트 완료: ${updatedLitten.title} (카운트: ${updatedLitten.notificationCount})');
-        }
+      } catch (e) {
+        existingChild = null;
       }
+
+      if (existingChild != null) {
+        debugPrint('⚠️ 이미 존재하는 Child 리튼: ${existingChild.title} (${DateFormat('yyyy-MM-dd').format(triggerDate)})');
+        return;
+      }
+
+      // 날짜 레이블 생성
+      String dateLabel;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      if (triggerDate.year == today.year &&
+          triggerDate.month == today.month &&
+          triggerDate.day == today.day) {
+        dateLabel = '오늘';
+      } else if (triggerDate.year == today.add(const Duration(days: 1)).year &&
+                 triggerDate.month == today.add(const Duration(days: 1)).month &&
+                 triggerDate.day == today.add(const Duration(days: 1)).day) {
+        dateLabel = '내일';
+      } else {
+        dateLabel = DateFormat('M/d').format(triggerDate);
+      }
+
+      // Child 리튼용 스케줄 생성 (알림 없음)
+      final childSchedule = LittenSchedule(
+        date: triggerDate,
+        startTime: parentLitten.schedule!.startTime,
+        endTime: parentLitten.schedule!.endTime,
+        notes: null, // 사용자가 작성할 수 있도록 비워둠
+        notificationRules: [], // 알림 없음
+      );
+
+      // Child 리튼 생성
+      final childLitten = Litten(
+        title: '${parentLitten.title} ($dateLabel)',
+        description: parentLitten.description,
+        schedule: childSchedule,
+        parentId: parentLitten.id,
+        isChildLitten: true,
+      );
+
+      // Child 리튼 저장 및 추가
+      await _littenService.saveLitten(childLitten);
+      _littens.add(childLitten);
+
+      debugPrint('✅ Child 리튼 생성 완료: ${childLitten.title}');
+      debugPrint('   부모 ID: ${parentLitten.id}');
+      debugPrint('   날짜: ${DateFormat('yyyy-MM-dd').format(triggerDate)}');
+      debugPrint('   시간: ${childSchedule.startTime.hour}:${childSchedule.startTime.minute.toString().padLeft(2, '0')} - ${childSchedule.endTime.hour}:${childSchedule.endTime.minute.toString().padLeft(2, '0')}');
+      debugPrint('   알림: 없음 (사용자가 노트 작성 가능)');
+
+      // 알림 상태를 SharedPreferences에 저장 (복구용)
+      await _saveNotificationState();
 
       // 알림 스케줄 업데이트
       _updateNotificationSchedule();
@@ -1299,9 +1332,25 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       // UI 업데이트
       notifyListeners();
 
-      debugPrint('🎯 총 ${_littens.length}개 리튼 (중복 방지 처리 완료)');
+      debugPrint('🎯 총 ${_littens.length}개 리튼 (Child 리튼 추가 완료)');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Child 리튼 생성 실패: $e');
+      debugPrint('스택 트레이스: $stackTrace');
+    }
+  }
+
+  // 알림 상태를 SharedPreferences에 저장
+  Future<void> _saveNotificationState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notificationState = {
+        'isRunning': _notificationService.isRunning,
+        'lastSaved': DateTime.now().toIso8601String(),
+      };
+      await prefs.setString('notification_state', jsonEncode(notificationState));
+      debugPrint('💾 알림 상태 저장 완료');
     } catch (e) {
-      debugPrint('❌ 알림 처리 실패: $e');
+      debugPrint('❌ 알림 상태 저장 실패: $e');
     }
   }
 

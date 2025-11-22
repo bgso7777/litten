@@ -888,12 +888,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool hasSelectedDate = appState.isDateSelected;
 
     // 날짜 선택 여부에 따라 리튼 필터링
-    // ⭐ 날짜 선택 시에만 undefined 제외, 날짜 미선택 시에는 모든 리튼 표시
+    // ⭐ undefined 리튼은 항상 숨김 (날짜 선택 여부와 무관)
     final displayLittens = hasSelectedDate
         ? appState.littensForSelectedDate
             .where((litten) => litten.title != 'undefined')
             .toList()
-        : appState.littens.toList(); // 날짜 미선택 시 undefined 포함 전체 표시
+        : appState.littens
+            .where((litten) => litten.title != 'undefined')
+            .toList(); // undefined 리튼은 항상 숨김
 
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: appState.getAllFiles(),
@@ -938,14 +940,10 @@ class _HomeScreenState extends State<HomeScreen> {
         for (final fileData in allFiles) {
           final file = fileData['file'];
           final createdAt = fileData['createdAt'] as DateTime;
-          final littenTitle = fileData['littenTitle'] as String;
           final littenId = fileData['littenId'] as String;
           DateTime updatedAt;
 
-          // ⭐ 날짜 선택 시에만 undefined 리튼의 파일 제외
-          if (hasSelectedDate && littenTitle == 'undefined') {
-            continue;
-          }
+          // ⭐ undefined 리튼의 파일은 항상 표시 (리튼은 숨기되 파일은 표시)
 
           if (file is AudioFile) {
             // 녹음 파일은 수정이 없으므로 생성 시간을 사용
