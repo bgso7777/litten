@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/litten.dart';
 import 'background_notification_service.dart';
-import 'recurring_notification_service.dart';
 
 class NotificationEvent {
   final String littenId;
@@ -69,8 +68,8 @@ class NotificationService extends ChangeNotifier {
   // 백그라운드 알림 서비스
   final BackgroundNotificationService _backgroundService = BackgroundNotificationService();
 
-  // 반복 알림 발생 시 자식 리튼 생성을 위한 콜백
-  Function(Litten parentLitten, NotificationEvent notification)? onCreateChildLitten;
+  // 알림 발생 시 리튼 업데이트를 위한 콜백
+  Function(String littenId)? onNotificationFired;
 
   List<NotificationEvent> get pendingNotifications => List.unmodifiable(_pendingNotifications);
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
@@ -202,9 +201,6 @@ class NotificationService extends ChangeNotifier {
   }
 
   Future<void> _checkNotifications() async {
-    // 오래된 Child 리튼 정리
-    await RecurringNotificationService().cleanupOldChildLittens();
-
     final now = DateTime.now();
     final currentMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute);
     _lastCheckTime = now; // 체크 시간 업데이트
@@ -213,14 +209,8 @@ class NotificationService extends ChangeNotifier {
     final checkStartTime = currentMinute.subtract(const Duration(minutes: 1));
     final checkEndTime = currentMinute.add(const Duration(minutes: 1));
 
-    // Parent 리튼의 알림만 체크
+    // 모든 리튼의 알림 체크
     final notifications = _pendingNotifications.where((notification) {
-      // Parent 리튼인지 확인
-      final litten = _littenMap[notification.littenId];
-      if (litten != null && litten.isChildLitten) {
-        return false; // Child 리튼은 체크하지 않음
-      }
-
       final triggerMinute = DateTime(
         notification.triggerTime.year,
         notification.triggerTime.month,
@@ -229,8 +219,38 @@ class NotificationService extends ChangeNotifier {
         notification.triggerTime.minute,
       );
 
-      return triggerMinute.isAfter(checkStartTime) &&
-             triggerMinute.isBefore(checkEndTime);
+      // 시간 범위 내에 있는지 확인
+      final isInTimeRange = triggerMinute.isAfter(checkStartTime) &&
+                           triggerMinute.isBefore(checkEndTime);
+
+      if (!isInTimeRange) return false;
+
+      // 알림 발생 시간 범위 검증 (notificationStartTime ~ notificationEndTime)
+      final schedule = notification.schedule;
+      if (schedule.notificationStartTime != null || schedule.notificationEndTime != null) {
+        final triggerTimeOfDay = TimeOfDay.fromDateTime(notification.triggerTime);
+        final triggerMinutes = triggerTimeOfDay.hour * 60 + triggerTimeOfDay.minute;
+
+        // 시작 시간 체크 (from)
+        if (schedule.notificationStartTime != null) {
+          final startMinutes = schedule.notificationStartTime!.hour * 60 + schedule.notificationStartTime!.minute;
+          if (triggerMinutes < startMinutes) {
+            debugPrint('⏰ 알림 시간 범위 제외 (시작 전): ${notification.littenTitle} - ${triggerTimeOfDay.hour}:${triggerTimeOfDay.minute.toString().padLeft(2, '0')} < ${schedule.notificationStartTime!.hour}:${schedule.notificationStartTime!.minute.toString().padLeft(2, '0')}');
+            return false;
+          }
+        }
+
+        // 종료 시간 체크 (to)
+        if (schedule.notificationEndTime != null) {
+          final endMinutes = schedule.notificationEndTime!.hour * 60 + schedule.notificationEndTime!.minute;
+          if (triggerMinutes > endMinutes) {
+            debugPrint('⏰ 알림 시간 범위 제외 (종료 후): ${notification.littenTitle} - ${triggerTimeOfDay.hour}:${triggerTimeOfDay.minute.toString().padLeft(2, '0')} > ${schedule.notificationEndTime!.hour}:${schedule.notificationEndTime!.minute.toString().padLeft(2, '0')}');
+            return false;
+          }
+        }
+      }
+
+      return true;
     }).toList();
 
     // 디버그 정보 출력
@@ -272,22 +292,10 @@ class NotificationService extends ChangeNotifier {
       debugPrint('🔔 알림: ${notification.message}');
       debugPrint('   시간: ${notification.timingDescription}');
 
-      // 반복 알림(매일, 매주, 매월, 매년)이고 정시 알림인 경우 자식 리튼 생성
-      final isRecurringNotification = [
-        NotificationFrequency.daily,
-        NotificationFrequency.weekly,
-        NotificationFrequency.monthly,
-        NotificationFrequency.yearly,
-      ].contains(notification.rule.frequency);
-
-      final isOnTime = notification.rule.timing == NotificationTiming.onTime;
-
-      if (isRecurringNotification && isOnTime && onCreateChildLitten != null) {
-        final parentLitten = _littenMap[notification.littenId];
-        if (parentLitten != null) {
-          debugPrint('🏗️ 반복 알림 발생: ${notification.rule.frequency.label} - 자식 리튼 생성 요청');
-          onCreateChildLitten!(parentLitten, notification);
-        }
+      // 알림 발생 시 리튼의 updatedAt을 업데이트하여 최상위로 올림
+      if (onNotificationFired != null) {
+        debugPrint('📌 리튼을 최상위로 이동: ${notification.littenTitle}');
+        onNotificationFired!(notification.littenId);
       }
 
       notifyListeners();
@@ -310,75 +318,17 @@ class NotificationService extends ChangeNotifier {
       int totalScheduled = 0;
       int totalNativeScheduled = 0;
 
-      // Parent 리튼만 필터링
-      final parentLittens = littens.where((l) => !l.isChildLitten).toList();
-      debugPrint('👪 Parent 리튼: ${parentLittens.length}개');
-
-      // Child 리튼 생성은 비동기로 처리하여 알림 서비스가 블록되지 않도록 함
-      List<Litten> todayChildren = [];
-      List<Litten> tomorrowChildren = [];
-
-      try {
-        // 오늘/내일에 대한 Child 리튼 자동 생성 (시간 제한 설정)
-        final recurringService = RecurringNotificationService();
-        todayChildren = await recurringService.generateChildLittensForRecurring(
-          parentLittens: parentLittens,
-          targetDate: now,
-        ).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () {
-            debugPrint('⚠️ Child 리튼 생성 타임아웃 (오늘)');
-            return [];
-          },
-        );
-
-        tomorrowChildren = await recurringService.generateChildLittensForRecurring(
-          parentLittens: parentLittens,
-          targetDate: now.add(const Duration(days: 1)),
-        ).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () {
-            debugPrint('⚠️ Child 리튼 생성 타임아웃 (내일)');
-            return [];
-          },
-        );
-      } catch (e) {
-        debugPrint('❌ Child 리튼 생성 중 오류 (무시): $e');
-      }
-
-      debugPrint('🔄 생성된 Child 리튼: 오늘 ${todayChildren.length}개, 내일 ${tomorrowChildren.length}개');
-
-      // 모든 리튼 합치기 (Parent + 기존 Child + 새 Child)
-      final allLittens = [...parentLittens];
-      allLittens.addAll(littens.where((l) => l.isChildLitten));
-      allLittens.addAll(todayChildren);
-      allLittens.addAll(tomorrowChildren);
-
       // 리튼 맵 업데이트
-      for (final litten in allLittens) {
+      for (final litten in littens) {
         _littenMap[litten.id] = litten;
       }
 
       // 기존 OS 네이티브 알림 모두 취소
       await _backgroundService.cancelAllNotifications();
 
-      // Parent 리튼과 오늘/내일의 Child 리튼만 알림 체크
-      final littensToCheck = allLittens.where((litten) {
-        if (!litten.isChildLitten) return true; // Parent는 항상 체크
-        if (litten.schedule == null) return false;
+      debugPrint('🔍 알림 체크 대상: ${littens.length}개 리튼');
 
-        // Child는 오늘/내일 것만 체크
-        final scheduleDate = litten.schedule!.date;
-        final today = DateTime(now.year, now.month, now.day);
-        final tomorrow = today.add(const Duration(days: 1));
-        final littenDay = DateTime(scheduleDate.year, scheduleDate.month, scheduleDate.day);
-
-        return littenDay.isAtSameMomentAs(today) || littenDay.isAtSameMomentAs(tomorrow);
-      }).toList();
-
-      debugPrint('🔍 알림 체크 대상: ${littensToCheck.length}개 리튼');
-
-      for (final litten in littensToCheck) {
+      for (final litten in littens) {
         if (litten.schedule == null) continue;
 
         final schedule = litten.schedule!;
@@ -487,10 +437,21 @@ class NotificationService extends ChangeNotifier {
 
       case NotificationFrequency.weekly:
         DateTime candidate = baseTime;
-        while (candidate.isBefore(now)) {
-          candidate = candidate.add(const Duration(days: 7));
+        final allowedWeekdays = rule.weekdays ?? [1, 2, 3, 4, 5, 6, 7]; // null이면 모든 요일
+
+        // 현재 시간 이후이면서 허용된 요일을 찾을 때까지 반복
+        while (true) {
+          if (candidate.isAfter(now) && allowedWeekdays.contains(candidate.weekday)) {
+            return candidate;
+          }
+          candidate = candidate.add(const Duration(days: 1));
+
+          // 무한 루프 방지: 14일 이상 검색하면 중단
+          if (candidate.difference(baseTime).inDays > 14) {
+            debugPrint('⚠️ 주별 알림: 14일 내에 유효한 요일을 찾지 못함');
+            return null;
+          }
         }
-        return candidate;
 
       case NotificationFrequency.monthly:
         DateTime candidate = baseTime;

@@ -101,9 +101,6 @@ class _LittenItemState extends State<LittenItem> {
   }
 
   Widget _buildLittenItem(BuildContext context, DateFormat timeFormat, l10n) {
-    // Child 리튼인지 확인
-    final isChildLitten = widget.litten.isChildLitten;
-
     return Draggable<String>(
       data: widget.litten.id,
       feedback: Material(
@@ -143,76 +140,22 @@ class _LittenItemState extends State<LittenItem> {
               child: Row(
                 children: [
                   // Leading icon
-                  Stack(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: isChildLitten
-                              ? Colors.blue.shade100  // Child 리튼은 파란색 배경
-                              : _isHighlighted
-                                  ? Colors.orange.shade100
-                                  : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(6),
-                          border: isChildLitten
-                              ? Border.all(color: Colors.blue.shade300, width: 1)  // Child 리튼 테두리
-                              : null,
-                        ),
-                        child: Icon(
-                          isChildLitten
-                              ? Icons.subdirectory_arrow_right  // Child 리튼 아이콘
-                              : Icons.folder_outlined,
-                          color: isChildLitten
-                              ? Colors.blue.shade700  // Child 리튼 아이콘 색상
-                              : _isHighlighted
-                                  ? Colors.orange.shade600
-                                  : Colors.grey.shade400,
-                          size: 20,
-                        ),
-                      ),
-                      if (_isHighlighted && !isChildLitten)  // Parent 리튼만 알림 표시
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.notifications,
-                              size: 8,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      if (isChildLitten)  // Child 리튼 표시 배지
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade600,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'R',  // Recurring(반복) 표시
-                              style: TextStyle(
-                                fontSize: 8,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: _isHighlighted
+                          ? Colors.orange.shade100
+                          : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.folder_outlined,
+                      color: _isHighlighted
+                          ? Colors.orange.shade600
+                          : Colors.grey.shade400,
+                      size: 20,
+                    ),
                   ),
                   AppSpacing.horizontalSpaceM,
                   // Content
@@ -310,6 +253,36 @@ class _LittenItemState extends State<LittenItem> {
                                     Icons.note,
                                     size: 14,
                                     color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                                  ),
+                                ],
+                                // 알림 정보 표시 (활성화된 알림이 있을 때만)
+                                if (widget.litten.schedule!.notificationRules.where((rule) => rule.isEnabled).isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.notifications_active,
+                                          size: 13,
+                                          color: Theme.of(context).primaryColor,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${widget.litten.schedule!.notificationRules.where((rule) => rule.isEnabled).length}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Theme.of(context).primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ],

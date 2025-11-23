@@ -28,10 +28,13 @@ class SchedulePicker extends StatefulWidget {
 class _SchedulePickerState extends State<SchedulePicker> {
   bool _hasSchedule = true;
   late DateTime _selectedDate;
+  DateTime? _selectedEndDate; // 종료 날짜
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 10, minute: 0);
   final TextEditingController _notesController = TextEditingController();
   List<NotificationRule> _notificationRules = [];
+  TimeOfDay? _notificationStartTime; // 알림 시작 시간 (from)
+  TimeOfDay? _notificationEndTime;   // 알림 종료 시간 (to), null이면 제한 없음
 
   @override
   void initState() {
@@ -41,10 +44,13 @@ class _SchedulePickerState extends State<SchedulePicker> {
     if (widget.initialSchedule != null) {
       _hasSchedule = true;
       _selectedDate = widget.initialSchedule!.date;
+      _selectedEndDate = widget.initialSchedule!.endDate;
       _startTime = widget.initialSchedule!.startTime;
       _endTime = widget.initialSchedule!.endTime;
       _notesController.text = widget.initialSchedule!.notes ?? '';
       _notificationRules = List.from(widget.initialSchedule!.notificationRules);
+      _notificationStartTime = widget.initialSchedule!.notificationStartTime;
+      _notificationEndTime = widget.initialSchedule!.notificationEndTime;
     } else {
       _selectedDate = widget.defaultDate ?? DateTime.now();
     }
@@ -81,10 +87,13 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
       final schedule = LittenSchedule(
         date: _selectedDate,
+        endDate: _selectedEndDate,
         startTime: _startTime,
         endTime: _endTime,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
         notificationRules: _notificationRules,
+        notificationStartTime: _notificationStartTime,
+        notificationEndTime: _notificationEndTime,
       );
 
       widget.onScheduleChanged(schedule);
@@ -105,13 +114,36 @@ class _SchedulePickerState extends State<SchedulePicker> {
       initialDate: _selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: l10n?.selectDate ?? '날짜 선택',
+      helpText: l10n?.selectDate ?? '시작 날짜 선택',
       cancelText: l10n?.cancel ?? '취소',
       confirmText: l10n?.confirm ?? '확인',
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        // 시작 날짜가 종료 날짜보다 늦으면 종료 날짜 초기화
+        if (_selectedEndDate != null && picked.isAfter(_selectedEndDate!)) {
+          _selectedEndDate = null;
+        }
+      });
+      _updateSchedule();
+    }
+  }
+
+  Future<void> _selectEndDate(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedEndDate ?? _selectedDate.add(const Duration(days: 1)),
+      firstDate: _selectedDate, // 시작 날짜 이후만 선택 가능
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: l10n?.selectDate ?? '종료 날짜 선택',
+      cancelText: l10n?.cancel ?? '취소',
+      confirmText: l10n?.confirm ?? '확인',
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedEndDate = picked;
       });
       _updateSchedule();
     }
@@ -127,14 +159,64 @@ class _SchedulePickerState extends State<SchedulePicker> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
-          // 날짜 선택
+          // 시작 날짜 선택
           Card(
             child: ListTile(
               leading: const Icon(Icons.calendar_today),
-              title: Text(l10n?.date ?? '날짜'),
+              title: Text(l10n?.date ?? '시작 날짜'),
               subtitle: Text(DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate)),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () => _selectDate(context),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // 종료 날짜 선택
+          Card(
+            child: InkWell(
+              onTap: () => _selectEndDate(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '종료 날짜',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedEndDate != null
+                                ? DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedEndDate!)
+                                : '선택 안 함',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _selectedEndDate != null ? Colors.black : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_selectedEndDate != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          setState(() {
+                            _selectedEndDate = null;
+                          });
+                          _updateSchedule();
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -235,6 +317,169 @@ class _SchedulePickerState extends State<SchedulePicker> {
             ),
           ),
           if (widget.showNotificationSettings) ...[
+            const SizedBox(height: 16),
+            // 알림 시간 범위 설정
+            Text(
+              '알림 발생 시간 범위',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    child: InkWell(
+                      onTap: () async {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: _notificationStartTime ?? const TimeOfDay(hour: 0, minute: 0),
+                          builder: (context, child) {
+                            return MediaQuery(
+                              data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (time != null) {
+                          setState(() {
+                            _notificationStartTime = time;
+                          });
+                          _updateSchedule();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.alarm, size: 20, color: Theme.of(context).primaryColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '시작 (From)',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                  Text(
+                                    _notificationStartTime?.format(context) ?? '제한 없음',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_notificationStartTime != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  setState(() {
+                                    _notificationStartTime = null;
+                                  });
+                                  _updateSchedule();
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Card(
+                    child: InkWell(
+                      onTap: () async {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: _notificationEndTime ?? const TimeOfDay(hour: 23, minute: 59),
+                          builder: (context, child) {
+                            return MediaQuery(
+                              data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (time != null) {
+                          setState(() {
+                            _notificationEndTime = time;
+                          });
+                          _updateSchedule();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.alarm_off, size: 20, color: Theme.of(context).primaryColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '종료 (To)',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                  Text(
+                                    _notificationEndTime?.format(context) ?? '제한 없음',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_notificationEndTime != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  setState(() {
+                                    _notificationEndTime = null;
+                                  });
+                                  _updateSchedule();
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _notificationStartTime == null && _notificationEndTime == null
+                          ? '알림이 하루 종일 발생합니다'
+                          : _notificationStartTime != null && _notificationEndTime == null
+                              ? '${_notificationStartTime!.format(context)}부터 알림 발생'
+                              : _notificationStartTime == null && _notificationEndTime != null
+                                  ? '${_notificationEndTime!.format(context)}까지 알림 발생'
+                                  : '${_notificationStartTime!.format(context)} ~ ${_notificationEndTime!.format(context)} 사이 알림 발생',
+                      style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             // 알림 설정
             NotificationSettings(

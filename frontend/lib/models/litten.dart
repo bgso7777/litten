@@ -30,11 +30,13 @@ class NotificationRule {
   final NotificationFrequency frequency;
   final NotificationTiming timing;
   final bool isEnabled;
+  final List<int>? weekdays; // 주별 알림용 요일 (1=월요일, 7=일요일), null이면 모든 요일
 
   NotificationRule({
     required this.frequency,
     required this.timing,
     this.isEnabled = false,
+    this.weekdays,
   });
 
   Map<String, dynamic> toJson() {
@@ -42,6 +44,7 @@ class NotificationRule {
       'frequency': frequency.value,
       'timing': timing.minutesOffset,
       'isEnabled': isEnabled,
+      'weekdays': weekdays,
     };
   }
 
@@ -56,6 +59,9 @@ class NotificationRule {
         orElse: () => NotificationTiming.onTime,
       ),
       isEnabled: json['isEnabled'] ?? false,
+      weekdays: json['weekdays'] != null
+          ? List<int>.from(json['weekdays'])
+          : null,
     );
   }
 
@@ -63,45 +69,80 @@ class NotificationRule {
     NotificationFrequency? frequency,
     NotificationTiming? timing,
     bool? isEnabled,
+    List<int>? weekdays,
   }) {
     return NotificationRule(
       frequency: frequency ?? this.frequency,
       timing: timing ?? this.timing,
       isEnabled: isEnabled ?? this.isEnabled,
+      weekdays: weekdays ?? this.weekdays,
     );
   }
 }
 
 class LittenSchedule {
-  final DateTime date;
+  final DateTime date; // 시작 날짜
+  final DateTime? endDate; // 종료 날짜 (null이면 시작 날짜만 사용)
   final TimeOfDay startTime;
   final TimeOfDay endTime;
   final String? notes;
   final List<NotificationRule> notificationRules;
+  final TimeOfDay? notificationStartTime; // 알림 시작 시간 (from)
+  final TimeOfDay? notificationEndTime;   // 알림 종료 시간 (to), null이면 제한 없음
 
   LittenSchedule({
     required this.date,
+    this.endDate,
     required this.startTime,
     required this.endTime,
     this.notes,
     List<NotificationRule>? notificationRules,
+    this.notificationStartTime,
+    this.notificationEndTime,
   }) : notificationRules = notificationRules ?? [];
 
   Map<String, dynamic> toJson() {
     return {
       'date': date.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
       'startTime': '${startTime.hour}:${startTime.minute}',
       'endTime': '${endTime.hour}:${endTime.minute}',
       'notes': notes,
       'notificationRules': notificationRules.map((rule) => rule.toJson()).toList(),
+      'notificationStartTime': notificationStartTime != null
+          ? '${notificationStartTime!.hour}:${notificationStartTime!.minute}'
+          : null,
+      'notificationEndTime': notificationEndTime != null
+          ? '${notificationEndTime!.hour}:${notificationEndTime!.minute}'
+          : null,
     };
   }
 
   factory LittenSchedule.fromJson(Map<String, dynamic> json) {
     final startTimeParts = json['startTime'].split(':');
     final endTimeParts = json['endTime'].split(':');
+
+    TimeOfDay? notificationStartTime;
+    if (json['notificationStartTime'] != null) {
+      final parts = json['notificationStartTime'].split(':');
+      notificationStartTime = TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      );
+    }
+
+    TimeOfDay? notificationEndTime;
+    if (json['notificationEndTime'] != null) {
+      final parts = json['notificationEndTime'].split(':');
+      notificationEndTime = TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      );
+    }
+
     return LittenSchedule(
       date: DateTime.parse(json['date']),
+      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
       startTime: TimeOfDay(
         hour: int.parse(startTimeParts[0]),
         minute: int.parse(startTimeParts[1]),
@@ -114,6 +155,8 @@ class LittenSchedule {
       notificationRules: (json['notificationRules'] as List<dynamic>?)
           ?.map((rule) => NotificationRule.fromJson(rule))
           .toList() ?? [],
+      notificationStartTime: notificationStartTime,
+      notificationEndTime: notificationEndTime,
     );
   }
 
@@ -125,17 +168,23 @@ class LittenSchedule {
 
   LittenSchedule copyWith({
     DateTime? date,
+    DateTime? endDate,
     TimeOfDay? startTime,
     TimeOfDay? endTime,
     String? notes,
     List<NotificationRule>? notificationRules,
+    TimeOfDay? notificationStartTime,
+    TimeOfDay? notificationEndTime,
   }) {
     return LittenSchedule(
       date: date ?? this.date,
+      endDate: endDate ?? this.endDate,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       notes: notes ?? this.notes,
       notificationRules: notificationRules ?? this.notificationRules,
+      notificationStartTime: notificationStartTime ?? this.notificationStartTime,
+      notificationEndTime: notificationEndTime ?? this.notificationEndTime,
     );
   }
 }
@@ -150,8 +199,6 @@ class Litten {
   final List<String> textFileIds;
   final List<String> handwritingFileIds;
   final LittenSchedule? schedule;
-  final String? parentId; // 부모 리튼 ID (자식 리튼인 경우)
-  final bool isChildLitten; // 자식 리튼 여부
   final int notificationCount; // 알림 발생 횟수 카운트
 
   Litten({
@@ -164,8 +211,6 @@ class Litten {
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
     this.schedule,
-    this.parentId,
-    this.isChildLitten = false,
     this.notificationCount = 0,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
@@ -186,8 +231,6 @@ class Litten {
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
     LittenSchedule? schedule,
-    String? parentId,
-    bool? isChildLitten,
     int? notificationCount,
   }) {
     return Litten(
@@ -200,8 +243,6 @@ class Litten {
       textFileIds: textFileIds ?? this.textFileIds,
       handwritingFileIds: handwritingFileIds ?? this.handwritingFileIds,
       schedule: schedule ?? this.schedule,
-      parentId: parentId ?? this.parentId,
-      isChildLitten: isChildLitten ?? this.isChildLitten,
       notificationCount: notificationCount ?? this.notificationCount,
     );
   }
@@ -217,22 +258,11 @@ class Litten {
       'textFileIds': textFileIds,
       'handwritingFileIds': handwritingFileIds,
       'schedule': schedule?.toJson(),
-      'parentId': parentId,
-      'isChildLitten': isChildLitten,
       'notificationCount': notificationCount,
     };
   }
 
   factory Litten.fromJson(Map<String, dynamic> json) {
-    // parentId가 List<String>으로 저장된 경우 첫 번째 요소만 사용 (이전 버전 호환성)
-    String? parentId;
-    final parentIdData = json['parentId'];
-    if (parentIdData is String) {
-      parentId = parentIdData;
-    } else if (parentIdData is List && parentIdData.isNotEmpty) {
-      parentId = parentIdData[0] as String?;
-    }
-
     return Litten(
       id: json['id'],
       title: json['title'],
@@ -243,8 +273,6 @@ class Litten {
       textFileIds: List<String>.from(json['textFileIds'] ?? []),
       handwritingFileIds: List<String>.from(json['handwritingFileIds'] ?? []),
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
-      parentId: parentId,
-      isChildLitten: json['isChildLitten'] ?? false,
       notificationCount: json['notificationCount'] ?? 0,
     );
   }

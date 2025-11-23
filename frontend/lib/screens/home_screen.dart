@@ -4,7 +4,11 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/app_state_provider.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/home/litten_item.dart';
 import '../widgets/home/schedule_picker.dart';
@@ -43,7 +47,41 @@ class _HomeScreenState extends State<HomeScreen> {
     // 화면 로드 후 최신 항목으로 스크롤 (최신이 맨 위에 있으므로 맨 위로)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToTop();
+      _callInstallApiIfNeeded();
     });
+  }
+
+  /// 앱 설치 후 처음 홈탭 진입 시 install API 호출
+  Future<void> _callInstallApiIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasCalledInstallApi = prefs.getBool('has_called_install_api') ?? false;
+
+      if (!hasCalledInstallApi) {
+        debugPrint('[HomeScreen] 🚀 처음 홈탭 진입 - install API 호출 시작');
+
+        // UUID 가져오기
+        final authService = AuthServiceImpl();
+        final uuid = await authService.getDeviceUuid();
+        debugPrint('[HomeScreen] UUID: $uuid');
+
+        // install API 호출
+        final response = await ApiService().registerUuid(uuid: uuid);
+        debugPrint('[HomeScreen] install API 응답: $response');
+
+        // 성공 시 플래그 저장
+        if (response['result'] == 1) {
+          await prefs.setBool('has_called_install_api', true);
+          debugPrint('[HomeScreen] ✅ install API 호출 성공 - 플래그 저장 완료');
+        } else {
+          debugPrint('[HomeScreen] ⚠️ install API 호출 실패 - result: ${response['result']}');
+        }
+      } else {
+        debugPrint('[HomeScreen] ℹ️ install API 이미 호출됨 - 스킵');
+      }
+    } catch (e) {
+      debugPrint('[HomeScreen] ❌ install API 호출 중 오류: $e');
+    }
   }
 
   void _scrollToTop() {
@@ -87,37 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
-        // 반응형 레이아웃: 화면 크기와 방향을 고려한 동적 비율 계산
-        final screenHeight = MediaQuery.of(context).size.height;
-        final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-
-        // 화면 크기 분류
-        final isSmallScreen = screenHeight < 600;   // 작은 폰
-        final isMediumScreen = screenHeight >= 600 && screenHeight < 800; // 중간 폰
-        // isLargeScreen (>= 800): 큰 폰 or 태블릿
-
-        // 동적 flex 비율 계산 - 간격 없이 밀착
-        int calendarFlex;
-        int listFlex;
-
-        if (isPortrait) {
-          // 세로 모드
-          if (isSmallScreen) {
-            calendarFlex = 7;  // 35% - 작은 화면에서는 캘린더 최소화
-            listFlex = 13;     // 65%
-          } else if (isMediumScreen) {
-            calendarFlex = 9;  // 45% - 중간 화면에서 균형
-            listFlex = 11;     // 55%
-          } else {
-            calendarFlex = 10; // 50% - 큰 화면에서 균형있게
-            listFlex = 10;     // 50%
-          }
-        } else {
-          // 가로 모드 - 캘린더 비율 축소
-          calendarFlex = 8;    // 40%
-          listFlex = 12;       // 60%
-        }
-
         return Scaffold(
           appBar: null,
           body: Stack(
@@ -126,14 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 상단 - 캘린더 (반응형 비율)
+              // 상단 - 캘린더 (고정 높이)
+              _buildCalendarSection(appState, l10n),
+              // 하단 - 통합 리스트 (일정 + 파일) - 나머지 공간 차지
               Expanded(
-                flex: calendarFlex,
-                child: _buildCalendarSection(appState, l10n),
-              ),
-              // 하단 - 통합 리스트 (일정 + 파일)
-              Expanded(
-                flex: listFlex,
                 child: _buildUnifiedListSection(appState, l10n),
               ),
             ],
@@ -649,11 +652,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           // 캘린더
-          Flexible(
-            fit: FlexFit.tight,
-            child: Transform.scale(
-              scale: 0.95, // 캘린더를 95% 크기로 축소 (간격 최소화)
-              child: TableCalendar<dynamic>(
+          Transform.scale(
+            scale: 0.95, // 캘린더를 95% 크기로 축소 (간격 최소화)
+            child: TableCalendar<dynamic>(
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2030, 12, 31),
                 focusedDay: appState.focusedDate,
@@ -863,7 +864,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

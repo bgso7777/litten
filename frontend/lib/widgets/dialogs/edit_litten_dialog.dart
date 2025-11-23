@@ -46,7 +46,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: Text('리튼 수정'),
+      title: Text('알림 수정'),
       content: SizedBox(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,
@@ -115,7 +115,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
                   ),
-                  autofocus: true,
+                  autofocus: false,
                   onChanged: (value) {
                     debugPrint('🔤 수정 텍스트 입력: $value');
                   },

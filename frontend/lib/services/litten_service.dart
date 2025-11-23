@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/litten.dart';
 import '../models/audio_file.dart';
@@ -338,12 +339,56 @@ class LittenService {
       final title = defaultTitles[i];
       if (!existingTitles.contains(title)) {
         String description;
+        LittenSchedule? schedule;
+
         if (defaultLittenTitle != null && title == defaultLittenTitle) {
           description = defaultLittenDescription ?? '리튼을 선택하지 않고 생성된 파일들이 저장되는 기본 공간입니다.';
         } else if (title == (lectureTitle ?? '강의')) {
           description = lectureDescription ?? '강의에 관련된 파일들을 저장하세요.';
+          // 강의 리튼: 스케줄 없음, 알림 없음
         } else if (title == (meetingTitle ?? '회의')) {
           description = meetingDescription ?? '회의에 관련된 파일들을 저장하세요.';
+
+          // 모임 리튼: 설치 시점 + 10분 스케줄, 정시 및 10분 전 알림
+          final now = DateTime.now();
+          final scheduleTime = now.add(const Duration(minutes: 10));
+
+          // 5분 단위로 반올림
+          final minute = (scheduleTime.minute / 5).round() * 5;
+          final roundedTime = DateTime(
+            scheduleTime.year,
+            scheduleTime.month,
+            scheduleTime.day,
+            scheduleTime.hour,
+            minute >= 60 ? 0 : minute,
+          ).add(minute >= 60 ? const Duration(hours: 1) : Duration.zero);
+
+          final startTime = TimeOfDay(hour: roundedTime.hour, minute: roundedTime.minute);
+          final endTime = TimeOfDay(
+            hour: (roundedTime.hour + 1) % 24,
+            minute: roundedTime.minute,
+          );
+
+          // 알림 규칙: 정시와 10분 전
+          final notificationRules = [
+            NotificationRule(
+              frequency: NotificationFrequency.onDay,
+              timing: NotificationTiming.onTime,
+              isEnabled: true,
+            ),
+            NotificationRule(
+              frequency: NotificationFrequency.onDay,
+              timing: NotificationTiming.tenMinutesBefore,
+              isEnabled: true,
+            ),
+          ];
+
+          schedule = LittenSchedule(
+            date: roundedTime,
+            startTime: startTime,
+            endTime: endTime,
+            notificationRules: notificationRules,
+          );
         } else {
           description = '$title에 관련된 파일들을 저장하세요.';
         }
@@ -351,6 +396,7 @@ class LittenService {
         final defaultLitten = Litten(
           title: title,
           description: description,
+          schedule: schedule,
         );
         await saveLitten(defaultLitten);
       }

@@ -28,27 +28,12 @@ aos, ios 용으로 빌드하고 에뮬레이터에서
 48 - frontend 핵심 기능 보완 
 ---------------------------------------
 
-리튼의 알림이 from만 있는데 to도 설정할 수 있도록 해줘. 
-to의 기본은 제한이 없는 것으로 해주고 
+강의 샘플 파일생성 필기, pdf필기, 캔버스필기, 녹음 
 
-처음으로 홈텝에 들어오면 강의 회의 리튼 내용을 아래와 같이 수정해줘
-강의
-  제목: 강의 - 교양 (샘플) 
-  알림: 
-  설명: 강의 노트로 활용해보세요.
+알림이 있는 리튼의 아이콘 리튼 아이콘을 기본으로해서 
+일림이 있다는 것을 알 수 있게 아이콘을 다시 만들어줘. 
 
-회의
-  제목: 회의 - 주간 (샘플) 
-  알림:  
-  설명: 회의 노트로 활용해보세요.
-
-처음으로 홈텝에 들어오면 호출하는 url 앱 생성 시 최초 한번만 호출  
-/note/v1/members/install
-{"uuid":"첫 설치 시 발생한 uuid"}
-
-온보드에서 3번째 스텝 "구독 플랜 선택"하는 단계를 없애줘.
-
-아이콘 좌측 위 메인, 듣기 아이콘 변경 
+아이콘 좌측 위 메인 메뉴의 노트의 아이콘
 
 "필기에 사진을 불러와서 필기할 수 있는 기능도 넣어줘 ??
 사진을 선택하면 그 사진을 png로 변환해서 저장하고
@@ -75,11 +60,20 @@ vosk_flutter 음성인식
 ios, aos 에뮬레이터에서 실행된 앱 죽이고 재빌드 해서 
 새 기능이 추가된 버젼의 앱으로 다시 실행해줘
 
+
 cd frontend 
+flutter clean
+flutter pub get
 flutter build apk --release 
 cd .. 
+
+에뮬레이터 실행 
+~/Library/Android/sdk/emulator/emulator -avd Medium_Phone_API_36.0
+
+에뮬레이터로 앱 전송 
 ~/Library/Android/sdk/platform-tools/adb -s emulator-5554 install frontend/build/app/outputs/flutter-apk/app-release.apk 
 
+에뮬레이터 앱 실행 
 ~/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell monkey -p com.litten.app 1
 
 

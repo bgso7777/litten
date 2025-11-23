@@ -7,6 +7,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import '../models/litten.dart';
 
 class BackgroundNotificationService {
@@ -32,6 +34,11 @@ class BackgroundNotificationService {
     while (!_initialized && retryCount < maxRetries) {
       try {
         debugPrint('🔔 BackgroundNotificationService 초기화 시도 ${retryCount + 1}/$maxRetries');
+
+      // Timezone 초기화
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+      debugPrint('✅ Timezone 초기화 완료 (Asia/Seoul)');
 
       // Android 초기화 설정
       const AndroidInitializationSettings initializationSettingsAndroid =
@@ -267,9 +274,9 @@ class BackgroundNotificationService {
   }
 
   // DateTime을 TZDateTime으로 변환
-  dynamic _convertToTZDateTime(DateTime dateTime) {
-    // timezone 패키지를 사용하지 않는 경우 DateTime 그대로 반환
-    return dateTime;
+  tz.TZDateTime _convertToTZDateTime(DateTime dateTime) {
+    final location = tz.getLocation('Asia/Seoul');
+    return tz.TZDateTime.from(dateTime, location);
   }
 
   // 백그라운드 작업 등록

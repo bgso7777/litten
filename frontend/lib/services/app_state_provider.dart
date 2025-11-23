@@ -192,7 +192,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await bgService.initialize();
 
       // 알림 체커 시작
-      _notificationService.onCreateChildLitten = _createChildLitten;
+      _notificationService.onNotificationFired = _onNotificationFired;
       _notificationService.startNotificationChecker();
       _notificationService.addListener(_onNotificationChanged);
 
@@ -331,7 +331,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final littens = await _littenService.getAllLittens();
     final defaultTitles = [
       // Korean
-      '기본리튼', '강의', '회의',
+      '기본리튼', '강의', '회의', '강의 (샘플)', '모임 (샘플)',
       // English
       'Default Litten', 'Lecture', 'Meeting',
       // Chinese
@@ -769,11 +769,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     switch (_locale.languageCode) {
       case 'ko':
         defaultLittenTitle = null; // 기본리튼 제거
-        lectureTitle = '강의';
-        meetingTitle = '회의';
+        lectureTitle = '강의 (샘플)';
+        meetingTitle = '모임 (샘플)';
         defaultLittenDescription = null;
-        lectureDescription = '강의에 관련된 파일들을 저장하세요.';
-        meetingDescription = '회의에 관련된 파일들을 저장하세요.';
+        lectureDescription = '강의 노트로 활용해보세요.';
+        meetingDescription = '스케쥴러 활용해보세요.';
         break;
       case 'zh':
         defaultLittenTitle = null; // 基本默认笔记本 제거
@@ -1081,29 +1081,47 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     AppThemeType? selectedTheme,
     SubscriptionType? selectedSubscription,
   }) async {
+    debugPrint('[AppStateProvider] 🚀 completeOnboarding 시작');
+    debugPrint('[AppStateProvider] 선택 언어: $selectedLanguage, 테마: $selectedTheme, 구독: $selectedSubscription');
+
     final prefs = await SharedPreferences.getInstance();
 
     if (selectedLanguage != null) {
+      debugPrint('[AppStateProvider] 언어 변경 중: $selectedLanguage');
       await changeLanguage(selectedLanguage);
     }
 
     if (selectedTheme != null) {
+      debugPrint('[AppStateProvider] 테마 변경 중: $selectedTheme');
       await changeTheme(selectedTheme);
     }
 
     if (selectedSubscription != null) {
+      debugPrint('[AppStateProvider] 구독 타입 변경 중: $selectedSubscription');
       await changeSubscriptionType(selectedSubscription);
     }
 
     // 온보딩 완료 시점에 기본 리튼들 생성
+    debugPrint('[AppStateProvider] 기본 리튼 생성 시작');
     await _createDefaultLittensWithLocalization();
+
+    debugPrint('[AppStateProvider] 리튼 목록 로드 시작');
     await _loadLittens();
+
+    debugPrint('[AppStateProvider] 선택된 리튼 로드 시작');
     await _loadSelectedLitten();
 
     // 앱 초기화 완료 표시
+    debugPrint('[AppStateProvider] 앱 초기화 플래그 저장');
     await prefs.setBool('is_app_initialized', true);
+
+    debugPrint('[AppStateProvider] _isFirstLaunch를 false로 설정 (이전: $_isFirstLaunch)');
     _isFirstLaunch = false;
+
+    debugPrint('[AppStateProvider] notifyListeners 호출');
     notifyListeners();
+
+    debugPrint('[AppStateProvider] ✅ completeOnboarding 완료 - _isFirstLaunch: $_isFirstLaunch');
   }
   
   // 캘린더 관련 메서드들
@@ -1243,114 +1261,37 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 반복 알림 발생 시 Child 리튼 생성 (알림 없는 일정)
-  Future<void> _createChildLitten(Litten parentLitten, NotificationEvent notification) async {
+  // 알림 발생 시 리튼을 최상위로 올리기 위해 updatedAt 업데이트
+  Future<void> _onNotificationFired(String littenId) async {
     try {
-      debugPrint('🏗️ Child 리튼 생성 시작: ${parentLitten.title} → ${notification.rule.frequency.label}');
+      debugPrint('📌 알림 발생: 리튼을 최상위로 이동 - $littenId');
 
-      // 알림 발생 시간을 날짜로 변환
-      final triggerDate = DateTime(
-        notification.triggerTime.year,
-        notification.triggerTime.month,
-        notification.triggerTime.day,
+      // 해당 리튼 찾기
+      final litten = _littens.firstWhere(
+        (l) => l.id == littenId,
+        orElse: () => Litten(id: '', title: ''),
       );
 
-      // 같은 날짜에 이미 Child 리튼이 있는지 확인
-      Litten? existingChild;
-      try {
-        existingChild = _littens.firstWhere(
-          (litten) {
-            if (litten.parentId != parentLitten.id || !litten.isChildLitten || litten.schedule == null) {
-              return false;
-            }
-            final scheduleDate = litten.schedule!.date;
-            return scheduleDate.year == triggerDate.year &&
-                   scheduleDate.month == triggerDate.month &&
-                   scheduleDate.day == triggerDate.day;
-          },
-        );
-      } catch (e) {
-        existingChild = null;
-      }
-
-      if (existingChild != null) {
-        debugPrint('⚠️ 이미 존재하는 Child 리튼: ${existingChild.title} (${DateFormat('yyyy-MM-dd').format(triggerDate)})');
+      if (litten.id.isEmpty) {
+        debugPrint('⚠️ 알림 리튼을 찾을 수 없음: $littenId');
         return;
       }
 
-      // 날짜 레이블 생성
-      String dateLabel;
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      if (triggerDate.year == today.year &&
-          triggerDate.month == today.month &&
-          triggerDate.day == today.day) {
-        dateLabel = '오늘';
-      } else if (triggerDate.year == today.add(const Duration(days: 1)).year &&
-                 triggerDate.month == today.add(const Duration(days: 1)).month &&
-                 triggerDate.day == today.add(const Duration(days: 1)).day) {
-        dateLabel = '내일';
-      } else {
-        dateLabel = DateFormat('M/d').format(triggerDate);
-      }
-
-      // Child 리튼용 스케줄 생성 (알림 없음)
-      final childSchedule = LittenSchedule(
-        date: triggerDate,
-        startTime: parentLitten.schedule!.startTime,
-        endTime: parentLitten.schedule!.endTime,
-        notes: null, // 사용자가 작성할 수 있도록 비워둠
-        notificationRules: [], // 알림 없음
+      // updatedAt을 현재 시간으로 업데이트 (최상위로 올리기)
+      final updatedLitten = litten.copyWith(
+        notificationCount: litten.notificationCount + 1,
       );
 
-      // Child 리튼 생성
-      final childLitten = Litten(
-        title: '${parentLitten.title} ($dateLabel)',
-        description: parentLitten.description,
-        schedule: childSchedule,
-        parentId: parentLitten.id,
-        isChildLitten: true,
-      );
+      // 리튼 저장
+      await _littenService.saveLitten(updatedLitten);
 
-      // Child 리튼 저장 및 추가
-      await _littenService.saveLitten(childLitten);
-      _littens.add(childLitten);
+      // 리튼 목록 새로고침
+      await refreshLittens();
 
-      debugPrint('✅ Child 리튼 생성 완료: ${childLitten.title}');
-      debugPrint('   부모 ID: ${parentLitten.id}');
-      debugPrint('   날짜: ${DateFormat('yyyy-MM-dd').format(triggerDate)}');
-      debugPrint('   시간: ${childSchedule.startTime.hour}:${childSchedule.startTime.minute.toString().padLeft(2, '0')} - ${childSchedule.endTime.hour}:${childSchedule.endTime.minute.toString().padLeft(2, '0')}');
-      debugPrint('   알림: 없음 (사용자가 노트 작성 가능)');
-
-      // 알림 상태를 SharedPreferences에 저장 (복구용)
-      await _saveNotificationState();
-
-      // 알림 스케줄 업데이트
-      _updateNotificationSchedule();
-
-      // UI 업데이트
-      notifyListeners();
-
-      debugPrint('🎯 총 ${_littens.length}개 리튼 (Child 리튼 추가 완료)');
+      debugPrint('✅ 리튼 업데이트 완료: ${litten.title} (알림 횟수: ${updatedLitten.notificationCount})');
     } catch (e, stackTrace) {
-      debugPrint('❌ Child 리튼 생성 실패: $e');
+      debugPrint('❌ 알림 리튼 업데이트 실패: $e');
       debugPrint('스택 트레이스: $stackTrace');
-    }
-  }
-
-  // 알림 상태를 SharedPreferences에 저장
-  Future<void> _saveNotificationState() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final notificationState = {
-        'isRunning': _notificationService.isRunning,
-        'lastSaved': DateTime.now().toIso8601String(),
-      };
-      await prefs.setString('notification_state', jsonEncode(notificationState));
-      debugPrint('💾 알림 상태 저장 완료');
-    } catch (e) {
-      debugPrint('❌ 알림 상태 저장 실패: $e');
     }
   }
 
