@@ -724,13 +724,24 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         _notificationService.startNotificationChecker();
         _updateNotificationSchedule();
       } else {
-        debugPrint('✅ 알림 서비스 정상 작동 중');
+        // isRunning이 true여도 실제 타이머가 비활성화되었을 수 있으므로
+        // NotificationService 내부에서 헬스 체크를 수행하도록 함
+        debugPrint('✅ 알림 서비스 실행 중 (내부 헬스 체크 수행)');
+        
+        // 수동으로 헬스 체크 트리거 (타이머가 멈췄는지 확인)
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _notificationService.manualCheckNotifications();
+        });
       }
     } catch (e) {
       debugPrint('❌ 알림 서비스 상태 확인 실패: $e');
       // 오류 발생 시 안전하게 재시작
-      _notificationService.startNotificationChecker();
-      _updateNotificationSchedule();
+      try {
+        _notificationService.startNotificationChecker();
+        _updateNotificationSchedule();
+      } catch (retryError) {
+        debugPrint('❌ 알림 서비스 재시작도 실패: $retryError');
+      }
     }
   }
 
@@ -1494,12 +1505,17 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         _restoreSelectedLittenState();
         _audioService.restoreRecordingState();
 
-        // 알림 서비스 재개 (Child 리튼 생성은 비동기로 처리됨)
+        // ⭐ 알림 서비스 재개 (타이머 상태 확인 및 재시작 포함)
         _notificationService.onAppResumed();
 
         // 알림 서비스가 멈췄을 수 있으므로 확인 후 재시작
         // Child 리튼 생성은 타임아웃 설정으로 블로킹되지 않음
         _ensureNotificationServiceRunning();
+        
+        // 추가 안전장치: 1초 후 다시 한 번 확인
+        Future.delayed(const Duration(seconds: 1), () {
+          _ensureNotificationServiceRunning();
+        });
         break;
       case AppLifecycleState.inactive:
         // 앱이 비활성 상태 (예: 전화 수신, 알림 센터 열기)

@@ -80,24 +80,56 @@ class NotificationService extends ChangeNotifier {
     _isRunning = true;
     _failureCount = 0;
 
-    // 기존 타이머 정리
+    // 기존 타이머 완전히 정리
     _timer?.cancel();
+    _timer = null;
     _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
 
     // 30초마다 알림 체크 (백그라운드에서도 계속 작동)
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      // ⭐ 타이머가 여전히 활성화되어 있는지 확인
+      if (!timer.isActive) {
+        debugPrint('⚠️ 타이머가 비활성화됨 - 재시작 시도');
+        timer.cancel();
+        startNotificationChecker();
+        return;
+      }
+      
       debugPrint('⏰ Timer 실행: ${DateTime.now()}');
       _safeCheckNotifications();
     });
 
-    // 5분마다 헬스 체크 타이머
-    _healthCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+    // 2분마다 헬스 체크 타이머 (5분 → 2분으로 단축하여 더 빠른 감지)
+    _healthCheckTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      // ⭐ 헬스 체크 타이머도 상태 확인
+      if (!timer.isActive) {
+        debugPrint('⚠️ 헬스 체크 타이머가 비활성화됨');
+        timer.cancel();
+        _healthCheckTimer = Timer.periodic(const Duration(minutes: 2), (t) {
+          _performHealthCheck();
+        });
+        return;
+      }
+      
       _performHealthCheck();
     });
+
+    // ⭐ 타이머가 제대로 시작되었는지 확인
+    if (_timer != null && _timer!.isActive) {
+      debugPrint('✅ 알림 타이머 시작 확인됨');
+    } else {
+      debugPrint('❌ 알림 타이머 시작 실패 - 재시도');
+      Future.delayed(const Duration(milliseconds: 100), () {
+        startNotificationChecker();
+      });
+      return;
+    }
 
     // 즉시 한 번 체크
     _safeCheckNotifications();
     _lastHealthCheckTime = DateTime.now();
+    _lastCheckTime = DateTime.now();
   }
 
   void stopNotificationChecker() {
@@ -114,13 +146,39 @@ class NotificationService extends ChangeNotifier {
     debugPrint('⏸️ 앱 일시정지 - 백그라운드로 전환');
     _isInBackground = true;
     _lastCheckTime = DateTime.now();
-    // Timer는 계속 실행되도록 유지
+    
+    // ⭐ 백그라운드 전환 전 타이머 상태 확인
+    if (_timer == null || !_timer!.isActive) {
+      debugPrint('⚠️ 백그라운드 전환 시 타이머가 비활성화됨 - 재시작');
+      // 백그라운드에서도 타이머는 유지되어야 하므로 재시작
+      startNotificationChecker();
+    }
+    
+    // Timer는 계속 실행되도록 유지 (하지만 시스템이 멈출 수 있으므로 OS 알림에 의존)
+    debugPrint('📱 백그라운드 전환 - OS 네이티브 알림에 의존');
   }
 
   /// 앱이 포그라운드로 돌아올 때 호출
   void onAppResumed() {
     debugPrint('▶️ 앱 재개 - 포그라운드로 전환');
     _isInBackground = false;
+
+    // ⭐ 타이머 상태 확인 및 재시작 (가장 중요!)
+    if (_timer == null || !_timer!.isActive) {
+      debugPrint('⚠️ 타이머가 비활성화됨 - 즉시 재시작');
+      startNotificationChecker();
+    } else {
+      debugPrint('✅ 타이머 정상 작동 중');
+    }
+
+    // 헬스 체크 타이머도 확인
+    if (_healthCheckTimer == null || !_healthCheckTimer!.isActive) {
+      debugPrint('⚠️ 헬스 체크 타이머가 비활성화됨 - 재시작');
+      _healthCheckTimer?.cancel();
+      _healthCheckTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+        _performHealthCheck();
+      });
+    }
 
     // 백그라운드에 있는 동안 놓친 알림이 있는지 체크
     if (_lastCheckTime != null) {
@@ -134,6 +192,7 @@ class NotificationService extends ChangeNotifier {
     }
 
     _lastCheckTime = DateTime.now();
+    _lastHealthCheckTime = DateTime.now();
   }
 
   /// 안전한 알림 체크 (오류 처리 포함)
@@ -166,18 +225,31 @@ class NotificationService extends ChangeNotifier {
       return;
     }
 
-    // 마지막 체크 시간 확인 (10분 이상 지났으면 문제)
+    // 헬스 체크 타이머도 확인
+    if (_healthCheckTimer == null || !_healthCheckTimer!.isActive) {
+      debugPrint('⚠️ 헬스 체크 타이머가 멈췄 - 재시작');
+      _healthCheckTimer?.cancel();
+      _healthCheckTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+        _performHealthCheck();
+      });
+    }
+
+    // 마지막 체크 시간 확인 (5분 이상 지났으면 문제, 10분 → 5분으로 단축)
     if (_lastCheckTime != null) {
       final timeSinceLastCheck = now.difference(_lastCheckTime!);
-      if (timeSinceLastCheck.inMinutes > 10) {
-        debugPrint('⚠️ 알림 체크가 10분 이상 안 됨 - 재시작');
+      if (timeSinceLastCheck.inMinutes > 5) {
+        debugPrint('⚠️ 알림 체크가 5분 이상 안 됨 (${timeSinceLastCheck.inMinutes}분 경과) - 재시작');
         await _restartService();
         return;
       }
+    } else {
+      // _lastCheckTime이 null이면 즉시 체크 실행
+      debugPrint('⚠️ 마지막 체크 시간이 없음 - 즉시 체크 실행');
+      await _safeCheckNotifications();
     }
 
     _lastHealthCheckTime = now;
-    debugPrint('✅ 알림 서비스 정상 작동 중');
+    debugPrint('✅ 알림 서비스 정상 작동 중 (타이머: ${_timer!.isActive ? "활성" : "비활성"}, 마지막 체크: ${_lastCheckTime != null ? "${now.difference(_lastCheckTime!).inSeconds}초 전" : "없음"})');
   }
 
   /// 서비스 재시작
@@ -185,18 +257,35 @@ class NotificationService extends ChangeNotifier {
     try {
       debugPrint('🔄 알림 서비스 재시작 시작');
 
-      // 기존 타이머 정리
-      stopNotificationChecker();
+      // 기존 타이머 완전히 정리
+      _timer?.cancel();
+      _timer = null;
+      _healthCheckTimer?.cancel();
+      _healthCheckTimer = null;
 
-      // 약간 대기 후 재시작
-      await Future.delayed(const Duration(seconds: 2));
+      // 약간 대기 후 재시작 (메모리 정리 시간 확보)
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // 서비스 재시작
       startNotificationChecker();
 
+      // 재시작 후 즉시 한 번 체크하여 상태 확인
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _safeCheckNotifications();
+
       debugPrint('✅ 알림 서비스 재시작 완료');
     } catch (e) {
       debugPrint('❌ 알림 서비스 재시작 실패: $e');
+      // 재시작 실패 시 재시도
+      _failureCount++;
+      if (_failureCount < 5) {
+        debugPrint('🔄 재시작 재시도 예정 (${_failureCount}/5)');
+        await Future.delayed(const Duration(seconds: 3));
+        await _restartService();
+      } else {
+        debugPrint('🔴 알림 서비스 재시작 최종 실패 - 수동 재시작 필요');
+        _isRunning = false;
+      }
     }
   }
 
@@ -206,6 +295,7 @@ class NotificationService extends ChangeNotifier {
     _lastCheckTime = now; // 체크 시간 업데이트
 
     // 현재 시간과 정확히 일치하거나 1분 이내에 지난 알림을 찾습니다
+    // ⭐ 경계값 포함을 위해 1분 전부터 1분 후까지 (포함)로 변경
     final checkStartTime = currentMinute.subtract(const Duration(minutes: 1));
     final checkEndTime = currentMinute.add(const Duration(minutes: 1));
 
@@ -219,11 +309,26 @@ class NotificationService extends ChangeNotifier {
         notification.triggerTime.minute,
       );
 
-      // 시간 범위 내에 있는지 확인
-      final isInTimeRange = triggerMinute.isAfter(checkStartTime) &&
-                           triggerMinute.isBefore(checkEndTime);
+      // ⭐ 시간 범위 내에 있는지 확인 (경계값 포함)
+      // triggerMinute가 checkStartTime 이후이고 checkEndTime 이전이거나 같아야 함
+      final isInTimeRange = (triggerMinute.isAfter(checkStartTime) || triggerMinute.isAtSameMomentAs(checkStartTime)) &&
+                           (triggerMinute.isBefore(checkEndTime) || triggerMinute.isAtSameMomentAs(checkEndTime));
 
-      if (!isInTimeRange) return false;
+      if (!isInTimeRange) {
+        debugPrint('   ⏭️ 알림 시간 범위 밖: ${DateFormat('HH:mm').format(triggerMinute)} (체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)})');
+        return false;
+      }
+
+      // ⭐ 추가 확인: 정확히 현재 분과 일치하는지 확인
+      final isExactMatch = triggerMinute.isAtSameMomentAs(currentMinute);
+      if (!isExactMatch) {
+        // 정확히 일치하지 않으면 1분 이내에 지난 알림인지 확인
+        final timeDiff = now.difference(notification.triggerTime);
+        if (timeDiff.inMinutes > 1 || timeDiff.isNegative) {
+          debugPrint('   ⏭️ 알림 시간이 1분 이상 지남: ${DateFormat('HH:mm').format(triggerMinute)} (현재: ${DateFormat('HH:mm').format(currentMinute)}, 차이: ${timeDiff.inMinutes}분)');
+          return false;
+        }
+      }
 
       // 알림 발생 시간 범위 검증 (notificationStartTime ~ notificationEndTime)
       final schedule = notification.schedule;
@@ -259,12 +364,31 @@ class NotificationService extends ChangeNotifier {
     debugPrint('   현재 분: ${DateFormat('yyyy-MM-dd HH:mm').format(currentMinute)}');
     debugPrint('   체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)}');
     debugPrint('   대기 중인 알림: ${_pendingNotifications.length}개');
+    
+    // ⭐ 대기 중인 모든 알림 상세 정보 출력
+    if (_pendingNotifications.isNotEmpty) {
+      debugPrint('   📋 대기 중인 알림 목록:');
+      for (final notification in _pendingNotifications) {
+        final triggerMinute = DateTime(
+          notification.triggerTime.year,
+          notification.triggerTime.month,
+          notification.triggerTime.day,
+          notification.triggerTime.hour,
+          notification.triggerTime.minute,
+        );
+        final timeDiff = triggerMinute.difference(currentMinute);
+        debugPrint('      - ${notification.littenTitle}: ${DateFormat('HH:mm').format(triggerMinute)} (${notification.rule.timing.label}, 차이: ${timeDiff.inMinutes}분)');
+      }
+    }
+    
     debugPrint('   이번에 발생할 알림: ${notifications.length}개');
 
     if (notifications.isNotEmpty) {
       for (final notification in notifications) {
-        debugPrint('   - ${notification.littenTitle}: ${DateFormat('yyyy-MM-dd HH:mm').format(notification.triggerTime)}');
+        debugPrint('   ✅ 발생: ${notification.littenTitle}: ${DateFormat('yyyy-MM-dd HH:mm').format(notification.triggerTime)} (${notification.rule.timing.label})');
       }
+    } else if (_pendingNotifications.isNotEmpty) {
+      debugPrint('   ⚠️ 대기 중인 알림이 있지만 발생 조건을 만족하지 않음');
     }
 
     for (final notification in notifications) {
@@ -399,8 +523,10 @@ class NotificationService extends ChangeNotifier {
     DateTime? nextTrigger = _getNextTriggerTime(scheduleDateTime, rule, now);
 
     while (nextTrigger != null && nextTrigger.isBefore(endDate)) {
-      // 이미 지난 시간은 제외
-      if (nextTrigger.isAfter(now)) {
+      // ⭐ 이미 지난 시간도 1분 이내면 포함 (알림 체크 시 처리)
+      // 현재 시간보다 1분 이내에 지난 알림도 스케줄링에 포함
+      final timeDiff = nextTrigger.difference(now);
+      if (nextTrigger.isAfter(now) || (timeDiff.inMinutes >= -1 && timeDiff.inMinutes <= 0)) {
         notifications.add(NotificationEvent(
           littenId: litten.id,
           littenTitle: litten.title,
@@ -408,6 +534,10 @@ class NotificationService extends ChangeNotifier {
           rule: rule,
           triggerTime: nextTrigger,
         ));
+        
+        debugPrint('   📅 알림 스케줄링: ${DateFormat('yyyy-MM-dd HH:mm').format(nextTrigger)} (${rule.timing.label}, 현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
+      } else {
+        debugPrint('   ⏭️ 알림 시간이 지나서 제외: ${DateFormat('yyyy-MM-dd HH:mm').format(nextTrigger)} (현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
       }
 
       // 다음 알림 시간 계산
@@ -422,7 +552,15 @@ class NotificationService extends ChangeNotifier {
 
     switch (rule.frequency) {
       case NotificationFrequency.onDay:
-        return baseTime.isAfter(now) ? baseTime : null;
+        // ⭐ 이미 지난 시간이어도 1분 이내면 포함 (알림 체크 시 처리)
+        final timeDiff = baseTime.difference(now);
+        if (baseTime.isAfter(now) || (timeDiff.inMinutes >= -1 && timeDiff.inMinutes <= 0)) {
+          debugPrint('   ✅ 알림 시간 계산: ${DateFormat('HH:mm').format(baseTime)} (${rule.timing.label}, 일정: ${DateFormat('HH:mm').format(scheduleTime)}, 현재: ${DateFormat('HH:mm').format(now)})');
+          return baseTime;
+        } else {
+          debugPrint('   ⏭️ 알림 시간이 지나서 제외: ${DateFormat('HH:mm').format(baseTime)} (일정: ${DateFormat('HH:mm').format(scheduleTime)}, 현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
+          return null;
+        }
 
       case NotificationFrequency.oneDayBefore:
         final oneDayBefore = baseTime.subtract(const Duration(days: 1));
