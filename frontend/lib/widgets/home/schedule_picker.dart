@@ -85,6 +85,11 @@ class _SchedulePickerState extends State<SchedulePicker> {
         return;
       }
 
+      debugPrint('📝 SchedulePicker._updateSchedule() - 스케줄 생성');
+      debugPrint('   📅 date: $_selectedDate');
+      debugPrint('   ⏰ startTime: ${_startTime.hour}:${_startTime.minute}');
+      debugPrint('   ⏰ endTime: ${_endTime.hour}:${_endTime.minute}');
+
       final schedule = LittenSchedule(
         date: _selectedDate,
         endDate: _selectedEndDate,

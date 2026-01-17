@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/litten.dart';
+import '../models/stored_notification.dart';
 import 'background_notification_service.dart';
+import 'notification_orchestrator_service.dart';
 
 class NotificationEvent {
   final String littenId;
@@ -68,6 +70,9 @@ class NotificationService extends ChangeNotifier {
   // 백그라운드 알림 서비스
   final BackgroundNotificationService _backgroundService = BackgroundNotificationService();
 
+  // 알림 오케스트레이터 서비스 (저장소 기반)
+  final NotificationOrchestratorService _orchestrator = NotificationOrchestratorService();
+
   // 알림 발생 시 리튼 업데이트를 위한 콜백
   Function(String littenId)? onNotificationFired;
 
@@ -86,6 +91,12 @@ class NotificationService extends ChangeNotifier {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
 
+    // ⭐ 타이머 시작 시 반복 알림 1년치 유지 로직 실행
+    _maintainYearlyNotificationsOnStart();
+
+    // ⭐ 앱 시작 시 놓친 알림 체크 (재시작 시 확인하지 않은 알림 표시)
+    _checkMissedNotificationsOnStart();
+
     // 30초마다 알림 체크 (백그라운드에서도 계속 작동)
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
       // ⭐ 타이머가 여전히 활성화되어 있는지 확인
@@ -95,7 +106,7 @@ class NotificationService extends ChangeNotifier {
         startNotificationChecker();
         return;
       }
-      
+
       debugPrint('⏰ Timer 실행: ${DateTime.now()}');
       _safeCheckNotifications();
     });
@@ -111,7 +122,7 @@ class NotificationService extends ChangeNotifier {
         });
         return;
       }
-      
+
       _performHealthCheck();
     });
 
@@ -130,6 +141,17 @@ class NotificationService extends ChangeNotifier {
     _safeCheckNotifications();
     _lastHealthCheckTime = DateTime.now();
     _lastCheckTime = DateTime.now();
+  }
+
+  /// 타이머 시작 시 반복 알림 1년치 유지
+  Future<void> _maintainYearlyNotificationsOnStart() async {
+    try {
+      debugPrint('🔄 타이머 시작 시 1년치 알림 유지 로직 실행');
+      final littens = _littenMap.values.toList();
+      await _orchestrator.maintainYearlyNotifications(littens);
+    } catch (e) {
+      debugPrint('❌ 1년치 알림 유지 에러: $e');
+    }
   }
 
   void stopNotificationChecker() {
@@ -159,7 +181,7 @@ class NotificationService extends ChangeNotifier {
   }
 
   /// 앱이 포그라운드로 돌아올 때 호출
-  void onAppResumed() {
+  Future<void> onAppResumed() async {
     debugPrint('▶️ 앱 재개 - 포그라운드로 전환');
     _isInBackground = false;
 
@@ -180,6 +202,9 @@ class NotificationService extends ChangeNotifier {
       });
     }
 
+    // ⭐ 저장소 기반: 놓친 알림 체크 및 표시
+    await _checkMissedNotificationsFromStorage();
+
     // 백그라운드에 있는 동안 놓친 알림이 있는지 체크
     if (_lastCheckTime != null) {
       final missedDuration = DateTime.now().difference(_lastCheckTime!);
@@ -193,6 +218,90 @@ class NotificationService extends ChangeNotifier {
 
     _lastCheckTime = DateTime.now();
     _lastHealthCheckTime = DateTime.now();
+  }
+
+  /// 앱 시작 시 놓친 알림 체크 (재시작 시에도 확인하지 않은 알림 표시)
+  Future<void> _checkMissedNotificationsOnStart() async {
+    try {
+      debugPrint('🔍 앱 시작 시 놓친 알림 체크');
+      final missedNotifications = await _orchestrator.checkMissedNotifications();
+
+      if (missedNotifications.isEmpty) {
+        debugPrint('   ℹ️ 놓친 알림 없음');
+        return;
+      }
+
+      debugPrint('   ⚠️ ${missedNotifications.length}개 놓친 알림 발견');
+
+      // 놓친 알림들을 firedNotifications에 추가하여 배지 표시
+      for (final stored in missedNotifications) {
+        // StoredNotification을 NotificationEvent로 변환
+        final litten = _littenMap[stored.littenId];
+        if (litten == null) continue;
+
+        final event = NotificationEvent(
+          littenId: stored.littenId,
+          littenTitle: litten.title,
+          schedule: litten.schedule!,
+          rule: stored.rule,
+          triggerTime: stored.triggerTime,
+        );
+
+        // 중복 체크 후 추가
+        if (!_firedNotifications.any((e) =>
+            e.littenId == event.littenId &&
+            e.triggerTime.isAtSameMomentAs(event.triggerTime))) {
+          _firedNotifications.add(event);
+          debugPrint('      🔔 놓친 알림 추가: ${litten.title} - ${stored.triggerTime}');
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('   ❌ 놓친 알림 체크 에러: $e');
+    }
+  }
+
+  /// 저장소에서 놓친 알림 체크 (백그라운드에서 포그라운드로 전환 시)
+  Future<void> _checkMissedNotificationsFromStorage() async {
+    try {
+      debugPrint('📂 저장소에서 놓친 알림 체크');
+      final missedNotifications = await _orchestrator.checkMissedNotifications();
+
+      if (missedNotifications.isEmpty) {
+        debugPrint('   ℹ️ 놓친 알림 없음');
+        return;
+      }
+
+      debugPrint('   ⚠️ ${missedNotifications.length}개 놓친 알림 발견');
+
+      // 놓친 알림들을 firedNotifications에 추가하여 배지 표시
+      for (final stored in missedNotifications) {
+        // StoredNotification을 NotificationEvent로 변환
+        final litten = _littenMap[stored.littenId];
+        if (litten == null) continue;
+
+        final event = NotificationEvent(
+          littenId: stored.littenId,
+          littenTitle: litten.title,
+          schedule: litten.schedule!,
+          rule: stored.rule,
+          triggerTime: stored.triggerTime,
+        );
+
+        // 중복 체크 후 추가
+        if (!_firedNotifications.any((e) =>
+            e.littenId == event.littenId &&
+            e.triggerTime.isAtSameMomentAs(event.triggerTime))) {
+          _firedNotifications.add(event);
+          debugPrint('      🔔 놓친 알림 추가: ${litten.title} - ${stored.triggerTime}');
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('   ❌ 놓친 알림 체크 에러: $e');
+    }
   }
 
   /// 안전한 알림 체크 (오류 처리 포함)
@@ -294,101 +403,98 @@ class NotificationService extends ChangeNotifier {
     final currentMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute);
     _lastCheckTime = now; // 체크 시간 업데이트
 
+    // ⭐ 저장소에서 모든 알림 로드
+    final storedNotifications = await _orchestrator.getAllNotifications();
+
+    // ⭐ 디버그: 저장소의 모든 알림 출력
+    debugPrint('   📋 저장소 알림 상세:');
+    for (final stored in storedNotifications) {
+      final litten = _littenMap[stored.littenId];
+      debugPrint('      - ${litten?.title ?? "unknown"}: ${DateFormat('yyyy-MM-dd HH:mm').format(stored.triggerTime)} (acknowledged: ${stored.isAcknowledged})');
+    }
+
     // 현재 시간과 정확히 일치하거나 1분 이내에 지난 알림을 찾습니다
-    // ⭐ 경계값 포함을 위해 1분 전부터 1분 후까지 (포함)로 변경
     final checkStartTime = currentMinute.subtract(const Duration(minutes: 1));
     final checkEndTime = currentMinute.add(const Duration(minutes: 1));
 
-    // 모든 리튼의 알림 체크
-    final notifications = _pendingNotifications.where((notification) {
+    // 저장소에서 로드한 알림을 NotificationEvent로 변환 및 필터링
+    final List<NotificationEvent> notifications = [];
+
+    for (final stored in storedNotifications) {
+      // 이미 확인된 알림은 건너뛰기
+      if (stored.isAcknowledged) continue;
+
+      // 리튼 정보 가져오기
+      final litten = _littenMap[stored.littenId];
+      if (litten == null) continue;
+
       final triggerMinute = DateTime(
-        notification.triggerTime.year,
-        notification.triggerTime.month,
-        notification.triggerTime.day,
-        notification.triggerTime.hour,
-        notification.triggerTime.minute,
+        stored.triggerTime.year,
+        stored.triggerTime.month,
+        stored.triggerTime.day,
+        stored.triggerTime.hour,
+        stored.triggerTime.minute,
       );
 
       // ⭐ 시간 범위 내에 있는지 확인 (경계값 포함)
-      // triggerMinute가 checkStartTime 이후이고 checkEndTime 이전이거나 같아야 함
       final isInTimeRange = (triggerMinute.isAfter(checkStartTime) || triggerMinute.isAtSameMomentAs(checkStartTime)) &&
                            (triggerMinute.isBefore(checkEndTime) || triggerMinute.isAtSameMomentAs(checkEndTime));
 
-      if (!isInTimeRange) {
-        debugPrint('   ⏭️ 알림 시간 범위 밖: ${DateFormat('HH:mm').format(triggerMinute)} (체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)})');
-        return false;
-      }
+      if (!isInTimeRange) continue;
 
       // ⭐ 추가 확인: 정확히 현재 분과 일치하는지 확인
       final isExactMatch = triggerMinute.isAtSameMomentAs(currentMinute);
       if (!isExactMatch) {
         // 정확히 일치하지 않으면 1분 이내에 지난 알림인지 확인
-        final timeDiff = now.difference(notification.triggerTime);
-        if (timeDiff.inMinutes > 1 || timeDiff.isNegative) {
-          debugPrint('   ⏭️ 알림 시간이 1분 이상 지남: ${DateFormat('HH:mm').format(triggerMinute)} (현재: ${DateFormat('HH:mm').format(currentMinute)}, 차이: ${timeDiff.inMinutes}분)');
-          return false;
-        }
+        final timeDiff = now.difference(stored.triggerTime);
+        if (timeDiff.inMinutes > 1 || timeDiff.isNegative) continue;
       }
 
       // 알림 발생 시간 범위 검증 (notificationStartTime ~ notificationEndTime)
-      final schedule = notification.schedule;
-      if (schedule.notificationStartTime != null || schedule.notificationEndTime != null) {
-        final triggerTimeOfDay = TimeOfDay.fromDateTime(notification.triggerTime);
-        final triggerMinutes = triggerTimeOfDay.hour * 60 + triggerTimeOfDay.minute;
+      if (litten.schedule != null) {
+        final schedule = litten.schedule!;
+        if (schedule.notificationStartTime != null || schedule.notificationEndTime != null) {
+          final triggerTimeOfDay = TimeOfDay.fromDateTime(stored.triggerTime);
+          final triggerMinutes = triggerTimeOfDay.hour * 60 + triggerTimeOfDay.minute;
 
-        // 시작 시간 체크 (from)
-        if (schedule.notificationStartTime != null) {
-          final startMinutes = schedule.notificationStartTime!.hour * 60 + schedule.notificationStartTime!.minute;
-          if (triggerMinutes < startMinutes) {
-            debugPrint('⏰ 알림 시간 범위 제외 (시작 전): ${notification.littenTitle} - ${triggerTimeOfDay.hour}:${triggerTimeOfDay.minute.toString().padLeft(2, '0')} < ${schedule.notificationStartTime!.hour}:${schedule.notificationStartTime!.minute.toString().padLeft(2, '0')}');
-            return false;
+          // 시작 시간 체크
+          if (schedule.notificationStartTime != null) {
+            final startMinutes = schedule.notificationStartTime!.hour * 60 + schedule.notificationStartTime!.minute;
+            if (triggerMinutes < startMinutes) continue;
           }
-        }
 
-        // 종료 시간 체크 (to)
-        if (schedule.notificationEndTime != null) {
-          final endMinutes = schedule.notificationEndTime!.hour * 60 + schedule.notificationEndTime!.minute;
-          if (triggerMinutes > endMinutes) {
-            debugPrint('⏰ 알림 시간 범위 제외 (종료 후): ${notification.littenTitle} - ${triggerTimeOfDay.hour}:${triggerTimeOfDay.minute.toString().padLeft(2, '0')} > ${schedule.notificationEndTime!.hour}:${schedule.notificationEndTime!.minute.toString().padLeft(2, '0')}');
-            return false;
+          // 종료 시간 체크
+          if (schedule.notificationEndTime != null) {
+            final endMinutes = schedule.notificationEndTime!.hour * 60 + schedule.notificationEndTime!.minute;
+            if (triggerMinutes > endMinutes) continue;
           }
         }
       }
 
-      return true;
-    }).toList();
+      // StoredNotification을 NotificationEvent로 변환
+      final event = NotificationEvent(
+        littenId: stored.littenId,
+        littenTitle: litten.title,
+        schedule: litten.schedule!,
+        rule: stored.rule,
+        triggerTime: stored.triggerTime,
+      );
+
+      notifications.add(event);
+    }
 
     // 디버그 정보 출력
     final bgStatus = _isInBackground ? '🌙 백그라운드' : '☀️ 포그라운드';
     debugPrint('🕒 알림 체크: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)} ($bgStatus)');
     debugPrint('   현재 분: ${DateFormat('yyyy-MM-dd HH:mm').format(currentMinute)}');
     debugPrint('   체크 범위: ${DateFormat('HH:mm').format(checkStartTime)} ~ ${DateFormat('HH:mm').format(checkEndTime)}');
-    debugPrint('   대기 중인 알림: ${_pendingNotifications.length}개');
-    
-    // ⭐ 대기 중인 모든 알림 상세 정보 출력
-    if (_pendingNotifications.isNotEmpty) {
-      debugPrint('   📋 대기 중인 알림 목록:');
-      for (final notification in _pendingNotifications) {
-        final triggerMinute = DateTime(
-          notification.triggerTime.year,
-          notification.triggerTime.month,
-          notification.triggerTime.day,
-          notification.triggerTime.hour,
-          notification.triggerTime.minute,
-        );
-        final timeDiff = triggerMinute.difference(currentMinute);
-        debugPrint('      - ${notification.littenTitle}: ${DateFormat('HH:mm').format(triggerMinute)} (${notification.rule.timing.label}, 차이: ${timeDiff.inMinutes}분)');
-      }
-    }
-    
+    debugPrint('   저장소 알림: ${storedNotifications.length}개');
     debugPrint('   이번에 발생할 알림: ${notifications.length}개');
 
     if (notifications.isNotEmpty) {
       for (final notification in notifications) {
         debugPrint('   ✅ 발생: ${notification.littenTitle}: ${DateFormat('yyyy-MM-dd HH:mm').format(notification.triggerTime)} (${notification.rule.timing.label})');
       }
-    } else if (_pendingNotifications.isNotEmpty) {
-      debugPrint('   ⚠️ 대기 중인 알림이 있지만 발생 조건을 만족하지 않음');
     }
 
     for (final notification in notifications) {
@@ -430,226 +536,89 @@ class NotificationService extends ChangeNotifier {
     try {
       debugPrint('🔔 알림 스케줄링 시작: ${littens.length}개 리튼');
 
-      // 서비스가 실행 중이 아니면 시작
+      _pendingNotifications.clear(); // 메모리 기반 리스트는 더 이상 사용하지 않음 (하위 호환성을 위해 유지)
+      _littenMap.clear();
+
+      // ⭐ 리튼 맵을 먼저 업데이트 (놓친 알림 체크에서 사용하기 위해)
+      for (final litten in littens) {
+        _littenMap[litten.id] = litten;
+      }
+
+      // 서비스가 실행 중이 아니면 시작 (리튼 맵 업데이트 후에 시작)
       if (!_isRunning) {
         debugPrint('🔄 알림 서비스가 중지됨 - 재시작');
         startNotificationChecker();
       }
 
-      _pendingNotifications.clear();
-      _littenMap.clear();
-      final now = DateTime.now();
-      int totalScheduled = 0;
-      int totalNativeScheduled = 0;
+      // ⭐ 저장소 기반: 모든 리튼의 알림을 저장소에 저장 (1회성 1개, 반복 1년치)
+      final success = await _orchestrator.scheduleNotificationsForLittens(littens);
 
-      // 리튼 맵 업데이트
-      for (final litten in littens) {
-        _littenMap[litten.id] = litten;
+      if (success) {
+        debugPrint('✅ 알림 스케줄링 완료 (저장소 기반)');
+      } else {
+        debugPrint('⚠️ 알림 스케줄링 일부 실패');
       }
 
-      // 기존 OS 네이티브 알림 모두 취소
-      await _backgroundService.cancelAllNotifications();
+      // OS 네이티브 알림도 등록 (향후 30일간)
+      await _scheduleNativeNotifications(littens);
 
-      debugPrint('🔍 알림 체크 대상: ${littens.length}개 리튼');
-
-      for (final litten in littens) {
-        if (litten.schedule == null) continue;
-
-        final schedule = litten.schedule!;
-        debugPrint('📋 "${litten.title}" 알림 설정 중: ${schedule.notificationRules.length}개 규칙');
-
-        for (final rule in schedule.notificationRules) {
-          if (!rule.isEnabled) {
-            debugPrint('⏸️ 비활성화된 알림 규칙 건너뛰기: ${rule.frequency.label} ${rule.timing.label}');
-            continue;
-          }
-
-          try {
-            final notifications = _calculateNotificationTimes(litten, schedule, rule, now);
-            _pendingNotifications.addAll(notifications);
-            totalScheduled += notifications.length;
-
-            // OS 네이티브 예약 알림도 함께 등록 (향후 30일간)
-            // iOS/Android가 백그라운드에서도 알림을 발생시킬 수 있도록 OS에 등록
-            final nativeNotifications = notifications.where((n) =>
-              n.triggerTime.difference(now).inDays < 30
-            ).toList();
-
-            for (int i = 0; i < nativeNotifications.length; i++) {
-              final notification = nativeNotifications[i];
-              await _backgroundService.scheduleNotification(
-                id: litten.id.hashCode + i,
-                title: '리튼 알림',
-                body: notification.message,
-                scheduledDate: notification.triggerTime,
-                littenId: litten.id,
-              );
-              totalNativeScheduled++;
-            }
-
-            debugPrint('✅ 알림 추가: ${notifications.length}개 (${rule.frequency.label} ${rule.timing.label})');
-            debugPrint('   - OS 네이티브 알림: ${nativeNotifications.length}개 등록');
-          } catch (e) {
-            debugPrint('❌ 알림 계산 실패: "${litten.title}" - $e');
-          }
-        }
-      }
-
-      debugPrint('🔔 알림 스케줄링 완료: 총 $totalScheduled개 알림 예약 (OS 네이티브: $totalNativeScheduled개)');
       notifyListeners();
     } catch (e) {
       debugPrint('❌ 알림 스케줄링 에러: $e');
     }
   }
 
-  List<NotificationEvent> _calculateNotificationTimes(
-    Litten litten,
-    LittenSchedule schedule,
-    NotificationRule rule,
-    DateTime now,
-  ) {
-    final List<NotificationEvent> notifications = [];
-    final scheduleDateTime = DateTime(
-      schedule.date.year,
-      schedule.date.month,
-      schedule.date.day,
-      schedule.startTime.hour,
-      schedule.startTime.minute,
-    );
+  /// OS 네이티브 알림 등록 (향후 30일간)
+  Future<void> _scheduleNativeNotifications(List<Litten> littens) async {
+    try {
+      debugPrint('📱 OS 네이티브 알림 등록 시작');
 
-    // 향후 30일간의 알림을 계산
-    final endDate = now.add(const Duration(days: 30));
+      // 기존 OS 네이티브 알림 모두 취소
+      await _backgroundService.cancelAllNotifications();
 
-    DateTime? nextTrigger = _getNextTriggerTime(scheduleDateTime, rule, now);
+      final now = DateTime.now();
+      final thirtyDaysLater = now.add(const Duration(days: 30));
+      int totalNativeScheduled = 0;
 
-    while (nextTrigger != null && nextTrigger.isBefore(endDate)) {
-      // ⭐ 이미 지난 시간도 1분 이내면 포함 (알림 체크 시 처리)
-      // 현재 시간보다 1분 이내에 지난 알림도 스케줄링에 포함
-      final timeDiff = nextTrigger.difference(now);
-      if (nextTrigger.isAfter(now) || (timeDiff.inMinutes >= -1 && timeDiff.inMinutes <= 0)) {
-        notifications.add(NotificationEvent(
-          littenId: litten.id,
+      // 저장소에서 모든 알림 가져오기
+      final allStoredNotifications = await _orchestrator.getAllNotifications();
+
+      // 향후 30일 이내의 알림만 OS에 등록
+      final upcomingNotifications = allStoredNotifications
+          .where((n) => n.triggerTime.isAfter(now) && n.triggerTime.isBefore(thirtyDaysLater))
+          .toList();
+
+      debugPrint('   ℹ️ 향후 30일 이내 알림: ${upcomingNotifications.length}개');
+
+      for (int i = 0; i < upcomingNotifications.length; i++) {
+        final stored = upcomingNotifications[i];
+        final litten = _littenMap[stored.littenId];
+        if (litten == null) continue;
+
+        final event = NotificationEvent(
+          littenId: stored.littenId,
           littenTitle: litten.title,
-          schedule: schedule,
-          rule: rule,
-          triggerTime: nextTrigger,
-        ));
-        
-        debugPrint('   📅 알림 스케줄링: ${DateFormat('yyyy-MM-dd HH:mm').format(nextTrigger)} (${rule.timing.label}, 현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
-      } else {
-        debugPrint('   ⏭️ 알림 시간이 지나서 제외: ${DateFormat('yyyy-MM-dd HH:mm').format(nextTrigger)} (현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
+          schedule: litten.schedule!,
+          rule: stored.rule,
+          triggerTime: stored.triggerTime,
+        );
+
+        await _backgroundService.scheduleNotification(
+          id: stored.id.hashCode,
+          title: '리튼 알림',
+          body: event.message,
+          scheduledDate: stored.triggerTime,
+          littenId: stored.littenId,
+        );
+        totalNativeScheduled++;
       }
 
-      // 다음 알림 시간 계산
-      nextTrigger = _getNextOccurrence(nextTrigger, rule.frequency);
-    }
-
-    return notifications;
-  }
-
-  DateTime? _getNextTriggerTime(DateTime scheduleTime, NotificationRule rule, DateTime now) {
-    final baseTime = scheduleTime.add(Duration(minutes: rule.timing.minutesOffset));
-
-    switch (rule.frequency) {
-      case NotificationFrequency.onDay:
-        // ⭐ 이미 지난 시간이어도 1분 이내면 포함 (알림 체크 시 처리)
-        final timeDiff = baseTime.difference(now);
-        if (baseTime.isAfter(now) || (timeDiff.inMinutes >= -1 && timeDiff.inMinutes <= 0)) {
-          debugPrint('   ✅ 알림 시간 계산: ${DateFormat('HH:mm').format(baseTime)} (${rule.timing.label}, 일정: ${DateFormat('HH:mm').format(scheduleTime)}, 현재: ${DateFormat('HH:mm').format(now)})');
-          return baseTime;
-        } else {
-          debugPrint('   ⏭️ 알림 시간이 지나서 제외: ${DateFormat('HH:mm').format(baseTime)} (일정: ${DateFormat('HH:mm').format(scheduleTime)}, 현재: ${DateFormat('HH:mm').format(now)}, 차이: ${timeDiff.inMinutes}분)');
-          return null;
-        }
-
-      case NotificationFrequency.oneDayBefore:
-        final oneDayBefore = baseTime.subtract(const Duration(days: 1));
-        return oneDayBefore.isAfter(now) ? oneDayBefore : null;
-
-      case NotificationFrequency.daily:
-        DateTime candidate = baseTime;
-        while (candidate.isBefore(now)) {
-          candidate = candidate.add(const Duration(days: 1));
-        }
-        return candidate;
-
-      case NotificationFrequency.weekly:
-        DateTime candidate = baseTime;
-        final allowedWeekdays = rule.weekdays ?? [1, 2, 3, 4, 5, 6, 7]; // null이면 모든 요일
-
-        // 현재 시간 이후이면서 허용된 요일을 찾을 때까지 반복
-        while (true) {
-          if (candidate.isAfter(now) && allowedWeekdays.contains(candidate.weekday)) {
-            return candidate;
-          }
-          candidate = candidate.add(const Duration(days: 1));
-
-          // 무한 루프 방지: 14일 이상 검색하면 중단
-          if (candidate.difference(baseTime).inDays > 14) {
-            debugPrint('⚠️ 주별 알림: 14일 내에 유효한 요일을 찾지 못함');
-            return null;
-          }
-        }
-
-      case NotificationFrequency.monthly:
-        DateTime candidate = baseTime;
-        while (candidate.isBefore(now)) {
-          candidate = DateTime(
-            candidate.month == 12 ? candidate.year + 1 : candidate.year,
-            candidate.month == 12 ? 1 : candidate.month + 1,
-            candidate.day,
-            candidate.hour,
-            candidate.minute,
-          );
-        }
-        return candidate;
-
-      case NotificationFrequency.yearly:
-        DateTime candidate = baseTime;
-        while (candidate.isBefore(now)) {
-          candidate = DateTime(
-            candidate.year + 1,
-            candidate.month,
-            candidate.day,
-            candidate.hour,
-            candidate.minute,
-          );
-        }
-        return candidate;
+      debugPrint('   ✅ OS 네이티브 알림 등록 완료: $totalNativeScheduled개');
+    } catch (e) {
+      debugPrint('   ❌ OS 네이티브 알림 등록 실패: $e');
     }
   }
 
-  DateTime? _getNextOccurrence(DateTime current, NotificationFrequency frequency) {
-    switch (frequency) {
-      case NotificationFrequency.onDay:
-      case NotificationFrequency.oneDayBefore:
-        return null; // 일회성 알림
-
-      case NotificationFrequency.daily:
-        return current.add(const Duration(days: 1));
-
-      case NotificationFrequency.weekly:
-        return current.add(const Duration(days: 7));
-
-      case NotificationFrequency.monthly:
-        return DateTime(
-          current.month == 12 ? current.year + 1 : current.year,
-          current.month == 12 ? 1 : current.month + 1,
-          current.day,
-          current.hour,
-          current.minute,
-        );
-
-      case NotificationFrequency.yearly:
-        return DateTime(
-          current.year + 1,
-          current.month,
-          current.day,
-          current.hour,
-          current.minute,
-        );
-    }
-  }
 
   void clearAllNotifications() {
     _pendingNotifications.clear();
@@ -736,8 +705,16 @@ class NotificationService extends ChangeNotifier {
     await _fireNotification(testNotification); // 직접 발생시켜서 자식 리튼 생성 테스트
   }
 
-  void dismissNotification(NotificationEvent notification) {
+  Future<void> dismissNotification(NotificationEvent notification) async {
     _firedNotifications.remove(notification);
+
+    // ⭐ 저장소에서도 삭제 (알림 확인 처리)
+    final notificationId = StoredNotification.generateId(
+      notification.littenId,
+      notification.triggerTime,
+    );
+    await _orchestrator.acknowledgeNotification(notificationId);
+
     notifyListeners();
   }
 
