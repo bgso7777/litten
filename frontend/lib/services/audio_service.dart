@@ -1,24 +1,29 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/audio_file.dart';
 import '../models/litten.dart';
 
-class AudioService extends ChangeNotifier {
+class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   static final AudioService _instance = AudioService._internal();
   factory AudioService() => _instance;
   AudioService._internal() {
     _initializeAudioPlayer();
+    _initializeForegroundNotification();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
-  
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
   bool _isRecording = false;
   bool _isPlaying = false;
   Duration _recordingDuration = Duration.zero;
@@ -27,6 +32,8 @@ class AudioService extends ChangeNotifier {
   String? _currentRecordingPath;
   AudioFile? _currentPlayingFile;
   double _playbackSpeed = 1.0;
+  Timer? _stateSaveTimer;
+  String? _currentRecordingLittenId;
 
   // Getters
   bool get isRecording => _isRecording;
@@ -104,20 +111,32 @@ class AudioService extends ChangeNotifier {
 
       // 녹음 시작
       await _recorder.start(config, path: filePath);
-      
+
       _isRecording = true;
       _currentRecordingPath = filePath;
+      _currentRecordingLittenId = litten.id;
       _recordingDuration = Duration.zero;
-      
+
       debugPrint('[AudioService] 녹음 시작됨');
+
+      // 포그라운드 알림 표시 (백그라운드 녹음 유지)
+      await _showRecordingNotification();
+
       notifyListeners();
-      
+
       // 녹음 시간 추적 시작
       _startRecordingTimer();
-      
+
+      // 주기적 상태 저장 시작 (30초마다)
+      _startPeriodicStateSave();
+
+      // 초기 상태 저장
+      await saveRecordingState(littenId: litten.id);
+
       return true;
     } catch (e) {
       debugPrint('[AudioService] 녹음 시작 오류: $e');
+      await _hideRecordingNotification();
       return false;
     }
   }
@@ -147,7 +166,15 @@ class AudioService extends ChangeNotifier {
       _isRecording = false;
       _recordingDuration = Duration.zero;
       _currentRecordingPath = null;
+      _currentRecordingLittenId = null;
+
+      // 주기적 상태 저장 중지
+      _stopPeriodicStateSave();
+
       await clearRecordingState();
+
+      // 포그라운드 알림 제거
+      await _hideRecordingNotification();
 
       debugPrint('[AudioService] 녹음 취소 완료');
       notifyListeners();
@@ -156,7 +183,10 @@ class AudioService extends ChangeNotifier {
       _isRecording = false;
       _recordingDuration = Duration.zero;
       _currentRecordingPath = null;
+      _currentRecordingLittenId = null;
+      _stopPeriodicStateSave();
       await clearRecordingState();
+      await _hideRecordingNotification();
       notifyListeners();
     }
   }
@@ -224,24 +254,58 @@ class AudioService extends ChangeNotifier {
         _isRecording = false;
         _recordingDuration = Duration.zero;
         _currentRecordingPath = null;
+        _currentRecordingLittenId = null;
+
+        // 주기적 상태 저장 중지
+        _stopPeriodicStateSave();
+
         await clearRecordingState();
+
+        // 포그라운드 알림 제거
+        await _hideRecordingNotification();
 
         notifyListeners();
         return audioFile;
       }
-      
+
+      // 포그라운드 알림 제거
+      await _hideRecordingNotification();
+
       return null;
     } catch (e) {
       debugPrint('[AudioService] 녹음 중지 오류: $e');
       _isRecording = false;
       _recordingDuration = Duration.zero;
       _currentRecordingPath = null;
+      _currentRecordingLittenId = null;
+      _stopPeriodicStateSave();
+      await _hideRecordingNotification();
       notifyListeners();
       return null;
     }
   }
 
-  /// 녹음 시간 추적
+  /// 앱 라이프사이클 변화 감지
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('🔄 앱 라이프사이클 변경: $state');
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // 앱이 백그라운드로 전환될 때 녹음 상태 저장
+      if (_isRecording) {
+        debugPrint('💾 백그라운드 전환 - 녹음 상태 저장');
+        saveRecordingState(littenId: _currentRecordingLittenId);
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 복귀할 때
+      debugPrint('🔄 포그라운드 복귀');
+      if (_isRecording) {
+        debugPrint('✅ 녹음이 계속 진행 중');
+      }
+    }
+  }
+
+  /// 녹음 시간 추적 및 주기적 상태 저장
   void _startRecordingTimer() {
     Future.delayed(const Duration(seconds: 1), () {
       if (_isRecording) {
@@ -250,6 +314,25 @@ class AudioService extends ChangeNotifier {
         _startRecordingTimer();
       }
     });
+  }
+
+  /// 주기적 상태 저장 시작 (30초마다)
+  void _startPeriodicStateSave() {
+    _stateSaveTimer?.cancel();
+    _stateSaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_isRecording) {
+        debugPrint('💾 주기적 녹음 상태 저장 (${_recordingDuration.inSeconds}초)');
+        saveRecordingState(littenId: _currentRecordingLittenId);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  /// 주기적 상태 저장 중지
+  void _stopPeriodicStateSave() {
+    _stateSaveTimer?.cancel();
+    _stateSaveTimer = null;
   }
 
   /// 리튼의 모든 오디오 파일 가져오기
@@ -441,6 +524,89 @@ class AudioService extends ChangeNotifier {
     }
   }
 
+  /// 포그라운드 알림 초기화
+  Future<void> _initializeForegroundNotification() async {
+    try {
+      debugPrint('🔔 포그라운드 알림 초기화 시작');
+
+      // Android 설정
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+
+      // iOS 설정
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _notificationsPlugin.initialize(initSettings);
+
+      debugPrint('✅ 포그라운드 알림 초기화 완료');
+    } catch (e) {
+      debugPrint('❌ 포그라운드 알림 초기화 에러: $e');
+    }
+  }
+
+  /// 녹음 중 포그라운드 알림 표시
+  Future<void> _showRecordingNotification() async {
+    try {
+      debugPrint('🔔 녹음 포그라운드 알림 표시');
+
+      // Android 알림 설정
+      const androidDetails = AndroidNotificationDetails(
+        'recording_channel',
+        '녹음 중',
+        channelDescription: '녹음이 진행 중임을 알립니다',
+        importance: Importance.low,
+        priority: Priority.low,
+        ongoing: true, // 사용자가 닫을 수 없음
+        autoCancel: false,
+        showWhen: false,
+        playSound: false,
+        enableVibration: false,
+      );
+
+      // iOS 알림 설정
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _notificationsPlugin.show(
+        999, // 고정 ID (녹음 알림용)
+        '🎙️ 녹음 중',
+        '듣기가 진행 중입니다. 백그라운드에서도 계속 녹음됩니다.',
+        details,
+      );
+
+      debugPrint('✅ 녹음 포그라운드 알림 표시 완료');
+    } catch (e) {
+      debugPrint('❌ 녹음 포그라운드 알림 표시 에러: $e');
+    }
+  }
+
+  /// 녹음 포그라운드 알림 제거
+  Future<void> _hideRecordingNotification() async {
+    try {
+      debugPrint('🔔 녹음 포그라운드 알림 제거');
+      await _notificationsPlugin.cancel(999);
+      debugPrint('✅ 녹음 포그라운드 알림 제거 완료');
+    } catch (e) {
+      debugPrint('❌ 녹음 포그라운드 알림 제거 에러: $e');
+    }
+  }
+
   /// 오디오 플레이어 백그라운드 재생 초기화
   Future<void> _initializeAudioPlayer() async {
     try {
@@ -456,9 +622,11 @@ class AudioService extends ChangeNotifier {
           audioFocus: AndroidAudioFocus.gain, // 미디어 포커스 획득
         ),
         iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playback, // 백그라운드 재생 허용
+          category: AVAudioSessionCategory.playAndRecord, // 백그라운드 녹음 및 재생 허용
           options: <AVAudioSessionOptions>{
             AVAudioSessionOptions.mixWithOthers, // 다른 앱과 함께 재생
+            AVAudioSessionOptions.defaultToSpeaker, // 기본 스피커 출력
+            AVAudioSessionOptions.allowBluetooth, // 블루투스 허용
           },
         ),
       ));
@@ -610,6 +778,8 @@ class AudioService extends ChangeNotifier {
   @override
   void dispose() {
     debugPrint('[AudioService] dispose 진입');
+    _stopPeriodicStateSave();
+    WidgetsBinding.instance.removeObserver(this);
     _recorder.dispose();
     _player.dispose();
     super.dispose();
