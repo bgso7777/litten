@@ -11,6 +11,7 @@ import '../services/app_icon_badge_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_storage_service.dart';
 
 class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final LittenService _littenService = LittenService();
@@ -47,6 +48,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // WritingScreen 내부 탭 선택 상태
   String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
+
+  // 선택된 날짜의 알림 목록
+  List<dynamic> _selectedDateNotifications = [];
+  List<dynamic> get selectedDateNotifications => _selectedDateNotifications;
+
+  // 선택된 날짜의 알림 설정
+  void setSelectedDateNotifications(List<dynamic> notifications) {
+    _selectedDateNotifications = notifications;
+    notifyListeners();
+  }
 
   // ⭐ 현재 활성 탭 위치 저장 (위젯 재생성 시에도 유지)
   String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
@@ -1138,19 +1149,30 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 캘린더 관련 메서드들
   void selectDate(DateTime date) {
     debugPrint('📅 날짜 선택: ${DateFormat('yyyy-MM-dd').format(date)}');
+    // 시간 부분을 제거하고 날짜만 비교
+    final newDate = DateTime(date.year, date.month, date.day);
+    final currentDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
     // 날짜가 다르거나, 같은 날짜라도 아직 선택되지 않은 상태면 선택 처리
-    if (_selectedDate != date || !_isDateSelected) {
-      _selectedDate = date;
+    if (!currentDate.isAtSameMomentAs(newDate) || !_isDateSelected) {
+      _selectedDate = newDate;
       _isDateSelected = true;
       debugPrint('✅ 날짜 선택 완료: isDateSelected = $_isDateSelected');
       notifyListeners();
     } else {
       debugPrint('⚠️ 이미 선택된 날짜입니다.');
+      // 같은 날짜를 다시 클릭해도 UI 업데이트를 위해 notifyListeners 호출
+      notifyListeners();
     }
   }
 
   void clearDateSelection() {
     _isDateSelected = false;
+    notifyListeners();
+  }
+
+  /// UI 강제 업데이트 (외부에서 호출 가능)
+  void forceUpdate() {
     notifyListeners();
   }
 
@@ -1175,6 +1197,40 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
       return littenDate.isAtSameMomentAs(targetDate);
     }).length;
+  }
+
+  // 특정 날짜에 알림이 있는지 확인 (리튼 생성일 + 알림 예정일)
+  Future<int> getNotificationCountForDate(DateTime date) async {
+    final targetDate = DateTime(date.year, date.month, date.day);
+
+    try {
+      // 1. 해당 날짜에 생성된 리튼 개수
+      final littenCount = getLittenCountForDate(date);
+
+      // 2. 저장소에서 모든 알림 로드
+      final storage = NotificationStorageService();
+      final allNotifications = await storage.loadNotifications();
+
+      // 3. 해당 날짜에 예정된 알림 개수 (중복 제거를 위해 Set 사용)
+      final notificationDates = allNotifications
+          .where((notification) {
+            final triggerDate = DateTime(
+              notification.triggerTime.year,
+              notification.triggerTime.month,
+              notification.triggerTime.day,
+            );
+            return triggerDate.isAtSameMomentAs(targetDate);
+          })
+          .map((n) => n.littenId)
+          .toSet();
+
+      // 리튼 개수와 알림 있는 리튼 개수 중 큰 값 반환 (최대 3개)
+      final totalCount = littenCount + notificationDates.length;
+      return totalCount > 3 ? 3 : totalCount;
+    } catch (e) {
+      debugPrint('❌ 날짜별 알림 개수 확인 실패: $e');
+      return getLittenCountForDate(date);
+    }
   }
 
   // 특정 리튼에 발생한 알림이 있는지 확인하는 메서드

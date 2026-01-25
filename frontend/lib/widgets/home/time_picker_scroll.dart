@@ -28,8 +28,9 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
     _selectedHour = widget.initialTime.hour;
     _selectedMinute = widget.initialTime.minute;
 
-    _hourController = FixedExtentScrollController(initialItem: _selectedHour);
-    _minuteController = FixedExtentScrollController(initialItem: _selectedMinute ~/ 5);
+    // 무한 스크롤을 위해 큰 값에서 시작 (1000 * 24 + 현재 시간)
+    _hourController = FixedExtentScrollController(initialItem: 1000 * 24 + _selectedHour);
+    _minuteController = FixedExtentScrollController(initialItem: 1000 * 12 + (_selectedMinute ~/ 5));
   }
 
   @override
@@ -41,15 +42,21 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_hourController.hasClients) {
+          // 현재 위치에서 가장 가까운 해당 시간으로 이동
+          final currentItem = _hourController.selectedItem;
+          final targetItem = (currentItem ~/ 24) * 24 + _selectedHour;
           _hourController.animateToItem(
-            _selectedHour,
+            targetItem,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         }
         if (_minuteController.hasClients) {
+          // 현재 위치에서 가장 가까운 해당 분으로 이동
+          final currentItem = _minuteController.selectedItem;
+          final targetItem = (currentItem ~/ 12) * 12 + (_selectedMinute ~/ 5);
           _minuteController.animateToItem(
-            _selectedMinute ~/ 5,
+            targetItem,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
@@ -137,13 +144,12 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
-                              _selectedHour = index;
+                              _selectedHour = index % 24;
                             });
                             _updateTime();
                           },
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            builder: (context, index) {
-                              if (index < 0 || index > 23) return null;
+                          childDelegate: ListWheelChildLoopingListDelegate(
+                            children: List.generate(24, (index) {
                               final isSelected = index == _selectedHour;
                               return Container(
                                 alignment: Alignment.center,
@@ -164,8 +170,7 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                                   ),
                                 ),
                               );
-                            },
-                            childCount: 24,
+                            }),
                           ),
                         ),
                       ),
@@ -202,13 +207,12 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
-                              _selectedMinute = index * 5;
+                              _selectedMinute = (index % 12) * 5;
                             });
                             _updateTime();
                           },
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            builder: (context, index) {
-                              if (index < 0 || index > 11) return null;
+                          childDelegate: ListWheelChildLoopingListDelegate(
+                            children: List.generate(12, (index) {
                               final minute = index * 5;
                               final isSelected = minute == _selectedMinute;
                               return Container(
@@ -230,8 +234,7 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                                   ),
                                 ),
                               );
-                            },
-                            childCount: 12, // 0, 5, 10, ..., 55 (12개)
+                            }),
                           ),
                         ),
                       ),

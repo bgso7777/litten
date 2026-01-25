@@ -336,123 +336,65 @@ class _SchedulePickerState extends State<SchedulePicker> {
             Row(
               children: [
                 Expanded(
-                  child: Card(
-                    child: InkWell(
-                      onTap: () async {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: _notificationStartTime ?? const TimeOfDay(hour: 0, minute: 0),
-                          builder: (context, child) {
-                            return MediaQuery(
-                              data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (time != null) {
-                          setState(() {
-                            _notificationStartTime = time;
-                          });
-                          _updateSchedule();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(Icons.alarm, size: 20, color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '시작 (From)',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                  ),
-                                  Text(
-                                    _notificationStartTime?.format(context) ?? '제한 없음',
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_notificationStartTime != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  setState(() {
-                                    _notificationStartTime = null;
-                                  });
-                                  _updateSchedule();
-                                },
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                          ],
-                        ),
-                      ),
+                  child: TimePickerScroll(
+                    key: const ValueKey('notification_start_time'),
+                    initialTime: _notificationStartTime ?? const TimeOfDay(hour: 0, minute: 0),
+                    label: '시작 (From)',
+                    onTimeChanged: (time) {
+                      setState(() {
+                        _notificationStartTime = time;
+                      });
+                      _updateSchedule();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TimePickerScroll(
+                    key: const ValueKey('notification_end_time'),
+                    initialTime: _notificationEndTime ?? const TimeOfDay(hour: 23, minute: 55),
+                    label: '종료 (To)',
+                    onTimeChanged: (time) {
+                      setState(() {
+                        _notificationEndTime = time;
+                      });
+                      _updateSchedule();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _notificationStartTime = null;
+                      });
+                      _updateSchedule();
+                    },
+                    icon: const Icon(Icons.clear, size: 16),
+                    label: const Text('시작 제한 없음', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Card(
-                    child: InkWell(
-                      onTap: () async {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: _notificationEndTime ?? const TimeOfDay(hour: 23, minute: 59),
-                          builder: (context, child) {
-                            return MediaQuery(
-                              data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (time != null) {
-                          setState(() {
-                            _notificationEndTime = time;
-                          });
-                          _updateSchedule();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(Icons.alarm_off, size: 20, color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '종료 (To)',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                  ),
-                                  Text(
-                                    _notificationEndTime?.format(context) ?? '제한 없음',
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_notificationEndTime != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  setState(() {
-                                    _notificationEndTime = null;
-                                  });
-                                  _updateSchedule();
-                                },
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                          ],
-                        ),
-                      ),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _notificationEndTime = null;
+                      });
+                      _updateSchedule();
+                    },
+                    icon: const Icon(Icons.clear, size: 16),
+                    label: const Text('종료 제한 없음', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
                 ),

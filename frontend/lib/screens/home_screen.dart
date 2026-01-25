@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_state_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_storage_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/home/litten_item.dart';
 import '../widgets/home/schedule_picker.dart';
@@ -33,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
   bool _userInteractedWithSchedule = false; // 사용자가 일정과 상호작용했는지 추적
+  Map<String, Set<String>> _notificationDateCache = {}; // 날짜별 알림이 있는 리튼 ID Set (YYYY-MM-DD -> Set<littenId>)
 
   @override
   void dispose() {
@@ -48,7 +50,77 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToTop();
       _callInstallApiIfNeeded();
+      _loadNotificationDates();
     });
+  }
+
+  /// 알림 날짜 캐시 로드
+  Future<void> _loadNotificationDates() async {
+    try {
+      final storage = NotificationStorageService();
+      final allNotifications = await storage.loadNotifications();
+
+      // 날짜별로 알림이 있는 리튼 ID Set 계산
+      final dateMap = <String, Set<String>>{};
+      for (final notification in allNotifications) {
+        final dateKey = '${notification.triggerTime.year}-${notification.triggerTime.month.toString().padLeft(2, '0')}-${notification.triggerTime.day.toString().padLeft(2, '0')}';
+        dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
+      }
+
+      setState(() {
+        _notificationDateCache = dateMap;
+      });
+
+      debugPrint('📅 알림 날짜 캐시 로드 완료: ${_notificationDateCache.length}개 날짜');
+    } catch (e) {
+      debugPrint('❌ 알림 날짜 캐시 로드 실패: $e');
+    }
+  }
+
+  /// 선택된 날짜의 알림 목록 로드
+  Future<void> _loadNotificationsForSelectedDate(DateTime date, AppStateProvider appState) async {
+    try {
+      final storage = NotificationStorageService();
+      final allNotifications = await storage.loadNotifications();
+
+      // 선택된 날짜의 알림만 필터링
+      final targetDate = DateTime(date.year, date.month, date.day);
+      final notifications = allNotifications.where((notification) {
+        final triggerDate = DateTime(
+          notification.triggerTime.year,
+          notification.triggerTime.month,
+          notification.triggerTime.day,
+        );
+        return triggerDate.isAtSameMomentAs(targetDate);
+      }).toList();
+
+      // 시간순으로 정렬
+      notifications.sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+
+      // 각 알림에 해당하는 리튼 정보 추가
+      final notificationsWithLitten = notifications.map((notification) {
+        final litten = appState.littens.firstWhere(
+          (l) => l.id == notification.littenId,
+          orElse: () => Litten(
+            id: notification.littenId,
+            title: '삭제된 리튼',
+            createdAt: DateTime.now(),
+          ),
+        );
+        return {
+          'notification': notification,
+          'litten': litten,
+        };
+      }).toList();
+
+      // AppStateProvider에 알림 설정 (notifyListeners 자동 호출)
+      appState.setSelectedDateNotifications(notificationsWithLitten);
+      debugPrint('📋 선택된 날짜(${DateFormat('yyyy-MM-dd').format(date)})의 알림: ${notifications.length}개');
+      debugPrint('🔍 AppState 업데이트 완료: selectedDateNotifications.length = ${appState.selectedDateNotifications.length}');
+    } catch (e) {
+      debugPrint('❌ 선택된 날짜 알림 로드 실패: $e');
+      appState.setSelectedDateNotifications([]);
+    }
   }
 
   /// 앱 설치 후 처음 홈탭 진입 시 install API 호출
@@ -116,7 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
           _currentTabIndex = index;
         },
       ),
-    );
+    ).then((_) {
+      // 다이얼로그가 닫힐 때 알림 날짜 캐시 갱신
+      _loadNotificationDates();
+    });
   }
 
   @override
@@ -170,7 +245,10 @@ class _HomeScreenState extends State<HomeScreen> {
           _currentTabIndex = index;
         },
       ),
-    );
+    ).then((_) {
+      // 다이얼로그가 닫힐 때 알림 날짜 캐시 갱신
+      _loadNotificationDates();
+    });
   }
 
   Widget _buildScheduleTabView({
@@ -665,9 +743,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!appState.isDateSelected) return false;
                   return isSameDay(appState.selectedDate, day);
                 },
-                onDaySelected: (selectedDay, focusedDay) {
+                onDaySelected: (selectedDay, focusedDay) async {
                   appState.selectDate(selectedDay);
                   appState.changeFocusedDate(focusedDay);
+                  // 선택된 날짜의 알림 로드 (자동으로 notifyListeners 호출됨)
+                  await _loadNotificationsForSelectedDate(selectedDay, appState);
                 },
                 onPageChanged: (focusedDay) {
                   appState.changeFocusedDate(focusedDay);
@@ -696,9 +776,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   markersMaxCount: 3,
                 ),
                 eventLoader: (day) {
-                  // 해당 날짜에 생성된 리튼이 있으면 마커 표시
-                  final count = appState.getLittenCountForDate(day);
-                  return List.generate(count > 3 ? 3 : count, (index) => 'litten');
+                  // 1. 해당 날짜에 생성된 리튼 ID Set
+                  final targetDate = DateTime(day.year, day.month, day.day);
+                  final littenIds = appState.littens.where((litten) {
+                    if (litten.title == 'undefined') return false;
+                    final littenDate = DateTime(
+                      litten.createdAt.year,
+                      litten.createdAt.month,
+                      litten.createdAt.day,
+                    );
+                    return littenDate.isAtSameMomentAs(targetDate);
+                  }).map((l) => l.id).toSet();
+
+                  // 2. 해당 날짜에 알림이 있는 리튼 ID Set
+                  final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                  final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
+
+                  // 3. 두 Set을 합쳐서 중복 제거 (같은 리튼이 생성일과 알림 날짜가 같아도 1개로 카운트)
+                  final allLittenIds = {...littenIds, ...notificationLittenIds};
+                  final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
+
+                  return List.generate(markerCount, (index) => 'event');
                 },
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
@@ -878,26 +976,56 @@ class _HomeScreenState extends State<HomeScreen> {
         top: 8, // 상단 여백 최소화
         bottom: AppSpacing.paddingM.left,
       ),
-      child: _buildUnifiedList(appState, l10n),
+      child: _buildUnifiedList(appState, l10n, appState.selectedDateNotifications),
     );
   }
 
   // 일정과 파일을 통합한 리스트
-  Widget _buildUnifiedList(AppStateProvider appState, AppLocalizations? l10n) {
+  Widget _buildUnifiedList(AppStateProvider appState, AppLocalizations? l10n, List<dynamic> selectedDateNotifications) {
     // 날짜가 선택되었는지 확인
     final bool hasSelectedDate = appState.isDateSelected;
 
     // 날짜 선택 여부에 따라 리튼 필터링
     // ⭐ undefined 리튼은 항상 숨김 (날짜 선택 여부와 무관)
-    final displayLittens = hasSelectedDate
-        ? appState.littensForSelectedDate
-            .where((litten) => litten.title != 'undefined')
-            .toList()
-        : appState.littens
-            .where((litten) => litten.title != 'undefined')
-            .toList(); // undefined 리튼은 항상 숨김
+    List<Litten> displayLittens;
+    if (hasSelectedDate) {
+      // 날짜가 선택된 경우: 해당 날짜에 생성된 리튼 + 알림이 있는 리튼
+      final littensOnDate = appState.littensForSelectedDate
+          .where((litten) => litten.title != 'undefined')
+          .toList();
+
+      // 알림이 있는 리튼 ID 추가
+      debugPrint('🔍 displayLittens 계산: 선택된 날짜 알림=${selectedDateNotifications.length}개');
+      final notificationLittenIds = selectedDateNotifications
+          .map((item) => (item['litten'] as Litten).id)
+          .toSet();
+      debugPrint('🔍 알림이 있는 리튼 ID: $notificationLittenIds');
+
+      final notificationLittens = appState.littens
+          .where((litten) =>
+              notificationLittenIds.contains(litten.id) &&
+              litten.title != 'undefined')
+          .toList();
+      debugPrint('🔍 알림이 있는 리튼: ${notificationLittens.map((l) => l.title).toList()}');
+
+      // 중복 제거하여 합치기
+      final allLittenIds = <String>{};
+      displayLittens = [];
+      for (final litten in [...littensOnDate, ...notificationLittens]) {
+        if (!allLittenIds.contains(litten.id)) {
+          allLittenIds.add(litten.id);
+          displayLittens.add(litten);
+        }
+      }
+      debugPrint('🔍 최종 displayLittens: ${displayLittens.map((l) => l.title).toList()}');
+    } else {
+      displayLittens = appState.littens
+          .where((litten) => litten.title != 'undefined')
+          .toList();
+    }
 
     return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey(selectedDateNotifications.length), // 알림 개수가 변경되면 FutureBuilder 재시작
       future: appState.getAllFiles(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -988,13 +1116,17 @@ class _HomeScreenState extends State<HomeScreen> {
           return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
         });
 
-        if (unifiedItems.isEmpty) {
+        // unifiedItems가 비어있어도 알림이 있으면 ListView 표시
+        debugPrint('🔍 EmptyState 체크: unifiedItems=${unifiedItems.length}, 알림=${selectedDateNotifications.length}');
+        if (unifiedItems.isEmpty && selectedDateNotifications.isEmpty) {
+          debugPrint('⚠️ EmptyState 표시');
           return const EmptyState(
             icon: Icons.event_note,
             title: '일정과 파일이 없습니다',
             description: '일정을 생성하거나 파일을 추가해보세요',
           );
         }
+        debugPrint('✅ ListView 표시 준비 (unifiedItems=${unifiedItems.length}, 알림=${selectedDateNotifications.length})');
 
         return Scrollbar(
           child: RefreshIndicator(
@@ -1005,9 +1137,29 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView.builder(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
-              itemCount: unifiedItems.length,
+              itemCount: (selectedDateNotifications.isNotEmpty && appState.isDateSelected ? 1 : 0) + unifiedItems.length,
               itemBuilder: (context, index) {
-                final item = unifiedItems[index];
+                // 디버그: 알림 섹션 표시 여부 확인
+                if (index == 0) {
+                  debugPrint('🔍 ListView itemBuilder: index=0, 알림=${selectedDateNotifications.length}개, isDateSelected=${appState.isDateSelected}');
+                }
+
+                // 알림 섹션 표시 (날짜가 선택되고 알림이 있는 경우 맨 위에)
+                if (selectedDateNotifications.isNotEmpty && appState.isDateSelected && index == 0) {
+                  debugPrint('✅ 알림 섹션 표시');
+                  return _buildNotificationSection(appState, selectedDateNotifications);
+                }
+
+                // 알림 섹션이 있으면 인덱스 조정
+                final itemIndex = (selectedDateNotifications.isNotEmpty && appState.isDateSelected) ? index - 1 : index;
+
+                // 인덱스 범위 체크
+                if (itemIndex < 0 || itemIndex >= unifiedItems.length) {
+                  debugPrint('⚠️ 잘못된 인덱스: $itemIndex (unifiedItems 길이: ${unifiedItems.length})');
+                  return const SizedBox.shrink();
+                }
+
+                final item = unifiedItems[itemIndex];
                 final itemType = item['type'] as String;
 
                 if (itemType == 'litten') {
@@ -1046,6 +1198,134 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  // 선택된 날짜의 알림 섹션 빌드
+  Widget _buildNotificationSection(AppStateProvider appState, List<dynamic> selectedDateNotifications) {
+    final selectedDate = appState.selectedDate;
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.notifications_active, color: Colors.blue.shade700, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '${DateFormat('M월 d일 (E)', 'ko').format(selectedDate)} 알림',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${selectedDateNotifications.length}개',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 알림 목록
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: selectedDateNotifications.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              color: Colors.blue.shade100,
+            ),
+            itemBuilder: (context, index) {
+              final item = selectedDateNotifications[index];
+              final notification = item['notification'];
+              final litten = item['litten'] as Litten;
+              final triggerTime = notification.triggerTime as DateTime;
+              final now = DateTime.now();
+              final isPast = triggerTime.isBefore(now);
+
+              return ListTile(
+                leading: Icon(
+                  isPast ? Icons.check_circle : Icons.schedule,
+                  color: isPast ? Colors.grey : Colors.blue.shade700,
+                  size: 24,
+                ),
+                title: Text(
+                  litten.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isPast ? Colors.grey.shade600 : Colors.black87,
+                    decoration: isPast ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                subtitle: Text(
+                  '${DateFormat('HH:mm').format(triggerTime)} - ${notification.rule.frequency.label}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isPast ? Colors.grey.shade500 : Colors.grey.shade700,
+                  ),
+                ),
+                trailing: isPast
+                    ? Text(
+                        '완료',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      )
+                    : Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Colors.blue.shade300,
+                      ),
+                onTap: () async {
+                  // 해당 리튼으로 이동
+                  try {
+                    await appState.selectLitten(litten);
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
