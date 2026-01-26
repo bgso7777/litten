@@ -431,6 +431,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
             // 알림 설정
             NotificationSettings(
               initialRules: _notificationRules,
+              scheduleDate: _selectedDate, // 일정 시작일자 전달
               onRulesChanged: (rules) {
                 setState(() {
                   _notificationRules = rules;

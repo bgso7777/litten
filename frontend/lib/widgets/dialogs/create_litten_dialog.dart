@@ -320,6 +320,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     ? SingleChildScrollView(
                         child: NotificationSettings(
                           initialRules: _selectedSchedule!.notificationRules,
+                          scheduleDate: _selectedSchedule!.date, // 일정 시작일자 전달
                           onRulesChanged: (rules) {
                             setState(() {
                               _selectedSchedule = LittenSchedule(

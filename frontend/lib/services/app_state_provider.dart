@@ -552,6 +552,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           throw Exception('시작 시간이 종료 시간보다 늦을 수 없습니다.');
         }
         debugPrint('📅 일정 정보: ${schedule.date} ${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')} - ${endTime.hour}:${endTime.minute.toString().padLeft(2, '0')}');
+        debugPrint('   종료일자: ${schedule.endDate}');
+        debugPrint('   알림 규칙: ${schedule.notificationRules.length}개');
       }
 
       // 스케줄이 있으면 스케줄 날짜 사용, 없으면 선택된 날짜 사용

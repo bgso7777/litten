@@ -5,11 +5,13 @@ import '../../models/litten.dart';
 class NotificationSettings extends StatefulWidget {
   final List<NotificationRule> initialRules;
   final Function(List<NotificationRule>) onRulesChanged;
+  final DateTime? scheduleDate; // 일정 시작일자
 
   const NotificationSettings({
     super.key,
     required this.initialRules,
     required this.onRulesChanged,
+    this.scheduleDate, // 선택적 파라미터
   });
 
   @override
@@ -100,7 +102,18 @@ class _NotificationSettingsState extends State<NotificationSettings> {
       ),
     );
 
-    final selectedWeekdays = Set<int>.from(currentRule.weekdays ?? [1, 2, 3, 4, 5, 6, 7]);
+    // 일정 시작일자의 요일을 기본값으로 설정
+    int defaultWeekday = 1; // 기본값: 월요일
+    if (widget.scheduleDate != null) {
+      // DateTime.weekday는 월요일=1, 일요일=7
+      // 우리 시스템은 일요일=7, 월요일=1로 동일하게 사용
+      defaultWeekday = widget.scheduleDate!.weekday == 7 ? 7 : widget.scheduleDate!.weekday;
+      debugPrint('📅 일정 시작일자 요일: $defaultWeekday');
+    }
+
+    final selectedWeekdays = Set<int>.from(
+      currentRule.weekdays ?? (currentRule.isEnabled ? currentRule.weekdays ?? [] : [defaultWeekday])
+    );
 
     await showDialog(
       context: context,

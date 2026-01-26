@@ -229,6 +229,65 @@ class NotificationOrchestratorService {
     }
   }
 
+  /// 리튼의 알림을 완전히 재생성 (미래의 모든 알림 삭제 후 새로 생성)
+  /// 알림 수정 시 사용
+  Future<bool> recreateNotificationsForLitten(Litten litten) async {
+    try {
+      debugPrint('🔄 NotificationOrchestratorService.recreateNotificationsForLitten() 진입: littenId=${litten.id}');
+
+      final now = DateTime.now();
+
+      // 1. 기존 알림 조회
+      final existingNotifications = await _storage.loadNotificationsByLittenId(litten.id);
+
+      // 2. 과거의 미확인 알림만 유지 (놓친 알림)
+      final pastUnacknowledgedNotifications = existingNotifications
+          .where((n) => n.triggerTime.isBefore(now) && !n.isAcknowledged)
+          .toList();
+
+      // 3. 미래의 모든 알림 삭제 (확인/미확인 상관없이)
+      final futureNotifications = existingNotifications
+          .where((n) => n.triggerTime.isAfter(now) || n.triggerTime.isAtSameMomentAs(now))
+          .toList();
+
+      if (futureNotifications.isNotEmpty) {
+        debugPrint('   🗑️ 미래의 ${futureNotifications.length}개 알림 삭제 중...');
+        for (final n in futureNotifications) {
+          await _storage.deleteNotification(n.id);
+        }
+      }
+
+      if (pastUnacknowledgedNotifications.isNotEmpty) {
+        debugPrint('   ⚠️ 과거의 미확인 알림 ${pastUnacknowledgedNotifications.length}개는 유지');
+      }
+
+      // 4. 새로운 알림 생성
+      debugPrint('   🔄 새로운 알림 생성 중...');
+      final newNotifications = _generator.generateNotificationsForLitten(litten);
+
+      if (newNotifications.isEmpty) {
+        debugPrint('   ⚠️ 생성된 알림 없음');
+        return true; // 알림 없어도 성공으로 처리
+      }
+
+      // 5. 새 알림 저장
+      debugPrint('   💾 ${newNotifications.length}개 알림 저장 중...');
+      final success = await _storage.addNotifications(newNotifications);
+
+      if (success) {
+        debugPrint('   ✅ 알림 재생성 완료: ${newNotifications.length}개 추가 (과거 미확인 ${pastUnacknowledgedNotifications.length}개 유지)');
+      } else {
+        debugPrint('   ❌ 알림 저장 실패');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('   ❌ 알림 재생성 에러: $e');
+      return false;
+    }
+  }
+
   /// 모든 알림 삭제
   Future<bool> clearAllNotifications() async {
     try {

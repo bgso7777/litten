@@ -68,13 +68,27 @@ class NotificationGeneratorService {
     final isRepeating = _isRepeatingFrequency(rule.frequency);
 
     if (isRepeating) {
-      // 반복 알림: 1년치 생성 (365일)
-      final endDate = now.add(const Duration(days: 365));
-      debugPrint('      📅 반복 알림 1년치 생성: ${now.year}-${now.month}-${now.day} ~ ${endDate.year}-${endDate.month}-${endDate.day}');
+      // 반복 알림: 종료일자가 있으면 그 날짜까지, 없으면 1년치 생성
+      final DateTime limitDate;
+      if (schedule.endDate != null) {
+        // 종료일자가 있으면 종료일자의 endTime까지 알림 생성
+        limitDate = DateTime(
+          schedule.endDate!.year,
+          schedule.endDate!.month,
+          schedule.endDate!.day,
+          schedule.endTime.hour,
+          schedule.endTime.minute,
+        );
+        debugPrint('      📅 반복 알림 종료일자까지 생성: ${now.year}-${now.month}-${now.day} ~ ${limitDate.year}-${limitDate.month}-${limitDate.day}');
+      } else {
+        // 종료일자가 없으면 1년치 생성
+        limitDate = now.add(const Duration(days: 365));
+        debugPrint('      📅 반복 알림 1년치 생성: ${now.year}-${now.month}-${now.day} ~ ${limitDate.year}-${limitDate.month}-${limitDate.day}');
+      }
 
       DateTime? nextTrigger = _getNextTriggerTime(scheduleDateTime, rule, now);
 
-      while (nextTrigger != null && nextTrigger.isBefore(endDate)) {
+      while (nextTrigger != null && (nextTrigger.isBefore(limitDate) || nextTrigger.isAtSameMomentAs(limitDate))) {
         // 알림 발생 시간 범위 검증 (notificationStartTime ~ notificationEndTime)
         if (_isWithinNotificationTimeRange(schedule, nextTrigger)) {
           final notification = StoredNotification(

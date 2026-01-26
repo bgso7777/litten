@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/litten.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
+import 'notification_orchestrator_service.dart';
 
 class LittenService {
+  final NotificationOrchestratorService _notificationService = NotificationOrchestratorService();
   static const String _luttensKey = 'littens';
   static const String _audioFilesKey = 'audio_files';
   static const String _textFilesKey = 'text_files';
@@ -24,31 +26,77 @@ class LittenService {
   }
 
   Future<void> saveLitten(Litten litten) async {
+    debugPrint('💾 LittenService.saveLitten() 진입: littenId=${litten.id}, title=${litten.title}');
+
     final prefs = await SharedPreferences.getInstance();
     final littens = await getAllLittens();
-    
+
     final existingIndex = littens.indexWhere((l) => l.id == litten.id);
-    if (existingIndex >= 0) {
+    final isUpdate = existingIndex >= 0;
+
+    if (isUpdate) {
       littens[existingIndex] = litten;
+      debugPrint('   ℹ️ 기존 리튼 업데이트');
     } else {
       littens.add(litten);
+      debugPrint('   ℹ️ 새 리튼 추가');
     }
-    
+
     final littensJson = littens.map((l) => jsonEncode(l.toJson())).toList();
     await prefs.setStringList(_luttensKey, littensJson);
+
+    // 알림 처리: 리튼에 스케줄이 있으면 알림 재생성
+    if (litten.schedule != null) {
+      debugPrint('   🔔 리튼에 스케줄 존재 - 알림 재생성 시작');
+
+      if (isUpdate) {
+        // 수정된 리튼: 미래 알림 삭제 후 재생성
+        final success = await _notificationService.recreateNotificationsForLitten(litten);
+        if (success) {
+          debugPrint('   ✅ 알림 재생성 완료');
+        } else {
+          debugPrint('   ❌ 알림 재생성 실패');
+        }
+      } else {
+        // 새로운 리튼: 알림 생성
+        final success = await _notificationService.scheduleNotificationsForLitten(litten);
+        if (success) {
+          debugPrint('   ✅ 알림 생성 완료');
+        } else {
+          debugPrint('   ❌ 알림 생성 실패');
+        }
+      }
+    } else {
+      debugPrint('   ℹ️ 스케줄 없음 - 알림 처리 생략');
+    }
+
+    debugPrint('   ✅ 리튼 저장 완료');
   }
 
   Future<void> deleteLitten(String littenId) async {
+    debugPrint('🗑️ LittenService.deleteLitten() 진입: littenId=$littenId');
+
     final prefs = await SharedPreferences.getInstance();
     final littens = await getAllLittens();
     littens.removeWhere((l) => l.id == littenId);
-    
+
     final littensJson = littens.map((l) => jsonEncode(l.toJson())).toList();
     await prefs.setStringList(_luttensKey, littensJson);
+
+    // 관련 알림 삭제
+    debugPrint('   🔔 관련 알림 삭제 시작');
+    final notificationDeleteSuccess = await _notificationService.deleteNotificationsForLitten(littenId);
+    if (notificationDeleteSuccess) {
+      debugPrint('   ✅ 알림 삭제 완료');
+    } else {
+      debugPrint('   ❌ 알림 삭제 실패');
+    }
 
     // 관련 파일들도 삭제
     await _deleteAudioFilesByLittenId(littenId);
     await _deleteTextFilesByLittenId(littenId);
+
+    debugPrint('   ✅ 리튼 삭제 완료');
   }
 
   Future<void> renameLitten(String littenId, String newTitle) async {

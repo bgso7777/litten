@@ -379,6 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SingleChildScrollView(
       child: NotificationSettings(
         initialRules: selectedSchedule.notificationRules,
+        scheduleDate: selectedSchedule.date, // 일정 시작일자 전달
         onRulesChanged: (rules) {
           final updatedSchedule = LittenSchedule(
             date: selectedSchedule.date,
@@ -554,6 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SingleChildScrollView(
       child: NotificationSettings(
         initialRules: selectedSchedule.notificationRules,
+        scheduleDate: selectedSchedule.date, // 일정 시작일자 전달
         onRulesChanged: (rules) {
           final updatedSchedule = LittenSchedule(
             date: selectedSchedule.date,
