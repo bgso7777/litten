@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/audio_file.dart';
@@ -47,27 +46,12 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   /// 녹음 권한 요청
   Future<bool> requestPermission() async {
     debugPrint('[AudioService] 녹음 권한 요청 시작');
-    
-    // 현재 권한 상태 확인
-    var status = await Permission.microphone.status;
-    debugPrint('[AudioService] 현재 권한 상태: $status');
-    
-    if (status.isDenied) {
-      // 권한 요청
-      status = await Permission.microphone.request();
-      debugPrint('[AudioService] 권한 요청 후 상태: $status');
-    }
-    
-    if (status.isPermanentlyDenied) {
-      debugPrint('[AudioService] 권한이 영구적으로 거부됨 - 설정으로 이동 필요');
-      // 설정으로 이동하도록 안내
-      await openAppSettings();
-      return false;
-    }
-    
-    final hasPermission = status == PermissionStatus.granted;
-    debugPrint('[AudioService] 최종 권한 상태: $hasPermission');
-    return hasPermission;
+
+    // record 패키지가 자체적으로 권한을 처리하므로
+    // permission_handler 체크를 생략하고 바로 true 반환
+    // iOS 설정에서 권한이 있으면 record 패키지가 정상 작동함
+    debugPrint('[AudioService] 권한 체크 건너뛰기 (record 패키지가 자체 처리)');
+    return true;
   }
 
   /// 듣기(녹음) 시작

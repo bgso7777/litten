@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>리튼 앱에서 듣기(녹음) 기능을 사용하기 위해 마이크 권한이 필요합니다.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>리튼 앱에서 음성 인식(음성을 텍스트로 변환) 기능을 사용하기 위해 음성 인식 권한이 필요합니다.</string>
 	<key>UIKeyboardInputModeUsesEmojiKeyboard</key>
 	<true/>
 	<key>UIKeyboardInputModeSupportAutocorrection</key>

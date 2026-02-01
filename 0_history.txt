@@ -1,4 +1,9 @@
 
+cd frontend
+flutter clean
+flutter pub get
+flutter build apk --release
+
 윈도우 환경인데 
 litten mobile source 위치 C:\work\litten\litten\frontend
 flutter 위치 C:\work\litten\flutter
@@ -27,6 +32,27 @@ aos, ios 용으로 빌드하고 에뮬레이터에서
 
 49 - 알림기능 개선 
 ---------------------------------------
+
+
+frontend/lib/widgets/text_tab.dart 파일에 speech_to_text 패키지를 활용하여 음성 인식(STT) 기능을 추가해줘.
+
+1. 패키지 및 설정:
+   - `speech_to_text`와 `permission_handler` 패키지를 pubspec.yaml에 추가해줘.
+   - Android(AndroidManifest.xml)와 iOS(Info.plist)에 필요한 마이크 및 음성 인식 권한 설정 코드를 알려줘.
+
+2. UI 구현 (툴바 수정):
+   - 텍스트 에디터(`HtmlEditor`) 툴바의 **가장 앞쪽(왼쪽)**에 '마이크' 아이콘 버튼을 추가해줘.
+   - `HtmlToolbarOptions`의 `customToolbarButtons`를 활용하거나, 만약 순서 배치가 어렵다면 툴바 바로 위에 별도의 아이콘 행(Row)을 만들어서라도 "가장 앞"에 보이게 해줘.
+   - 음성 인식 중일 때는 아이콘 색상이 빨간색으로 바뀌거나 애니메이션 효과를 줘서 사용자가 알 수 있게 해줘.
+
+3. 기능 로직:
+   - `SpeechToText` 인스턴스를 초기화하고 권한을 요청하는 로직을 추가해줘.
+   - 마이크 버튼을 누르면 음성 인식을 시작(`listen`)하고, 인식된 단어가 발생할 때마다 `_htmlController.insertText()` 또는 `insertHtml()`을 사용하여 에디터의 현재 커서 위치에 텍스트가 자동으로 입력되게 해줘.
+   - 인식이 끝나거나 버튼을 다시 누르면 멈추도록 처리해줘.
+
+위 요구사항에 맞춰 코드를 수정해줘.
+
+지금 텍스트 파일을 열었는데 내용이 있는건데 안보여 왜 그런지 확인해줘 
 
 
 강의 샘플 파일생성 필기, pdf필기, 캔버스필기, 녹음 
