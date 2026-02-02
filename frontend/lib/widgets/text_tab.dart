@@ -929,6 +929,402 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     );
   }
 
+  /// 커스텀 툴바 빌드 (STT 버튼 + 서식 버튼들)
+  Widget _buildCustomToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // 1. STT 마이크 버튼 (맨 앞)
+            InkWell(
+              onTap: _toggleSpeechToText,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _isListening ? Colors.red.shade50 : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isListening ? Colors.red : Colors.grey.shade600,
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(
+                  _isListening ? Icons.mic : Icons.mic_none,
+                  color: _isListening ? Colors.red : Colors.grey.shade700,
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 2. 굵게 (Bold)
+            _buildToolbarButton(
+              icon: Icons.format_bold,
+              onPressed: () => _execCommand('bold'),
+              tooltip: '굵게',
+            ),
+            // 3. 기울임 (Italic)
+            _buildToolbarButton(
+              icon: Icons.format_italic,
+              onPressed: () => _execCommand('italic'),
+              tooltip: '기울임',
+            ),
+            // 4. 밑줄 (Underline)
+            _buildToolbarButton(
+              icon: Icons.format_underline,
+              onPressed: () => _execCommand('underline'),
+              tooltip: '밑줄',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 5. 글자 색상
+            _buildToolbarButton(
+              icon: Icons.format_color_text,
+              onPressed: () => _showColorPicker(isBackground: false),
+              tooltip: '글자 색상',
+            ),
+            // 6. 배경 색상
+            _buildToolbarButton(
+              icon: Icons.format_color_fill,
+              onPressed: () => _showColorPicker(isBackground: true),
+              tooltip: '배경 색상',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 7. 글머리 기호 목록
+            _buildToolbarButton(
+              icon: Icons.format_list_bulleted,
+              onPressed: () => _execCommand('insertUnorderedList'),
+              tooltip: '글머리 기호',
+            ),
+            // 8. 번호 매기기 목록
+            _buildToolbarButton(
+              icon: Icons.format_list_numbered,
+              onPressed: () => _execCommand('insertOrderedList'),
+              tooltip: '번호 매기기',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 9. 취소선
+            _buildToolbarButton(
+              icon: Icons.format_strikethrough,
+              onPressed: () => _execCommand('strikeThrough'),
+              tooltip: '취소선',
+            ),
+            // 10. 위 첨자
+            _buildToolbarButton(
+              icon: Icons.superscript,
+              onPressed: () => _execCommand('superscript'),
+              tooltip: '위 첨자',
+            ),
+            // 11. 아래 첨자
+            _buildToolbarButton(
+              icon: Icons.subscript,
+              onPressed: () => _execCommand('subscript'),
+              tooltip: '아래 첨자',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 12. 왼쪽 정렬
+            _buildToolbarButton(
+              icon: Icons.format_align_left,
+              onPressed: () => _execCommand('justifyLeft'),
+              tooltip: '왼쪽 정렬',
+            ),
+            // 13. 가운데 정렬
+            _buildToolbarButton(
+              icon: Icons.format_align_center,
+              onPressed: () => _execCommand('justifyCenter'),
+              tooltip: '가운데 정렬',
+            ),
+            // 14. 오른쪽 정렬
+            _buildToolbarButton(
+              icon: Icons.format_align_right,
+              onPressed: () => _execCommand('justifyRight'),
+              tooltip: '오른쪽 정렬',
+            ),
+            // 15. 양쪽 정렬
+            _buildToolbarButton(
+              icon: Icons.format_align_justify,
+              onPressed: () => _execCommand('justifyFull'),
+              tooltip: '양쪽 정렬',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 16. 들여쓰기
+            _buildToolbarButton(
+              icon: Icons.format_indent_increase,
+              onPressed: () => _execCommand('indent'),
+              tooltip: '들여쓰기',
+            ),
+            // 17. 내어쓰기
+            _buildToolbarButton(
+              icon: Icons.format_indent_decrease,
+              onPressed: () => _execCommand('outdent'),
+              tooltip: '내어쓰기',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 18. 인용
+            _buildToolbarButton(
+              icon: Icons.format_quote,
+              onPressed: () => _execCommand('formatBlock', argument: 'blockquote'),
+              tooltip: '인용',
+            ),
+            // 19. 코드
+            _buildToolbarButton(
+              icon: Icons.code,
+              onPressed: () => _execCommand('formatBlock', argument: 'pre'),
+              tooltip: '코드',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 20. 전체 선택
+            _buildToolbarButton(
+              icon: Icons.select_all,
+              onPressed: () => _execCommand('selectAll'),
+              tooltip: '전체 선택',
+            ),
+            // 21. 실행 취소
+            _buildToolbarButton(
+              icon: Icons.undo,
+              onPressed: () => _execCommand('undo'),
+              tooltip: '실행 취소',
+            ),
+            // 22. 다시 실행
+            _buildToolbarButton(
+              icon: Icons.redo,
+              onPressed: () => _execCommand('redo'),
+              tooltip: '다시 실행',
+            ),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            // 23. 서식 지우기
+            _buildToolbarButton(
+              icon: Icons.format_clear,
+              onPressed: () => _execCommand('removeFormat'),
+              tooltip: '서식 지우기',
+            ),
+            // 24. 링크 삽입
+            _buildToolbarButton(
+              icon: Icons.link,
+              onPressed: () => _showLinkDialog(),
+              tooltip: '링크 삽입',
+            ),
+            // 25. 가로선
+            _buildToolbarButton(
+              icon: Icons.horizontal_rule,
+              onPressed: () => _execCommand('insertHorizontalRule'),
+              tooltip: '가로선',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 툴바 버튼 위젯 빌드
+  Widget _buildToolbarButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            icon,
+            size: 20,
+            color: Colors.grey.shade800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// HTML 에디터 명령 실행
+  void _execCommand(String command, {String? argument}) {
+    debugPrint('🔧 에디터 명령 실행: $command${argument != null ? " (인자: $argument)" : ""}');
+    if (argument != null) {
+      _htmlController.execCommand(command, argument: argument);
+    } else {
+      _htmlController.execCommand(command);
+    }
+  }
+
+  /// 링크 삽입 다이얼로그 표시
+  void _showLinkDialog() {
+    final urlController = TextEditingController();
+    final textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('링크 삽입'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(
+                labelText: '링크 텍스트',
+                hintText: '표시될 텍스트 입력',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: 'URL',
+                hintText: 'https://example.com',
+              ),
+              keyboardType: TextInputType.url,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              final url = urlController.text.trim();
+              final text = textController.text.trim();
+              if (url.isNotEmpty) {
+                final linkText = text.isNotEmpty ? text : url;
+                _htmlController.insertLink(linkText, url, true);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('삽입'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 색상 선택 다이얼로그 표시
+  void _showColorPicker({required bool isBackground}) {
+    // 기본 색상 팔레트
+    final colors = [
+      Colors.black,
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.yellow,
+      Colors.orange,
+      Colors.purple,
+      Colors.pink,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isBackground ? '배경 색상 선택' : '글자 색상 선택'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: colors.map((color) {
+            return InkWell(
+              onTap: () {
+                final colorHex = '#${color.value.toRadixString(16).substring(2)}';
+                if (isBackground) {
+                  _htmlController.execCommand('backColor', argument: colorHex);
+                } else {
+                  _htmlController.execCommand('foreColor', argument: colorHex);
+                }
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTextEditor() {
     final l10n = AppLocalizations.of(context);
     return Column(
@@ -983,54 +1379,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(12),
               child: Column(
                 children: [
-                  // 마이크 버튼 바 (툴바 위)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        // 마이크 버튼
-                        InkWell(
-                          onTap: _toggleSpeechToText,
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: _isListening ? Colors.red.shade50 : Colors.transparent,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _isListening ? Colors.red : Colors.grey.shade600,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Icon(
-                              _isListening ? Icons.mic : Icons.mic_none,
-                              color: _isListening ? Colors.red : Colors.grey.shade700,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // 상태 텍스트
-                        Expanded(
-                          child: Text(
-                            _isListening ? '음성 인식 중...' : '마이크를 눌러 음성 입력',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _isListening ? Colors.red : Colors.grey.shade600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // 커스텀 툴바 (STT 버튼 포함)
+                  _buildCustomToolbar(),
                   // HTML 에디터
                   Expanded(
                     child: LayoutBuilder(
@@ -1049,57 +1399,86 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                           autoAdjustHeight: false,
                           spellCheck: false,
                         ),
-                        htmlToolbarOptions: HtmlToolbarOptions(
+                        htmlToolbarOptions: const HtmlToolbarOptions(
                           toolbarPosition: ToolbarPosition.aboveEditor,
                           toolbarType: ToolbarType.nativeScrollable,
                           renderBorder: false,
-                          toolbarItemHeight: 32,
-                          renderSeparatorWidget: true,
-                          separatorWidget: Container(
-                            width: 1,
-                            height: 24,
-                            color: Colors.grey.shade600,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                          buttonColor: Colors.grey.shade800,
-                          buttonSelectedColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          buttonBorderColor: Colors.transparent,
-                          buttonBorderWidth: 0,
-                          defaultToolbarButtons: const [
-                            FontButtons(
-                              bold: true,
-                              italic: true,
-                              underline: true,
-                            ),
-                            ColorButtons(),
-                            ListButtons(listStyles: true),
-                            ParagraphButtons(
-                              textDirection: false,
-                              lineHeight: false,
-                              caseConverter: false,
-                            ),
-                          ],
+                          toolbarItemHeight: 0, // 높이를 0으로 설정하여 숨김
+                          defaultToolbarButtons: [], // 기본 버튼 없음
                         ),
                         otherOptions: const OtherOptions(height: 350),
                         callbacks: Callbacks(
                           onInit: () {
                             print('HTML 에디터 초기화 완료');
-                            // CSS 주입으로 줄 간격 유지
+                            // CSS 주입 및 커서 설정
                             _htmlController.editorController
                                 ?.evaluateJavascript(
                                   source: '''
                               setTimeout(function() {
+                                // CSS 주입
                                 var style = document.createElement('style');
                                 style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; }';
                                 document.head.appendChild(style);
+
+                                // 선택 해제 및 커서를 맨 끝으로 이동
+                                try {
+                                  var summernote = \$('#summernote-2');
+                                  if (summernote.length) {
+                                    summernote.summernote('focus');
+
+                                    // 선택 해제
+                                    var selection = window.getSelection();
+                                    if (selection) {
+                                      selection.removeAllRanges();
+                                    }
+
+                                    // 커서를 맨 끝으로 이동
+                                    var editable = summernote.next('.note-editor').find('.note-editable')[0];
+                                    if (editable) {
+                                      var range = document.createRange();
+                                      var sel = window.getSelection();
+
+                                      // 에디터의 마지막 자식 노드로 이동
+                                      if (editable.childNodes.length > 0) {
+                                        var lastNode = editable.childNodes[editable.childNodes.length - 1];
+                                        range.setStart(lastNode, lastNode.textContent ? lastNode.textContent.length : 0);
+                                      } else {
+                                        range.setStart(editable, 0);
+                                      }
+
+                                      range.collapse(true);
+                                      sel.removeAllRanges();
+                                      sel.addRange(range);
+                                    }
+                                  }
+                                } catch (e) {
+                                  console.log('커서 설정 오류:', e);
+                                }
                               }, 500);
                             ''',
                                 );
                           },
                           onFocus: () {
                             print('HTML 에디터 포커스됨');
+                            // 포커스 시 자동 선택 방지
+                            _htmlController.editorController?.evaluateJavascript(
+                              source: '''
+                                setTimeout(function() {
+                                  try {
+                                    var selection = window.getSelection();
+                                    if (selection && selection.toString().length > 0) {
+                                      // 선택된 텍스트가 있으면 커서를 선택 끝으로 이동
+                                      var range = selection.getRangeAt(0);
+                                      range.collapse(false); // 선택 끝으로 커서 이동
+                                      selection.removeAllRanges();
+                                      selection.addRange(range);
+                                    }
+                                  } catch (e) {
+                                    console.log('포커스 선택 해제 오류:', e);
+                                  }
+                                }, 50);
+                              ''',
+                            );
                           },
                           onBlur: () {
                             print('HTML 에디터 포커스 해제됨');
