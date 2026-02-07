@@ -11,8 +11,10 @@ import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/text_file.dart';
+import '../models/audio_file.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
+import '../services/audio_service.dart';
 
 class TextTab extends StatefulWidget {
   const TextTab({super.key});
@@ -36,6 +38,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   late stt.SpeechToText _speechToText;
   bool _isListening = false;
   String _lastPartialText = ''; // 마지막 중간 결과 (교체용)
+
+  // 오디오 녹음 관련 (STT와 동시 실행)
+  final AudioService _audioService = AudioService();
+  bool _isRecordingWithSTT = false; // STT 중 녹음 진행 여부
 
   @override
   void initState() {
@@ -605,6 +611,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     await _speechToText.listen(
       onResult: (result) {
+        // ✅ 중복 입력 방지: STT 종료 후 들어오는 결과 무시
+        if (!_isListening) {
+          debugPrint('⚠️ STT 종료 후 onResult 호출됨 - 무시');
+          return;
+        }
+
         debugPrint(
           '📝 인식 결과 (isFinal: ${result.finalResult}): ${result.recognizedWords}',
         );
@@ -652,6 +664,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         onDevice: true, // 온디바이스 우선 (반응 속도 향상)
       ),
     );
+
+    // 🎙️ STT 시작 직후 녹음도 즉시 시작 (앞부분 누락 방지)
+    if (mounted) {
+      _startRecordingWithSTT();
+    }
   }
 
   /// 중간 결과를 임시 span에 업데이트
@@ -662,7 +679,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         .replaceAll('\n', '\\n')
         .replaceAll('\r', '\\r');
 
-    final jsCode = '''
+    final jsCode =
+        '''
       (function() {
         try {
           var summernote = \$('#summernote-2');
@@ -703,11 +721,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       })();
     ''';
 
-    _htmlController.editorController?.evaluateJavascript(source: jsCode).then((result) {
-      debugPrint('✅ 중간 결과 span 업데이트: $result');
-    }).catchError((e) {
-      debugPrint('❌ 중간 결과 span 업데이트 실패: $e');
-    });
+    _htmlController.editorController
+        ?.evaluateJavascript(source: jsCode)
+        .then((result) {
+          debugPrint('✅ 중간 결과 span 업데이트: $result');
+        })
+        .catchError((e) {
+          debugPrint('❌ 중간 결과 span 업데이트 실패: $e');
+        });
   }
 
   /// 임시 span 제거
@@ -727,11 +748,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       })();
     ''';
 
-    _htmlController.editorController?.evaluateJavascript(source: jsCode).then((result) {
-      debugPrint('🗑️ 임시 span 제거: $result');
-    }).catchError((e) {
-      debugPrint('❌ 임시 span 제거 실패: $e');
-    });
+    _htmlController.editorController
+        ?.evaluateJavascript(source: jsCode)
+        .then((result) {
+          debugPrint('🗑️ 임시 span 제거: $result');
+        })
+        .catchError((e) {
+          debugPrint('❌ 임시 span 제거 실패: $e');
+        });
   }
 
   /// 최종 텍스트 삽입
@@ -742,7 +766,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         .replaceAll('\n', '\\n')
         .replaceAll('\r', '\\r');
 
-    final jsCode = '''
+    final jsCode =
+        '''
       (function() {
         try {
           var summernote = \$('#summernote-2');
@@ -758,25 +783,178 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       })();
     ''';
 
-    _htmlController.editorController?.evaluateJavascript(source: jsCode).then((result) {
-      debugPrint('✅ 최종 텍스트 삽입: $result');
-    }).catchError((e) {
-      debugPrint('❌ 최종 텍스트 삽입 실패: $e');
-    });
+    _htmlController.editorController
+        ?.evaluateJavascript(source: jsCode)
+        .then((result) {
+          debugPrint('✅ 최종 텍스트 삽입: $result');
+        })
+        .catchError((e) {
+          debugPrint('❌ 최종 텍스트 삽입 실패: $e');
+        });
   }
 
   /// 음성 인식 중지
   Future<void> _stopListening() async {
     debugPrint('🛑 음성 인식 중지');
 
-    // 임시 span 제거
-    _removePartialSpan();
-
-    await _speechToText.stop();
+    // ✅ 중요: STT 중지 전에 상태 변경하여 추가 onResult 무시
     setState(() {
       _isListening = false;
+    });
+
+    await _speechToText.stop();
+
+    // ⚠️ STT 중지 후 약간 대기 - 마지막 onResult 처리 시간 확보
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    // ✅ 텍스트 소실 방지: 임시 텍스트가 있다면 먼저 확정 입력
+    if (_lastPartialText.isNotEmpty) {
+      debugPrint('📝 임시 텍스트 확정 입력: $_lastPartialText');
+
+      // 임시 span을 최종 텍스트로 교체
+      await _replaceFinalText(_lastPartialText);
+
+      debugPrint('✅ 텍스트 확정 입력 완료');
+    } else {
+      // 임시 텍스트가 없으면 span만 제거
+      _removePartialSpan();
+    }
+
+    // 상태 초기화
+    setState(() {
       _lastPartialText = '';
     });
+
+    // 🎙️ STT와 함께 녹음이 진행 중이었다면 녹음도 중지하고 파일 저장
+    if (_isRecordingWithSTT) {
+      await _stopRecordingWithSTT();
+    }
+
+    // 💾 STT 중지 시 텍스트 자동 저장 (편집 화면은 유지)
+    debugPrint('💾 STT 종료 후 텍스트 자동 저장 시작...');
+    await _saveCurrentTextFile();
+    debugPrint('✅ STT 종료 후 텍스트 자동 저장 완료');
+  }
+
+  /// 임시 span을 최종 텍스트로 교체 (STT 종료 시 사용)
+  Future<void> _replaceFinalText(String text) async {
+    final escapedText = text
+        .replaceAll('\\', '\\\\')
+        .replaceAll("'", "\\'")
+        .replaceAll('\n', '\\n')
+        .replaceAll('\r', '\\r');
+
+    final jsCode = '''
+      (function() {
+        try {
+          var span = document.getElementById('stt-partial-text');
+          if (span) {
+            // 임시 span을 실제 텍스트 노드로 교체
+            var textNode = document.createTextNode('$escapedText ');
+            span.parentNode.replaceChild(textNode, span);
+            return 'replaced';
+          }
+
+          // span이 없으면 그냥 텍스트 삽입
+          var summernote = \$('#summernote-2');
+          if (!summernote.length) return 'editor_not_found';
+          summernote.summernote('focus');
+          summernote.summernote('insertText', '$escapedText ');
+          return 'inserted';
+        } catch(e) {
+          return 'error: ' + e.message;
+        }
+      })();
+    ''';
+
+    final result = await _htmlController.editorController?.evaluateJavascript(source: jsCode);
+    debugPrint('✅ 텍스트 교체/삽입: $result');
+  }
+
+  /// STT와 함께 녹음 시작 (예외 발생 시에도 STT는 계속 진행)
+  Future<void> _startRecordingWithSTT() async {
+    try {
+      debugPrint('🎙️ STT 녹음 시작 시도...');
+
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten == null) {
+        debugPrint('⚠️ 리튼이 선택되지 않음 - 녹음 건너뜀');
+        return;
+      }
+
+      // 녹음 시작 (실패해도 STT는 계속 진행되도록 try-catch로 감쌈)
+      final started = await _audioService.startRecording(selectedLitten);
+
+      if (started) {
+        setState(() {
+          _isRecordingWithSTT = true;
+        });
+        debugPrint('✅ STT 녹음 시작 성공');
+      } else {
+        debugPrint('⚠️ STT 녹음 시작 실패 - STT 텍스트 입력은 계속 진행');
+      }
+    } catch (e) {
+      // 녹음 실패해도 STT는 계속 작동
+      debugPrint('❌ STT 녹음 시작 오류: $e');
+      debugPrint('💡 STT 텍스트 입력은 정상 작동 중');
+    }
+  }
+
+  /// STT와 함께 시작한 녹음 중지 및 파일 저장
+  Future<void> _stopRecordingWithSTT() async {
+    try {
+      debugPrint('🛑 STT 녹음 중지 시도...');
+
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final selectedLitten = appState.selectedLitten;
+
+      if (selectedLitten == null) {
+        debugPrint('⚠️ 리튼이 선택되지 않음');
+        setState(() {
+          _isRecordingWithSTT = false;
+        });
+        return;
+      }
+
+      // 녹음 중지 및 파일 생성
+      final audioFile = await _audioService.stopRecording(selectedLitten);
+
+      setState(() {
+        _isRecordingWithSTT = false;
+      });
+
+      if (audioFile != null) {
+        debugPrint('✅ STT 녹음 파일 생성됨: ${audioFile.fileName}');
+
+        // 리튼에 오디오 파일 추가
+        await LittenService().addAudioFileToLitten(
+          selectedLitten.id,
+          audioFile.id,
+        );
+
+        debugPrint('✅ STT 녹음 파일이 리튼에 저장됨');
+
+        // 사용자에게 알림 (refreshLittens 호출 없이)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('녹음 파일이 저장되었습니다'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        debugPrint('⚠️ STT 녹음 파일 생성 실패');
+      }
+    } catch (e) {
+      debugPrint('❌ STT 녹음 중지 오류: $e');
+      setState(() {
+        _isRecordingWithSTT = false;
+      });
+    }
   }
 
   Future<void> _saveCurrentTextFile() async {
@@ -1119,7 +1297,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             // 18. 인용
             _buildToolbarButton(
               icon: Icons.format_quote,
-              onPressed: () => _execCommand('formatBlock', argument: 'blockquote'),
+              onPressed: () =>
+                  _execCommand('formatBlock', argument: 'blockquote'),
               tooltip: '인용',
             ),
             // 19. 코드
@@ -1199,11 +1378,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(4),
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: Icon(
-            icon,
-            size: 20,
-            color: Colors.grey.shade800,
-          ),
+          child: Icon(icon, size: 20, color: Colors.grey.shade800),
         ),
       ),
     );
@@ -1211,7 +1386,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// HTML 에디터 명령 실행
   void _execCommand(String command, {String? argument}) {
-    debugPrint('🔧 에디터 명령 실행: $command${argument != null ? " (인자: $argument)" : ""}');
+    debugPrint(
+      '🔧 에디터 명령 실행: $command${argument != null ? " (인자: $argument)" : ""}',
+    );
     if (argument != null) {
       _htmlController.execCommand(command, argument: argument);
     } else {
@@ -1295,7 +1472,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           children: colors.map((color) {
             return InkWell(
               onTap: () {
-                final colorHex = '#${color.value.toRadixString(16).substring(2)}';
+                final colorHex =
+                    '#${color.value.toRadixString(16).substring(2)}';
                 if (isBackground) {
                   _htmlController.execCommand('backColor', argument: colorHex);
                 } else {
@@ -1390,30 +1568,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                           child: SizedBox(
                             height: constraints.maxHeight,
                             child: HtmlEditor(
-                        controller: _htmlController,
-                        htmlEditorOptions: const HtmlEditorOptions(
-                          hint: '여기에 텍스트를 입력하세요...',
-                          shouldEnsureVisible: true,
-                          adjustHeightForKeyboard: true,
-                          darkMode: false,
-                          autoAdjustHeight: false,
-                          spellCheck: false,
-                        ),
-                        htmlToolbarOptions: const HtmlToolbarOptions(
-                          toolbarPosition: ToolbarPosition.aboveEditor,
-                          toolbarType: ToolbarType.nativeScrollable,
-                          renderBorder: false,
-                          toolbarItemHeight: 0, // 높이를 0으로 설정하여 숨김
-                          defaultToolbarButtons: [], // 기본 버튼 없음
-                        ),
-                        otherOptions: const OtherOptions(height: 350),
-                        callbacks: Callbacks(
-                          onInit: () {
-                            print('HTML 에디터 초기화 완료');
-                            // CSS 주입 및 커서 설정
-                            _htmlController.editorController
-                                ?.evaluateJavascript(
-                                  source: '''
+                              controller: _htmlController,
+                              htmlEditorOptions: const HtmlEditorOptions(
+                                hint: '여기에 텍스트를 입력하세요...',
+                                shouldEnsureVisible: true,
+                                adjustHeightForKeyboard: true,
+                                darkMode: false,
+                                autoAdjustHeight: false,
+                                spellCheck: false,
+                              ),
+                              htmlToolbarOptions: const HtmlToolbarOptions(
+                                toolbarPosition: ToolbarPosition.aboveEditor,
+                                toolbarType: ToolbarType.nativeScrollable,
+                                renderBorder: false,
+                                toolbarItemHeight: 0, // 높이를 0으로 설정하여 숨김
+                                defaultToolbarButtons: [], // 기본 버튼 없음
+                              ),
+                              otherOptions: const OtherOptions(height: 350),
+                              callbacks: Callbacks(
+                                onInit: () {
+                                  print('HTML 에디터 초기화 완료');
+                                  // CSS 주입 및 커서 설정
+                                  _htmlController.editorController
+                                      ?.evaluateJavascript(
+                                        source: '''
                               setTimeout(function() {
                                 // CSS 주입
                                 var style = document.createElement('style');
@@ -1456,13 +1634,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                 }
                               }, 500);
                             ''',
-                                );
-                          },
-                          onFocus: () {
-                            print('HTML 에디터 포커스됨');
-                            // 포커스 시 자동 선택 방지
-                            _htmlController.editorController?.evaluateJavascript(
-                              source: '''
+                                      );
+                                },
+                                onFocus: () {
+                                  print('HTML 에디터 포커스됨');
+                                  // 포커스 시 자동 선택 방지
+                                  _htmlController.editorController
+                                      ?.evaluateJavascript(
+                                        source: '''
                                 setTimeout(function() {
                                   try {
                                     var selection = window.getSelection();
@@ -1478,25 +1657,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                   }
                                 }, 50);
                               ''',
-                            );
-                          },
-                          onBlur: () {
-                            print('HTML 에디터 포커스 해제됨');
-                          },
-                        ),
-                      ), // HtmlEditor 닫기
-                    ), // SizedBox 닫기
-                  ); // SingleChildScrollView 닫기
-                }, // LayoutBuilder builder 닫기
-              ), // LayoutBuilder 닫기
-            ), // Expanded 닫기 (에디터)
-          ], // Column children 닫기 (inner)
-        ), // Column 닫기 (inner)
-      ), // ClipRRect 닫기
-    ), // Container 닫기
-  ), // Expanded 닫기 (outer)
-], // Column children 닫기 (outer)
-); // Column 닫기 (outer)
-} // _buildTextEditor 닫기
-
+                                      );
+                                },
+                                onBlur: () {
+                                  print('HTML 에디터 포커스 해제됨');
+                                },
+                              ),
+                            ), // HtmlEditor 닫기
+                          ), // SizedBox 닫기
+                        ); // SingleChildScrollView 닫기
+                      }, // LayoutBuilder builder 닫기
+                    ), // LayoutBuilder 닫기
+                  ), // Expanded 닫기 (에디터)
+                ], // Column children 닫기 (inner)
+              ), // Column 닫기 (inner)
+            ), // ClipRRect 닫기
+          ), // Container 닫기
+        ), // Expanded 닫기 (outer)
+      ], // Column children 닫기 (outer)
+    ); // Column 닫기 (outer)
+  } // _buildTextEditor 닫기
 }
