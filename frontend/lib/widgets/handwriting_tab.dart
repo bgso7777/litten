@@ -295,8 +295,8 @@ class _HandwritingTabState extends State<HandwritingTab>
         _handwritingFiles
           ..clear()
           ..addAll(loadedHandwritingFiles);
-        // 최신순으로 정렬 (createdAt 기준 내림차순)
-        _handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // 최신순으로 정렬 (updatedAt 기준 내림차순 - 최근 수정/저장된 파일이 위로)
+        _handwritingFiles.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
         // mounted 상태일 때만 setState 호출
         if (mounted) {
@@ -2677,7 +2677,10 @@ class _HandwritingTabState extends State<HandwritingTab>
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      // 파일 목록 새로고침하여 최근 저장된 파일이 위로 오도록
+                      await _loadFiles();
+
                       setState(() {
                         _isEditing = false;
                         _currentHandwritingFile = null;
@@ -3752,7 +3755,7 @@ class _HandwritingTabState extends State<HandwritingTab>
           print('DEBUG: 필기 내용 없어서 저장 건너뜀');
         }
 
-        // 파일 목록에서 현재 파일의 페이지 정보 업데이트 (비율 정보 포함)
+        // 파일 목록에서 현재 파일의 페이지 정보 업데이트 (비율 정보 포함, updatedAt은 copyWith에서 자동 갱신)
         final currentAspectRatio = _getCanvasAspectRatio();
         final updatedFile = _currentHandwritingFile!.copyWith(
           aspectRatio: currentAspectRatio,
