@@ -33,6 +33,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   double _playbackSpeed = 1.0;
   Timer? _stateSaveTimer;
   String? _currentRecordingLittenId;
+  DateTime? _recordingStartTime; // 녹음 시작 시간
 
   // Getters
   bool get isRecording => _isRecording;
@@ -100,8 +101,9 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       _currentRecordingPath = filePath;
       _currentRecordingLittenId = litten.id;
       _recordingDuration = Duration.zero;
+      _recordingStartTime = DateTime.now(); // 녹음 시작 시간 기록
 
-      debugPrint('[AudioService] 녹음 시작됨');
+      debugPrint('[AudioService] 녹음 시작됨 - 시작 시간: $_recordingStartTime');
 
       // 포그라운드 알림 표시 (백그라운드 녹음 유지)
       await _showRecordingNotification();
@@ -149,6 +151,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
 
       _isRecording = false;
       _recordingDuration = Duration.zero;
+      _recordingStartTime = null;
       _currentRecordingPath = null;
       _currentRecordingLittenId = null;
 
@@ -166,6 +169,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('[AudioService] 녹음 취소 오류: $e');
       _isRecording = false;
       _recordingDuration = Duration.zero;
+      _recordingStartTime = null;
       _currentRecordingPath = null;
       _currentRecordingLittenId = null;
       _stopPeriodicStateSave();
@@ -194,6 +198,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
           debugPrint('[AudioService] ⚠️ 녹음 파일이 생성되지 않음');
           _isRecording = false;
           _recordingDuration = Duration.zero;
+          _recordingStartTime = null;
           _currentRecordingPath = null;
           await clearRecordingState();
           notifyListeners();
@@ -214,11 +219,17 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
           }
           _isRecording = false;
           _recordingDuration = Duration.zero;
+          _recordingStartTime = null;
           _currentRecordingPath = null;
           await clearRecordingState();
           notifyListeners();
           return null;
         }
+
+        // 실제 녹음 시간 계산 (시작 시간 기준)
+        final actualDuration = _recordingStartTime != null
+            ? DateTime.now().difference(_recordingStartTime!)
+            : _recordingDuration;
 
         // AudioFile 모델 생성
         final audioFile = AudioFile(
@@ -226,17 +237,18 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
           littenId: litten.id,
           fileName: path.split('/').last.replaceAll('.m4a', ''),
           filePath: path,
-          duration: _recordingDuration,
+          duration: actualDuration,
           createdAt: DateTime.now(),
         );
 
         debugPrint('[AudioService] 오디오 파일 저장됨: ${audioFile.fileName}');
         debugPrint('[AudioService] 파일 경로: ${audioFile.filePath}');
-        debugPrint('[AudioService] 녹음 시간: ${audioFile.duration}');
+        debugPrint('[AudioService] 녹음 시간: ${audioFile.duration} (실제 측정값)');
         debugPrint('[AudioService] 파일 크기: ${fileSize / 1024}KB');
 
         _isRecording = false;
         _recordingDuration = Duration.zero;
+        _recordingStartTime = null;
         _currentRecordingPath = null;
         _currentRecordingLittenId = null;
 
@@ -260,6 +272,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('[AudioService] 녹음 중지 오류: $e');
       _isRecording = false;
       _recordingDuration = Duration.zero;
+      _recordingStartTime = null;
       _currentRecordingPath = null;
       _currentRecordingLittenId = null;
       _stopPeriodicStateSave();

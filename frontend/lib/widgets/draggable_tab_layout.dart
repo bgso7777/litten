@@ -222,7 +222,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       children: [
         // 탭 헤더
         Container(
-          height: 48,
+          height: 50,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             boxShadow: [
@@ -512,7 +512,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             children: [
               // 탭 헤더 (항상 표시)
               Container(
-                height: 36,
+                height: 50,
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   border: Border(

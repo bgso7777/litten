@@ -942,9 +942,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
         debugPrint('✅ STT 녹음 파일이 리튼에 저장됨');
 
-        // 파일 목록 새로고침 (녹음 탭에서 즉시 보이도록)
-        await appState.refreshLittens();
-        debugPrint('✅ 파일 목록 새로고침 완료');
+        // ⚠️ refreshLittens() 호출하지 않음 - notifyListeners()가 화면 rebuild를 일으켜 편집 모드가 종료됨
+        // 녹음 파일은 녹음 탭에서 확인 가능
 
         // 사용자에게 알림
         if (mounted) {
@@ -1069,25 +1068,42 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ).primaryColor.withValues(alpha: 0.1),
           child: Icon(Icons.keyboard, color: Theme.of(context).primaryColor),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Text(
+          file.title.isNotEmpty
+              ? file.title
+              : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(
           children: [
-            Text(
-              file.title.isNotEmpty
-                  ? file.title
-                  : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+            // 글자 수 표시
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 2,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${file.characterCount}자',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-            AppSpacing.verticalSpaceXS,
-            Text(
-              '${file.characterCount}자 • ${file.updatedAt.toString().substring(0, 16)}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            const SizedBox(width: 8),
+            // 수정 날짜
+            Expanded(
+              child: Text(
+                file.updatedAt.toString().substring(0, 16),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
             ),
           ],
         ),
@@ -1527,7 +1543,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           child: Row(
             children: [
               IconButton(
-                onPressed: () {
+                onPressed: () async {
+                  // 파일 목록 새로고침하여 최근 저장된 파일이 위로 오도록
+                  await _loadFiles();
+
                   setState(() {
                     _isEditing = false;
                     _currentTextFile = null;
@@ -1608,6 +1627,28 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                 style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; }';
                                 document.head.appendChild(style);
 
+                                // 커서 위치로 스크롤하는 함수
+                                function scrollToCursor() {
+                                  try {
+                                    var selection = window.getSelection();
+                                    if (selection && selection.rangeCount > 0) {
+                                      var range = selection.getRangeAt(0);
+                                      var rect = range.getBoundingClientRect();
+
+                                      // 커서가 화면 밖에 있으면 스크롤
+                                      var viewportHeight = window.innerHeight;
+                                      var scrollThreshold = 100; // 상하 100px 여유 공간
+
+                                      if (rect.top < scrollThreshold || rect.bottom > viewportHeight - scrollThreshold) {
+                                        var scrollTop = window.pageYOffset + rect.top - (viewportHeight / 2);
+                                        window.scrollTo({top: scrollTop, behavior: 'smooth'});
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.log('스크롤 오류:', e);
+                                  }
+                                }
+
                                 // 선택 해제 및 커서를 맨 끝으로 이동
                                 try {
                                   var summernote = \$('#summernote-2');
@@ -1638,6 +1679,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                       sel.removeAllRanges();
                                       sel.addRange(range);
                                     }
+
+                                    // ⭐ 키보드 입력 및 클릭 시 커서로 스크롤
+                                    summernote.on('summernote.keyup summernote.mouseup summernote.change', function() {
+                                      setTimeout(scrollToCursor, 50);
+                                    });
                                   }
                                 } catch (e) {
                                   console.log('커서 설정 오류:', e);
@@ -1648,7 +1694,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                 },
                                 onFocus: () {
                                   print('HTML 에디터 포커스됨');
-                                  // 포커스 시 자동 선택 방지
+                                  // 포커스 시 자동 선택 방지 및 커서 위치로 스크롤
                                   _htmlController.editorController
                                       ?.evaluateJavascript(
                                         source: '''
@@ -1662,10 +1708,22 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                       selection.removeAllRanges();
                                       selection.addRange(range);
                                     }
+
+                                    // 커서 위치로 스크롤
+                                    if (selection && selection.rangeCount > 0) {
+                                      var range = selection.getRangeAt(0);
+                                      var rect = range.getBoundingClientRect();
+
+                                      // 커서가 화면 밖에 있으면 스크롤
+                                      if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                                        var scrollTop = window.pageYOffset + rect.top - (window.innerHeight / 2);
+                                        window.scrollTo({top: scrollTop, behavior: 'smooth'});
+                                      }
+                                    }
                                   } catch (e) {
-                                    console.log('포커스 선택 해제 오류:', e);
+                                    console.log('포커스 처리 오류:', e);
                                   }
-                                }, 50);
+                                }, 100);
                               ''',
                                       );
                                 },

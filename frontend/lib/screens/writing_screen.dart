@@ -19,6 +19,7 @@ class WritingScreen extends StatefulWidget {
 class _WritingScreenState extends State<WritingScreen> {
   late List<TabItem> _tabs;
   final GlobalKey _tabLayoutKey = GlobalKey();
+  int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
 
   @override
   void initState() {
@@ -65,7 +66,7 @@ class _WritingScreenState extends State<WritingScreen> {
         id: 'audio',
         title: '녹음',
         icon: Icons.mic,
-        content: RecordingTab(),
+        content: RecordingTab(key: ValueKey(_recordingTabRefreshCount)),
         position: parsePosition(savedPositions['audio'] ?? 'topLeft'),
       ),
       TabItem(
@@ -125,6 +126,14 @@ class _WritingScreenState extends State<WritingScreen> {
             // ⭐ 탭이 변경될 때마다 AppStateProvider에 저장
             debugPrint('[WritingScreen] 탭 변경됨: $tabId');
             appState.setCurrentWritingTab(tabId);
+
+            // ⭐ 녹음 탭이 선택되었을 때 위젯 재생성하여 파일 목록 새로고침
+            if (tabId == 'audio') {
+              setState(() {
+                _recordingTabRefreshCount++;
+                debugPrint('[WritingScreen] 녹음 탭 새로고침 트리거: $_recordingTabRefreshCount');
+              });
+            }
           },
         );
         // 리튼이 선택되지 않았을 때

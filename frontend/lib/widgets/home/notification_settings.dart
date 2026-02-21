@@ -111,9 +111,14 @@ class _NotificationSettingsState extends State<NotificationSettings> {
       debugPrint('📅 일정 시작일자 요일: $defaultWeekday');
     }
 
+    // 기존 설정이 있으면 사용하고, 없으면 일정 시작일자 요일을 기본값으로 사용
     final selectedWeekdays = Set<int>.from(
-      currentRule.weekdays ?? (currentRule.isEnabled ? currentRule.weekdays ?? [] : [defaultWeekday])
+      (currentRule.weekdays != null && currentRule.weekdays!.isNotEmpty)
+        ? currentRule.weekdays!
+        : [defaultWeekday]
     );
+
+    debugPrint('📅 매주 알림 요일 선택 다이얼로그 - 기본 선택 요일: $selectedWeekdays');
 
     await showDialog(
       context: context,

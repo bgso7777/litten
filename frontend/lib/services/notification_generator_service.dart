@@ -173,7 +173,12 @@ class NotificationGeneratorService {
       case NotificationFrequency.weekly:
         // 매주 알림
         DateTime candidate = baseTime;
-        final allowedWeekdays = rule.weekdays ?? [1, 2, 3, 4, 5, 6, 7]; // null이면 모든 요일
+        // ⚠️ weekdays가 null이거나 빈 배열이면 알림 생성하지 않음 (잘못된 설정)
+        if (rule.weekdays == null || rule.weekdays!.isEmpty) {
+          debugPrint('      ⚠️ 주별 알림: weekdays가 설정되지 않음 - 알림 생성 불가');
+          return null;
+        }
+        final allowedWeekdays = rule.weekdays!;
 
         // 현재 시간 이후이면서 허용된 요일을 찾을 때까지 반복
         int attempts = 0;
@@ -229,7 +234,12 @@ class NotificationGeneratorService {
 
       case NotificationFrequency.weekly:
         // 주별 알림: 다음 허용된 요일까지
-        final allowedWeekdays = weekdays ?? [1, 2, 3, 4, 5, 6, 7];
+        // ⚠️ weekdays가 null이거나 빈 배열이면 null 반환 (잘못된 설정)
+        if (weekdays == null || weekdays.isEmpty) {
+          debugPrint('      ⚠️ 주별 알림: weekdays가 설정되지 않음');
+          return null;
+        }
+        final allowedWeekdays = weekdays;
         DateTime candidate = current.add(const Duration(days: 1));
 
         int attempts = 0;

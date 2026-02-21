@@ -5,7 +5,6 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
-import '../widgets/common/themed_note_icon.dart';
 import 'home_screen.dart';
 import 'writing_screen.dart';
 // import '../widgets/handwriting_tab.dart';
@@ -130,6 +129,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
               // 홈탭(index 0) 터치 시 처리
               if (index == 0) {
+                // ⭐ 홈 탭 터치 시 캘린더를 이번 달로 이동
+                final now = DateTime.now();
+                appState.changeFocusedDate(DateTime(now.year, now.month, 1));
+                debugPrint('📅 캘린더를 이번 달로 이동: ${now.year}년 ${now.month}월');
+
                 final notifications = appState.notificationService.firedNotifications;
                 debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
 
@@ -192,15 +196,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: Builder(
-                  builder: (context) {
-                    final isSelected = appState.selectedTabIndex == 1;
-                    final iconColor = isSelected
-                        ? Theme.of(context).primaryColor
-                        : (Theme.of(context).bottomNavigationBarTheme.unselectedItemColor ?? Colors.grey);
-                    return ThemedNoteIcon(size: 24, color: iconColor);
-                  },
-                ),
+                icon: const Icon(Icons.edit_note),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(

@@ -19,6 +19,7 @@ class RecordingTab extends StatefulWidget {
 class _RecordingTabState extends State<RecordingTab> {
   final AudioService _audioService = AudioService();
   List<AudioFile> _audioFiles = [];
+  String? _lastActiveTabId; // 마지막으로 알고 있던 활성 탭 ID
 
   @override
   void initState() {
@@ -26,17 +27,28 @@ class _RecordingTabState extends State<RecordingTab> {
     _loadAudioFiles();
   }
 
+  // ⭐ 외부에서 호출 가능한 public 새로고침 메서드
+  void refresh() {
+    debugPrint('[RecordingTab] refresh() 외부 호출됨');
+    _loadAudioFiles();
+  }
+
   Future<void> _loadAudioFiles() async {
+    debugPrint('[RecordingTab] _loadAudioFiles() 호출');
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     if (appState.selectedLitten != null) {
       final files = await _audioService.getAudioFiles(appState.selectedLitten!);
+      debugPrint('[RecordingTab] 로드된 오디오 파일 수: ${files.length}');
       if (mounted) {
         setState(() {
           _audioFiles = files;
           // 최신순으로 정렬 (createdAt 기준 내림차순)
           _audioFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
+        debugPrint('[RecordingTab] UI 업데이트 완료 - 표시 파일 수: ${_audioFiles.length}');
       }
+    } else {
+      debugPrint('[RecordingTab] 선택된 리튼 없음');
     }
   }
 
@@ -233,6 +245,7 @@ class _RecordingTabState extends State<RecordingTab> {
 
     return Container(
       width: double.infinity,
+      height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -293,6 +306,17 @@ class _RecordingTabState extends State<RecordingTab> {
 
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
+        // 녹음 탭이 활성화되었을 때 파일 목록 새로고침
+        if (appState.currentWritingTabId == 'audio' && _lastActiveTabId != 'audio') {
+          _lastActiveTabId = 'audio';
+          debugPrint('[RecordingTab] 녹음 탭 활성화됨 - 파일 목록 새로고침');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadAudioFiles();
+          });
+        } else if (appState.currentWritingTabId != 'audio') {
+          _lastActiveTabId = appState.currentWritingTabId;
+        }
+
         if (appState.selectedLitten == null) {
           return EmptyState(
             icon: Icons.mic_none,
