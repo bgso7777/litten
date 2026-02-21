@@ -2669,6 +2669,7 @@ class _HandwritingTabState extends State<HandwritingTab>
           children: [
             // 상단 헤더 (텍스트 탭과 일치)
             Container(
+              height: 50,
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
