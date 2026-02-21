@@ -137,13 +137,32 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    debugPrint('🗑️ TextTab dispose 진입');
+
     // 메모리 누수 방지를 위한 리소스 정리
     WidgetsBinding.instance.removeObserver(this);
+
+    // STT 진행 중이면 중지
+    if (_isListening) {
+      debugPrint('⚠️ dispose: STT 진행 중 - 강제 중지');
+      _speechToText.stop();
+      _isListening = false;
+    }
+
+    // 녹음 진행 중이면 중지
+    if (_isRecordingWithSTT) {
+      debugPrint('⚠️ dispose: 녹음 진행 중 - 강제 중지');
+      _audioService.cancelRecording();
+      _isRecordingWithSTT = false;
+    }
+
     try {
       _htmlController.disable();
     } catch (e) {
       debugPrint('HtmlEditorController dispose 에러 (무시됨): $e');
     }
+
+    debugPrint('✅ TextTab dispose 완료');
     super.dispose();
   }
 
@@ -626,9 +645,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
         if (result.recognizedWords.isEmpty) return;
 
-        // 텍스트 파일이 선택되지 않았으면 경고
+        // 텍스트 파일이 선택되지 않았으면 자동 생성
         if (_currentTextFile == null) {
-          debugPrint('⚠️ 텍스트 파일이 선택되지 않음');
+          debugPrint('⚠️ 텍스트 파일이 선택되지 않음 - 자동 생성');
+          _createNewTextFile();
+          // 파일 생성 직후에는 결과 무시 (다음 결과부터 반영)
           return;
         }
 

@@ -11,7 +11,6 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../widgets/common/empty_state.dart';
-import '../widgets/home/litten_item.dart';
 import '../widgets/home/schedule_picker.dart';
 import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
@@ -35,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
   bool _userInteractedWithSchedule = false; // 사용자가 일정과 상호작용했는지 추적
   Map<String, Set<String>> _notificationDateCache = {}; // 날짜별 알림이 있는 리튼 ID Set (YYYY-MM-DD -> Set<littenId>)
+  Set<String> _collapsedLittenIds = {}; // 숨겨진 리튼 ID Set
 
   @override
   void dispose() {
@@ -51,7 +51,44 @@ class _HomeScreenState extends State<HomeScreen> {
       _scrollToTop();
       _callInstallApiIfNeeded();
       _loadNotificationDates();
+      _loadCollapsedLittenIds();
     });
+  }
+
+  /// 숨겨진 리튼 ID 목록 로드
+  Future<void> _loadCollapsedLittenIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final collapsedIds = prefs.getStringList('collapsed_litten_ids') ?? [];
+      setState(() {
+        _collapsedLittenIds = collapsedIds.toSet();
+      });
+      debugPrint('📂 숨겨진 리튼 ID 로드: ${_collapsedLittenIds.length}개');
+    } catch (e) {
+      debugPrint('❌ 숨겨진 리튼 ID 로드 실패: $e');
+    }
+  }
+
+  /// 리튼 숨김/보이기 토글
+  Future<void> _toggleLittenCollapse(String littenId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      setState(() {
+        if (_collapsedLittenIds.contains(littenId)) {
+          _collapsedLittenIds.remove(littenId);
+        } else {
+          _collapsedLittenIds.add(littenId);
+        }
+      });
+
+      // SharedPreferences에 저장
+      await prefs.setStringList('collapsed_litten_ids', _collapsedLittenIds.toList());
+
+      debugPrint('📂 리튼 숨김 토글: $littenId (숨김: ${_collapsedLittenIds.contains(littenId)})');
+    } catch (e) {
+      debugPrint('❌ 리튼 숨김 토글 실패: $e');
+    }
   }
 
   /// 알림 날짜 캐시 로드
@@ -83,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final storage = NotificationStorageService();
       final allNotifications = await storage.loadNotifications();
 
-      // 선택된 날짜의 알림만 필터링
+      // 선택된 날짜의 알림만 필터링 (acknowledged된 알림은 제외)
       final targetDate = DateTime(date.year, date.month, date.day);
       final notifications = allNotifications.where((notification) {
         final triggerDate = DateTime(
@@ -91,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
           notification.triggerTime.month,
           notification.triggerTime.day,
         );
-        return triggerDate.isAtSameMomentAs(targetDate);
+        return triggerDate.isAtSameMomentAs(targetDate) && !notification.isAcknowledged;
       }).toList();
 
       // 시간순으로 정렬
@@ -772,7 +809,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: BoxShape.circle,
                   ),
                   markerDecoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: Theme.of(context).primaryColor,
                     shape: BoxShape.circle,
                   ),
                   markersMaxCount: 3,
@@ -988,13 +1025,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool hasSelectedDate = appState.isDateSelected;
 
     // 날짜 선택 여부에 따라 리튼 필터링
-    // ⭐ undefined 리튼은 항상 숨김 (날짜 선택 여부와 무관)
+    // ⭐ undefined 리튼도 표시 (홈에서 기본 리튼으로 사용)
     List<Litten> displayLittens;
     if (hasSelectedDate) {
       // 날짜가 선택된 경우: 해당 날짜에 생성된 리튼 + 알림이 있는 리튼
-      final littensOnDate = appState.littensForSelectedDate
-          .where((litten) => litten.title != 'undefined')
-          .toList();
+      final littensOnDate = appState.littensForSelectedDate.toList();
 
       // 알림이 있는 리튼 ID 추가
       debugPrint('🔍 displayLittens 계산: 선택된 날짜 알림=${selectedDateNotifications.length}개');
@@ -1004,9 +1039,7 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('🔍 알림이 있는 리튼 ID: $notificationLittenIds');
 
       final notificationLittens = appState.littens
-          .where((litten) =>
-              notificationLittenIds.contains(litten.id) &&
-              litten.title != 'undefined')
+          .where((litten) => notificationLittenIds.contains(litten.id))
           .toList();
       debugPrint('🔍 알림이 있는 리튼: ${notificationLittens.map((l) => l.title).toList()}');
 
@@ -1021,9 +1054,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       debugPrint('🔍 최종 displayLittens: ${displayLittens.map((l) => l.title).toList()}');
     } else {
-      displayLittens = appState.littens
-          .where((litten) => litten.title != 'undefined')
-          .toList();
+      displayLittens = appState.littens.toList();
     }
 
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -1036,91 +1067,101 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final allFiles = snapshot.data ?? [];
 
-        // 일정과 파일을 하나의 리스트로 통합
-        final List<Map<String, dynamic>> unifiedItems = [];
+        // ⭐ 새로운 구조: 리튼 그룹별로 파일들을 정리
+        final List<Map<String, dynamic>> littenGroups = [];
 
-        // 각 리튼별 실제 파일 카운트 계산 (allFiles에서)
-        final Map<String, Map<String, int>> littenFileCounts = {};
+        // 1. 각 리튼별로 파일들 수집
         for (final litten in displayLittens) {
           final littenId = litten.id;
-          final littenFiles = allFiles.where((f) => f['littenId'] == littenId).toList();
 
-          littenFileCounts[littenId] = {
-            'text': littenFiles.where((f) => f['type'] == 'text').length,
-            'handwriting': littenFiles.where((f) => f['type'] == 'handwriting').length,
-            'audio': littenFiles.where((f) => f['type'] == 'audio').length,
-          };
-        }
+          // 이 리튼에 속한 파일들 필터링
+          List<Map<String, dynamic>> littenFiles = [];
+          for (final fileData in allFiles) {
+            if (fileData['littenId'] == littenId) {
+              final file = fileData['file'];
+              final createdAt = fileData['createdAt'] as DateTime;
+              DateTime updatedAt;
 
-        // 일정 추가
-        for (final litten in displayLittens) {
-          unifiedItems.add({
-            'type': 'litten',
-            'data': litten,
-            'updatedAt': litten.updatedAt,
-            'createdAt': litten.createdAt,
-            'fileCounts': littenFileCounts[litten.id] ?? {'text': 0, 'handwriting': 0, 'audio': 0},
-          });
-        }
+              if (file is AudioFile) {
+                updatedAt = createdAt; // 녹음 파일은 수정이 없으므로 생성 시간 사용
+              } else if (file is TextFile) {
+                updatedAt = file.updatedAt;
+              } else if (file is HandwritingFile) {
+                updatedAt = file.updatedAt;
+              } else {
+                updatedAt = DateTime.now();
+              }
 
-        // 날짜가 선택되었을 때 표시할 리튼 ID 목록 생성
-        final Set<String> displayLittenIds = displayLittens.map((l) => l.id).toSet();
-
-        // 파일 추가 (날짜 선택 시 필터링)
-        for (final fileData in allFiles) {
-          final file = fileData['file'];
-          final createdAt = fileData['createdAt'] as DateTime;
-          final littenId = fileData['littenId'] as String;
-          DateTime updatedAt;
-
-          // ⭐ undefined 리튼의 파일은 항상 표시 (리튼은 숨기되 파일은 표시)
-
-          if (file is AudioFile) {
-            // 녹음 파일은 수정이 없으므로 생성 시간을 사용
-            updatedAt = createdAt;
-          } else if (file is TextFile) {
-            updatedAt = file.updatedAt;
-          } else if (file is HandwritingFile) {
-            updatedAt = file.updatedAt;
-          } else {
-            updatedAt = DateTime.now();
-          }
-
-          // ⭐ 날짜가 선택되었을 때는 선택된 날짜의 리튼에 속한 모든 파일만 표시
-          if (hasSelectedDate) {
-            if (displayLittenIds.contains(littenId)) {
-              unifiedItems.add({
-                'type': 'file',
-                'data': fileData,
+              littenFiles.add({
+                'fileData': fileData,
                 'updatedAt': updatedAt,
                 'createdAt': createdAt,
               });
             }
-          } else {
-            // 날짜가 선택되지 않았을 때는 전체 파일 표시
-            unifiedItems.add({
-              'type': 'file',
-              'data': fileData,
-              'updatedAt': updatedAt,
-              'createdAt': createdAt,
-            });
           }
+
+          // 파일들을 시간순으로 정렬 (최신순)
+          littenFiles.sort((a, b) {
+            int updatedCompare = (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime);
+            if (updatedCompare != 0) return updatedCompare;
+            return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
+          });
+
+          // 2. 리튼의 정렬 우선순위 및 기준 시간 계산
+          int sortPriority = 3; // 기본: 일반 리튼
+          DateTime sortTime = litten.createdAt;
+
+          // 2-1. 알림이 있는 리튼인지 확인
+          final littenNotifications = selectedDateNotifications
+              .where((item) => (item['litten'] as Litten).id == littenId)
+              .toList();
+
+          if (littenNotifications.isNotEmpty) {
+            // 가장 최근 알림 시간 찾기
+            DateTime? latestNotificationTime;
+            for (final notif in littenNotifications) {
+              final triggerTime = notif['notification'].triggerTime as DateTime;
+              if (latestNotificationTime == null || triggerTime.isAfter(latestNotificationTime)) {
+                latestNotificationTime = triggerTime;
+              }
+            }
+            sortPriority = 1; // 알림 발생 리튼
+            sortTime = latestNotificationTime!;
+            debugPrint('📌 리튼 "${litten.title}": 알림 발생 (우선순위=1, 시간=${sortTime})');
+          }
+          // 2-2. 파일이 수정된 리튼인지 확인
+          else if (littenFiles.isNotEmpty) {
+            final latestFileTime = littenFiles.first['updatedAt'] as DateTime;
+            sortPriority = 2; // 파일 수정 리튼
+            sortTime = latestFileTime;
+            debugPrint('📌 리튼 "${litten.title}": 파일 수정 (우선순위=2, 시간=${sortTime})');
+          } else {
+            debugPrint('📌 리튼 "${litten.title}": 일반 (우선순위=3, 시간=${sortTime})');
+          }
+
+          // 3. 리튼 그룹 생성
+          littenGroups.add({
+            'type': 'litten-group',
+            'litten': litten,
+            'files': littenFiles,
+            'sortPriority': sortPriority,
+            'sortTime': sortTime,
+          });
         }
 
-        // 수정 시간 순으로 정렬 (최신순), 같으면 생성 시간 순으로 정렬 (최신순)
-        unifiedItems.sort((a, b) {
-          // 1. 수정 시간으로 먼저 비교 (최신순)
-          int updatedCompare = (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime);
-          if (updatedCompare != 0) {
-            return updatedCompare;
-          }
-          // 2. 수정 시간이 같으면 생성 시간으로 비교 (최신순)
-          return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
+        // 4. 리튼 그룹들을 우선순위 + 시간 순으로 정렬
+        littenGroups.sort((a, b) {
+          // 우선순위로 먼저 비교 (숫자가 작을수록 우선)
+          int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
+          if (priorityCompare != 0) return priorityCompare;
+
+          // 우선순위가 같으면 시간으로 비교 (최신순)
+          return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
         });
 
-        // unifiedItems가 비어있어도 알림이 있으면 ListView 표시
-        debugPrint('🔍 EmptyState 체크: unifiedItems=${unifiedItems.length}, 알림=${selectedDateNotifications.length}');
-        if (unifiedItems.isEmpty && selectedDateNotifications.isEmpty) {
+        // littenGroups가 비어있어도 알림이 있으면 ListView 표시
+        debugPrint('🔍 EmptyState 체크: littenGroups=${littenGroups.length}, 알림=${selectedDateNotifications.length}');
+        if (littenGroups.isEmpty && selectedDateNotifications.isEmpty) {
           debugPrint('⚠️ EmptyState 표시');
           return const EmptyState(
             icon: Icons.event_note,
@@ -1128,7 +1169,7 @@ class _HomeScreenState extends State<HomeScreen> {
             description: '일정을 생성하거나 파일을 추가해보세요',
           );
         }
-        debugPrint('✅ ListView 표시 준비 (unifiedItems=${unifiedItems.length}, 알림=${selectedDateNotifications.length})');
+        debugPrint('✅ ListView 표시 준비 (littenGroups=${littenGroups.length}, 알림=${selectedDateNotifications.length})');
 
         return Scrollbar(
           child: RefreshIndicator(
@@ -1139,7 +1180,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView.builder(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
-              itemCount: (selectedDateNotifications.isNotEmpty && appState.isDateSelected ? 1 : 0) + unifiedItems.length,
+              itemCount: (selectedDateNotifications.isNotEmpty && appState.isDateSelected ? 1 : 0) + littenGroups.length,
               itemBuilder: (context, index) {
                 // 디버그: 알림 섹션 표시 여부 확인
                 if (index == 0) {
@@ -1156,45 +1197,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 final itemIndex = (selectedDateNotifications.isNotEmpty && appState.isDateSelected) ? index - 1 : index;
 
                 // 인덱스 범위 체크
-                if (itemIndex < 0 || itemIndex >= unifiedItems.length) {
-                  debugPrint('⚠️ 잘못된 인덱스: $itemIndex (unifiedItems 길이: ${unifiedItems.length})');
+                if (itemIndex < 0 || itemIndex >= littenGroups.length) {
+                  debugPrint('⚠️ 잘못된 인덱스: $itemIndex (littenGroups 길이: ${littenGroups.length})');
                   return const SizedBox.shrink();
                 }
 
-                final item = unifiedItems[itemIndex];
-                final itemType = item['type'] as String;
+                final group = littenGroups[itemIndex];
+                final litten = group['litten'] as Litten;
+                final files = group['files'] as List<Map<String, dynamic>>;
 
-                if (itemType == 'litten') {
-                  final litten = item['data'] as Litten;
-                  final fileCounts = item['fileCounts'] as Map<String, int>;
-                  return LittenItem(
-                    litten: litten,
-                    isSelected: appState.selectedLitten?.id == litten.id,
-                    textCount: fileCounts['text'] ?? 0,
-                    handwritingCount: fileCounts['handwriting'] ?? 0,
-                    audioCount: fileCounts['audio'] ?? 0,
-                    onTap: () async {
-                      try {
-                        await appState.selectLitten(litten);
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(e.toString().replaceAll('Exception: ', '')),
-                            backgroundColor: Colors.orange,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    },
-                    onDelete: () => _showDeleteDialog(litten.id, litten.title),
-                    onLongPress: () => _showRenameLittenDialog(litten.id, litten.title),
-                  );
-                } else {
-                  // 파일 아이템
-                  final fileData = item['data'] as Map<String, dynamic>;
-                  return _buildFileItem(context, appState, fileData);
-                }
+                return _buildLittenGroup(context, appState, litten, files);
               },
             ),
           ),
@@ -1310,6 +1322,40 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.blue.shade300,
                       ),
                 onTap: () async {
+                  // 알림을 확인됨으로 표시
+                  try {
+                    final storage = NotificationStorageService();
+                    final allNotifications = await storage.loadNotifications();
+
+                    // 해당 알림을 찾아서 acknowledged로 표시
+                    final updatedNotifications = allNotifications.map((n) {
+                      if (n.id == notification.id) {
+                        return n.markAsAcknowledged();
+                      }
+                      return n;
+                    }).toList();
+
+                    await storage.saveNotifications(updatedNotifications);
+                    debugPrint('✅ 알림 확인 처리됨: ${notification.id}');
+
+                    // NotificationService의 firedNotifications에서도 제거
+                    final firedNotification = appState.notificationService.firedNotifications
+                        .where((fired) =>
+                            fired.littenId == notification.littenId &&
+                            fired.triggerTime.isAtSameMomentAs(notification.triggerTime))
+                        .firstOrNull;
+
+                    if (firedNotification != null) {
+                      await appState.notificationService.dismissNotification(firedNotification);
+                      debugPrint('✅ firedNotifications에서 알림 제거: ${notification.id}');
+                    }
+
+                    // 알림 목록 새로고침
+                    await _loadNotificationsForSelectedDate(appState.selectedDate, appState);
+                  } catch (e) {
+                    debugPrint('❌ 알림 확인 처리 실패: $e');
+                  }
+
                   // 해당 리튼으로 이동
                   try {
                     await appState.selectLitten(litten);
@@ -1331,30 +1377,237 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // 리튼 그룹 빌드 (리튼 헤더 + 파일 목록)
+  Widget _buildLittenGroup(BuildContext context, AppStateProvider appState, Litten litten, List<Map<String, dynamic>> files) {
+    final themeColor = Theme.of(context).primaryColor;
+    final isCollapsed = _collapsedLittenIds.contains(litten.id);
+
+    // 파일 개수 계산
+    final audioCount = files.where((f) => (f['fileData'] as Map)['type'] == 'audio').length;
+    final textCount = files.where((f) => (f['fileData'] as Map)['type'] == 'text').length;
+    final handwritingCount = files.where((f) => (f['fileData'] as Map)['type'] == 'handwriting').length;
+
+    // 해당 리튼에 미확인 알림이 있는지 확인
+    final hasUnacknowledgedNotification = appState.notificationService.firedNotifications
+        .any((notification) => notification.littenId == litten.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 리튼 헤더
+        InkWell(
+          onTap: () async {
+            // 해당 리튼의 미확인 알림을 모두 확인 처리
+            try {
+              final storage = NotificationStorageService();
+              final allNotifications = await storage.loadNotifications();
+
+              // 해당 리튼의 미확인 알림 찾기
+              final littenNotifications = allNotifications
+                  .where((n) => n.littenId == litten.id && !n.isAcknowledged)
+                  .toList();
+
+              if (littenNotifications.isNotEmpty) {
+                // 모두 acknowledged로 표시
+                final updatedNotifications = allNotifications.map((n) {
+                  if (n.littenId == litten.id && !n.isAcknowledged) {
+                    return n.markAsAcknowledged();
+                  }
+                  return n;
+                }).toList();
+
+                await storage.saveNotifications(updatedNotifications);
+
+                // firedNotifications에서도 제거
+                for (final notification in littenNotifications) {
+                  final firedNotification = appState.notificationService.firedNotifications
+                      .where((fired) =>
+                          fired.littenId == notification.littenId &&
+                          fired.triggerTime.isAtSameMomentAs(notification.triggerTime))
+                      .firstOrNull;
+
+                  if (firedNotification != null) {
+                    await appState.notificationService.dismissNotification(firedNotification);
+                  }
+                }
+
+                debugPrint('✅ 리튼 "${litten.title}"의 ${littenNotifications.length}개 알림 확인 처리');
+              }
+            } catch (e) {
+              debugPrint('❌ 리튼 알림 확인 처리 실패: $e');
+            }
+
+            // 리튼 선택
+            try {
+              await appState.selectLitten(litten);
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+          onLongPress: () => _showEditLittenDialog(litten.id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: hasUnacknowledgedNotification
+                  ? Colors.red.shade50  // 미확인 알림이 있으면 빨간색 배경
+                  : (appState.selectedLitten?.id == litten.id
+                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                      : Colors.grey.shade50),
+              border: Border(
+                left: hasUnacknowledgedNotification
+                    ? BorderSide(color: Colors.red.shade400, width: 4)
+                    : BorderSide.none,
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                // 리튼 제목
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder,
+                        color: Theme.of(context).primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          litten.title == 'undefined' ? '-' : litten.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: litten.title == 'undefined'
+                                ? Colors.grey.shade600
+                                : null,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 파일 카운트 뱃지
+                if (audioCount > 0) ...[
+                  _buildFileCountBadge(Icons.mic, audioCount, themeColor),
+                  const SizedBox(width: 4),
+                ],
+                if (textCount > 0) ...[
+                  _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
+                  const SizedBox(width: 4),
+                ],
+                if (handwritingCount > 0) ...[
+                  _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
+                  const SizedBox(width: 4),
+                ],
+                // 메뉴 버튼
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditLittenDialog(litten.id);
+                    } else if (value == 'delete') {
+                      _showDeleteDialog(litten.id, litten.title);
+                    } else if (value == 'toggle_collapse') {
+                      _toggleLittenCollapse(litten.id);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'toggle_collapse',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isCollapsed ? Icons.visibility : Icons.visibility_off,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(isCollapsed ? '보이기' : '숨기기'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(value: 'edit', child: Text('수정')),
+                    const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                  ],
+                  child: Icon(Icons.more_vert, color: Colors.grey.shade600, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 파일 목록 (숨김 상태가 아닐 때만 표시)
+        if (!isCollapsed)
+          ...files.map((fileInfo) {
+            final fileData = fileInfo['fileData'] as Map<String, dynamic>;
+            return _buildFileItem(context, appState, fileData);
+          }),
+        // 그룹 구분선
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // 파일 카운트 뱃지
+  Widget _buildFileCountBadge(IconData icon, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 2),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 파일 아이템 빌드
   Widget _buildFileItem(BuildContext context, AppStateProvider appState, Map<String, dynamic> fileData) {
     final fileType = fileData['type'] as String;
-    final littenTitleRaw = fileData['littenTitle'] as String;
-    final littenTitle = littenTitleRaw == 'undefined' ? '-' : littenTitleRaw;
     final createdAt = fileData['createdAt'] as DateTime;
+    final themeColor = Theme.of(context).primaryColor;
 
     IconData icon;
     String title;
+    DateTime displayTime; // 표시할 시간 (수정 시간)
 
     if (fileType == 'audio') {
       final audioFile = fileData['file'] as AudioFile;
       icon = Icons.mic;
       title = audioFile.displayName;
+      displayTime = createdAt; // 녹음 파일은 수정이 없으므로 생성 시간
     } else if (fileType == 'text') {
       final textFile = fileData['file'] as TextFile;
       icon = Icons.keyboard;
       title = textFile.displayTitle;
+      displayTime = textFile.updatedAt; // 텍스트 파일은 수정 시간
     } else {
       final handwritingFile = fileData['file'] as HandwritingFile;
       icon = handwritingFile.type == HandwritingType.pdfConvert
           ? Icons.picture_as_pdf
           : Icons.draw;
       title = handwritingFile.displayTitle;
+      displayTime = handwritingFile.updatedAt; // 필기 파일은 수정 시간
     }
 
     return InkWell(
@@ -1406,29 +1659,19 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+          ),
+        ),
         child: Row(
           children: [
-            // 아이콘
-            Icon(icon, color: Theme.of(context).primaryColor, size: 16),
+            // 파일 타입 아이콘
+            Icon(icon, color: themeColor, size: 18),
             const SizedBox(width: 12),
-            // 리튼명 (고정 너비)
-            SizedBox(
-              width: 80,
-              child: Text(
-                littenTitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // 파일명 (확장 가능, ellipsis)
+            // 파일명 (확장 가능)
             Expanded(
               child: Text(
                 title,
@@ -1440,16 +1683,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            // 시간 (고정 너비)
-            SizedBox(
-              width: 50,
-              child: Text(
-                DateFormat('HH:mm').format(createdAt),
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.right,
+            // 수정 시간
+            Text(
+              DateFormat('HH:mm').format(displayTime),
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
               ),
             ),
           ],

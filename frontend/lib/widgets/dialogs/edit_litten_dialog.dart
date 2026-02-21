@@ -22,15 +22,18 @@ class EditLittenDialog extends StatefulWidget {
 }
 
 class _EditLittenDialogState extends State<EditLittenDialog> {
-  late final TextEditingController _titleController;
+  late TextEditingController _titleController;  // Controller 사용
   late LittenSchedule? _selectedSchedule;
   int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    // Controller에 즉시 텍스트 설정 - PostFrameCallback 사용하지 않음
     _titleController = TextEditingController(text: widget.litten.title);
     _selectedSchedule = widget.litten.schedule;
+    debugPrint('📝 EditLittenDialog initState - 제목: "${widget.litten.title}"');
+    debugPrint('📝 Controller text: "${_titleController.text}"');
   }
 
   @override
@@ -46,7 +49,6 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: Text('알림 수정'),
       content: SizedBox(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,
@@ -54,76 +56,33 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 제목 입력 필드
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _titleController,
+              builder: (context, value, child) {
+                return TextField(
                   controller: _titleController,
-                  enabled: true,
+                  autofocus: true,
                   decoration: InputDecoration(
-                    hintText: '예: 회의록, 강의 메모, 일기 등',
+                    hintText: '리튼 제목',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).primaryColor,
-                        width: 2,
-                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    labelStyle: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
+                      horizontal: 16,
+                      vertical: 16,
                     ),
                   ),
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
                   ),
-                  autofocus: false,
-                  onChanged: (value) {
-                    debugPrint('🔤 수정 텍스트 입력: $value');
-                  },
-                  onTap: () {
-                    debugPrint('🔍 수정 텍스트 필드 탭됨');
-                  },
-                ),
-              ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
 
 
             // 탭 구조로 일정 설정
