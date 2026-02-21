@@ -464,6 +464,7 @@ class _RecordingTabState extends State<RecordingTab> {
                                                       MainAxisAlignment
                                                           .spaceBetween,
                                                   children: [
+                                                    // 재생시간
                                                     Text(
                                                       _formatDuration(
                                                           _audioService
@@ -473,13 +474,28 @@ class _RecordingTabState extends State<RecordingTab> {
                                                         color: Colors.blue,
                                                       ),
                                                     ),
-                                                    Text(
-                                                      '${_audioService.playbackSpeed}x',
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Colors.blue,
+                                                    const SizedBox(width: 16),
+                                                    // 배속
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.blue.withValues(alpha: 0.1),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        '${_audioService.playbackSpeed}x',
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.blue,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
                                                       ),
                                                     ),
+                                                    const SizedBox(width: 16),
+                                                    // 전체 녹음시간
                                                     Text(
                                                       _formatDuration(
                                                           _audioService

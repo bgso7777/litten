@@ -1147,23 +1147,23 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // 1. STT 마이크 버튼 (맨 앞)
+            // 1. STT 마이크/정지 버튼 (맨 앞)
             InkWell(
               onTap: _toggleSpeechToText,
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: _isListening ? Colors.red.shade50 : Colors.transparent,
+                  color: Colors.transparent,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _isListening ? Colors.red : Colors.grey.shade600,
+                    color: Colors.grey.shade600,
                     width: 1.5,
                   ),
                 ),
                 child: Icon(
-                  _isListening ? Icons.mic : Icons.mic_none,
-                  color: _isListening ? Colors.red : Colors.grey.shade700,
+                  _isListening ? Icons.stop : Icons.mic_none,
+                  color: Colors.grey.shade700,
                   size: 20,
                 ),
               ),
@@ -1531,8 +1531,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   Widget _buildTextEditor() {
     final l10n = AppLocalizations.of(context);
-    return Column(
-      children: [
+    return PopScope(
+      canPop: !_isListening, // STT 진행 중일 때는 뒤로가기 방지
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+
+        // STT 진행 중일 때 뒤로가기 시도 시 경고
+        if (_isListening) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('음성 인식을 먼저 중지해주세요.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Column(
+        children: [
         // 상단 헤더
         Container(
           height: 50,
@@ -1544,7 +1560,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           child: Row(
             children: [
               IconButton(
-                onPressed: () async {
+                onPressed: _isListening ? null : () async {
                   // 파일 목록 새로고침하여 최근 저장된 파일이 위로 오도록
                   await _loadFiles();
 
@@ -1744,6 +1760,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ), // Container 닫기
         ), // Expanded 닫기 (outer)
       ], // Column children 닫기 (outer)
-    ); // Column 닫기 (outer)
+    ), // Column 닫기 (outer)
+    ); // PopScope 닫기
   } // _buildTextEditor 닫기
 }
