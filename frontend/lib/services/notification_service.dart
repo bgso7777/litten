@@ -503,33 +503,44 @@ class NotificationService extends ChangeNotifier {
   }
 
   Future<void> _fireNotification(NotificationEvent notification) async {
-    if (!_firedNotifications.any((fired) =>
+    // 중복 체크: 이미 발생한 알림인지 확인
+    final isDuplicate = _firedNotifications.any((fired) =>
         fired.littenId == notification.littenId &&
-        fired.rule.frequency == notification.rule.frequency &&
-        fired.rule.timing == notification.rule.timing &&
-        fired.triggerTime.isAtSameMomentAs(notification.triggerTime))) {
+        fired.triggerTime.isAtSameMomentAs(notification.triggerTime));
 
-      _firedNotifications.add(notification);
-      _pendingNotifications.remove(notification);
-
-      // 실제 시스템 알림 표시
-      await _backgroundService.showNotification(
-        title: '리튼 알림',
-        body: notification.message,
-        littenId: notification.littenId,
-      );
-
-      debugPrint('🔔 알림: ${notification.message}');
-      debugPrint('   시간: ${notification.timingDescription}');
-
-      // 알림 발생 시 리튼의 updatedAt을 업데이트하여 최상위로 올림
-      if (onNotificationFired != null) {
-        debugPrint('📌 리튼을 최상위로 이동: ${notification.littenTitle}');
-        onNotificationFired!(notification.littenId);
-      }
-
-      notifyListeners();
+    if (isDuplicate) {
+      debugPrint('   ⏭️ 중복 알림 스킵: ${notification.littenTitle} - ${notification.triggerTime}');
+      return;
     }
+
+    _firedNotifications.add(notification);
+    _pendingNotifications.remove(notification);
+
+    // ⭐ 저장소에서 알림을 acknowledged로 표시 (연속 발생 방지)
+    final notificationId = StoredNotification.generateId(
+      notification.littenId,
+      notification.triggerTime,
+    );
+    await _orchestrator.acknowledgeNotification(notificationId);
+    debugPrint('   ✅ 알림 acknowledged 처리: $notificationId');
+
+    // 실제 시스템 알림 표시
+    await _backgroundService.showNotification(
+      title: '리튼 알림',
+      body: notification.message,
+      littenId: notification.littenId,
+    );
+
+    debugPrint('🔔 알림 발생: ${notification.message}');
+    debugPrint('   시간: ${notification.timingDescription}');
+
+    // 알림 발생 시 리튼의 updatedAt을 업데이트하여 최상위로 올림
+    if (onNotificationFired != null) {
+      debugPrint('📌 리튼을 최상위로 이동: ${notification.littenTitle}');
+      onNotificationFired!(notification.littenId);
+    }
+
+    notifyListeners();
   }
 
   Future<void> scheduleNotifications(List<Litten> littens) async {

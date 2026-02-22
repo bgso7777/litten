@@ -25,6 +25,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
   late TextEditingController _titleController;  // Controller 사용
   late LittenSchedule? _selectedSchedule;
   int _currentTabIndex = 0;
+  final FocusNode _titleFocusNode = FocusNode();  // FocusNode 추가
 
   @override
   void initState() {
@@ -34,12 +35,18 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     _selectedSchedule = widget.litten.schedule;
     debugPrint('📝 EditLittenDialog initState - 제목: "${widget.litten.title}"');
     debugPrint('📝 Controller text: "${_titleController.text}"');
+
+    // 렌더링 후 포커스 해제
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _titleFocusNode.unfocus();
+    });
   }
 
   @override
   void dispose() {
     debugPrint('🎯 EditLittenDialog dispose 시작');
     _titleController.dispose();
+    _titleFocusNode.dispose();
     debugPrint('🎯 EditLittenDialog dispose 완료');
     super.dispose();
   }
@@ -49,6 +56,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
+      title: const Text('일정 수정'),
       content: SizedBox(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,
@@ -61,6 +69,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
               builder: (context, value, child) {
                 return TextField(
                   controller: _titleController,
+                  focusNode: _titleFocusNode,
                   autofocus: true,
                   decoration: InputDecoration(
                     hintText: '리튼 제목',
