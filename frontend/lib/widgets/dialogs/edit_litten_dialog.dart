@@ -60,7 +60,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
         child: Text(
           '일정 수정',
           style: TextStyle(
-            fontSize: 28, // 기본 크기의 2배 (기본 14 → 28)
+            fontSize: 16, // 텍스트 필드와 동일한 크기
           ),
         ),
       ),

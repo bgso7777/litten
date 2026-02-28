@@ -198,7 +198,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.edit),
+                icon: const Icon(Icons.note),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(
