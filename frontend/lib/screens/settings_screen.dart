@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: AppSpacing.paddingL,
           children: [
             // 구독 섹션
-            _buildSettingsSection('구독', [
+            _buildSettingsSection(l10n?.subscription ?? '구독', [
               _buildSettingsItem(
                 icon: Icons.card_membership,
                 title:
@@ -186,15 +186,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             AppSpacing.verticalSpaceL,
 
             // 계정 섹션
-            _buildSettingsSection('계정', [
+            _buildSettingsSection(l10n?.account ?? '계정', [
               _buildSettingsItem(
                 icon: Icons.person,
-                title: '사용자 상태',
+                title: l10n?.userStatus ?? '사용자 상태',
                 subtitle: appState.isLoggedIn
-                    ? '${appState.currentUser?.email ?? ''} (로그인)'
+                    ? '${appState.currentUser?.email ?? ''} (${l10n?.loggedIn ?? '로그인'})'
                     : _registeredEmail != null
-                    ? '$_registeredEmail (로그아웃)'
-                    : '로그아웃',
+                    ? '$_registeredEmail (${l10n?.loggedOut ?? '로그아웃'})'
+                    : l10n?.loggedOut ?? '로그아웃',
                 iconColor: Theme.of(context).primaryColor,
                 onTap: null,
               ),
@@ -203,7 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSettingsItem(
                   icon: Icons.lock_reset,
                   title: l10n?.changePassword ?? '비밀번호 변경',
-                  subtitle: '계정 비밀번호를 변경합니다',
+                  subtitle: l10n?.changePasswordSubtitle ?? '계정 비밀번호를 변경합니다',
                   iconColor: Theme.of(context).primaryColor,
                   onTap: () {
                     Navigator.push(
@@ -216,15 +216,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _buildSettingsItem(
                   icon: Icons.logout,
-                  title: '로그아웃',
-                  subtitle: '현재 계정에서 로그아웃합니다',
+                  title: l10n?.logout ?? '로그아웃',
+                  subtitle: l10n?.loginToAccount ?? '현재 계정에서 로그아웃합니다',
                   iconColor: Theme.of(context).primaryColor,
                   onTap: () => _showLogoutDialog(context, appState),
                 ),
                 _buildSettingsItem(
                   icon: Icons.person_remove,
-                  title: '회원탈퇴',
-                  subtitle: '계정을 영구적으로 삭제합니다',
+                  title: l10n?.deleteAccount ?? '회원탈퇴',
+                  subtitle: l10n?.deleteAccountSubtitle ?? '계정을 영구적으로 삭제합니다',
                   iconColor: Colors.red,
                   onTap: () => _showDeleteAccountDialog(context, appState),
                 ),
@@ -233,8 +233,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (!appState.isLoggedIn) ...[
                 _buildSettingsItem(
                   icon: Icons.login,
-                  title: '로그인',
-                  subtitle: '계정에 로그인합니다',
+                  title: l10n?.login ?? '로그인',
+                  subtitle: l10n?.loginToAccount ?? '계정에 로그인합니다',
                   iconColor: Theme.of(context).primaryColor,
                   onTap: () {
                     Navigator.push(
@@ -504,7 +504,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('구독 플랜 선택'),
+        title: Text(l10n?.selectPlan ?? '구독 플랜 선택'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -512,8 +512,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               appState,
               SubscriptionType.free,
-              '무료',
-              '광고 포함, 리튼 5개 제한',
+              l10n?.planFree ?? '무료',
+              l10n?.planFreeDescription ?? '광고 포함, 리튼 5개 제한',
               l10n,
             ),
             SizedBox(height: 12),
@@ -521,8 +521,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               appState,
               SubscriptionType.standard,
-              '스탠다드',
-              '\$4.99/월 - 광고 제거, 무제한',
+              l10n?.planStandard ?? '스탠다드',
+              l10n?.planStandardDescription ?? '\$4.99/월 - 광고 제거, 무제한',
               l10n,
             ),
             SizedBox(height: 12),
@@ -530,10 +530,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               appState,
               SubscriptionType.premium,
-              '프리미엄',
+              l10n?.planPremium ?? '프리미엄',
               appState.isLoggedIn
-                ? '\$9.99/월 - 클라우드 동기화'
-                : '\$9.99/월 - 클라우드 동기화 (로그인 필요)',
+                ? (l10n?.planPremiumDescription ?? '\$9.99/월 - 클라우드 동기화')
+                : (l10n?.planPremiumDescriptionLoginRequired ?? '\$9.99/월 - 클라우드 동기화 (로그인 필요)'),
               l10n,
               isDisabled: !appState.isLoggedIn,
             ),
@@ -567,7 +567,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('$title 플랜으로 변경되었습니다'),
+                  content: Text(l10n?.planChanged(title) ?? '$title 플랜으로 변경되었습니다'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -750,7 +750,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // 사용자 상태 섹션
             Text(
-              '사용자 상태',
+              l10n?.userStatus ?? '사용자 상태',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 12),
@@ -1034,13 +1034,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Icon(Icons.logout, color: Colors.blue),
             SizedBox(width: 8),
-            Text('로그아웃'),
+            Text(l10n?.logoutConfirmTitle ?? '로그아웃'),
           ],
         ),
         content: Text(
           isPremium
-              ? '프리미엄 상태에서 로그아웃 시 파일 공유를 할 수 없습니다.\n정말로 로그아웃 하시겠습니까?'
-              : '정말로 로그아웃 하시겠습니까?',
+              ? (l10n?.logoutConfirmPremiumMessage ?? '프리미엄 상태에서 로그아웃 시 파일 공유를 할 수 없습니다.\n정말로 로그아웃 하시겠습니까?')
+              : (l10n?.logoutConfirmMessage ?? '정말로 로그아웃 하시겠습니까?'),
         ),
         actions: [
           TextButton(
@@ -1061,7 +1061,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // 성공 메시지
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text('로그아웃되었습니다.'),
+                    content: Text(l10n?.logoutSuccess ?? '로그아웃되었습니다.'),
                     backgroundColor: Colors.green,
                     duration: Duration(seconds: 2),
                   ),
@@ -1070,7 +1070,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // 에러 메시지
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text('로그아웃 실패: $e'),
+                    content: Text(l10n?.logoutFailed(e.toString()) ?? '로그아웃 실패: $e'),
                     backgroundColor: Colors.red,
                     duration: Duration(seconds: 3),
                   ),
@@ -1081,7 +1081,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
-            child: Text('로그아웃'),
+            child: Text(l10n?.logout ?? '로그아웃'),
           ),
         ],
       ),
@@ -1101,7 +1101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Icon(Icons.warning, color: Colors.red),
             SizedBox(width: 8),
-            Text('회원탈퇴'),
+            Text(l10n?.deleteAccountTitle ?? '회원탈퇴'),
           ],
         ),
         content: Column(
@@ -1109,16 +1109,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '정말로 회원탈퇴를 진행하시겠습니까?',
+              l10n?.deleteAccountConfirm ?? '정말로 회원탈퇴를 진행하시겠습니까?',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             SizedBox(height: 16),
-            Text('회원탈퇴 시 다음 사항에 유의해주세요:', style: TextStyle(fontSize: 14)),
+            Text(l10n?.deleteAccountWarningTitle ?? '회원탈퇴 시 다음 사항에 유의해주세요:', style: TextStyle(fontSize: 14)),
             SizedBox(height: 12),
-            _buildWarningItem('• 모든 데이터가 영구적으로 삭제됩니다'),
-            _buildWarningItem('• 서버에 저장된 파일이 모두 삭제됩니다'),
-            _buildWarningItem('• 계정 복구가 불가능합니다'),
-            _buildWarningItem('• 구독이 자동으로 취소됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning1 ?? '• 모든 데이터가 영구적으로 삭제됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning2 ?? '• 서버에 저장된 파일이 모두 삭제됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning3 ?? '• 계정 복구가 불가능합니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning4 ?? '• 구독이 자동으로 취소됩니다'),
           ],
         ),
         actions: [
@@ -1135,7 +1135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: Text('탈퇴하기'),
+            child: Text(l10n?.deleteAccountButton ?? '탈퇴하기'),
           ),
         ],
       ),
@@ -1158,17 +1158,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('최종 확인'),
+        title: Text(l10n?.deleteAccountFinalConfirmTitle ?? '최종 확인'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '정말로 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+              l10n?.deleteAccountFinalConfirmMessage ?? '정말로 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 16),
             Text(
-              '탈퇴하시려면 "삭제 확인" 버튼을 눌러주세요',
+              l10n?.deleteAccountFinalConfirmHint ?? '탈퇴하시려면 "삭제 확인" 버튼을 눌러주세요',
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
@@ -1198,7 +1198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           CircularProgressIndicator(),
                           SizedBox(height: 16),
-                          Text('계정 삭제 중...'),
+                          Text(l10n?.deleteAccountProgress ?? '계정 삭제 중...'),
                         ],
                       ),
                     ),
@@ -1222,7 +1222,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // 성공 메시지
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text('계정이 삭제되었습니다. 로컬 파일은 유지되며 무료 플랜으로 전환되었습니다.'),
+                    content: Text(l10n?.deleteAccountSuccess ?? '계정이 삭제되었습니다. 로컬 파일은 유지되며 무료 플랜으로 전환되었습니다.'),
                     backgroundColor: Colors.green,
                     duration: Duration(seconds: 3),
                   ),
@@ -1242,7 +1242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // 에러 메시지
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text('계정 삭제 실패: $e'),
+                    content: Text(l10n?.deleteAccountFailed(e.toString()) ?? '계정 삭제 실패: $e'),
                     backgroundColor: Colors.red,
                     duration: Duration(seconds: 3),
                   ),
@@ -1253,7 +1253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: Text('삭제 확인'),
+            child: Text(l10n?.deleteAccountConfirmButton ?? '삭제 확인'),
           ),
         ],
       ),

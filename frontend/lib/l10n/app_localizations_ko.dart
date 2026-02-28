@@ -611,4 +611,161 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get passwordChangeComingSoon => '비밀번호 변경 기능은 곧 출시됩니다';
+
+  @override
+  String get textTab => '텍스트';
+
+  @override
+  String get handwritingTab => '필기';
+
+  @override
+  String get audioTab => '녹음';
+
+  @override
+  String get browserTab => '검색';
+
+  @override
+  String get subscription => '구독';
+
+  @override
+  String get subscriptionPlan => '구독 플랜';
+
+  @override
+  String get free => '무료';
+
+  @override
+  String get standard => '스탠다드';
+
+  @override
+  String get premium => '프리미엄';
+
+  @override
+  String get account => '계정';
+
+  @override
+  String get loggedOut => '로그아웃';
+
+  @override
+  String get loggedIn => '로그인됨';
+
+  @override
+  String get logout => '로그아웃';
+
+  @override
+  String get logoutConfirmTitle => '로그아웃';
+
+  @override
+  String get logoutConfirmMessage => '정말로 로그아웃 하시겠습니까?';
+
+  @override
+  String get logoutConfirmPremiumMessage =>
+      '프리미엄 상태에서 로그아웃 시 파일 공유를 할 수 없습니다.\n정말로 로그아웃 하시겠습니까?';
+
+  @override
+  String get logoutSuccess => '로그아웃되었습니다.';
+
+  @override
+  String logoutFailed(String error) {
+    return '로그아웃 실패: $error';
+  }
+
+  @override
+  String get loginToAccount => '계정에 로그인합니다';
+
+  @override
+  String get deleteAccount => '회원탈퇴';
+
+  @override
+  String get deleteAccountSubtitle => '계정을 영구적으로 삭제합니다';
+
+  @override
+  String get deleteAccountTitle => '회원탈퇴';
+
+  @override
+  String get deleteAccountConfirm => '정말로 회원탈퇴를 진행하시겠습니까?';
+
+  @override
+  String get deleteAccountWarningTitle => '회원탈퇴 시 다음 사항에 유의해주세요:';
+
+  @override
+  String get deleteAccountWarning1 => '• 모든 데이터가 영구적으로 삭제됩니다';
+
+  @override
+  String get deleteAccountWarning2 => '• 서버에 저장된 파일이 모두 삭제됩니다';
+
+  @override
+  String get deleteAccountWarning3 => '• 계정 복구가 불가능합니다';
+
+  @override
+  String get deleteAccountWarning4 => '• 구독이 자동으로 취소됩니다';
+
+  @override
+  String get deleteAccountButton => '탈퇴하기';
+
+  @override
+  String get deleteAccountFinalConfirmTitle => '최종 확인';
+
+  @override
+  String get deleteAccountFinalConfirmMessage =>
+      '정말로 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.';
+
+  @override
+  String get deleteAccountFinalConfirmHint => '탈퇴하시려면 \"삭제 확인\" 버튼을 눌러주세요';
+
+  @override
+  String get deleteAccountConfirmButton => '삭제 확인';
+
+  @override
+  String get deleteAccountProgress => '계정 삭제 중...';
+
+  @override
+  String get deleteAccountSuccess =>
+      '계정이 삭제되었습니다. 로컬 파일은 유지되며 무료 플랜으로 전환되었습니다.';
+
+  @override
+  String deleteAccountFailed(String error) {
+    return '계정 삭제 실패: $error';
+  }
+
+  @override
+  String get selectPlan => '구독 플랜 선택';
+
+  @override
+  String get planFree => '무료';
+
+  @override
+  String get planStandard => '스탠다드';
+
+  @override
+  String get planPremium => '프리미엄';
+
+  @override
+  String get planFreeDescription => '광고 포함, 리튼 5개 제한';
+
+  @override
+  String get planStandardDescription => '\$4.99/월 - 광고 제거, 무제한';
+
+  @override
+  String get planPremiumDescription => '\$9.99/월 - 클라우드 동기화';
+
+  @override
+  String get planPremiumDescriptionLoginRequired =>
+      '\$9.99/월 - 클라우드 동기화 (로그인 필요)';
+
+  @override
+  String planChanged(String plan) {
+    return '$plan 플랜으로 변경되었습니다';
+  }
+
+  @override
+  String get planSelect => 'Select';
+
+  @override
+  String get planCurrent => 'Current';
+
+  @override
+  String get premiumRequiresLogin => '프리미엄은 로그인 후 선택 가능합니다';
+
+  @override
+  String get changePasswordSubtitle => '계정 비밀번호를 변경합니다';
 }

@@ -362,7 +362,8 @@ class _HomeScreenState extends State<HomeScreen> {
           floatingActionButton: FloatingActionButton(
             onPressed: _showCreateLittenDialog,
             tooltip: l10n?.createLitten ?? '리튼 생성',
-            child: const Icon(Icons.add),
+            backgroundColor: Theme.of(context).primaryColor,
+            child: const Icon(Icons.alarm_add, color: Colors.white),
           ),
         );
       },
@@ -1238,6 +1239,8 @@ class _HomeScreenState extends State<HomeScreen> {
               .where((item) => (item['litten'] as Litten).id == littenId)
               .toList();
 
+          debugPrint('🔔 리튼 "${litten.title}" 알림 개수: ${littenNotifications.length}');
+
           if (littenNotifications.isNotEmpty) {
             // 가장 최근 알림 시간 찾기
             DateTime? latestNotificationTime;
@@ -1249,7 +1252,7 @@ class _HomeScreenState extends State<HomeScreen> {
             }
             sortPriority = 1; // 알림 발생 리튼
             sortTime = latestNotificationTime!;
-            debugPrint('📌 리튼 "${litten.title}": 알림 발생 (우선순위=1, 시간=${sortTime})');
+            debugPrint('📌 리튼 "${litten.title}": 알림 발생 (우선순위=1, 시간=${sortTime}, hasNotifications=true)');
           }
           // 2-2. 파일이 수정된 리튼인지 확인
           else if (littenFiles.isNotEmpty) {
@@ -1268,6 +1271,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'files': littenFiles,
             'sortPriority': sortPriority,
             'sortTime': sortTime,
+            'hasNotifications': littenNotifications.isNotEmpty,
           });
         }
 
@@ -1327,8 +1331,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 final group = littenGroups[itemIndex];
                 final litten = group['litten'] as Litten;
                 final files = group['files'] as List<Map<String, dynamic>>;
+                final hasNotifications = group['hasNotifications'] as bool;
 
-                return _buildLittenGroup(context, appState, litten, files);
+                return _buildLittenGroup(context, appState, litten, files, hasNotifications);
               },
             ),
           ),
@@ -1411,8 +1416,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return ListTile(
                 leading: Icon(
-                  isPast ? Icons.check_circle : Icons.alarm,
-                  color: isPast ? Colors.grey : Colors.blue.shade700,
+                  isPast ? Icons.check_circle : Icons.event_available,
+                  color: isPast ? Colors.grey : Theme.of(context).primaryColor,
                   size: 24,
                 ),
                 title: Text(
@@ -1500,7 +1505,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // 리튼 그룹 빌드 (리튼 헤더 + 파일 목록)
-  Widget _buildLittenGroup(BuildContext context, AppStateProvider appState, Litten litten, List<Map<String, dynamic>> files) {
+  Widget _buildLittenGroup(BuildContext context, AppStateProvider appState, Litten litten, List<Map<String, dynamic>> files, bool hasNotifications) {
     final themeColor = Theme.of(context).primaryColor;
     final isCollapsed = _collapsedLittenIds.contains(litten.id);
 
@@ -1509,9 +1514,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final textCount = files.where((f) => (f['fileData'] as Map)['type'] == 'text').length;
     final handwritingCount = files.where((f) => (f['fileData'] as Map)['type'] == 'handwriting').length;
 
-    // 해당 리튼에 미확인 알림이 있는지 확인
-    final hasUnacknowledgedNotification = appState.notificationService.firedNotifications
-        .any((notification) => notification.littenId == litten.id);
+    // 해당 리튼에 알림 설정이 되어 있고 활성화되어 있는지 확인
+    final hasSchedule = litten.schedule != null;
+    final hasEnabledNotification = hasSchedule &&
+        litten.schedule!.notificationRules.any((rule) => rule.isEnabled);
+    debugPrint('🔍 리튼 "${litten.title}" - schedule: $hasSchedule, enabled: $hasEnabledNotification');
+    final hasUnacknowledgedNotification = hasEnabledNotification;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1577,15 +1585,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: hasUnacknowledgedNotification
-                  ? Colors.red.shade50  // 미확인 알림이 있으면 빨간색 배경
-                  : (appState.selectedLitten?.id == litten.id
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.shade50),
+              color: appState.selectedLitten?.id == litten.id
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                  : Colors.grey.shade50,
               border: Border(
-                left: hasUnacknowledgedNotification
-                    ? BorderSide(color: Colors.red.shade400, width: 4)
-                    : BorderSide.none,
                 bottom: BorderSide(color: Colors.grey.shade300, width: 1),
               ),
             ),
@@ -1595,12 +1598,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.alarm,
-                        color: Theme.of(context).primaryColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
+                      if (litten.title != 'undefined') ...[
+                        Icon(
+                          hasUnacknowledgedNotification
+                              ? Icons.event_available
+                              : Icons.calendar_today,
+                          color: Theme.of(context).primaryColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
                         child: Text(
                           litten.title == 'undefined' ? '-' : litten.title,

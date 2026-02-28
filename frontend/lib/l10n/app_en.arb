@@ -1020,5 +1020,270 @@
   "passwordChangeComingSoon": "Password change feature coming soon",
   "@passwordChangeComingSoon": {
     "description": "Password change feature coming soon message"
+  },
+
+  "textTab": "Text",
+  "@textTab": {
+    "description": "Text tab title in writing screen"
+  },
+
+  "handwritingTab": "Handwriting",
+  "@handwritingTab": {
+    "description": "Handwriting tab title in writing screen"
+  },
+
+  "audioTab": "Recording",
+  "@audioTab": {
+    "description": "Audio/Recording tab title in writing screen"
+  },
+
+  "browserTab": "Search",
+  "@browserTab": {
+    "description": "Browser/Search tab title in writing screen"
+  },
+
+  "subscription": "Subscription",
+  "@subscription": {
+    "description": "Subscription section title"
+  },
+
+  "subscriptionPlan": "Subscription Plan",
+  "@subscriptionPlan": {
+    "description": "Subscription plan item title"
+  },
+
+  "free": "Free",
+  "@free": {
+    "description": "Free subscription tier"
+  },
+
+  "standard": "Standard",
+  "@standard": {
+    "description": "Standard subscription tier"
+  },
+
+  "premium": "Premium",
+  "@premium": {
+    "description": "Premium subscription tier"
+  },
+
+  "account": "Account",
+  "@account": {
+    "description": "Account section title"
+  },
+
+  "userStatus": "User Status",
+  "@userStatus": {
+    "description": "User status item title"
+  },
+
+  "loggedOut": "Logged out",
+  "@loggedOut": {
+    "description": "Logged out status"
+  },
+
+  "loggedIn": "Logged in",
+  "@loggedIn": {
+    "description": "Logged in status"
+  },
+
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout button"
+  },
+
+  "logoutConfirmTitle": "Logout",
+  "@logoutConfirmTitle": {
+    "description": "Logout confirmation dialog title"
+  },
+
+  "logoutConfirmMessage": "Are you sure you want to logout?",
+  "@logoutConfirmMessage": {
+    "description": "Logout confirmation message"
+  },
+
+  "logoutConfirmPremiumMessage": "If you logout while on Premium, you won't be able to share files.\nAre you sure you want to logout?",
+  "@logoutConfirmPremiumMessage": {
+    "description": "Logout confirmation message for premium users"
+  },
+
+  "logoutSuccess": "Logged out successfully.",
+  "@logoutSuccess": {
+    "description": "Logout success message"
+  },
+
+  "logoutFailed": "Logout failed: {error}",
+  "@logoutFailed": {
+    "description": "Logout failed message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "loginToAccount": "Login to your account",
+  "@loginToAccount": {
+    "description": "Login subtitle"
+  },
+
+  "deleteAccount": "Delete Account",
+  "@deleteAccount": {
+    "description": "Delete account title"
+  },
+
+  "deleteAccountSubtitle": "Permanently delete your account",
+  "@deleteAccountSubtitle": {
+    "description": "Delete account subtitle"
+  },
+
+  "deleteAccountTitle": "Delete Account",
+  "@deleteAccountTitle": {
+    "description": "Delete account dialog title"
+  },
+
+  "deleteAccountConfirm": "Are you sure you want to delete your account?",
+  "@deleteAccountConfirm": {
+    "description": "Delete account confirmation question"
+  },
+
+  "deleteAccountWarningTitle": "Please note the following:",
+  "@deleteAccountWarningTitle": {
+    "description": "Delete account warning title"
+  },
+
+  "deleteAccountWarning1": "• All data will be permanently deleted",
+  "@deleteAccountWarning1": {
+    "description": "Delete account warning 1"
+  },
+
+  "deleteAccountWarning2": "• All files on the server will be deleted",
+  "@deleteAccountWarning2": {
+    "description": "Delete account warning 2"
+  },
+
+  "deleteAccountWarning3": "• Account recovery is not possible",
+  "@deleteAccountWarning3": {
+    "description": "Delete account warning 3"
+  },
+
+  "deleteAccountWarning4": "• Subscription will be automatically cancelled",
+  "@deleteAccountWarning4": {
+    "description": "Delete account warning 4"
+  },
+
+  "deleteAccountButton": "Delete Account",
+  "@deleteAccountButton": {
+    "description": "Delete account button"
+  },
+
+  "deleteAccountFinalConfirmTitle": "Final Confirmation",
+  "@deleteAccountFinalConfirmTitle": {
+    "description": "Final confirmation dialog title"
+  },
+
+  "deleteAccountFinalConfirmMessage": "Are you sure you want to delete your account?\nThis action cannot be undone.",
+  "@deleteAccountFinalConfirmMessage": {
+    "description": "Final confirmation message"
+  },
+
+  "deleteAccountFinalConfirmHint": "Press \"Confirm Delete\" to proceed",
+  "@deleteAccountFinalConfirmHint": {
+    "description": "Final confirmation hint"
+  },
+
+  "deleteAccountConfirmButton": "Confirm Delete",
+  "@deleteAccountConfirmButton": {
+    "description": "Confirm delete button"
+  },
+
+  "deleteAccountProgress": "Deleting account...",
+  "@deleteAccountProgress": {
+    "description": "Delete account progress message"
+  },
+
+  "deleteAccountSuccess": "Account deleted. Local files are preserved and plan changed to Free.",
+  "@deleteAccountSuccess": {
+    "description": "Delete account success message"
+  },
+
+  "deleteAccountFailed": "Failed to delete account: {error}",
+  "@deleteAccountFailed": {
+    "description": "Delete account failed message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "selectPlan": "Select Subscription Plan",
+  "@selectPlan": {
+    "description": "Select plan dialog title"
+  },
+
+  "planFree": "Free",
+  "@planFree": {
+    "description": "Free plan name"
+  },
+
+  "planStandard": "Standard",
+  "@planStandard": {
+    "description": "Standard plan name"
+  },
+
+  "planPremium": "Premium",
+  "@planPremium": {
+    "description": "Premium plan name"
+  },
+
+  "planFreeDescription": "With ads, limited to 5 littens",
+  "@planFreeDescription": {
+    "description": "Free plan description"
+  },
+
+  "planStandardDescription": "$4.99/month - No ads, unlimited",
+  "@planStandardDescription": {
+    "description": "Standard plan description"
+  },
+
+  "planPremiumDescription": "$9.99/month - Cloud sync",
+  "@planPremiumDescription": {
+    "description": "Premium plan description"
+  },
+
+  "planPremiumDescriptionLoginRequired": "$9.99/month - Cloud sync (Login required)",
+  "@planPremiumDescriptionLoginRequired": {
+    "description": "Premium plan description with login requirement"
+  },
+
+  "planChanged": "Changed to {plan} plan",
+  "@planChanged": {
+    "description": "Plan changed message",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+
+  "planSelect": "Select",
+  "@planSelect": {
+    "description": "Plan select button"
+  },
+
+  "planCurrent": "Current",
+  "@planCurrent": {
+    "description": "Current plan label"
+  },
+
+  "premiumRequiresLogin": "Premium requires login",
+  "@premiumRequiresLogin": {
+    "description": "Premium requires login message"
+  },
+
+  "changePasswordSubtitle": "Change your account password",
+  "@changePasswordSubtitle": {
+    "description": "Change password subtitle"
   }
 }

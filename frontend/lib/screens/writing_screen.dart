@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
+import '../l10n/app_localizations.dart';
 
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
@@ -53,31 +54,32 @@ class _WritingScreenState extends State<WritingScreen> {
 
     // ⭐ AppStateProvider에서 저장된 위치로 탭 초기화
     // ⭐ GlobalKey를 사용하여 위젯 상태 유지 (특히 TextTab의 편집 상태)
+    final l10n = AppLocalizations.of(context);
     _tabs = [
       TabItem(
         id: 'text',
-        title: '텍스트',
+        title: l10n?.textTab ?? '텍스트',
         icon: Icons.keyboard,
         content: TextTab(key: _textTabKey),
         position: parsePosition(savedPositions['text'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'handwriting',
-        title: '필기',
+        title: l10n?.handwritingTab ?? '필기',
         icon: Icons.draw,
         content: HandwritingTab(key: _handwritingTabKey),
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'audio',
-        title: '녹음',
+        title: l10n?.audioTab ?? '녹음',
         icon: Icons.mic,
         content: RecordingTab(key: ValueKey(_recordingTabRefreshCount)),
         position: parsePosition(savedPositions['audio'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'browser',
-        title: '검색',
+        title: l10n?.browserTab ?? '검색',
         icon: Icons.public,
         content: BrowserTab(key: _browserTabKey),
         position: parsePosition(savedPositions['browser'] ?? 'topLeft'),

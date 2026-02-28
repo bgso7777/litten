@@ -322,7 +322,7 @@ abstract class AppLocalizations {
   /// **'Account & Subscription'**
   String get accountAndSubscription;
 
-  /// User status setting
+  /// User status item title
   ///
   /// In en, this message translates to:
   /// **'User Status'**
@@ -1329,6 +1329,300 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Password change feature coming soon'**
   String get passwordChangeComingSoon;
+
+  /// Text tab title in writing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get textTab;
+
+  /// Handwriting tab title in writing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Handwriting'**
+  String get handwritingTab;
+
+  /// Audio/Recording tab title in writing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get audioTab;
+
+  /// Browser/Search tab title in writing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get browserTab;
+
+  /// Subscription section title
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get subscription;
+
+  /// Subscription plan item title
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription Plan'**
+  String get subscriptionPlan;
+
+  /// Free subscription tier
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get free;
+
+  /// Standard subscription tier
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get standard;
+
+  /// Premium subscription tier
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get premium;
+
+  /// Account section title
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get account;
+
+  /// Logged out status
+  ///
+  /// In en, this message translates to:
+  /// **'Logged out'**
+  String get loggedOut;
+
+  /// Logged in status
+  ///
+  /// In en, this message translates to:
+  /// **'Logged in'**
+  String get loggedIn;
+
+  /// Logout button
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logout;
+
+  /// Logout confirmation dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logoutConfirmTitle;
+
+  /// Logout confirmation message
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to logout?'**
+  String get logoutConfirmMessage;
+
+  /// Logout confirmation message for premium users
+  ///
+  /// In en, this message translates to:
+  /// **'If you logout while on Premium, you won\'t be able to share files.\nAre you sure you want to logout?'**
+  String get logoutConfirmPremiumMessage;
+
+  /// Logout success message
+  ///
+  /// In en, this message translates to:
+  /// **'Logged out successfully.'**
+  String get logoutSuccess;
+
+  /// Logout failed message
+  ///
+  /// In en, this message translates to:
+  /// **'Logout failed: {error}'**
+  String logoutFailed(String error);
+
+  /// Login subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Login to your account'**
+  String get loginToAccount;
+
+  /// Delete account title
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccount;
+
+  /// Delete account subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete your account'**
+  String get deleteAccountSubtitle;
+
+  /// Delete account dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccountTitle;
+
+  /// Delete account confirmation question
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete your account?'**
+  String get deleteAccountConfirm;
+
+  /// Delete account warning title
+  ///
+  /// In en, this message translates to:
+  /// **'Please note the following:'**
+  String get deleteAccountWarningTitle;
+
+  /// Delete account warning 1
+  ///
+  /// In en, this message translates to:
+  /// **'• All data will be permanently deleted'**
+  String get deleteAccountWarning1;
+
+  /// Delete account warning 2
+  ///
+  /// In en, this message translates to:
+  /// **'• All files on the server will be deleted'**
+  String get deleteAccountWarning2;
+
+  /// Delete account warning 3
+  ///
+  /// In en, this message translates to:
+  /// **'• Account recovery is not possible'**
+  String get deleteAccountWarning3;
+
+  /// Delete account warning 4
+  ///
+  /// In en, this message translates to:
+  /// **'• Subscription will be automatically cancelled'**
+  String get deleteAccountWarning4;
+
+  /// Delete account button
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccountButton;
+
+  /// Final confirmation dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Final Confirmation'**
+  String get deleteAccountFinalConfirmTitle;
+
+  /// Final confirmation message
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete your account?\nThis action cannot be undone.'**
+  String get deleteAccountFinalConfirmMessage;
+
+  /// Final confirmation hint
+  ///
+  /// In en, this message translates to:
+  /// **'Press \"Confirm Delete\" to proceed'**
+  String get deleteAccountFinalConfirmHint;
+
+  /// Confirm delete button
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Delete'**
+  String get deleteAccountConfirmButton;
+
+  /// Delete account progress message
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting account...'**
+  String get deleteAccountProgress;
+
+  /// Delete account success message
+  ///
+  /// In en, this message translates to:
+  /// **'Account deleted. Local files are preserved and plan changed to Free.'**
+  String get deleteAccountSuccess;
+
+  /// Delete account failed message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete account: {error}'**
+  String deleteAccountFailed(String error);
+
+  /// Select plan dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Select Subscription Plan'**
+  String get selectPlan;
+
+  /// Free plan name
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get planFree;
+
+  /// Standard plan name
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get planStandard;
+
+  /// Premium plan name
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get planPremium;
+
+  /// Free plan description
+  ///
+  /// In en, this message translates to:
+  /// **'With ads, limited to 5 littens'**
+  String get planFreeDescription;
+
+  /// Standard plan description
+  ///
+  /// In en, this message translates to:
+  /// **'\$4.99/month - No ads, unlimited'**
+  String get planStandardDescription;
+
+  /// Premium plan description
+  ///
+  /// In en, this message translates to:
+  /// **'\$9.99/month - Cloud sync'**
+  String get planPremiumDescription;
+
+  /// Premium plan description with login requirement
+  ///
+  /// In en, this message translates to:
+  /// **'\$9.99/month - Cloud sync (Login required)'**
+  String get planPremiumDescriptionLoginRequired;
+
+  /// Plan changed message
+  ///
+  /// In en, this message translates to:
+  /// **'Changed to {plan} plan'**
+  String planChanged(String plan);
+
+  /// Plan select button
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get planSelect;
+
+  /// Current plan label
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get planCurrent;
+
+  /// Premium requires login message
+  ///
+  /// In en, this message translates to:
+  /// **'Premium requires login'**
+  String get premiumRequiresLogin;
+
+  /// Change password subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Change your account password'**
+  String get changePasswordSubtitle;
 }
 
 class _AppLocalizationsDelegate

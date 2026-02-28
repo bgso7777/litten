@@ -74,7 +74,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               focusNode: _titleFocusNode,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: '리튼 제목',
+                hintText: '일정 제목',
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(

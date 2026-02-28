@@ -81,7 +81,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: 8),
-                const Icon(Icons.folder_outlined, size: 24),
+                Icon(Icons.calendar_today, size: 24, color: Theme.of(context).primaryColor),
                 AppSpacing.horizontalSpaceXS,
                 _buildLittenCountBadge(appState, context),
               ],

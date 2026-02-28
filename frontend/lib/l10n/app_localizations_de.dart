@@ -626,4 +626,165 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get passwordChangeComingSoon => 'Password change feature coming soon';
+
+  @override
+  String get textTab => 'Text';
+
+  @override
+  String get handwritingTab => 'Handwriting';
+
+  @override
+  String get audioTab => 'Recording';
+
+  @override
+  String get browserTab => 'Search';
+
+  @override
+  String get subscription => 'Subscription';
+
+  @override
+  String get subscriptionPlan => 'Subscription Plan';
+
+  @override
+  String get free => 'Free';
+
+  @override
+  String get standard => 'Standard';
+
+  @override
+  String get premium => 'Premium';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get loggedOut => 'Logged out';
+
+  @override
+  String get loggedIn => 'Logged in';
+
+  @override
+  String get logout => 'Logout';
+
+  @override
+  String get logoutConfirmTitle => 'Logout';
+
+  @override
+  String get logoutConfirmMessage => 'Are you sure you want to logout?';
+
+  @override
+  String get logoutConfirmPremiumMessage =>
+      'If you logout while on Premium, you won\'t be able to share files.\nAre you sure you want to logout?';
+
+  @override
+  String get logoutSuccess => 'Logged out successfully.';
+
+  @override
+  String logoutFailed(String error) {
+    return 'Logout failed: $error';
+  }
+
+  @override
+  String get loginToAccount => 'Login to your account';
+
+  @override
+  String get deleteAccount => 'Delete Account';
+
+  @override
+  String get deleteAccountSubtitle => 'Permanently delete your account';
+
+  @override
+  String get deleteAccountTitle => 'Delete Account';
+
+  @override
+  String get deleteAccountConfirm =>
+      'Are you sure you want to delete your account?';
+
+  @override
+  String get deleteAccountWarningTitle => 'Please note the following:';
+
+  @override
+  String get deleteAccountWarning1 => '• All data will be permanently deleted';
+
+  @override
+  String get deleteAccountWarning2 =>
+      '• All files on the server will be deleted';
+
+  @override
+  String get deleteAccountWarning3 => '• Account recovery is not possible';
+
+  @override
+  String get deleteAccountWarning4 =>
+      '• Subscription will be automatically cancelled';
+
+  @override
+  String get deleteAccountButton => 'Delete Account';
+
+  @override
+  String get deleteAccountFinalConfirmTitle => 'Final Confirmation';
+
+  @override
+  String get deleteAccountFinalConfirmMessage =>
+      'Are you sure you want to delete your account?\nThis action cannot be undone.';
+
+  @override
+  String get deleteAccountFinalConfirmHint =>
+      'Press \"Confirm Delete\" to proceed';
+
+  @override
+  String get deleteAccountConfirmButton => 'Confirm Delete';
+
+  @override
+  String get deleteAccountProgress => 'Deleting account...';
+
+  @override
+  String get deleteAccountSuccess =>
+      'Account deleted. Local files are preserved and plan changed to Free.';
+
+  @override
+  String deleteAccountFailed(String error) {
+    return 'Failed to delete account: $error';
+  }
+
+  @override
+  String get selectPlan => 'Select Subscription Plan';
+
+  @override
+  String get planFree => 'Free';
+
+  @override
+  String get planStandard => 'Standard';
+
+  @override
+  String get planPremium => 'Premium';
+
+  @override
+  String get planFreeDescription => 'With ads, limited to 5 littens';
+
+  @override
+  String get planStandardDescription => '\$4.99/month - No ads, unlimited';
+
+  @override
+  String get planPremiumDescription => '\$9.99/month - Cloud sync';
+
+  @override
+  String get planPremiumDescriptionLoginRequired =>
+      '\$9.99/month - Cloud sync (Login required)';
+
+  @override
+  String planChanged(String plan) {
+    return 'Changed to $plan plan';
+  }
+
+  @override
+  String get planSelect => 'Select';
+
+  @override
+  String get planCurrent => 'Current';
+
+  @override
+  String get premiumRequiresLogin => 'Premium requires login';
+
+  @override
+  String get changePasswordSubtitle => 'Change your account password';
 }
