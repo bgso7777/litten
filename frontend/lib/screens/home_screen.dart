@@ -55,6 +55,92 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// 일정 기간 시작일 반환 (선택된 리튼 또는 모든 리튼)
+  DateTime? _getFirstScheduleRangeStart(AppStateProvider appState) {
+    // ⭐ 선택된 리튼이 undefined가 아닌 경우
+    if (appState.selectedLitten != null &&
+        appState.selectedLitten!.title != 'undefined') {
+      // 일정이 없거나 endDate가 없으면 null 반환 (범위 표시 안 함)
+      if (appState.selectedLitten!.schedule == null) {
+        return null;
+      }
+      final schedule = appState.selectedLitten!.schedule!;
+      if (schedule.endDate == null) {
+        return null;
+      }
+      // 일정의 기간 표시
+      return DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+    }
+
+    // ⭐ undefined 리튼이 선택된 경우, 모든 리튼의 일정 중 가장 이른 시작일 찾기
+    final focusedMonth = DateTime(appState.focusedDate.year, appState.focusedDate.month, 1);
+    final focusedMonthEnd = DateTime(appState.focusedDate.year, appState.focusedDate.month + 1, 0);
+
+    DateTime? earliestStart;
+
+    for (final litten in appState.littens) {
+      if (litten.title == 'undefined' || litten.schedule == null) continue;
+
+      final schedule = litten.schedule!;
+      if (schedule.endDate == null) continue;
+
+      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
+
+      // 일정이 현재 월과 겹치는지 확인
+      if (endDate.isAfter(focusedMonth.subtract(const Duration(days: 1))) &&
+          startDate.isBefore(focusedMonthEnd.add(const Duration(days: 1)))) {
+        if (earliestStart == null || startDate.isBefore(earliestStart)) {
+          earliestStart = startDate;
+        }
+      }
+    }
+    return earliestStart;
+  }
+
+  /// 일정 기간 종료일 반환 (선택된 리튼 또는 모든 리튼)
+  DateTime? _getFirstScheduleRangeEnd(AppStateProvider appState) {
+    // ⭐ 선택된 리튼이 undefined가 아닌 경우
+    if (appState.selectedLitten != null &&
+        appState.selectedLitten!.title != 'undefined') {
+      // 일정이 없거나 endDate가 없으면 null 반환 (범위 표시 안 함)
+      if (appState.selectedLitten!.schedule == null) {
+        return null;
+      }
+      final schedule = appState.selectedLitten!.schedule!;
+      if (schedule.endDate == null) {
+        return null;
+      }
+      // 일정의 기간 표시
+      return DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
+    }
+
+    // ⭐ undefined 리튼이 선택된 경우, 모든 리튼의 일정 중 가장 늦은 종료일 찾기
+    final focusedMonth = DateTime(appState.focusedDate.year, appState.focusedDate.month, 1);
+    final focusedMonthEnd = DateTime(appState.focusedDate.year, appState.focusedDate.month + 1, 0);
+
+    DateTime? latestEnd;
+
+    for (final litten in appState.littens) {
+      if (litten.title == 'undefined' || litten.schedule == null) continue;
+
+      final schedule = litten.schedule!;
+      if (schedule.endDate == null) continue;
+
+      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
+
+      // 일정이 현재 월과 겹치는지 확인
+      if (endDate.isAfter(focusedMonth.subtract(const Duration(days: 1))) &&
+          startDate.isBefore(focusedMonthEnd.add(const Duration(days: 1)))) {
+        if (latestEnd == null || endDate.isAfter(latestEnd)) {
+          latestEnd = endDate;
+        }
+      }
+    }
+    return latestEnd;
+  }
+
   /// 숨겨진 리튼 ID 목록 로드
   Future<void> _loadCollapsedLittenIds() async {
     try {
@@ -344,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: hasSchedule ? Theme.of(context).primaryColor : Colors.grey.shade500,
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.schedule, size: 16),
+                        Icon(Icons.alarm, size: 16),
                         const SizedBox(width: 4),
                         Text('일정추가'),
                       ],
@@ -519,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: hasSchedule ? Theme.of(context).primaryColor : Colors.grey.shade500,
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.schedule, size: 16),
+                        Icon(Icons.alarm, size: 16),
                         const SizedBox(width: 4),
                         Text('일정추가'),
                       ],
@@ -794,6 +880,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 focusedDay: appState.focusedDate,
                 daysOfWeekHeight: ResponsiveUtils.getCalendarDaysOfWeekHeight(context),
                 rowHeight: ResponsiveUtils.getCalendarRowHeight(context),
+
+                // ⭐ 일정 기간 표시 (endDate가 있는 경우)
+                rangeStartDay: _getFirstScheduleRangeStart(appState),
+                rangeEndDay: _getFirstScheduleRangeEnd(appState),
+
                 selectedDayPredicate: (day) {
                   // 날짜가 선택된 경우에만 선택 표시
                   if (!appState.isDateSelected) return false;
@@ -830,6 +921,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: BoxShape.circle,
                   ),
                   markersMaxCount: 3,
+                  // ⭐ 일정 기간 스타일 (시작일~종료일 연결선)
+                  rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                  rangeStartDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  rangeEndDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  withinRangeDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 eventLoader: (day) {
                   // 1. 해당 날짜에 생성된 리튼 ID Set
@@ -1306,7 +1411,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return ListTile(
                 leading: Icon(
-                  isPast ? Icons.check_circle : Icons.schedule,
+                  isPast ? Icons.check_circle : Icons.alarm,
                   color: isPast ? Colors.grey : Colors.blue.shade700,
                   size: 24,
                 ),
@@ -1491,7 +1596,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.folder,
+                        Icons.alarm,
                         color: Theme.of(context).primaryColor,
                         size: 20,
                       ),

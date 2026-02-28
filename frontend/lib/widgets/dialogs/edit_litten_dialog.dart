@@ -36,9 +36,12 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     debugPrint('📝 EditLittenDialog initState - 제목: "${widget.litten.title}"');
     debugPrint('📝 Controller text: "${_titleController.text}"');
 
-    // 렌더링 후 포커스 해제
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _titleFocusNode.unfocus();
+    // 1초 후 포커스 해제 (키보드 숨김)
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        _titleFocusNode.unfocus();
+        debugPrint('⌨️ 키보드 숨김 완료');
+      }
     });
   }
 

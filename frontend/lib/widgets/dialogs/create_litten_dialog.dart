@@ -23,14 +23,28 @@ class CreateLittenDialog extends StatefulWidget {
 
 class _CreateLittenDialogState extends State<CreateLittenDialog> {
   final TextEditingController _titleController = TextEditingController();
+  final FocusNode _titleFocusNode = FocusNode();
   LittenSchedule? _selectedSchedule;
   bool _userInteractedWithSchedule = false;
   int _currentTabIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // 1초 후 포커스 해제 (키보드 숨김)
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        _titleFocusNode.unfocus();
+        debugPrint('⌨️ 키보드 숨김 완료');
+      }
+    });
+  }
+
+  @override
   void dispose() {
     debugPrint('🎯 CreateLittenDialog dispose 시작');
     _titleController.dispose();
+    _titleFocusNode.dispose();
     debugPrint('🎯 CreateLittenDialog dispose 완료');
     super.dispose();
   }
@@ -57,6 +71,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
             // 제목 입력 필드
             TextField(
               controller: _titleController,
+              focusNode: _titleFocusNode,
               autofocus: true,
               decoration: InputDecoration(
                 hintText: '리튼 제목',

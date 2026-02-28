@@ -170,8 +170,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                   appState.setHomeBottomTabIndex(1);
 
                   debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
-                } else if (appState.selectedTabIndex != 0) {
-                  // 다른 탭에서 홈탭으로 전환 시 (알림이 없는 경우)
+                } else {
+                  // 알림이 없거나 이미 홈탭인 경우 - undefined 선택 및 전체 일정 표시
                   // 날짜 선택 초기화
                   appState.clearDateSelection();
                   // 리튼 선택 초기화 (undefined 선택)
@@ -180,11 +180,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                     orElse: () => appState.littens.first,
                   );
                   appState.selectLitten(undefinedLitten);
-                  debugPrint('📅 HomeScreen: 날짜 및 리튼 선택 초기화 - 전체 목록 표시');
-                } else if (appState.isDateSelected) {
-                  // 이미 홈탭인데 날짜가 선택된 경우 날짜 선택만 초기화
-                  appState.clearDateSelection();
-                  debugPrint('📅 HomeScreen: 날짜 선택 초기화 - 전체 목록 표시');
+                  debugPrint('📅 HomeScreen: undefined 리튼 선택 - 모든 일정 표시');
                 }
               }
 
@@ -198,7 +194,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.note),
+                icon: const Icon(Icons.edit_note),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(
