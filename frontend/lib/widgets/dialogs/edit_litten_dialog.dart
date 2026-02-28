@@ -56,7 +56,14 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: const Text('일정 수정'),
+      title: const Center(
+        child: Text(
+          '일정 수정',
+          style: TextStyle(
+            fontSize: 28, // 기본 크기의 2배 (기본 14 → 28)
+          ),
+        ),
+      ),
       content: SizedBox(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,

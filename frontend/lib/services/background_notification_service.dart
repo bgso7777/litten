@@ -256,6 +256,8 @@ class BackgroundNotificationService {
         iOS: iOSPlatformChannelSpecifics,
       );
 
+      // ⭐ 수정: matchDateTimeComponents 제거하여 정확한 날짜/시간에만 1회 발생
+      // matchDateTimeComponents를 사용하지 않으면 지정된 날짜/시간에 정확히 1회만 발생
       await _flutterLocalNotificationsPlugin.zonedSchedule(
         id,
         title,
@@ -264,7 +266,6 @@ class BackgroundNotificationService {
         platformChannelSpecifics,
         payload: payload ?? littenId,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
       );
 
       debugPrint('⏰ 예약 알림 등록: $title - ${DateFormat('yyyy-MM-dd HH:mm').format(scheduledDate)}');

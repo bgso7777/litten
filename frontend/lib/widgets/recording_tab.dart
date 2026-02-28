@@ -70,47 +70,67 @@ class _RecordingTabState extends State<RecordingTab> {
       return;
     }
 
-    if (_audioService.isRecording) {
-      print('[RecordingTab] 녹음 중지 시작');
-      // 녹음 중지 및 파일 저장
-      final audioFile = await _audioService.stopRecording(
-        appState.selectedLitten!,
-      );
-      print('[RecordingTab] 녹음 중지 완료, mounted: $mounted, audioFile: ${audioFile?.id}');
-
-      if (mounted && audioFile != null) {
-        // 리튼의 오디오 파일 목록에 추가
-        final littenService = LittenService();
-        await littenService.addAudioFileToLitten(
-          appState.selectedLitten!.id,
-          audioFile.id,
+    // ⭐ 녹음 중이거나 STT 중일 때 - 둘 다 중지
+    if (_audioService.isRecording || appState.isSTTActive) {
+      // 녹음 중지
+      if (_audioService.isRecording) {
+        print('[RecordingTab] 녹음 중지 시작');
+        final audioFile = await _audioService.stopRecording(
+          appState.selectedLitten!,
         );
+        print('[RecordingTab] 녹음 중지 완료, mounted: $mounted, audioFile: ${audioFile?.id}');
 
-        // refreshLittens() 호출하지 않음 - Consumer rebuild 방지
-        await _loadAudioFiles(); // 목록 새로고침
-
-        // 파일 카운트 업데이트
-        await appState.updateFileCount();
-        print('[RecordingTab] 파일 카운트 업데이트 완료');
-
-        print('[RecordingTab] 파일 목록 새로고침 완료, mounted: $mounted');
-
-        if (mounted) {
-          print('[RecordingTab] SnackBar 표시 시도');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                l10n?.recordingStoppedAndSaved ?? '녹음이 중지되고 파일이 저장되었습니다.',
-              ),
-              backgroundColor: Colors.blue,
-            ),
+        if (mounted && audioFile != null) {
+          // 리튼의 오디오 파일 목록에 추가
+          final littenService = LittenService();
+          await littenService.addAudioFileToLitten(
+            appState.selectedLitten!.id,
+            audioFile.id,
           );
-          print('[RecordingTab] SnackBar 표시 완료');
+
+          // refreshLittens() 호출하지 않음 - Consumer rebuild 방지
+          await _loadAudioFiles(); // 목록 새로고침
+
+          // 파일 카운트 업데이트
+          await appState.updateFileCount();
+          print('[RecordingTab] 파일 카운트 업데이트 완료');
+
+          print('[RecordingTab] 파일 목록 새로고침 완료, mounted: $mounted');
+
+          if (mounted) {
+            print('[RecordingTab] SnackBar 표시 시도');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  l10n?.recordingStoppedAndSaved ?? '녹음이 중지되고 파일이 저장되었습니다.',
+                ),
+                backgroundColor: Colors.blue,
+              ),
+            );
+            print('[RecordingTab] SnackBar 표시 완료');
+          }
         }
+        print('[RecordingTab] 녹음 중지 프로세스 종료');
       }
-      print('[RecordingTab] 녹음 중지 프로세스 종료');
+
+      // STT 중지
+      if (appState.isSTTActive) {
+        debugPrint('⚠️ STT가 진행 중 - STT 중단');
+        appState.setSTTActive(false);
+        debugPrint('✅ STT 중단 완료');
+      }
     } else {
       print('[RecordingTab] 녹음 시작');
+
+      // ⭐ STT 실행 중인지 확인 - STT 중이면 STT를 중단하고 녹음 시작
+      if (appState.isSTTActive) {
+        debugPrint('⚠️ STT가 진행 중 - STT를 중단하고 녹음 시작');
+
+        // STT 중단 알림 (TextTab에서 처리하도록 상태만 변경)
+        appState.setSTTActive(false);
+        debugPrint('✅ STT 중단 완료 (녹음 시작을 위해)');
+      }
+
       // 녹음 시작
       final success = await _audioService.startRecording(
         appState.selectedLitten!,
@@ -558,10 +578,11 @@ class _RecordingTabState extends State<RecordingTab> {
                 child: FloatingActionButton(
                   onPressed: _toggleRecording,
                   mini: true,
-                  tooltip: _audioService.isRecording
+                  // ⭐ STT 또는 녹음 중일 때 중지 상태로 표시
+                  tooltip: (_audioService.isRecording || appState.isSTTActive)
                       ? l10n?.stopRecording ?? '녹음 중지'
                       : l10n?.recordingTitle ?? '녹음 시작',
-                  child: _audioService.isRecording
+                  child: (_audioService.isRecording || appState.isSTTActive)
                       ? const Icon(Icons.stop)
                       : Row(
                           mainAxisSize: MainAxisSize.min,

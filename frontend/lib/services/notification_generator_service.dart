@@ -172,7 +172,6 @@ class NotificationGeneratorService {
 
       case NotificationFrequency.weekly:
         // 매주 알림
-        DateTime candidate = baseTime;
         // ⚠️ weekdays가 null이거나 빈 배열이면 알림 생성하지 않음 (잘못된 설정)
         if (rule.weekdays == null || rule.weekdays!.isEmpty) {
           debugPrint('      ⚠️ 주별 알림: weekdays가 설정되지 않음 - 알림 생성 불가');
@@ -180,16 +179,24 @@ class NotificationGeneratorService {
         }
         final allowedWeekdays = rule.weekdays!;
 
-        // 현재 시간 이후이면서 허용된 요일을 찾을 때까지 반복
+        DateTime candidate = baseTime;
+
+        // ⭐ 수정: 먼저 현재 시간 이후로 이동
+        while (candidate.isBefore(now) || candidate.isAtSameMomentAs(now)) {
+          candidate = candidate.add(const Duration(days: 1));
+        }
+
+        // ⭐ 수정: 그 다음 허용된 요일을 찾기
         int attempts = 0;
-        while (attempts < 14) { // 무한 루프 방지: 최대 14일 검색
-          if (candidate.isAfter(now) && allowedWeekdays.contains(candidate.weekday)) {
+        while (attempts < 7) { // 무한 루프 방지: 최대 7일 검색 (한 주 내에 반드시 찾아야 함)
+          if (allowedWeekdays.contains(candidate.weekday)) {
+            debugPrint('      ✅ 주별 알림: 다음 발생일 ${candidate.year}-${candidate.month.toString().padLeft(2, '0')}-${candidate.day.toString().padLeft(2, '0')} (요일: ${candidate.weekday})');
             return candidate;
           }
           candidate = candidate.add(const Duration(days: 1));
           attempts++;
         }
-        debugPrint('      ⚠️ 주별 알림: 14일 내에 유효한 요일을 찾지 못함');
+        debugPrint('      ⚠️ 주별 알림: 7일 내에 유효한 요일을 찾지 못함');
         return null;
 
       case NotificationFrequency.monthly:

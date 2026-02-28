@@ -21,6 +21,11 @@ class _WritingScreenState extends State<WritingScreen> {
   final GlobalKey _tabLayoutKey = GlobalKey();
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
 
+  // ⭐ TextTab 상태 유지를 위한 GlobalKey
+  final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _handwritingTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -47,19 +52,20 @@ class _WritingScreenState extends State<WritingScreen> {
     }
 
     // ⭐ AppStateProvider에서 저장된 위치로 탭 초기화
+    // ⭐ GlobalKey를 사용하여 위젯 상태 유지 (특히 TextTab의 편집 상태)
     _tabs = [
       TabItem(
         id: 'text',
         title: '텍스트',
         icon: Icons.keyboard,
-        content: TextTab(),
+        content: TextTab(key: _textTabKey),
         position: parsePosition(savedPositions['text'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'handwriting',
         title: '필기',
         icon: Icons.draw,
-        content: HandwritingTab(),
+        content: HandwritingTab(key: _handwritingTabKey),
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
       ),
       TabItem(
@@ -73,7 +79,7 @@ class _WritingScreenState extends State<WritingScreen> {
         id: 'browser',
         title: '검색',
         icon: Icons.public,
-        content: const BrowserTab(),
+        content: BrowserTab(key: _browserTabKey),
         position: parsePosition(savedPositions['browser'] ?? 'topLeft'),
       ),
     ];

@@ -59,6 +59,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // ⭐ STT 실행 상태 (텍스트 탭에서 STT 사용 중인지 여부)
+  bool _isSTTActive = false;
+  bool get isSTTActive => _isSTTActive;
+
+  void setSTTActive(bool isActive) {
+    _isSTTActive = isActive;
+    notifyListeners();
+    debugPrint('🎤 STT 상태 변경: $isActive');
+  }
+
   // ⭐ 현재 활성 탭 위치 저장 (위젯 재생성 시에도 유지)
   String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
   int _currentMainTabIndex = 0; // 메인 탭 인덱스 (0: 홈, 1: 쓰기, 2: 설정)

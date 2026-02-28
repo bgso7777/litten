@@ -59,11 +59,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCollapsedLittenIds() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final collapsedIds = prefs.getStringList('collapsed_litten_ids') ?? [];
-      setState(() {
-        _collapsedLittenIds = collapsedIds.toSet();
-      });
-      debugPrint('📂 숨겨진 리튼 ID 로드: ${_collapsedLittenIds.length}개');
+      final collapsedIds = prefs.getStringList('collapsed_litten_ids');
+
+      if (!mounted) return;
+
+      // ⭐ 저장된 값이 없으면 모든 리튼을 기본적으로 숨김 상태로 설정
+      if (collapsedIds == null) {
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        final allLittenIds = appState.littens.map((litten) => litten.id).toSet();
+
+        setState(() {
+          _collapsedLittenIds = allLittenIds;
+        });
+
+        // SharedPreferences에 저장
+        await prefs.setStringList('collapsed_litten_ids', _collapsedLittenIds.toList());
+        debugPrint('📂 모든 리튼을 기본 숨김 상태로 설정: ${_collapsedLittenIds.length}개');
+      } else {
+        setState(() {
+          _collapsedLittenIds = collapsedIds.toSet();
+        });
+        debugPrint('📂 숨겨진 리튼 ID 로드: ${_collapsedLittenIds.length}개');
+      }
     } catch (e) {
       debugPrint('❌ 숨겨진 리튼 ID 로드 실패: $e');
     }

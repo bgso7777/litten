@@ -5,6 +5,7 @@ import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
@@ -42,6 +43,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   // 오디오 녹음 관련 (STT와 동시 실행)
   final AudioService _audioService = AudioService();
   bool _isRecordingWithSTT = false; // STT 중 녹음 진행 여부
+  bool _lastSTTActiveState = false; // 이전 STT 상태 추적
 
   @override
   void initState() {
@@ -52,6 +54,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     _loadFiles();
     _initializeSpeechToText();
+
+    // ⭐ AppStateProvider 리스닝 - STT 상태 변화 감지
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      appState.addListener(_onAppStateChanged);
+      _lastSTTActiveState = appState.isSTTActive;
+    });
+  }
+
+  /// AppStateProvider 상태 변화 리스너
+  void _onAppStateChanged() {
+    if (!mounted) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    // ⭐ STT 상태가 외부에서 false로 변경되었고, 현재 STT가 실행 중이면 중단
+    if (_lastSTTActiveState == true &&
+        appState.isSTTActive == false &&
+        _isListening) {
+      debugPrint('⚠️ 외부에서 STT 중단 요청됨 (녹음 시작) - _stopListening 호출');
+      _stopListening();
+    }
+
+    _lastSTTActiveState = appState.isSTTActive;
   }
 
   /// 음성 인식 초기화
@@ -129,9 +155,51 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 앱이 포어그라운드로 돌아왔을 때 파일 목록 재로드
-    if (state == AppLifecycleState.resumed) {
-      _loadFiles();
+    debugPrint('🔄 TextTab 생명주기 변경: $state');
+    debugPrint('   📊 현재 상태: _isEditing=$_isEditing, _currentTextFile=${_currentTextFile?.fileName}, _isListening=$_isListening');
+
+    switch (state) {
+      case AppLifecycleState.paused:
+        // 백그라운드로 전환 시 - STT는 계속 작동하도록 유지
+        debugPrint('⏸️ 앱 백그라운드 전환 - STT 작동 유지');
+        debugPrint('   💾 편집 상태 저장: _isEditing=$_isEditing, _currentTextFile=${_currentTextFile?.fileName}');
+        // STT를 중지하지 않음 - 계속 듣기 모드 유지
+        break;
+
+      case AppLifecycleState.resumed:
+        // 포그라운드로 복귀 시 - 파일 목록 재로드하지만 편집 상태는 유지
+        debugPrint('▶️ 앱 포그라운드 복귀 - STT 상태: $_isListening');
+        debugPrint('   📖 복귀 시 상태: _isEditing=$_isEditing, _currentTextFile=${_currentTextFile?.fileName}');
+
+        // ⭐ 편집 상태를 명시적으로 유지하기 위해 setState 호출
+        if (_isEditing && _currentTextFile != null) {
+          debugPrint('   ✅ 편집 상태 유지 - setState로 UI 갱신');
+          if (mounted) {
+            setState(() {
+              // 상태 변경 없이 UI만 갱신
+            });
+          }
+        } else if (!_isEditing) {
+          debugPrint('   📂 파일 목록 재로드');
+          _loadFiles();
+        }
+        break;
+
+      case AppLifecycleState.inactive:
+        // 비활성 상태 (화면 잠금, 전화 수신 등)
+        debugPrint('💤 앱 비활성 상태 - STT 작동 유지');
+        debugPrint('   📊 비활성 상태: _isEditing=$_isEditing, _currentTextFile=${_currentTextFile?.fileName}');
+        break;
+
+      case AppLifecycleState.detached:
+        // 앱 종료
+        debugPrint('🛑 앱 종료');
+        break;
+
+      case AppLifecycleState.hidden:
+        debugPrint('🙈 앱 숨김 상태');
+        debugPrint('   📊 숨김 상태: _isEditing=$_isEditing, _currentTextFile=${_currentTextFile?.fileName}');
+        break;
     }
   }
 
@@ -142,7 +210,17 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // 메모리 누수 방지를 위한 리소스 정리
     WidgetsBinding.instance.removeObserver(this);
 
-    // STT 진행 중이면 중지
+    // ⭐ AppStateProvider 리스너 제거
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      appState.removeListener(_onAppStateChanged);
+    } catch (e) {
+      debugPrint('⚠️ AppStateProvider 리스너 제거 실패 (무시됨): $e');
+    }
+
+    // ⚠️ 중요: STT 작동 중에는 dispose하지 않도록 주의
+    // 앱이 백그라운드로 갈 때도 위젯이 dispose되지 않도록 IndexedStack 사용
+    // 하지만 완전히 종료되는 경우에만 정리
     if (_isListening) {
       debugPrint('⚠️ dispose: STT 진행 중 - 강제 중지');
       _speechToText.stop();
@@ -208,6 +286,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   Future<void> _loadFiles() async {
     if (!mounted) return; // 위젯이 dispose된 경우 return
+
+    // ⭐ 편집 중일 때는 파일 목록 재로드하지 않음 (편집 화면 유지)
+    if (_isEditing) {
+      debugPrint('✅ 편집 중이므로 파일 목록 재로드 건너뛰기 (_loadFiles)');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -561,11 +645,40 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// 음성 인식 토글 (시작/중지)
   Future<void> _toggleSpeechToText() async {
-    debugPrint('🎤 _toggleSpeechToText() 진입: _isListening=$_isListening');
+    debugPrint('🎤 _toggleSpeechToText() 진입: _isListening=$_isListening, 녹음중=${_audioService.isRecording}');
 
-    if (_isListening) {
-      // 인식 중지
-      await _stopListening();
+    // ⭐ STT 또는 녹음 중일 때 - 둘 다 중지
+    if (_isListening || _audioService.isRecording) {
+      // STT 중지
+      if (_isListening) {
+        await _stopListening();
+      }
+
+      // 녹음 중지
+      if (_audioService.isRecording) {
+        debugPrint('⚠️ 녹음이 진행 중 - 녹음 중단');
+        try {
+          if (!mounted) return;
+          final appState = Provider.of<AppStateProvider>(context, listen: false);
+          if (appState.selectedLitten != null) {
+            final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
+            debugPrint('✅ 녹음 중단 완료');
+
+            // 녹음 파일 저장
+            if (audioFile != null && mounted) {
+              final littenService = LittenService();
+              await littenService.addAudioFileToLitten(
+                appState.selectedLitten!.id,
+                audioFile.id,
+              );
+              await appState.updateFileCount();
+              debugPrint('✅ 녹음 파일 저장 완료');
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ 녹음 중단 실패: $e');
+        }
+      }
     } else {
       // 인식 시작
       await _startListening();
@@ -575,6 +688,36 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   /// 음성 인식 시작
   Future<void> _startListening() async {
     debugPrint('🎤 음성 인식 시작 시도');
+
+    // ⭐ 녹음 중인지 확인 - 녹음 중이면 녹음을 중단하고 STT 시작
+    if (_isRecordingWithSTT || _audioService.isRecording) {
+      debugPrint('⚠️ 녹음이 진행 중 - 녹음을 중단하고 STT 시작');
+
+      // 녹음 중단
+      try {
+        if (_audioService.isRecording) {
+          final appState = Provider.of<AppStateProvider>(context, listen: false);
+          if (appState.selectedLitten != null) {
+            final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
+            debugPrint('✅ 녹음 중단 완료 (STT 시작을 위해)');
+
+            // 녹음 파일 저장
+            if (audioFile != null) {
+              final littenService = LittenService();
+              await littenService.addAudioFileToLitten(
+                appState.selectedLitten!.id,
+                audioFile.id,
+              );
+              await appState.updateFileCount();
+              debugPrint('✅ 녹음 파일 저장 완료');
+            }
+          }
+        }
+        _isRecordingWithSTT = false;
+      } catch (e) {
+        debugPrint('❌ 녹음 중단 실패: $e');
+      }
+    }
 
     // SpeechToText 사용 가능 여부 확인
     if (!_speechToText.isAvailable) {
@@ -624,10 +767,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final selectedLocaleId = koreanLocale.localeId;
     debugPrint('🌐 선택된 언어: $selectedLocaleId (${koreanLocale.name})');
 
+    if (!mounted) return;
+
     // 음성 인식 시작 - 이전 인식 결과 초기화
     setState(() {
       _isListening = true;
     });
+
+    // ⭐ 전역 STT 상태 업데이트 (다른 탭에서도 확인 가능)
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    appState.setSTTActive(true);
+
+    // ⭐ Wakelock 활성화 - 화면 잠금 방지 (STT 작동 유지)
+    try {
+      await WakelockPlus.enable();
+      debugPrint('🔒 Wakelock 활성화 - 화면 잠금 방지');
+    } catch (e) {
+      debugPrint('⚠️ Wakelock 활성화 실패: $e');
+    }
 
     debugPrint('✅ 음성 인식 시작');
 
@@ -821,10 +978,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   Future<void> _stopListening() async {
     debugPrint('🛑 음성 인식 중지');
 
+    // ⭐ Wakelock 비활성화 - 화면 잠금 해제
+    try {
+      await WakelockPlus.disable();
+      debugPrint('🔓 Wakelock 비활성화 - 화면 잠금 허용');
+    } catch (e) {
+      debugPrint('⚠️ Wakelock 비활성화 실패: $e');
+    }
+
     // ✅ 중요: STT 중지 전에 상태 변경하여 추가 onResult 무시
     setState(() {
       _isListening = false;
     });
+
+    // ⭐ 전역 STT 상태 업데이트 (다른 탭에서도 확인 가능)
+    if (mounted) {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      appState.setSTTActive(false);
+    }
 
     await _speechToText.stop();
 
@@ -902,6 +1073,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   Future<void> _startRecordingWithSTT() async {
     try {
       debugPrint('🎙️ STT 녹음 시작 시도...');
+
+      // ⭐ STT가 이미 실행 중인지 확인 - 이 메서드는 STT 중에만 호출되므로 항상 true
+      // 하지만 명시적으로 체크하지 않음 (이미 STT 컨텍스트에서 호출됨)
 
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final selectedLitten = appState.selectedLitten;
@@ -1020,6 +1194,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           _textFiles.add(updatedFile);
           print('디버그: 새로운 텍스트 파일 추가됨 - ${updatedFile.displayTitle}');
         }
+
+        // ⭐ 최근 파일이 위로 오도록 다시 정렬 (updatedAt 기준 내림차순)
+        _textFiles.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
         // 실제 파일 시스템에 저장
         final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1169,25 +1346,31 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         child: Row(
           children: [
             // 1. STT 마이크/정지 버튼 (맨 앞)
-            InkWell(
-              onTap: _toggleSpeechToText,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.grey.shade600,
-                    width: 1.5,
+            Consumer<AppStateProvider>(
+              builder: (context, appState, child) {
+                // ⭐ STT 또는 녹음 중일 때 정지 아이콘 표시
+                final isActive = _isListening || _audioService.isRecording;
+                return InkWell(
+                  onTap: _toggleSpeechToText,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.grey.shade600,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      isActive ? Icons.stop : Icons.mic_none,
+                      color: Colors.grey.shade700,
+                      size: 20,
+                    ),
                   ),
-                ),
-                child: Icon(
-                  _isListening ? Icons.stop : Icons.mic_none,
-                  color: Colors.grey.shade700,
-                  size: 20,
-                ),
-              ),
+                );
+              },
             ),
             const SizedBox(width: 4),
             // 구분선

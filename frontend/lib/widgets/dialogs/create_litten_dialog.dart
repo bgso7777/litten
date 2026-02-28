@@ -40,12 +40,12 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: Text(
-        l10n?.createLitten ?? '일정 생성',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).primaryColor,
+      title: const Center(
+        child: Text(
+          '일정 생성',
+          style: TextStyle(
+            fontSize: 28, // 기본 크기의 2배 (기본 14 → 28)
+          ),
         ),
       ),
       content: SizedBox(
@@ -55,76 +55,28 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 제목 입력 필드
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            TextField(
+              controller: _titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '리튼 제목',
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: TextField(
-                  controller: _titleController,
-                  enabled: true,
-                  decoration: InputDecoration(
-                    hintText: '예: 회의록, 강의 메모, 일기 등',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    labelStyle: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
-                    ),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                  autofocus: true,
-                  onChanged: (value) {
-                    debugPrint('🔤 텍스트 입력: $value');
-                  },
-                  onTap: () {
-                    debugPrint('🔍 텍스트 필드 탭됨');
-                  },
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
                 ),
               ),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
 
 
             // 탭 구조로 일정 설정

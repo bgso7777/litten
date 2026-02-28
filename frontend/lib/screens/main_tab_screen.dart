@@ -121,6 +121,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
             onTap: (index) {
               debugPrint('🔍 탭 터치: 인덱스 $index');
 
@@ -196,7 +198,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.homeTitle ?? '홈',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.edit_note),
+                icon: const Icon(Icons.edit),
                 label: l10n?.writingTitle ?? '쓰기',
               ),
               BottomNavigationBarItem(
