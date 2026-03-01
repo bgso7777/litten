@@ -66,23 +66,23 @@ class _AdBannerState extends State<AdBanner> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '스탠다드 플랜 - \$4.99/월',
+              l10n?.adUpgradeStandard ?? '스탠다드 플랜 - \$4.99/월',
               style: AppTextStyles.headline3,
             ),
             AppSpacing.verticalSpaceS,
-            _buildBenefit('✓ 광고 제거'),
-            _buildBenefit('✓ 무제한 리튼 생성'),
-            _buildBenefit('✓ 무제한 파일 저장'),
+            _buildBenefit(l10n?.adBenefitRemoveAds ?? '✓ 광고 제거'),
+            _buildBenefit(l10n?.adBenefitUnlimitedLittens ?? '✓ 무제한 리튼 생성'),
+            _buildBenefit(l10n?.adBenefitUnlimitedFiles ?? '✓ 무제한 파일 저장'),
             AppSpacing.verticalSpaceL,
             Text(
-              '프리미엄 플랜 - \$9.99/월',
+              l10n?.adUpgradePremium ?? '프리미엄 플랜 - \$9.99/월',
               style: AppTextStyles.headline3,
             ),
             AppSpacing.verticalSpaceS,
-            _buildBenefit('✓ 스탠다드 플랜 모든 기능'),
-            _buildBenefit('✓ 클라우드 동기화'),
-            _buildBenefit('✓ 대용량 파일 지원'),
-            _buildBenefit('✓ 우선 고객 지원'),
+            _buildBenefit(l10n?.adBenefitAllStandard ?? '✓ 스탠다드 플랜 모든 기능'),
+            _buildBenefit(l10n?.adBenefitCloudSync ?? '✓ 클라우드 동기화'),
+            _buildBenefit(l10n?.adBenefitLargeFiles ?? '✓ 대용량 파일 지원'),
+            _buildBenefit(l10n?.adBenefitPrioritySupport ?? '✓ 우선 고객 지원'),
           ],
         ),
         actions: [
@@ -124,7 +124,7 @@ class _AdBannerState extends State<AdBanner> {
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(l10n?.standardVersion ?? '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
+        content: Text(l10n?.standardPlanUpgraded ?? '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)'),
         backgroundColor: Colors.green,
       ),
     );
@@ -186,7 +186,7 @@ class _AdBannerState extends State<AdBanner> {
             ),
             const SizedBox(width: 8),
             Text(
-              l10n?.freeVersion ?? '광고 로딩 중...',
+              l10n?.adLoading ?? '광고 로딩 중...',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -218,7 +218,7 @@ class _AdBannerState extends State<AdBanner> {
             const Icon(Icons.error_outline, color: Colors.white70, size: 16),
             const SizedBox(width: 8),
             Text(
-              l10n?.freeVersion ?? '광고를 로드할 수 없습니다',
+              l10n?.adLoadingError ?? '광고를 로드할 수 없습니다',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,

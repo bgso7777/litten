@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 enum TabPosition {
   topLeft,
@@ -832,15 +833,21 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              '탭을 여기로 드래그하세요 (${_getPositionLabel(position)})',
-              style: TextStyle(
-                color: isHovered
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey[600],
-                fontSize: 14,
-                fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
-              ),
+            Builder(
+              builder: (context) {
+                final positionLabel = _getPositionLabel(context, position);
+                final l10n = AppLocalizations.of(context);
+                return Text(
+                  l10n?.dragTabHere(positionLabel) ?? '탭을 여기로 드래그하세요 ($positionLabel)',
+                  style: TextStyle(
+                    color: isHovered
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -848,18 +855,19 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     );
   }
 
-  String _getPositionLabel(TabPosition position) {
+  String _getPositionLabel(BuildContext context, TabPosition position) {
+    final l10n = AppLocalizations.of(context);
     switch (position) {
       case TabPosition.topLeft:
-        return '좌상단';
+        return l10n?.positionTopLeft ?? '좌상단';
       case TabPosition.topRight:
-        return '우상단';
+        return l10n?.positionTopRight ?? '우상단';
       case TabPosition.bottomLeft:
-        return '좌하단';
+        return l10n?.positionBottomLeft ?? '좌하단';
       case TabPosition.bottomRight:
-        return '우하단';
+        return l10n?.positionBottomRight ?? '우하단';
       case TabPosition.fullScreen:
-        return '전체화면';
+        return l10n?.positionTopLeft ?? '전체화면';
     }
   }
 

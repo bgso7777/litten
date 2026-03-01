@@ -59,10 +59,10 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: const Center(
+      title: Center(
         child: Text(
-          '일정 수정',
-          style: TextStyle(
+          l10n?.editSchedule ?? '일정 수정',
+          style: const TextStyle(
             fontSize: 16, // 텍스트 필드와 동일한 크기
           ),
         ),
@@ -82,7 +82,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                   focusNode: _titleFocusNode,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: '일정 제목',
+                    hintText: l10n?.scheduleTitle ?? '일정 제목',
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(
@@ -106,7 +106,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
 
             // 탭 구조로 일정 설정
             Expanded(
-              child: _buildScheduleTabView(),
+              child: _buildScheduleTabView(l10n),
             ),
           ],
         ),
@@ -126,13 +126,13 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
               Navigator.of(context).pop();
             }
           },
-          child: Text('저장'),
+          child: Text(l10n?.save ?? '저장'),
         ),
       ],
     );
   }
 
-  Widget _buildScheduleTabView() {
+  Widget _buildScheduleTabView(AppLocalizations? l10n) {
     return DefaultTabController(
       length: 2,
       initialIndex: _currentTabIndex,
@@ -173,7 +173,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                     const SizedBox(width: 4),
                     Icon(Icons.schedule, size: 16),
                     const SizedBox(width: 4),
-                    Text('일정추가'),
+                    Text(l10n?.addScheduleTab ?? '일정추가'),
                   ],
                 ),
               ),
@@ -198,7 +198,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '알림설정',
+                      l10n?.notificationSettingTab ?? '알림설정',
                       style: TextStyle(
                         color: _selectedSchedule != null ? null : Colors.grey.shade400,
                       ),
@@ -270,7 +270,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
           ),
           const SizedBox(height: 16),
           Text(
-            '일정을 먼저 설정해주세요',
+            AppLocalizations.of(context)?.setScheduleFirst ?? '일정을 먼저 설정해주세요',
             style: TextStyle(
               color: Colors.grey.shade600,
               fontSize: 16,
@@ -278,7 +278,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '일정추가 탭에서 일정을 설정하면\n알림 설정을 할 수 있습니다',
+            AppLocalizations.of(context)?.setScheduleToEnableNotification ?? '일정추가 탭에서 일정을 설정하면\n알림 설정을 할 수 있습니다',
             style: TextStyle(
               color: Colors.grey.shade500,
               fontSize: 14,
@@ -311,7 +311,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
       if (startTime.hour == endTime.hour && startTime.minute >= endTime.minute) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('시작 시간이 종료 시간보다 늦을 수 없습니다.')),
+            SnackBar(content: Text(l10n?.startTimeCannotBeAfterEndTime ?? '시작 시간이 종료 시간보다 늦을 수 없습니다.')),
           );
         }
         return false;
@@ -345,7 +345,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
             ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(context)})'
             : '';
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('${updatedLitten.title} 리튼이 수정되었습니다.$scheduleText')),
+          SnackBar(content: Text(l10n?.littenUpdated(updatedLitten.title) ?? '${updatedLitten.title} 리튼이 수정되었습니다.$scheduleText')),
         );
         debugPrint('✅ 리튼 수정 완료: ${updatedLitten.id}');
       }

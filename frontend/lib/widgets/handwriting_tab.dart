@@ -387,7 +387,7 @@ class _HandwritingTabState extends State<HandwritingTab>
                                             ),
                                             AppSpacing.verticalSpaceS,
                                             Text(
-                                              '텍스트 파일이 없습니다',
+                                              AppLocalizations.of(context)?.noTextFiles ?? '텍스트 파일이 없습니다',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,
@@ -456,7 +456,7 @@ class _HandwritingTabState extends State<HandwritingTab>
                                             ),
                                             AppSpacing.verticalSpaceS,
                                             Text(
-                                              '필기 파일이 없습니다',
+                                              AppLocalizations.of(context)?.noHandwritingFiles ?? '필기 파일이 없습니다',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,

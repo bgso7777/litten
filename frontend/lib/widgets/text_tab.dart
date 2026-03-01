@@ -368,7 +368,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                             ),
                                             AppSpacing.verticalSpaceS,
                                             Text(
-                                              '텍스트 파일이 없습니다',
+                                              AppLocalizations.of(context)?.noTextFiles ?? '텍스트 파일이 없습니다',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,

@@ -1623,6 +1623,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change your account password'**
   String get changePasswordSubtitle;
+
+  /// Edit schedule dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Schedule'**
+  String get editSchedule;
+
+  /// Schedule title placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule Title'**
+  String get scheduleTitle;
+
+  /// Add schedule tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Add Schedule'**
+  String get addScheduleTab;
+
+  /// Notification setting tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationSettingTab;
+
+  /// Message when notification tab is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Please set a schedule first'**
+  String get setScheduleFirst;
+
+  /// Instructions to enable notification settings
+  ///
+  /// In en, this message translates to:
+  /// **'Set a schedule in the Add Schedule tab\nto enable notification settings'**
+  String get setScheduleToEnableNotification;
+
+  /// Error message for invalid time range
+  ///
+  /// In en, this message translates to:
+  /// **'Start time cannot be after end time.'**
+  String get startTimeCannotBeAfterEndTime;
+
+  /// Success message when litten is updated
+  ///
+  /// In en, this message translates to:
+  /// **'{title} has been updated.'**
+  String littenUpdated(String title);
+
+  /// Subscription plan label
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription Plan'**
+  String get subscriptionPlanTitle;
+
+  /// Title for create schedule dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Create Schedule'**
+  String get createSchedule;
+
+  /// Error message when a litten with same name already exists
+  ///
+  /// In en, this message translates to:
+  /// **'A litten with the same name already exists on {dateStr}: \"{title}\"'**
+  String littenAlreadyExists(String dateStr, String title);
+
+  /// Empty state message for text files
+  ///
+  /// In en, this message translates to:
+  /// **'No text files'**
+  String get noTextFiles;
+
+  /// Empty state message for handwriting files
+  ///
+  /// In en, this message translates to:
+  /// **'No handwriting files'**
+  String get noHandwritingFiles;
+
+  /// Placeholder text for search input
+  ///
+  /// In en, this message translates to:
+  /// **'Enter search term...'**
+  String get enterSearchTerm;
+
+  /// Message when search history is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No search history yet'**
+  String get noSearchHistory;
+
+  /// Hint to try searching
+  ///
+  /// In en, this message translates to:
+  /// **'Try entering a search term'**
+  String get trySearching;
+
+  /// Message for drag and drop area
+  ///
+  /// In en, this message translates to:
+  /// **'Drag tab here ({position})'**
+  String dragTabHere(String position);
+
+  /// Standard plan pricing in ad dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Standard Plan - \$4.99/month'**
+  String get adUpgradeStandard;
+
+  /// Premium plan pricing in ad dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Premium Plan - \$9.99/month'**
+  String get adUpgradePremium;
+
+  /// Benefit: remove ads
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Remove ads'**
+  String get adBenefitRemoveAds;
+
+  /// Benefit: unlimited littens
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Unlimited littens'**
+  String get adBenefitUnlimitedLittens;
+
+  /// Benefit: unlimited files
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Unlimited files'**
+  String get adBenefitUnlimitedFiles;
+
+  /// Benefit: all standard features
+  ///
+  /// In en, this message translates to:
+  /// **'✓ All Standard plan features'**
+  String get adBenefitAllStandard;
+
+  /// Benefit: cloud sync
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Cloud synchronization'**
+  String get adBenefitCloudSync;
+
+  /// Benefit: large files
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Large file support'**
+  String get adBenefitLargeFiles;
+
+  /// Benefit: priority support
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Priority customer support'**
+  String get adBenefitPrioritySupport;
+
+  /// Success message for standard plan upgrade simulation
+  ///
+  /// In en, this message translates to:
+  /// **'Upgraded to Standard plan! (Simulation)'**
+  String get standardPlanUpgraded;
+
+  /// Error message when ad fails to load
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load ad'**
+  String get adLoadingError;
+
+  /// Loading message for ad
+  ///
+  /// In en, this message translates to:
+  /// **'Loading ad...'**
+  String get adLoading;
+
+  /// Tab position: top left
+  ///
+  /// In en, this message translates to:
+  /// **'Top Left'**
+  String get positionTopLeft;
+
+  /// Tab position: top right
+  ///
+  /// In en, this message translates to:
+  /// **'Top Right'**
+  String get positionTopRight;
+
+  /// Tab position: bottom left
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom Left'**
+  String get positionBottomLeft;
+
+  /// Tab position: bottom right
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom Right'**
+  String get positionBottomRight;
+
+  /// Login failure message
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed: {error}'**
+  String loginFailed(String error);
 }
 
 class _AppLocalizationsDelegate

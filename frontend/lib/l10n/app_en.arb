@@ -1285,5 +1285,203 @@
   "changePasswordSubtitle": "Change your account password",
   "@changePasswordSubtitle": {
     "description": "Change password subtitle"
+  },
+
+  "editSchedule": "Edit Schedule",
+  "@editSchedule": {
+    "description": "Edit schedule dialog title"
+  },
+
+  "scheduleTitle": "Schedule Title",
+  "@scheduleTitle": {
+    "description": "Schedule title placeholder"
+  },
+
+  "save": "Save",
+  "@save": {
+    "description": "Save button"
+  },
+
+  "addScheduleTab": "Add Schedule",
+  "@addScheduleTab": {
+    "description": "Add schedule tab label"
+  },
+
+  "notificationSettingTab": "Notifications",
+  "@notificationSettingTab": {
+    "description": "Notification setting tab label"
+  },
+
+  "setScheduleFirst": "Please set a schedule first",
+  "@setScheduleFirst": {
+    "description": "Message when notification tab is disabled"
+  },
+
+  "setScheduleToEnableNotification": "Set a schedule in the Add Schedule tab\nto enable notification settings",
+  "@setScheduleToEnableNotification": {
+    "description": "Instructions to enable notification settings"
+  },
+
+  "startTimeCannotBeAfterEndTime": "Start time cannot be after end time.",
+  "@startTimeCannotBeAfterEndTime": {
+    "description": "Error message for invalid time range"
+  },
+
+  "littenUpdated": "{title} has been updated.",
+  "@littenUpdated": {
+    "description": "Success message when litten is updated",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+
+  "subscriptionPlanTitle": "Subscription Plan",
+  "@subscriptionPlanTitle": {
+    "description": "Subscription plan label"
+  },
+
+  "createSchedule": "Create Schedule",
+  "@createSchedule": {
+    "description": "Title for create schedule dialog"
+  },
+
+  "littenAlreadyExists": "A litten with the same name already exists on {dateStr}: \"{title}\"",
+  "@littenAlreadyExists": {
+    "description": "Error message when a litten with same name already exists",
+    "placeholders": {
+      "dateStr": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+
+  "noTextFiles": "No text files",
+  "@noTextFiles": {
+    "description": "Empty state message for text files"
+  },
+
+  "noHandwritingFiles": "No handwriting files",
+  "@noHandwritingFiles": {
+    "description": "Empty state message for handwriting files"
+  },
+
+  "enterSearchTerm": "Enter search term...",
+  "@enterSearchTerm": {
+    "description": "Placeholder text for search input"
+  },
+
+  "noSearchHistory": "No search history yet",
+  "@noSearchHistory": {
+    "description": "Message when search history is empty"
+  },
+
+  "trySearching": "Try entering a search term",
+  "@trySearching": {
+    "description": "Hint to try searching"
+  },
+
+  "dragTabHere": "Drag tab here ({position})",
+  "@dragTabHere": {
+    "description": "Message for drag and drop area",
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+
+  "adUpgradeStandard": "Standard Plan - $4.99/month",
+  "@adUpgradeStandard": {
+    "description": "Standard plan pricing in ad dialog"
+  },
+
+  "adUpgradePremium": "Premium Plan - $9.99/month",
+  "@adUpgradePremium": {
+    "description": "Premium plan pricing in ad dialog"
+  },
+
+  "adBenefitRemoveAds": "✓ Remove ads",
+  "@adBenefitRemoveAds": {
+    "description": "Benefit: remove ads"
+  },
+
+  "adBenefitUnlimitedLittens": "✓ Unlimited littens",
+  "@adBenefitUnlimitedLittens": {
+    "description": "Benefit: unlimited littens"
+  },
+
+  "adBenefitUnlimitedFiles": "✓ Unlimited files",
+  "@adBenefitUnlimitedFiles": {
+    "description": "Benefit: unlimited files"
+  },
+
+  "adBenefitAllStandard": "✓ All Standard plan features",
+  "@adBenefitAllStandard": {
+    "description": "Benefit: all standard features"
+  },
+
+  "adBenefitCloudSync": "✓ Cloud synchronization",
+  "@adBenefitCloudSync": {
+    "description": "Benefit: cloud sync"
+  },
+
+  "adBenefitLargeFiles": "✓ Large file support",
+  "@adBenefitLargeFiles": {
+    "description": "Benefit: large files"
+  },
+
+  "adBenefitPrioritySupport": "✓ Priority customer support",
+  "@adBenefitPrioritySupport": {
+    "description": "Benefit: priority support"
+  },
+
+  "standardPlanUpgraded": "Upgraded to Standard plan! (Simulation)",
+  "@standardPlanUpgraded": {
+    "description": "Success message for standard plan upgrade simulation"
+  },
+
+  "adLoadingError": "Unable to load ad",
+  "@adLoadingError": {
+    "description": "Error message when ad fails to load"
+  },
+
+  "adLoading": "Loading ad...",
+  "@adLoading": {
+    "description": "Loading message for ad"
+  },
+
+  "positionTopLeft": "Top Left",
+  "@positionTopLeft": {
+    "description": "Tab position: top left"
+  },
+
+  "positionTopRight": "Top Right",
+  "@positionTopRight": {
+    "description": "Tab position: top right"
+  },
+
+  "positionBottomLeft": "Bottom Left",
+  "@positionBottomLeft": {
+    "description": "Tab position: bottom left"
+  },
+
+  "positionBottomRight": "Bottom Right",
+  "@positionBottomRight": {
+    "description": "Tab position: bottom right"
+  },
+
+  "loginFailed": "Login failed: {error}",
+  "@loginFailed": {
+    "description": "Login failure message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

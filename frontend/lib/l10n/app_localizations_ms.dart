@@ -787,4 +787,116 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get changePasswordSubtitle => 'Change your account password';
+
+  @override
+  String get editSchedule => 'Edit Schedule';
+
+  @override
+  String get scheduleTitle => 'Schedule Title';
+
+  @override
+  String get addScheduleTab => 'Add Schedule';
+
+  @override
+  String get notificationSettingTab => 'Notifications';
+
+  @override
+  String get setScheduleFirst => 'Please set a schedule first';
+
+  @override
+  String get setScheduleToEnableNotification =>
+      'Set a schedule in the Add Schedule tab\nto enable notification settings';
+
+  @override
+  String get startTimeCannotBeAfterEndTime =>
+      'Start time cannot be after end time.';
+
+  @override
+  String littenUpdated(String title) {
+    return '$title has been updated.';
+  }
+
+  @override
+  String get subscriptionPlanTitle => 'Subscription Plan';
+
+  @override
+  String get createSchedule => 'Create Schedule';
+
+  @override
+  String littenAlreadyExists(String dateStr, String title) {
+    return 'A litten with the same name already exists on $dateStr: \"$title\"';
+  }
+
+  @override
+  String get noTextFiles => 'No text files';
+
+  @override
+  String get noHandwritingFiles => 'No handwriting files';
+
+  @override
+  String get enterSearchTerm => 'Enter search term...';
+
+  @override
+  String get noSearchHistory => 'No search history yet';
+
+  @override
+  String get trySearching => 'Try entering a search term';
+
+  @override
+  String dragTabHere(String position) {
+    return 'Drag tab here ($position)';
+  }
+
+  @override
+  String get adUpgradeStandard => 'Standard Plan - \$4.99/month';
+
+  @override
+  String get adUpgradePremium => 'Premium Plan - \$9.99/month';
+
+  @override
+  String get adBenefitRemoveAds => '✓ Remove ads';
+
+  @override
+  String get adBenefitUnlimitedLittens => '✓ Unlimited littens';
+
+  @override
+  String get adBenefitUnlimitedFiles => '✓ Unlimited files';
+
+  @override
+  String get adBenefitAllStandard => '✓ All Standard plan features';
+
+  @override
+  String get adBenefitCloudSync => '✓ Cloud synchronization';
+
+  @override
+  String get adBenefitLargeFiles => '✓ Large file support';
+
+  @override
+  String get adBenefitPrioritySupport => '✓ Priority customer support';
+
+  @override
+  String get standardPlanUpgraded => 'Upgraded to Standard plan! (Simulation)';
+
+  @override
+  String get adLoadingError => 'Unable to load ad';
+
+  @override
+  String get adLoading => 'Loading ad...';
+
+  @override
+  String get positionTopLeft => 'Top Left';
+
+  @override
+  String get positionTopRight => 'Top Right';
+
+  @override
+  String get positionBottomLeft => 'Bottom Left';
+
+  @override
+  String get positionBottomRight => 'Bottom Right';
+
+  @override
+  String loginFailed(String error) {
+    return 'Login failed: $error';
+  }
 }

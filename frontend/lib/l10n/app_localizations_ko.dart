@@ -768,4 +768,115 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get changePasswordSubtitle => '계정 비밀번호를 변경합니다';
+
+  @override
+  String get editSchedule => '일정 수정';
+
+  @override
+  String get scheduleTitle => '일정 제목';
+
+  @override
+  String get addScheduleTab => '일정추가';
+
+  @override
+  String get notificationSettingTab => '알림설정';
+
+  @override
+  String get setScheduleFirst => '일정을 먼저 설정해주세요';
+
+  @override
+  String get setScheduleToEnableNotification =>
+      '일정추가 탭에서 일정을 설정하면\n알림 설정을 할 수 있습니다';
+
+  @override
+  String get startTimeCannotBeAfterEndTime => '시작 시간이 종료 시간보다 늦을 수 없습니다.';
+
+  @override
+  String littenUpdated(String title) {
+    return '$title 리튼이 수정되었습니다.';
+  }
+
+  @override
+  String get subscriptionPlanTitle => '구독 플랜';
+
+  @override
+  String get createSchedule => '일정 생성';
+
+  @override
+  String littenAlreadyExists(String dateStr, String title) {
+    return '$dateStr에 이미 같은 이름의 리튼이 존재합니다: \"$title\"';
+  }
+
+  @override
+  String get noTextFiles => '텍스트 파일이 없습니다';
+
+  @override
+  String get noHandwritingFiles => '필기 파일이 없습니다';
+
+  @override
+  String get enterSearchTerm => '검색어를 입력하세요...';
+
+  @override
+  String get noSearchHistory => '아직 검색 기록이 없습니다';
+
+  @override
+  String get trySearching => '검색어를 입력해보세요';
+
+  @override
+  String dragTabHere(String position) {
+    return '탭을 여기로 드래그하세요 ($position)';
+  }
+
+  @override
+  String get adUpgradeStandard => '스탠다드 플랜 - \$4.99/월';
+
+  @override
+  String get adUpgradePremium => '프리미엄 플랜 - \$9.99/월';
+
+  @override
+  String get adBenefitRemoveAds => '✓ 광고 제거';
+
+  @override
+  String get adBenefitUnlimitedLittens => '✓ 무제한 리튼 생성';
+
+  @override
+  String get adBenefitUnlimitedFiles => '✓ 무제한 파일 저장';
+
+  @override
+  String get adBenefitAllStandard => '✓ 스탠다드 플랜 모든 기능';
+
+  @override
+  String get adBenefitCloudSync => '✓ 클라우드 동기화';
+
+  @override
+  String get adBenefitLargeFiles => '✓ 대용량 파일 지원';
+
+  @override
+  String get adBenefitPrioritySupport => '✓ 우선 고객 지원';
+
+  @override
+  String get standardPlanUpgraded => '스탠다드 플랜으로 업그레이드되었습니다! (시뮬레이션)';
+
+  @override
+  String get adLoadingError => '광고를 로드할 수 없습니다';
+
+  @override
+  String get adLoading => '광고 로딩 중...';
+
+  @override
+  String get positionTopLeft => '좌상단';
+
+  @override
+  String get positionTopRight => '우상단';
+
+  @override
+  String get positionBottomLeft => '좌하단';
+
+  @override
+  String get positionBottomRight => '우하단';
+
+  @override
+  String loginFailed(String error) {
+    return '로그인 실패: $error';
+  }
 }

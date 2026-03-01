@@ -54,10 +54,10 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: const Center(
+      title: Center(
         child: Text(
-          '일정 생성',
-          style: TextStyle(
+          l10n?.createSchedule ?? '일정 생성',
+          style: const TextStyle(
             fontSize: 16, // 텍스트 필드와 동일한 크기
           ),
         ),
@@ -74,7 +74,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               focusNode: _titleFocusNode,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: '일정 제목',
+                hintText: l10n?.scheduleTitle ?? '일정 제목',
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
@@ -96,7 +96,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
 
             // 탭 구조로 일정 설정
             Expanded(
-              child: _buildCreateScheduleTabView(),
+              child: _buildCreateScheduleTabView(l10n),
             ),
           ],
         ),
@@ -133,7 +133,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               if (existingLittens.isNotEmpty) {
                 final dateStr = DateFormat('M월 d일').format(_selectedSchedule!.date);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$dateStr에 이미 같은 이름의 리튼이 존재합니다: "$title"')),
+                  SnackBar(content: Text(l10n?.littenAlreadyExists(dateStr, title) ?? '$dateStr에 이미 같은 이름의 리튼이 존재합니다: "$title"')),
                 );
                 return;
               }
@@ -160,7 +160,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(currentContext)})'
                     : '';
                 scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text('$title 리튼이 생성되었습니다.$scheduleText')),
+                  SnackBar(content: Text(l10n?.littenCreated(title) ?? '$title 리튼이 생성되었습니다.$scheduleText')),
                 );
               }
             } catch (e) {
@@ -178,7 +178,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
     );
   }
 
-  Widget _buildCreateScheduleTabView() {
+  Widget _buildCreateScheduleTabView(AppLocalizations? l10n) {
     return DefaultTabController(
       length: 2,
       initialIndex: _currentTabIndex,
@@ -219,7 +219,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     const SizedBox(width: 4),
                     Icon(Icons.schedule, size: 16),
                     const SizedBox(width: 4),
-                    Text('일정추가'),
+                    Text(l10n?.addScheduleTab ?? '일정추가'),
                   ],
                 ),
               ),
@@ -246,7 +246,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '알림설정',
+                      l10n?.notificationSettingTab ?? '알림설정',
                       style: TextStyle(
                         color: _userInteractedWithSchedule && _selectedSchedule != null
                             ? null
@@ -322,7 +322,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
           ),
           const SizedBox(height: 16),
           Text(
-            '일정을 먼저 설정해주세요',
+            AppLocalizations.of(context)?.setScheduleFirst ?? '일정을 먼저 설정해주세요',
             style: TextStyle(
               color: Colors.grey.shade600,
               fontSize: 16,
@@ -330,7 +330,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '일정추가 탭에서 일정을 설정하면\n알림 설정을 할 수 있습니다',
+            AppLocalizations.of(context)?.setScheduleToEnableNotification ?? '일정추가 탭에서 일정을 설정하면\n알림 설정을 할 수 있습니다',
             style: TextStyle(
               color: Colors.grey.shade500,
               fontSize: 14,

@@ -91,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('로그인 실패: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)?.loginFailed(e.toString()) ?? '로그인 실패: $e'), backgroundColor: Colors.red),
         );
       }
     }

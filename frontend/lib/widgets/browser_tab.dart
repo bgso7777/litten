@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/bookmark_service.dart';
 import '../services/session_service.dart';
@@ -84,7 +85,7 @@ class _BrowserTabState extends State<BrowserTab> {
                           child: TextField(
                             controller: _urlController,
                             decoration: InputDecoration(
-                              hintText: '검색어를 입력하세요...',
+                              hintText: AppLocalizations.of(context)?.enterSearchTerm ?? '검색어를 입력하세요...',
                               prefixIcon: const Icon(Icons.search, size: 16),
                               filled: true,
                               fillColor: Colors.white,
@@ -187,7 +188,7 @@ class _BrowserTabState extends State<BrowserTab> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      '아직 검색 기록이 없습니다',
+                                      AppLocalizations.of(context)?.noSearchHistory ?? '아직 검색 기록이 없습니다',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey.shade600,
