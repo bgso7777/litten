@@ -1578,6 +1578,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 debugPrint('✅ 리튼 "${litten.title}"의 ${littenNotifications.length}개 알림 확인 처리');
+
+                // ⭐ 알림 날짜 캐시 및 UI 즉시 업데이트
+                await _loadNotificationDates();
+                if (appState.isDateSelected) {
+                  await _loadNotificationsForSelectedDate(appState.selectedDate, appState);
+                }
+
+                // setState로 UI 강제 갱신
+                if (mounted) {
+                  setState(() {});
+                }
               }
             } catch (e) {
               debugPrint('❌ 리튼 알림 확인 처리 실패: $e');
