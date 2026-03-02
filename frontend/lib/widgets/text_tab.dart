@@ -39,6 +39,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   late stt.SpeechToText _speechToText;
   bool _isListening = false;
   String _lastPartialText = ''; // 마지막 중간 결과 (교체용)
+  Timer? _autoSaveTimer; // STT 중 주기적 자동 저장 타이머
 
   // 오디오 녹음 관련 (STT와 동시 실행)
   final AudioService _audioService = AudioService();
@@ -114,8 +115,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         },
         onStatus: (status) {
           debugPrint('ℹ️ STT 상태: $status');
-          if (status == 'done' || status == 'notListening') {
-            if (mounted) {
+
+          // ⭐ STT가 자동으로 멈췄을 때 (타임아웃 등) 자동 재시작
+          if (status == 'done' && _isListening && mounted) {
+            debugPrint('⚠️ STT가 자동으로 중단됨 (done) - 3초 후 자동 재시작');
+
+            // 잠시 대기 후 재시작 (즉시 재시작하면 충돌 가능)
+            Future.delayed(const Duration(seconds: 3), () {
+              if (_isListening && mounted) {
+                debugPrint('🔄 STT 자동 재시작 실행');
+                _restartListening();
+              }
+            });
+          } else if (status == 'notListening' && _isListening && mounted) {
+            debugPrint('⚠️ STT가 notListening 상태 - 1초 후 재시작 시도');
+
+            Future.delayed(const Duration(seconds: 1), () {
+              if (_isListening && mounted) {
+                debugPrint('🔄 STT notListening에서 재시작');
+                _restartListening();
+              }
+            });
+          } else if (status == 'done' || status == 'notListening') {
+            // STT를 사용자가 의도적으로 중지한 경우
+            if (mounted && !_isListening) {
               setState(() {
                 _isListening = false;
               });
@@ -233,6 +256,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       _audioService.cancelRecording();
       _isRecordingWithSTT = false;
     }
+
+    // 자동 저장 타이머 정리
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    debugPrint('⏰ dispose: 자동 저장 타이머 정리');
 
     try {
       _htmlController.disable();
@@ -778,6 +806,35 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     appState.setSTTActive(true);
 
+    // ⭐ HTML 에디터 비활성화 - STT 중에는 키보드 입력 불필요
+    try {
+      _htmlController.disable();
+      debugPrint('📝 HTML 에디터 비활성화 - 키보드 방지');
+    } catch (e) {
+      debugPrint('⚠️ HTML 에디터 비활성화 실패: $e');
+    }
+
+    // ⭐ 키보드 숨기기 - STT 중에는 키보드 입력 불필요
+    if (mounted) {
+      FocusScope.of(context).unfocus();
+      debugPrint('⌨️ 키보드 숨김 - STT 시작');
+    }
+
+    // 약간의 딜레이 후 다시 한 번 키보드 숨김 (HTML 에디터의 자동 포커스 방지)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_isListening && mounted) {
+        FocusScope.of(context).unfocus();
+        debugPrint('⌨️ 키보드 재숨김 (300ms 후)');
+      }
+    });
+
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (_isListening && mounted) {
+        FocusScope.of(context).unfocus();
+        debugPrint('⌨️ 키보드 재숨김 (600ms 후)');
+      }
+    });
+
     // ⭐ Wakelock 활성화 - 화면 잠금 방지 (STT 작동 유지)
     try {
       await WakelockPlus.enable();
@@ -835,14 +892,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       },
       localeId: selectedLocaleId, // 사용 가능한 한국어 locale 사용
       pauseFor: const Duration(
-        seconds: 30,
-      ), // 침묵 대기 시간 연장 (30초 동안 말이 없어도 계속 듣기)
+        seconds: 300,
+      ), // ⭐ 침묵 대기 시간 대폭 연장 (5분 동안 말이 없어도 계속 듣기)
       listenOptions: stt.SpeechListenOptions(
         partialResults: true, // 중간 결과도 표시 (실시간 입력용)
         cancelOnError: false, // 에러 발생 시에도 계속 듣기
         listenMode: stt.ListenMode.dictation, // 받아쓰기 모드 (iOS에서 긴 발화 인식에 필수)
         enableHapticFeedback: false,
-        onDevice: true, // 온디바이스 우선 (반응 속도 향상)
+        onDevice: true, // ⭐ 온디바이스 인식 (인터넷 연결 불필요)
       ),
     );
 
@@ -850,6 +907,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     if (mounted) {
       _startRecordingWithSTT();
     }
+
+    // ⭐ STT 중 주기적 자동 저장 시작 (30초마다)
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_isListening && mounted) {
+        debugPrint('⏰ STT 중 자동 저장 (30초 주기)');
+        _saveCurrentTextFile();
+      }
+    });
+    debugPrint('⏰ STT 자동 저장 타이머 시작 (30초 주기)');
   }
 
   /// 중간 결과를 임시 span에 업데이트
@@ -893,6 +960,27 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             range.setEndAfter(span);
             selection.removeAllRanges();
             selection.addRange(range);
+
+            // ⭐ span 삽입 후 span이 보이도록 스크롤
+            setTimeout(function() {
+              try {
+                var editable = summernote.next('.note-editor').find('.note-editable')[0];
+                if (editable && span) {
+                  // 에디터 내에서 span의 상대 위치 계산
+                  var spanTop = span.offsetTop;
+                  var editableScrollTop = editable.scrollTop;
+                  var editableHeight = editable.clientHeight;
+
+                  // span이 화면 하단 30%보다 아래에 있으면 스크롤
+                  var visibleBottom = editableScrollTop + editableHeight * 0.7;
+                  if (spanTop > visibleBottom) {
+                    editable.scrollTop = spanTop - editableHeight * 0.3;
+                  }
+                }
+              } catch(e) {
+                console.log('span 스크롤 에러:', e);
+              }
+            }, 30);
           }
 
           return 'success';
@@ -957,6 +1045,39 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           summernote.summernote('focus');
           summernote.summernote('insertText', '$escapedText');
 
+          // ⭐ 텍스트 삽입 후 커서가 보이도록 스크롤
+          setTimeout(function() {
+            try {
+              var editable = summernote.next('.note-editor').find('.note-editable')[0];
+              if (editable) {
+                var selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                  var range = selection.getRangeAt(0);
+
+                  // 임시 span 생성하여 커서 위치 확인
+                  var tempSpan = document.createElement('span');
+                  range.insertNode(tempSpan);
+
+                  // 에디터 내에서 커서의 상대 위치 계산
+                  var spanTop = tempSpan.offsetTop;
+                  var editableScrollTop = editable.scrollTop;
+                  var editableHeight = editable.clientHeight;
+
+                  // 커서가 화면 하단 30%보다 아래에 있으면 스크롤
+                  var visibleBottom = editableScrollTop + editableHeight * 0.7;
+                  if (spanTop > visibleBottom) {
+                    editable.scrollTop = spanTop - editableHeight * 0.3;
+                  }
+
+                  // 임시 span 제거
+                  tempSpan.remove();
+                }
+              }
+            } catch(e) {
+              console.log('스크롤 에러:', e);
+            }
+          }, 50);
+
           return 'success';
         } catch(e) {
           return 'error: ' + e.message;
@@ -974,9 +1095,44 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         });
   }
 
+  /// 음성 인식 재시작 (자동 재시작용)
+  Future<void> _restartListening() async {
+    debugPrint('🔄 STT 재시작 시작');
+
+    // 기존 STT 완전히 중지
+    try {
+      await _speechToText.stop();
+      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
+      debugPrint('⚠️ STT 중지 실패 (재시작 시): $e');
+    }
+
+    // STT 상태가 여전히 활성화되어 있는지 확인
+    if (!_isListening || !mounted) {
+      debugPrint('⚠️ STT가 이미 중지됨 - 재시작 취소');
+      return;
+    }
+
+    // 새로운 STT 세션 시작
+    await _startListening();
+  }
+
   /// 음성 인식 중지
   Future<void> _stopListening() async {
     debugPrint('🛑 음성 인식 중지');
+
+    // ⭐ 자동 저장 타이머 정리
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    debugPrint('⏰ STT 자동 저장 타이머 중지');
+
+    // ⭐ HTML 에디터 다시 활성화 - 키보드 입력 가능하도록
+    try {
+      _htmlController.enable();
+      debugPrint('📝 HTML 에디터 활성화 - 키보드 입력 가능');
+    } catch (e) {
+      debugPrint('⚠️ HTML 에디터 활성화 실패: $e');
+    }
 
     // ⭐ Wakelock 비활성화 - 화면 잠금 해제
     try {

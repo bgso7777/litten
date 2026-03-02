@@ -1485,6 +1485,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // 해당 리튼으로 이동
                   try {
+                    // ⭐ STT 중에는 리튼 선택 차단
+                    if (appState.isSTTActive) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'),
+                            backgroundColor: Colors.orange,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     await appState.selectLitten(litten);
                   } catch (e) {
                     if (!mounted) return;
@@ -1519,7 +1533,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasEnabledNotification = hasSchedule &&
         litten.schedule!.notificationRules.any((rule) => rule.isEnabled);
     debugPrint('🔍 리튼 "${litten.title}" - schedule: $hasSchedule, enabled: $hasEnabledNotification');
-    final hasUnacknowledgedNotification = hasEnabledNotification;
+
+    // ⭐ 실제로 발생한 알림 중 확인하지 않은 알림이 있는지 확인
+    final hasUnacknowledgedNotification = hasNotifications;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1569,6 +1585,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // 리튼 선택
             try {
+              // ⭐ STT 중에는 리튼 선택 차단
+              if (appState.isSTTActive) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+                return;
+              }
+
               await appState.selectLitten(litten);
             } catch (e) {
               if (!mounted) return;
@@ -1750,6 +1780,20 @@ class _HomeScreenState extends State<HomeScreen> {
           final littenId = fileData['littenId'] as String;
           final litten = appState.littens.firstWhere((l) => l.id == littenId);
           debugPrint('   - 선택할 리튼: ${litten.title}');
+
+          // ⭐ STT 중에는 리튼 선택 차단
+          if (appState.isSTTActive) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+            return;
+          }
 
           await appState.selectLitten(litten);
           debugPrint('✅ 리튼 선택 완료');
