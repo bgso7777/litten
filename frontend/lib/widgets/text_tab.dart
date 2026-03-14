@@ -867,7 +867,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           return;
         }
 
-        final currentText = result.recognizedWords;
+        // ⭐ 숫자 형식 개선 (10000000000 → 10,000,000,000)
+        final currentText = _formatNumbers(result.recognizedWords);
 
         if (result.finalResult) {
           // 최종 결과: 임시 span 제거 후 실제 텍스트 삽입
@@ -913,10 +914,32 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (_isListening && mounted) {
         debugPrint('⏰ STT 중 자동 저장 (30초 주기)');
+
+        // ⭐ 저장 전에 임시 span을 최종 텍스트로 변환 (시각적 구분)
+        _convertPartialToFinal();
+
         _saveCurrentTextFile();
       }
     });
     debugPrint('⏰ STT 자동 저장 타이머 시작 (30초 주기)');
+  }
+
+  /// 숫자 형식 개선 (10000000000 → 10,000,000,000)
+  String _formatNumbers(String text) {
+    // 4자리 이상 연속된 숫자를 찾아서 쉼표 추가
+    return text.replaceAllMapped(
+      RegExp(r'\b(\d{4,})\b'),
+      (match) {
+        final number = match.group(1)!;
+        // 숫자를 역순으로 3자리마다 쉼표 추가
+        final reversed = number.split('').reversed.join();
+        final withCommas = reversed.replaceAllMapped(
+          RegExp(r'(\d{3})(?=\d)'),
+          (m) => '${m.group(1)},',
+        );
+        return withCommas.split('').reversed.join();
+      },
+    );
   }
 
   /// 중간 결과를 임시 span에 업데이트
@@ -971,10 +994,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   var editableScrollTop = editable.scrollTop;
                   var editableHeight = editable.clientHeight;
 
-                  // span이 화면 하단 30%보다 아래에 있으면 스크롤
-                  var visibleBottom = editableScrollTop + editableHeight * 0.7;
+                  // ⭐ span이 화면 하단 50%보다 아래에 있으면 스크롤 (더 적극적)
+                  var visibleBottom = editableScrollTop + editableHeight * 0.5;
                   if (spanTop > visibleBottom) {
-                    editable.scrollTop = spanTop - editableHeight * 0.3;
+                    // 부드러운 스크롤 애니메이션
+                    var targetScroll = spanTop - editableHeight * 0.2;
+                    editable.scrollTo({
+                      top: targetScroll,
+                      behavior: 'smooth'
+                    });
                   }
                 }
               } catch(e) {
@@ -997,6 +1025,45 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         })
         .catchError((e) {
           debugPrint('❌ 중간 결과 span 업데이트 실패: $e');
+        });
+  }
+
+  /// 임시 span을 최종 텍스트로 변환 (자동 저장 시점)
+  void _convertPartialToFinal() {
+    if (_lastPartialText.isEmpty) return;
+
+    final jsCode = '''
+      (function() {
+        try {
+          var span = document.getElementById('stt-partial-text');
+          if (span) {
+            // 임시 span의 텍스트를 일반 텍스트로 변환
+            var text = span.textContent;
+            span.remove();
+
+            // 일반 텍스트로 삽입 (검은색)
+            var summernote = \$('#summernote-2');
+            summernote.summernote('insertText', text);
+
+            return 'converted: ' + text;
+          }
+          return 'not_found';
+        } catch(e) {
+          return 'error: ' + e.message;
+        }
+      })();
+    ''';
+
+    _htmlController.editorController
+        ?.evaluateJavascript(source: jsCode)
+        .then((result) {
+          debugPrint('💾 임시 텍스트를 저장됨 텍스트로 변환: $result');
+          setState(() {
+            _lastPartialText = '';
+          });
+        })
+        .catchError((e) {
+          debugPrint('❌ 임시 텍스트 변환 실패: $e');
         });
   }
 
@@ -1063,10 +1130,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   var editableScrollTop = editable.scrollTop;
                   var editableHeight = editable.clientHeight;
 
-                  // 커서가 화면 하단 30%보다 아래에 있으면 스크롤
-                  var visibleBottom = editableScrollTop + editableHeight * 0.7;
+                  // ⭐ 커서가 화면 하단 50%보다 아래에 있으면 스크롤 (더 적극적)
+                  var visibleBottom = editableScrollTop + editableHeight * 0.5;
                   if (spanTop > visibleBottom) {
-                    editable.scrollTop = spanTop - editableHeight * 0.3;
+                    // 부드러운 스크롤 애니메이션
+                    var targetScroll = spanTop - editableHeight * 0.2;
+                    editable.scrollTo({
+                      top: targetScroll,
+                      behavior: 'smooth'
+                    });
                   }
 
                   // 임시 span 제거
