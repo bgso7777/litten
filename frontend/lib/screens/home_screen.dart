@@ -341,23 +341,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return Scaffold(
-          appBar: null,
-          body: Stack(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.max,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 상단 - 캘린더 (고정 높이)
-              _buildCalendarSection(appState, l10n),
-              // 하단 - 통합 리스트 (일정 + 파일) - 나머지 공간 차지
-              Expanded(
-                child: _buildUnifiedListSection(appState, l10n),
-              ),
-            ],
-          ),
-              // 알림 배지
-            ],
+          body: RefreshIndicator(
+            onRefresh: () async {
+              await appState.refreshLittens();
+              setState(() {});
+            },
+            child: CustomScrollView(
+              slivers: [
+                // 캘린더 SliverAppBar
+                _buildCalendarSliverAppBar(appState, l10n),
+                // 통합 리스트
+                _buildUnifiedListSliver(appState, l10n),
+              ],
+            ),
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: _showCreateLittenDialog,
@@ -1129,7 +1125,295 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 통합 리스트 섹션 빌드 (일정 + 파일 통합)
+  // 캘린더 SliverAppBar 빌드
+  Widget _buildCalendarSliverAppBar(AppStateProvider appState, AppLocalizations? l10n) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final bottomNavHeight = MediaQuery.of(context).padding.bottom;
+    final bottomNavBarHeight = 80.0; // 하단 네비게이션 바 높이
+
+    // 전체 화면 높이 (초기 상태): 85% 정도로 설정하여 스크롤 가능하게 함
+    final availableHeight = screenHeight - statusBarHeight - bottomNavHeight - bottomNavBarHeight;
+    final maxHeight = availableHeight * 0.85; // 85%만 사용하여 스크롤 힌트 제공
+
+    // 축소 후 높이 (화면의 45%)
+    final minHeight = availableHeight * 0.45;
+
+    return SliverPersistentHeader(
+      pinned: true, // minHeight에서 고정
+      delegate: _CalendarSliverDelegate(
+        minHeight: minHeight,
+        maxHeight: maxHeight,
+        child: Container(
+          color: Theme.of(context).cardColor,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.paddingM.left,
+              right: AppSpacing.paddingM.right,
+              top: statusBarHeight + 8,
+              bottom: 100, // FAB(56px) + 충분한 여유 공간(44px)
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+              // 월 네비게이션 헤더
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      final previousMonth = DateTime(
+                        appState.focusedDate.year,
+                        appState.focusedDate.month - 1,
+                      );
+                      appState.changeFocusedDate(previousMonth);
+                    },
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: '이전 달',
+                  ),
+                  Text(
+                    DateFormat.yMMMM(appState.locale.languageCode).format(appState.focusedDate),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final nextMonth = DateTime(
+                        appState.focusedDate.year,
+                        appState.focusedDate.month + 1,
+                      );
+                      appState.changeFocusedDate(nextMonth);
+                    },
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: '다음 달',
+                  ),
+                ],
+              ),
+              // 캘린더 (Expanded로 전체 공간 차지)
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 사용 가능한 높이에서 요일 헤더를 제외한 나머지를 6주로 나눔
+                    final availableHeight = constraints.maxHeight;
+                    final daysOfWeekHeight = availableHeight * 0.12; // 12%를 요일 헤더에 할당
+                    final rowHeight = (availableHeight - daysOfWeekHeight) / 6; // 나머지를 6주로 나눔
+
+                    return TableCalendar<dynamic>(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: appState.focusedDate,
+                      daysOfWeekHeight: daysOfWeekHeight,
+                      rowHeight: rowHeight,
+
+                  rangeStartDay: _getFirstScheduleRangeStart(appState),
+                  rangeEndDay: _getFirstScheduleRangeEnd(appState),
+
+                  selectedDayPredicate: (day) {
+                    if (!appState.isDateSelected) return false;
+                    return isSameDay(appState.selectedDate, day);
+                  },
+                  onDaySelected: (selectedDay, focusedDay) async {
+                    appState.selectDate(selectedDay);
+                    appState.changeFocusedDate(focusedDay);
+                    await _loadNotificationsForSelectedDate(selectedDay, appState);
+                  },
+                  onPageChanged: (focusedDay) {
+                    appState.changeFocusedDate(focusedDay);
+                  },
+                  calendarFormat: CalendarFormat.month,
+                  availableCalendarFormats: const {
+                    CalendarFormat.month: 'Month',
+                  },
+                  headerVisible: false,
+                  calendarStyle: CalendarStyle(
+                    outsideDaysVisible: false,
+                    weekendTextStyle: TextStyle(color: Colors.red[400]),
+                    holidayTextStyle: TextStyle(color: Colors.red[400]),
+                    selectedDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    markerDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    markersMaxCount: 3,
+                    rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                    rangeStartDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    rangeEndDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    withinRangeDecoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  eventLoader: (day) {
+                    final targetDate = DateTime(day.year, day.month, day.day);
+                    final littenIds = appState.littens.where((litten) {
+                      if (litten.title == 'undefined') return false;
+                      final littenDate = DateTime(
+                        litten.createdAt.year,
+                        litten.createdAt.month,
+                        litten.createdAt.day,
+                      );
+                      return littenDate.isAtSameMomentAs(targetDate);
+                    }).map((l) => l.id).toSet();
+
+                    final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                    final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
+
+                    final allLittenIds = {...littenIds, ...notificationLittenIds};
+                    final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
+
+                    return List.generate(markerCount, (index) => 'event');
+                  },
+                  locale: appState.locale.languageCode,
+                  calendarBuilders: CalendarBuilders(
+                    defaultBuilder: (context, day, focusedDay) {
+                      return DragTarget<String>(
+                        onAcceptWithDetails: (details) async {
+                          try {
+                            await appState.moveLittenToDate(details.data, day);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                                  backgroundColor: Colors.orange,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onWillAcceptWithDetails: (details) => true,
+                        builder: (context, candidateData, rejectedData) {
+                          final isHovered = candidateData.isNotEmpty;
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: isHovered
+                                  ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                                  : null,
+                              shape: BoxShape.circle,
+                              border: isHovered
+                                  ? Border.all(
+                                      color: Theme.of(context).primaryColor,
+                                      width: 2,
+                                    )
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: isHovered
+                                      ? Theme.of(context).primaryColor
+                                      : null,
+                                  fontWeight: isHovered ? FontWeight.bold : null,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    selectedBuilder: (context, day, focusedDay) {
+                      return DragTarget<String>(
+                        onAcceptWithDetails: (details) async {
+                          try {
+                            await appState.moveLittenToDate(details.data, day);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                                  backgroundColor: Colors.orange,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onWillAcceptWithDetails: (details) => true,
+                        builder: (context, candidateData, rejectedData) {
+                          final isHovered = candidateData.isNotEmpty;
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: isHovered
+                                  ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
+                                  : Theme.of(context).primaryColor,
+                              shape: BoxShape.circle,
+                              border: isHovered
+                                  ? Border.all(color: Colors.white, width: 2)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      ),
+    );
+  }
+
+  // 통합 리스트 Sliver 빌드
+  Widget _buildUnifiedListSliver(AppStateProvider appState, AppLocalizations? l10n) {
+    return SliverPadding(
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingM.left,
+        right: AppSpacing.paddingM.right,
+        top: 0, // 캘린더와 간격 제거
+        bottom: AppSpacing.paddingM.left + 80, // FAB 공간
+      ),
+      sliver: _buildUnifiedListSliverContent(appState, l10n, appState.selectedDateNotifications),
+    );
+  }
+
+  // 통합 리스트 섹션 빌드 (일정 + 파일 통합) - 레거시
   Widget _buildUnifiedListSection(AppStateProvider appState, AppLocalizations? l10n) {
     return Container(
       padding: EdgeInsets.only(
@@ -1142,7 +1426,158 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 일정과 파일을 통합한 리스트
+  // 일정과 파일을 통합한 Sliver 리스트
+  Widget _buildUnifiedListSliverContent(AppStateProvider appState, AppLocalizations? l10n, List<dynamic> selectedDateNotifications) {
+    final bool hasSelectedDate = appState.isDateSelected;
+
+    List<Litten> displayLittens;
+    if (hasSelectedDate) {
+      final littensOnDate = appState.littensForSelectedDate.toList();
+      final notificationLittenIds = selectedDateNotifications
+          .map((item) => (item['litten'] as Litten).id)
+          .toSet();
+      final notificationLittens = appState.littens
+          .where((litten) => notificationLittenIds.contains(litten.id))
+          .toList();
+
+      final allLittenIds = <String>{};
+      displayLittens = [];
+      for (final litten in [...littensOnDate, ...notificationLittens]) {
+        if (!allLittenIds.contains(litten.id)) {
+          allLittenIds.add(litten.id);
+          displayLittens.add(litten);
+        }
+      }
+    } else {
+      displayLittens = appState.littens.toList();
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey(selectedDateNotifications.length),
+      future: appState.getAllFiles(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final allFiles = snapshot.data ?? [];
+        final List<Map<String, dynamic>> littenGroups = [];
+
+        for (final litten in displayLittens) {
+          final littenId = litten.id;
+          List<Map<String, dynamic>> littenFiles = [];
+
+          for (final fileData in allFiles) {
+            if (fileData['littenId'] == littenId) {
+              final file = fileData['file'];
+              final createdAt = fileData['createdAt'] as DateTime;
+              DateTime updatedAt;
+
+              if (file is AudioFile) {
+                updatedAt = createdAt;
+              } else if (file is TextFile) {
+                updatedAt = file.updatedAt;
+              } else if (file is HandwritingFile) {
+                updatedAt = file.updatedAt;
+              } else {
+                updatedAt = DateTime.now();
+              }
+
+              littenFiles.add({
+                'fileData': fileData,
+                'updatedAt': updatedAt,
+                'createdAt': createdAt,
+              });
+            }
+          }
+
+          littenFiles.sort((a, b) {
+            int updatedCompare = (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime);
+            if (updatedCompare != 0) return updatedCompare;
+            return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
+          });
+
+          int sortPriority = 3;
+          DateTime sortTime = litten.createdAt;
+
+          final littenNotifications = selectedDateNotifications
+              .where((item) => (item['litten'] as Litten).id == littenId)
+              .toList();
+
+          if (littenNotifications.isNotEmpty) {
+            DateTime? latestNotificationTime;
+            for (final notif in littenNotifications) {
+              final triggerTime = notif['notification'].triggerTime as DateTime;
+              if (latestNotificationTime == null || triggerTime.isAfter(latestNotificationTime)) {
+                latestNotificationTime = triggerTime;
+              }
+            }
+            sortPriority = 1;
+            sortTime = latestNotificationTime!;
+          } else if (littenFiles.isNotEmpty) {
+            final latestFileTime = littenFiles.first['updatedAt'] as DateTime;
+            sortPriority = 2;
+            sortTime = latestFileTime;
+          }
+
+          littenGroups.add({
+            'type': 'litten-group',
+            'litten': litten,
+            'files': littenFiles,
+            'sortPriority': sortPriority,
+            'sortTime': sortTime,
+            'hasNotifications': littenNotifications.isNotEmpty,
+          });
+        }
+
+        littenGroups.sort((a, b) {
+          int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
+          if (priorityCompare != 0) return priorityCompare;
+          return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
+        });
+
+        if (littenGroups.isEmpty && selectedDateNotifications.isEmpty) {
+          return const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.event_note,
+              title: '일정과 파일이 없습니다',
+              description: '일정을 생성하거나 파일을 추가해보세요',
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              if (selectedDateNotifications.isNotEmpty && appState.isDateSelected && index == 0) {
+                return _buildNotificationSection(appState, selectedDateNotifications);
+              }
+
+              final itemIndex = (selectedDateNotifications.isNotEmpty && appState.isDateSelected) ? index - 1 : index;
+
+              if (itemIndex < 0 || itemIndex >= littenGroups.length) {
+                return const SizedBox.shrink();
+              }
+
+              final group = littenGroups[itemIndex];
+              final litten = group['litten'] as Litten;
+              final files = group['files'] as List<Map<String, dynamic>>;
+              final hasNotifications = group['hasNotifications'] as bool;
+
+              return _buildLittenGroup(context, appState, litten, files, hasNotifications);
+            },
+            childCount: (selectedDateNotifications.isNotEmpty && appState.isDateSelected ? 1 : 0) + littenGroups.length,
+          ),
+        );
+      },
+    );
+  }
+
+  // 일정과 파일을 통합한 리스트 - 레거시
   Widget _buildUnifiedList(AppStateProvider appState, AppLocalizations? l10n, List<dynamic> selectedDateNotifications) {
     // 날짜가 선택되었는지 확인
     final bool hasSelectedDate = appState.isDateSelected;
@@ -1927,5 +2362,43 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+}
+
+/// 캘린더를 위한 Custom SliverPersistentHeaderDelegate
+/// minHeight (50%)와 maxHeight (전체 화면)를 정확하게 제어
+class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _CalendarSliverDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // 현재 높이 계산: maxHeight에서 shrinkOffset만큼 축소
+    final currentHeight = (maxHeight - shrinkOffset).clamp(minHeight, maxHeight);
+    return SizedBox(
+      height: currentHeight,
+      width: double.infinity,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_CalendarSliverDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }
