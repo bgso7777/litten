@@ -1144,18 +1144,30 @@ class _HomeScreenState extends State<HomeScreen> {
       delegate: _CalendarSliverDelegate(
         minHeight: minHeight,
         maxHeight: maxHeight,
-        child: Container(
-          color: Theme.of(context).cardColor,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: AppSpacing.paddingM.left,
-              right: AppSpacing.paddingM.right,
-              top: statusBarHeight + 8,
-              bottom: 100, // FAB(56px) + 충분한 여유 공간(44px)
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
+        focusedDate: appState.focusedDate, // focusedDate 전달
+        builder: (context, shrinkOffset) {
+          // 매번 최신 appState를 가져옴 (스크롤 위치 유지)
+          final currentAppState = Provider.of<AppStateProvider>(context, listen: false);
+
+          // 스크롤 진행률 계산 (0.0 = 완전 펼침, 1.0 = 완전 축소)
+          final shrinkProgress = (shrinkOffset / (maxHeight - minHeight)).clamp(0.0, 1.0);
+
+          // bottom padding을 shrinkProgress에 따라 동적 조정
+          // 펼쳐졌을 때: 100, 축소되었을 때: 4
+          final dynamicBottomPadding = 100 - (96 * shrinkProgress);
+
+          return Container(
+            color: Theme.of(context).cardColor,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: AppSpacing.paddingM.left,
+                right: AppSpacing.paddingM.right,
+                top: statusBarHeight + 8,
+                bottom: dynamicBottomPadding,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                children: [
               // 월 네비게이션 헤더
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1163,28 +1175,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     onPressed: () {
                       final previousMonth = DateTime(
-                        appState.focusedDate.year,
-                        appState.focusedDate.month - 1,
+                        currentAppState.focusedDate.year,
+                        currentAppState.focusedDate.month - 1,
                       );
-                      appState.changeFocusedDate(previousMonth);
+                      currentAppState.changeFocusedDate(previousMonth);
                     },
                     icon: const Icon(Icons.chevron_left),
                     tooltip: '이전 달',
                   ),
-                  Text(
-                    DateFormat.yMMMM(appState.locale.languageCode).format(appState.focusedDate),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
-                    ),
+                  Consumer<AppStateProvider>(
+                    builder: (context, state, child) {
+                      return Text(
+                        DateFormat.yMMMM(state.locale.languageCode).format(state.focusedDate),
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
+                        ),
+                      );
+                    },
                   ),
                   IconButton(
                     onPressed: () {
                       final nextMonth = DateTime(
-                        appState.focusedDate.year,
+                        currentAppState.focusedDate.year,
                         appState.focusedDate.month + 1,
                       );
-                      appState.changeFocusedDate(nextMonth);
+                      currentAppState.changeFocusedDate(nextMonth);
                     },
                     icon: const Icon(Icons.chevron_right),
                     tooltip: '다음 달',
@@ -1203,24 +1219,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     return TableCalendar<dynamic>(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
-                      focusedDay: appState.focusedDate,
+                      focusedDay: currentAppState.focusedDate,
                       daysOfWeekHeight: daysOfWeekHeight,
                       rowHeight: rowHeight,
 
-                  rangeStartDay: _getFirstScheduleRangeStart(appState),
-                  rangeEndDay: _getFirstScheduleRangeEnd(appState),
+                  rangeStartDay: _getFirstScheduleRangeStart(currentAppState),
+                  rangeEndDay: _getFirstScheduleRangeEnd(currentAppState),
 
                   selectedDayPredicate: (day) {
-                    if (!appState.isDateSelected) return false;
-                    return isSameDay(appState.selectedDate, day);
+                    if (!currentAppState.isDateSelected) return false;
+                    return isSameDay(currentAppState.selectedDate, day);
                   },
                   onDaySelected: (selectedDay, focusedDay) async {
-                    appState.selectDate(selectedDay);
-                    appState.changeFocusedDate(focusedDay);
-                    await _loadNotificationsForSelectedDate(selectedDay, appState);
+                    currentAppState.selectDate(selectedDay);
+                    currentAppState.changeFocusedDate(focusedDay);
+                    await _loadNotificationsForSelectedDate(selectedDay, currentAppState);
                   },
                   onPageChanged: (focusedDay) {
-                    appState.changeFocusedDate(focusedDay);
+                    currentAppState.changeFocusedDate(focusedDay);
+                    setState(() {});
                   },
                   calendarFormat: CalendarFormat.month,
                   availableCalendarFormats: const {
@@ -1260,7 +1277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   eventLoader: (day) {
                     final targetDate = DateTime(day.year, day.month, day.day);
-                    final littenIds = appState.littens.where((litten) {
+                    final littenIds = currentAppState.littens.where((litten) {
                       if (litten.title == 'undefined') return false;
                       final littenDate = DateTime(
                         litten.createdAt.year,
@@ -1395,7 +1412,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-      ),
+          );
+        },
       ),
     );
   }
@@ -2370,12 +2388,14 @@ class _HomeScreenState extends State<HomeScreen> {
 class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
   final double minHeight;
   final double maxHeight;
-  final Widget child;
+  final DateTime focusedDate;
+  final Widget Function(BuildContext context, double shrinkOffset) builder;
 
   _CalendarSliverDelegate({
     required this.minHeight,
     required this.maxHeight,
-    required this.child,
+    required this.focusedDate,
+    required this.builder,
   });
 
   @override
@@ -2391,14 +2411,16 @@ class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
     return SizedBox(
       height: currentHeight,
       width: double.infinity,
-      child: child,
+      child: builder(context, shrinkOffset),
     );
   }
 
   @override
   bool shouldRebuild(_CalendarSliverDelegate oldDelegate) {
+    // delegate 재생성 조건
+    // focusedDate가 변경되면 builder를 다시 호출하여 UI 업데이트
     return maxHeight != oldDelegate.maxHeight ||
         minHeight != oldDelegate.minHeight ||
-        child != oldDelegate.child;
+        focusedDate != oldDelegate.focusedDate;
   }
 }
