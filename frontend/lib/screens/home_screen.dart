@@ -26,33 +26,134 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final ScrollController _scrollController = ScrollController();
+class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  // ⭐ 정적 변수로 스크롤 위치 저장 (인스턴스가 재생성되어도 유지됨)
+  static double? _globalScrollOffset;
+  static bool _isFirstInit = true; // 첫 초기화 여부
+
+  late final ScrollController _scrollController;
   int _currentTabIndex = 0; // 현재 활성화된 탭 인덱스 (0: 일정추가, 1: 알림설정)
   bool _userInteractedWithSchedule = false; // 사용자가 일정과 상호작용했는지 추적
   Map<String, Set<String>> _notificationDateCache = {}; // 날짜별 알림이 있는 리튼 ID Set (YYYY-MM-DD -> Set<littenId>)
   Set<String> _collapsedLittenIds = {}; // 숨겨진 리튼 ID Set
+  late ValueNotifier<DateTime> _calendarFocusedDate; // 캘린더 focusedDate (스크롤 위치 유지용)
+
+  @override
+  bool get wantKeepAlive => true; // 화면 회전 및 탭 전환 시에도 상태 유지
 
   @override
   void dispose() {
+    // listener 제거
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    appState.removeListener(_syncCalendarFocusedDate);
+
+    // WidgetsBindingObserver 제거
+    WidgetsBinding.instance.removeObserver(this);
+
+    // 스크롤 위치 저장 (마지막 위치)
+    if (_scrollController.hasClients) {
+      _globalScrollOffset = _scrollController.offset;
+      debugPrint('📜 HomeScreen dispose - 스크롤 위치 저장: $_globalScrollOffset');
+    }
+
     _scrollController.dispose();
+    _calendarFocusedDate.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    debugPrint('🔄 [HomeScreen] initState 호출 - 저장된 스크롤 위치: $_globalScrollOffset, 첫 초기화: $_isFirstInit');
 
-    // 화면 로드 후 최신 항목으로 스크롤 (최신이 맨 위에 있으므로 맨 위로)
+    // 스크롤 컨트롤러 초기화 (저장된 위치가 있으면 그 위치로 시작)
+    _scrollController = ScrollController(
+      initialScrollOffset: _globalScrollOffset ?? 0.0,
+    );
+
+    // WidgetsBindingObserver 추가 (화면 회전 감지)
+    WidgetsBinding.instance.addObserver(this);
+
+    // 캘린더 focusedDate 초기화
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    _calendarFocusedDate = ValueNotifier<DateTime>(appState.focusedDate);
+
+    // appState.focusedDate 변경 시 _calendarFocusedDate 동기화
+    appState.addListener(_syncCalendarFocusedDate);
+
+    // 스크롤 컨트롤러 리스너 추가 (스크롤 위치 자동 저장)
+    _scrollController.addListener(_onScroll);
+
+    // 화면 로드 후 필요한 데이터 로드 (첫 실행 시에만)
+    if (_isFirstInit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        debugPrint('📜 [HomeScreen] 첫 실행 - 데이터 로드');
+        _callInstallApiIfNeeded();
+        _loadNotificationDates();
+        _loadCollapsedLittenIds();
+      });
+      _isFirstInit = false;
+    } else {
+      debugPrint('🔄 [HomeScreen] 재초기화 - 스크롤 위치 유지 ($_globalScrollOffset)');
+    }
+  }
+
+  /// 스크롤 리스너 - 스크롤 위치 자동 저장
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final oldOffset = _globalScrollOffset;
+      _globalScrollOffset = _scrollController.offset;
+
+      // PageStorage에도 저장
+      PageStorage.of(context)?.writeState(context, _scrollController.offset, identifier: 'home_screen_scroll');
+
+      // 100픽셀마다 로그 출력 (너무 많은 로그 방지)
+      if (oldOffset == null || (oldOffset - _globalScrollOffset!).abs() > 100) {
+        debugPrint('📜 [HomeScreen] 스크롤 위치 저장: $_globalScrollOffset');
+      }
+    }
+  }
+
+  /// 화면 회전 감지 (WidgetsBindingObserver)
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // 화면 회전 시 캘린더가 보이도록 스크롤을 맨 위로
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToTop();
-      _callInstallApiIfNeeded();
-      _loadNotificationDates();
-      _loadCollapsedLittenIds();
+      scrollToTop();
+      debugPrint('📱 화면 회전 감지 - 캘린더 표시 (스크롤 맨 위)');
     });
+  }
+
+  /// appState.focusedDate가 변경되면 _calendarFocusedDate 동기화
+  void _syncCalendarFocusedDate() {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    if (_calendarFocusedDate.value != appState.focusedDate) {
+      _calendarFocusedDate.value = appState.focusedDate;
+    }
+  }
+
+  /// 외부에서 캘린더 날짜를 오늘로 변경하고 스크롤을 맨 위로
+  void goToToday() {
+    final now = DateTime.now();
+    _calendarFocusedDate.value = DateTime(now.year, now.month, now.day);
+    scrollToTop(); // 캘린더가 보이도록 맨 위로 스크롤
+    debugPrint('📅 오늘 날짜로 이동 + 캘린더 표시: ${now.year}년 ${now.month}월 ${now.day}일');
+  }
+
+  /// 스크롤을 맨 위로 이동 (캘린더 표시)
+  void scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+      debugPrint('📜 스크롤을 맨 위로 이동 - 캘린더 표시');
+    }
   }
 
   /// 일정 기간 시작일 반환 (선택된 리튼 또는 모든 리튼)
@@ -296,16 +397,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _scrollToTop() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
   void _showCreateLittenDialog() {
     final l10n = AppLocalizations.of(context);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -336,33 +427,75 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수 호출
+    debugPrint('🔄 [HomeScreen] build 호출 - 저장된 스크롤 위치: $_globalScrollOffset, 컨트롤러 연결: ${_scrollController.hasClients}');
     final l10n = AppLocalizations.of(context);
 
-    return Consumer<AppStateProvider>(
-      builder: (context, appState, child) {
-        return Scaffold(
-          body: RefreshIndicator(
-            onRefresh: () async {
-              await appState.refreshLittens();
-              setState(() {});
-            },
-            child: CustomScrollView(
-              slivers: [
-                // 캘린더 SliverAppBar
-                _buildCalendarSliverAppBar(appState, l10n),
-                // 통합 리스트
-                _buildUnifiedListSliver(appState, l10n),
-              ],
-            ),
+    // ⭐ appState는 listen: false로 가져와서 재빌드 방지
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    // ⭐ build가 호출될 때마다 스크롤 위치 복원 시도
+    if (_globalScrollOffset != null && _globalScrollOffset! > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          final currentOffset = _scrollController.offset;
+          if (currentOffset != _globalScrollOffset && currentOffset < 1.0) {
+            // 현재 위치가 맨 위(0 근처)이고 저장된 위치와 다르면 복원
+            final maxScrollExtent = _scrollController.position.maxScrollExtent;
+            final targetOffset = _globalScrollOffset! > maxScrollExtent
+                ? maxScrollExtent
+                : _globalScrollOffset!;
+
+            _scrollController.jumpTo(targetOffset);
+            debugPrint('✅ [HomeScreen] build 후 스크롤 위치 복원: $targetOffset (저장: $_globalScrollOffset)');
+          }
+        }
+      });
+    }
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await appState.refreshLittens();
+          setState(() {});
+        },
+        child: NotificationListener<ScrollUpdateNotification>(
+          onNotification: (notification) {
+            // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
+            if (_globalScrollOffset != null &&
+                _globalScrollOffset! > 10.0 &&
+                _scrollController.hasClients &&
+                _scrollController.offset < 5.0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scrollController.hasClients) {
+                  final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
+                      ? _scrollController.position.maxScrollExtent
+                      : _globalScrollOffset!;
+                  _scrollController.jumpTo(targetOffset);
+                  debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
+                }
+              });
+            }
+            return false;
+          },
+          child: CustomScrollView(
+            key: const PageStorageKey<String>('home_screen_scroll'),
+            controller: _scrollController,
+            slivers: [
+              // 캘린더 SliverAppBar
+              _buildCalendarSliverAppBar(appState, l10n),
+              // 통합 리스트
+              _buildUnifiedListSliver(appState, l10n),
+            ],
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _showCreateLittenDialog,
-            tooltip: l10n?.createLitten ?? '리튼 생성',
-            backgroundColor: Theme.of(context).primaryColor,
-            child: const Icon(Icons.alarm_add, color: Colors.white),
-          ),
-        );
-      },
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateLittenDialog,
+        tooltip: l10n?.createLitten ?? '리튼 생성',
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.alarm_add, color: Colors.white),
+      ),
     );
   }
 
@@ -1144,7 +1277,6 @@ class _HomeScreenState extends State<HomeScreen> {
       delegate: _CalendarSliverDelegate(
         minHeight: minHeight,
         maxHeight: maxHeight,
-        focusedDate: appState.focusedDate, // focusedDate 전달
         builder: (context, shrinkOffset) {
           // 매번 최신 appState를 가져옴 (스크롤 위치 유지)
           final currentAppState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1175,18 +1307,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     onPressed: () {
                       final previousMonth = DateTime(
-                        currentAppState.focusedDate.year,
-                        currentAppState.focusedDate.month - 1,
+                        _calendarFocusedDate.value.year,
+                        _calendarFocusedDate.value.month - 1,
                       );
-                      currentAppState.changeFocusedDate(previousMonth);
+                      // 로컬 상태만 업데이트 (전역 상태 변경하지 않음 - 스크롤 위치 유지)
+                      _calendarFocusedDate.value = previousMonth;
                     },
                     icon: const Icon(Icons.chevron_left),
                     tooltip: '이전 달',
                   ),
-                  Consumer<AppStateProvider>(
-                    builder: (context, state, child) {
+                  ValueListenableBuilder<DateTime>(
+                    valueListenable: _calendarFocusedDate,
+                    builder: (context, focusedDate, child) {
                       return Text(
-                        DateFormat.yMMMM(state.locale.languageCode).format(state.focusedDate),
+                        DateFormat.yMMMM(currentAppState.locale.languageCode).format(focusedDate),
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
@@ -1197,10 +1331,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     onPressed: () {
                       final nextMonth = DateTime(
-                        currentAppState.focusedDate.year,
-                        appState.focusedDate.month + 1,
+                        _calendarFocusedDate.value.year,
+                        _calendarFocusedDate.value.month + 1,
                       );
-                      currentAppState.changeFocusedDate(nextMonth);
+                      // 로컬 상태만 업데이트 (전역 상태 변경하지 않음 - 스크롤 위치 유지)
+                      _calendarFocusedDate.value = nextMonth;
                     },
                     icon: const Icon(Icons.chevron_right),
                     tooltip: '다음 달',
@@ -1216,29 +1351,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     final daysOfWeekHeight = availableHeight * 0.12; // 12%를 요일 헤더에 할당
                     final rowHeight = (availableHeight - daysOfWeekHeight) / 6; // 나머지를 6주로 나눔
 
-                    return TableCalendar<dynamic>(
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2030, 12, 31),
-                      focusedDay: currentAppState.focusedDate,
-                      daysOfWeekHeight: daysOfWeekHeight,
-                      rowHeight: rowHeight,
+                    return ValueListenableBuilder<DateTime>(
+                      valueListenable: _calendarFocusedDate,
+                      builder: (context, focusedDate, child) {
+                        return TableCalendar<dynamic>(
+                          firstDay: DateTime.utc(2020, 1, 1),
+                          lastDay: DateTime.utc(2030, 12, 31),
+                          focusedDay: focusedDate,
+                          daysOfWeekHeight: daysOfWeekHeight,
+                          rowHeight: rowHeight,
 
-                  rangeStartDay: _getFirstScheduleRangeStart(currentAppState),
-                  rangeEndDay: _getFirstScheduleRangeEnd(currentAppState),
+                      rangeStartDay: _getFirstScheduleRangeStart(currentAppState),
+                      rangeEndDay: _getFirstScheduleRangeEnd(currentAppState),
 
-                  selectedDayPredicate: (day) {
-                    if (!currentAppState.isDateSelected) return false;
-                    return isSameDay(currentAppState.selectedDate, day);
-                  },
-                  onDaySelected: (selectedDay, focusedDay) async {
-                    currentAppState.selectDate(selectedDay);
-                    currentAppState.changeFocusedDate(focusedDay);
-                    await _loadNotificationsForSelectedDate(selectedDay, currentAppState);
-                  },
-                  onPageChanged: (focusedDay) {
-                    currentAppState.changeFocusedDate(focusedDay);
-                    setState(() {});
-                  },
+                      selectedDayPredicate: (day) {
+                        if (!currentAppState.isDateSelected) return false;
+                        return isSameDay(currentAppState.selectedDate, day);
+                      },
+                      onDaySelected: (selectedDay, focusedDay) async {
+                        _calendarFocusedDate.value = focusedDay;
+                        currentAppState.selectDate(selectedDay);
+                        // changeFocusedDate 호출하지 않음 - 스크롤 위치 유지
+                        await _loadNotificationsForSelectedDate(selectedDay, currentAppState);
+                      },
+                      onPageChanged: (focusedDay) {
+                        // 로컬 상태만 업데이트 (전역 상태 변경하지 않음 - 스크롤 위치 유지)
+                        _calendarFocusedDate.value = focusedDay;
+                      },
                   calendarFormat: CalendarFormat.month,
                   availableCalendarFormats: const {
                     CalendarFormat.month: 'Month',
@@ -1405,6 +1544,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -2388,13 +2529,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
   final double minHeight;
   final double maxHeight;
-  final DateTime focusedDate;
   final Widget Function(BuildContext context, double shrinkOffset) builder;
 
   _CalendarSliverDelegate({
     required this.minHeight,
     required this.maxHeight,
-    required this.focusedDate,
     required this.builder,
   });
 
@@ -2418,9 +2557,9 @@ class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_CalendarSliverDelegate oldDelegate) {
     // delegate 재생성 조건
-    // focusedDate가 변경되면 builder를 다시 호출하여 UI 업데이트
+    // focusedDate는 delegate 파라미터가 아니므로 체크하지 않음 (스크롤 위치 유지)
+    // 년/월 업데이트는 Consumer가 처리
     return maxHeight != oldDelegate.maxHeight ||
-        minHeight != oldDelegate.minHeight ||
-        focusedDate != oldDelegate.focusedDate;
+        minHeight != oldDelegate.minHeight;
   }
 }

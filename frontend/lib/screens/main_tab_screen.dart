@@ -21,17 +21,25 @@ class MainTabScreen extends StatefulWidget {
 
 class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserver {
   late AudioService audioService;
+  final GlobalKey<HomeScreenState> _homeScreenKey = GlobalKey<HomeScreenState>();
+  late PageController _pageController; // ⭐ PageView 컨트롤러
 
   @override
   void initState() {
     super.initState();
     audioService = AudioService();
+
+    // PageController 초기화
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    _pageController = PageController(initialPage: appState.selectedTabIndex);
+
     WidgetsBinding.instance.addObserver(this);
     debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 시작');
   }
 
   @override
   void dispose() {
+    _pageController.dispose(); // ⭐ PageController dispose
     WidgetsBinding.instance.removeObserver(this);
     debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 종료');
     super.dispose();
@@ -75,6 +83,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           });
         }
 
+        debugPrint('🔄 [MainTabScreen] build 호출 - 현재 탭: ${appState.selectedTabIndex}');
+
         return Scaffold(
           appBar: AppBar(
             leading: Row(
@@ -108,10 +118,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             children: [
               if (!appState.isPremiumUser) const AdBanner(),
               Expanded(
-                child: IndexedStack(
-                  index: appState.selectedTabIndex,
+                // ⭐ PageView를 사용하여 탭 상태 완벽 보존 (physics 비활성화로 스와이프 제스처 차단)
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(), // 스와이프로 페이지 변경 방지
                   children: [
-                    HomeScreen(),
+                    HomeScreen(key: _homeScreenKey),
                     WritingScreen(),
                     SettingsScreen(),
                   ],
@@ -124,68 +136,91 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             selectedFontSize: 12,
             unselectedFontSize: 12,
             onTap: (index) {
-              debugPrint('🔍 탭 터치: 인덱스 $index');
+              debugPrint('🔍 [MainTabScreen] 탭 터치: $index (현재: ${appState.selectedTabIndex})');
 
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
               // 홈탭(index 0) 터치 시 처리
               if (index == 0) {
-                // ⭐ 홈 탭 터치 시 캘린더를 이번 달로 이동
-                final now = DateTime.now();
-                appState.changeFocusedDate(DateTime(now.year, now.month, 1));
-                debugPrint('📅 캘린더를 이번 달로 이동: ${now.year}년 ${now.month}월');
-
+                // ⭐ 홈 탭 터치 시 처리
                 final notifications = appState.notificationService.firedNotifications;
                 debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
 
-                // 다른 탭에서 홈탭으로 전환 시에만 알림 체크
-                if (appState.selectedTabIndex != 0 && notifications.isNotEmpty) {
-                  // 가장 오래된 알림 찾기 (triggerTime 기준으로 오름차순 정렬)
-                  final sortedNotifications = List.from(notifications)
-                    ..sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
-
-                  final oldestNotification = sortedNotifications.first;
-                  debugPrint('📅 가장 오래된 알림: ${oldestNotification.littenTitle} - ${oldestNotification.triggerTime}');
-
-                  // 해당 리튼 찾기
-                  final targetLitten = appState.littens.firstWhere(
-                    (litten) => litten.id == oldestNotification.littenId,
-                    orElse: () => appState.littens.first, // 없으면 첫 번째 리튼
-                  );
-
-                  debugPrint('🎯 이동할 리튼: ${targetLitten.title}');
-
-                  // 해당 리튼의 스케줄 날짜로 selectedDate 변경
-                  if (targetLitten.schedule != null) {
-                    final targetDate = targetLitten.schedule!.date;
-                    debugPrint('📅 이동할 날짜: $targetDate');
-                    appState.selectDate(targetDate);
-                  }
-
-                  // 해당 리튼 선택
-                  appState.selectLitten(targetLitten);
-
-                  // 홈 화면의 일정 탭(인덱스 1) 선택
-                  appState.setHomeBottomTabIndex(1);
-
-                  debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
+                // 다른 탭에서 홈탭으로 전환 시에만 처리
+                if (appState.selectedTabIndex != 0) {
+                  debugPrint('📍 [MainTabScreen] 다른 탭에서 홈탭으로 전환');
                 } else {
-                  // 알림이 없거나 이미 홈탭인 경우 - undefined 선택 및 전체 일정 표시
-                  // 날짜 선택 초기화
-                  appState.clearDateSelection();
-                  // 리튼 선택 초기화 (undefined 선택)
-                  final undefinedLitten = appState.littens.firstWhere(
-                    (litten) => litten.title == 'undefined',
-                    orElse: () => appState.littens.first,
-                  );
-                  appState.selectLitten(undefinedLitten);
+                  debugPrint('📍 [MainTabScreen] 이미 홈탭에 있음 - 오늘로 이동만');
+                }
+
+                if (appState.selectedTabIndex != 0) {
+                  if (notifications.isNotEmpty) {
+                    // 알림이 있으면 가장 오래된 알림으로 이동
+                    final sortedNotifications = List.from(notifications)
+                      ..sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+
+                    final oldestNotification = sortedNotifications.first;
+                    debugPrint('📅 가장 오래된 알림: ${oldestNotification.littenTitle} - ${oldestNotification.triggerTime}');
+
+                    // 해당 리튼 찾기
+                    final targetLitten = appState.littens.firstWhere(
+                      (litten) => litten.id == oldestNotification.littenId,
+                      orElse: () => appState.littens.first,
+                    );
+
+                    debugPrint('🎯 이동할 리튼: ${targetLitten.title}');
+
+                    // 해당 리튼의 스케줄 날짜로 selectedDate 변경
+                    if (targetLitten.schedule != null) {
+                      final targetDate = targetLitten.schedule!.date;
+                      debugPrint('📅 이동할 날짜: $targetDate');
+                      appState.selectDate(targetDate);
+                    }
+
+                    // 해당 리튼 선택
+                    appState.selectLitten(targetLitten);
+
+                    // 홈 화면의 일정 탭(인덱스 1) 선택
+                    appState.setHomeBottomTabIndex(1);
+
+                    debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
+                  } else {
+                    // 알림이 없으면 undefined 선택 및 전체 일정 표시
+                    appState.clearDateSelection();
+                    final undefinedLitten = appState.littens.firstWhere(
+                      (litten) => litten.title == 'undefined',
+                      orElse: () => appState.littens.first,
+                    );
+                    appState.selectLitten(undefinedLitten);
+                  }
+                } else {
+                  // 이미 홈탭에 있을 때 - 오늘로 이동 (스크롤 위치 유지)
+                  _homeScreenKey.currentState?.goToToday();
                   debugPrint('📅 HomeScreen: undefined 리튼 선택 - 모든 일정 표시');
                 }
               }
 
-              appState.changeTabIndex(index);
-              appState.setCurrentMainTab(index); // ⭐ 메인 탭 위치 저장
+              // 탭 전환 처리
+              if (appState.selectedTabIndex != index) {
+                debugPrint('📍 [MainTabScreen] 탭 전환 실행: ${appState.selectedTabIndex} → $index');
+
+                // ⭐ PageView 페이지 전환 (애니메이션 없이)
+                _pageController.jumpToPage(index);
+
+                // ⭐ 홈 탭으로 돌아올 때 캘린더가 보이도록 스크롤을 맨 위로
+                if (index == 0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _homeScreenKey.currentState?.scrollToTop();
+                    debugPrint('📜 [MainTabScreen] 홈 탭으로 전환 - 캘린더 표시 (스크롤 맨 위)');
+                  });
+                }
+
+                appState.changeTabIndex(index);
+                appState.setCurrentMainTab(index); // ⭐ 메인 탭 위치 저장
+              } else {
+                debugPrint('📍 [MainTabScreen] 같은 탭 - 상태 변경 없음 (재빌드 방지)');
+              }
             },
             type: BottomNavigationBarType.fixed,
             items: [
