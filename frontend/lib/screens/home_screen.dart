@@ -1038,19 +1038,16 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   outsideDaysVisible: false,
                   weekendTextStyle: TextStyle(color: Colors.red[400]),
                   holidayTextStyle: TextStyle(color: Colors.red[400]),
-                  selectedDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
+                  // selectedDecoration과 todayDecoration 제거 - builder 사용
+                  selectedDecoration: const BoxDecoration(),
+                  todayDecoration: const BoxDecoration(),
                   markerDecoration: BoxDecoration(
                     color: Theme.of(context).primaryColor,
                     shape: BoxShape.circle,
                   ),
+                  markerSize: 6.0, // 마커 크기 명시
                   markersMaxCount: 3,
+                  markersAlignment: Alignment.bottomCenter, // 마커를 날짜 아래쪽에 배치
                   // ⭐ 일정 기간 스타일 (시작일~종료일 연결선)
                   rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                   rangeStartDecoration: BoxDecoration(
@@ -1091,163 +1088,64 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
-                  defaultBuilder: (context, day, focusedDay) {
-                    return DragTarget<String>(
-                      onAcceptWithDetails: (details) async {
-                        // 리튼을 해당 날짜로 이동
-                        try {
-                          await appState.moveLittenToDate(details.data, day);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(e.toString().replaceAll('Exception: ', '')),
-                                backgroundColor: Colors.orange,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      onWillAcceptWithDetails: (details) => true,
-                      builder: (context, candidateData, rejectedData) {
-                        final isHovered = candidateData.isNotEmpty;
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isHovered
-                                ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
-                                : null,
-                            shape: BoxShape.circle,
-                            border: isHovered
-                                ? Border.all(
-                                    color: Theme.of(context).primaryColor,
-                                    width: 2,
-                                  )
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${day.day}',
-                              style: const TextStyle().copyWith(
-                                color: isHovered
-                                    ? Theme.of(context).primaryColor
-                                    : null,
-                                fontWeight: isHovered ? FontWeight.bold : null,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
                   selectedBuilder: (context, day, focusedDay) {
-                    return DragTarget<String>(
-                      onAcceptWithDetails: (details) async {
-                        try {
-                          await appState.moveLittenToDate(details.data, day);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(e.toString().replaceAll('Exception: ', '')),
-                                backgroundColor: Colors.orange,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      onWillAcceptWithDetails: (details) => true,
-                      builder: (context, candidateData, rejectedData) {
-                        final isHovered = candidateData.isNotEmpty;
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isHovered
-                                ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
-                                : Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
-                            border: isHovered
-                                ? Border.all(color: Colors.white, width: 2)
-                                : null,
-                          ),
+                    return Stack(
+                      children: [
+                        Positioned(
+                          top: 4.0,
+                          left: 0,
+                          right: 0,
                           child: Center(
-                            child: Text(
-                              '${day.day}',
-                              style: const TextStyle().copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     );
                   },
                   todayBuilder: (context, day, focusedDay) {
-                    return DragTarget<String>(
-                      onAcceptWithDetails: (details) async {
-                        try {
-                          await appState.moveLittenToDate(details.data, day);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(e.toString().replaceAll('Exception: ', '')),
-                                backgroundColor: Colors.orange,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      onWillAcceptWithDetails: (details) => true,
-                      builder: (context, candidateData, rejectedData) {
-                        final isHovered = candidateData.isNotEmpty;
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isHovered
-                                ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
-                                : Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                            border: isHovered
-                                ? Border.all(color: Theme.of(context).primaryColor, width: 2)
-                                : null,
-                          ),
+                    return Stack(
+                      children: [
+                        Positioned(
+                          top: 4.0,
+                          left: 0,
+                          right: 0,
                           child: Center(
-                            child: Text(
-                              '${day.day}',
-                              style: const TextStyle().copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -1346,10 +1244,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // 사용 가능한 높이에서 요일 헤더를 제외한 나머지를 6주로 나눔
                     final availableHeight = constraints.maxHeight;
-                    final daysOfWeekHeight = availableHeight * 0.12; // 12%를 요일 헤더에 할당
-                    final rowHeight = (availableHeight - daysOfWeekHeight) / 6; // 나머지를 6주로 나눔
+                    final daysOfWeekHeight = availableHeight * 0.12;
+                    final rowHeight = (availableHeight - daysOfWeekHeight) / 6;
 
                     return ValueListenableBuilder<DateTime>(
                       valueListenable: _calendarFocusedDate,
@@ -1387,17 +1284,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     outsideDaysVisible: false,
                     weekendTextStyle: TextStyle(color: Colors.red[400]),
                     holidayTextStyle: TextStyle(color: Colors.red[400]),
-                    selectedDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    todayDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    markerDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
+                    // selectedDecoration과 todayDecoration 제거 - builder 사용
+                    selectedDecoration: const BoxDecoration(),
+                    todayDecoration: const BoxDecoration(),
+                    markerDecoration: const BoxDecoration(
+                      color: Colors.transparent, // 전체 화면에서는 마커(점) 숨김
                     ),
                     markersMaxCount: 3,
                     rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
@@ -1437,6 +1328,27 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   locale: appState.locale.languageCode,
                   calendarBuilders: CalendarBuilders(
                     defaultBuilder: (context, day, focusedDay) {
+                      // 해당 날짜의 알림이 있는 리튼 ID 가져오기
+                      final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                      final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                      // 해당 리튼들의 제목 가져오기 (최대 2개만 표시)
+                      final notificationTitles = littenIdsWithNotification
+                          .take(2)
+                          .map((littenId) {
+                            final litten = appState.littens.firstWhere(
+                              (l) => l.id == littenId,
+                              orElse: () => Litten(
+                                id: '',
+                                title: '',
+                                createdAt: DateTime.now(),
+                              ),
+                            );
+                            return litten.title;
+                          })
+                          .where((title) => title.isNotEmpty)
+                          .toList();
+
                       return DragTarget<String>(
                         onAcceptWithDetails: (details) async {
                           try {
@@ -1469,7 +1381,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               color: isHovered
                                   ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
                                   : null,
-                              shape: BoxShape.circle,
                               border: isHovered
                                   ? Border.all(
                                       color: Theme.of(context).primaryColor,
@@ -1477,70 +1388,106 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     )
                                   : null,
                             ),
-                            child: Center(
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle().copyWith(
-                                  color: isHovered
-                                      ? Theme.of(context).primaryColor
-                                      : null,
-                                  fontWeight: isHovered ? FontWeight.bold : null,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // 날짜 숫자 영역 (상단)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    '${day.day}',
+                                    style: const TextStyle().copyWith(
+                                      color: isHovered
+                                          ? Theme.of(context).primaryColor
+                                          : null,
+                                      fontWeight: isHovered ? FontWeight.bold : null,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                // 알림 제목 영역 (날짜 바로 아래)
+                                if (notificationTitles.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: notificationTitles.map((title) => Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          color: Colors.grey[600],
+                                          height: 1.1,
+                                        ),
+                                      )).toList(),
+                                    ),
+                                  ),
+                              ],
                             ),
                           );
                         },
                       );
                     },
                     selectedBuilder: (context, day, focusedDay) {
-                      return DragTarget<String>(
-                        onAcceptWithDetails: (details) async {
-                          try {
-                            await appState.moveLittenToDate(details.data, day);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString().replaceAll('Exception: ', '')),
-                                  backgroundColor: Colors.orange,
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        onWillAcceptWithDetails: (details) => true,
-                        builder: (context, candidateData, rejectedData) {
-                          final isHovered = candidateData.isNotEmpty;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: isHovered
-                                  ? Theme.of(context).primaryColor.withValues(alpha: 0.8)
-                                  : Theme.of(context).primaryColor,
-                              shape: BoxShape.circle,
-                              border: isHovered
-                                  ? Border.all(color: Colors.white, width: 2)
-                                  : null,
-                            ),
+                      return Stack(
+                        children: [
+                          Positioned(
+                            top: 4.0,
+                            left: 0,
+                            right: 0,
                             child: Center(
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle().copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${day.day}',
+                                    style: const TextStyle().copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        ],
+                      );
+                    },
+                    todayBuilder: (context, day, focusedDay) {
+                      return Stack(
+                        children: [
+                          Positioned(
+                            top: 4.0,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${day.day}',
+                                    style: const TextStyle().copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
