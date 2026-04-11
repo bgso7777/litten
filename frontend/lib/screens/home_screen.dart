@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../widgets/common/empty_state.dart';
+import '../widgets/common/ad_banner.dart';
 import '../widgets/home/schedule_picker.dart';
 import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
@@ -397,7 +398,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
-  void _showCreateLittenDialog() {
+  void showCreateLittenDialog() {
     final l10n = AppLocalizations.of(context);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
@@ -453,8 +454,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       });
     }
 
-    return Scaffold(
-      body: RefreshIndicator(
+    return RefreshIndicator(
         onRefresh: () async {
           await appState.refreshLittens();
           setState(() {});
@@ -482,6 +482,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             key: const PageStorageKey<String>('home_screen_scroll'),
             controller: _scrollController,
             slivers: [
+              // 광고 배너 영역 (무료: 광고, 유료: 흰색 영역)
+              SliverToBoxAdapter(
+                child: !appState.isPremiumUser
+                    ? const AdBanner()
+                    : Container(
+                        height: 50,
+                        color: Colors.white,
+                      ),
+              ),
               // 캘린더 SliverAppBar
               _buildCalendarSliverAppBar(appState, l10n),
               // 통합 리스트
@@ -489,14 +498,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateLittenDialog,
-        tooltip: l10n?.createLitten ?? '리튼 생성',
-        backgroundColor: Theme.of(context).primaryColor,
-        child: const Icon(Icons.alarm_add, color: Colors.white),
-      ),
-    );
+      );
   }
 
   void _showRenameLittenDialog(String littenId, String currentTitle) {
@@ -1089,63 +1091,39 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
                   selectedBuilder: (context, day, focusedDay) {
-                    return Stack(
-                      children: [
-                        Positioned(
-                          top: 4.0,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${day.day}',
-                                  style: const TextStyle().copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
+                    return Container(
+                      margin: const EdgeInsets.all(4.0),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${day.day}',
+                          style: const TextStyle().copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
+                      ),
                     );
                   },
                   todayBuilder: (context, day, focusedDay) {
-                    return Stack(
-                      children: [
-                        Positioned(
-                          top: 4.0,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${day.day}',
-                                  style: const TextStyle().copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
+                    return Container(
+                      margin: const EdgeInsets.all(4.0),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${day.day}',
+                          style: const TextStyle().copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
+                      ),
                     );
                   },
                 ),
@@ -1163,9 +1141,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final bottomNavHeight = MediaQuery.of(context).padding.bottom;
     final bottomNavBarHeight = 80.0; // 하단 네비게이션 바 높이
 
-    // 전체 화면 높이 (초기 상태): 85% 정도로 설정하여 스크롤 가능하게 함
+    // 전체 화면 높이 (초기 상태)
+    // 광고 유무에 따라 캘린더 크기 조정
+    // - 광고 있을 때 (무료): 95% (현재 크기)
+    // - 광고 없을 때 (유료): 99% (리튼 알림이 거의 안 보이는 크기)
     final availableHeight = screenHeight - statusBarHeight - bottomNavHeight - bottomNavBarHeight;
-    final maxHeight = availableHeight * 0.85; // 85%만 사용하여 스크롤 힌트 제공
+    final maxHeightRatio = appState.isPremiumUser ? 0.99 : 0.95;
+    final maxHeight = availableHeight * maxHeightRatio;
 
     // 축소 후 높이 (화면의 45%)
     final minHeight = availableHeight * 0.45;
@@ -1192,7 +1174,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               padding: EdgeInsets.only(
                 left: AppSpacing.paddingM.left,
                 right: AppSpacing.paddingM.right,
-                top: statusBarHeight + 8,
+                top: 8,
                 bottom: dynamicBottomPadding,
               ),
               child: Column(
@@ -1431,63 +1413,39 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       );
                     },
                     selectedBuilder: (context, day, focusedDay) {
-                      return Stack(
-                        children: [
-                          Positioned(
-                            top: 4.0,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${day.day}',
-                                    style: const TextStyle().copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                      return Container(
+                        margin: const EdgeInsets.all(4.0),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
+                        ),
                       );
                     },
                     todayBuilder: (context, day, focusedDay) {
-                      return Stack(
-                        children: [
-                          Positioned(
-                            top: 4.0,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${day.day}',
-                                    style: const TextStyle().copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                      return Container(
+                        margin: const EdgeInsets.all(4.0),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),

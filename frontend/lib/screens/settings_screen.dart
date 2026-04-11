@@ -7,6 +7,7 @@ import '../services/app_state_provider.dart';
 import '../services/background_notification_service.dart';
 import '../services/api_service.dart';
 import '../config/themes.dart';
+import '../widgets/common/ad_banner.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
 
@@ -100,8 +101,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return ListView(
-          padding: AppSpacing.paddingL,
+          padding: EdgeInsets.zero,
           children: [
+            // 광고 배너 영역 (무료: 광고, 유료: 흰색 영역)
+            !appState.isPremiumUser
+                ? const AdBanner()
+                : Container(
+                    height: 50,
+                    color: Colors.white,
+                  ),
+            // 실제 설정 내용
+            Padding(
+              padding: AppSpacing.paddingL,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             // 구독 섹션
             _buildSettingsSection(l10n?.subscription ?? '구독', [
               _buildSettingsItem(
@@ -267,6 +281,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     l10n?.appDescription ?? '크로스 플랫폼 통합 노트 앱',
                     style: AppTextStyles.caption2,
                   ),
+                ],
+              ),
+            ),
                 ],
               ),
             ),

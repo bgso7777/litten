@@ -86,34 +86,37 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         debugPrint('🔄 [MainTabScreen] build 호출 - 현재 탭: ${appState.selectedTabIndex}');
 
         return Scaffold(
-          appBar: AppBar(
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(width: 8),
-                Icon(Icons.calendar_today, size: 24, color: Theme.of(context).primaryColor),
-                AppSpacing.horizontalSpaceXS,
-                _buildLittenCountBadge(appState, context),
-              ],
-            ),
-            leadingWidth: 120,
-            title: appState.selectedLitten != null
-                ? Text(
-                    appState.selectedLitten!.title == 'undefined' ? '-' : appState.selectedLitten!.title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: appState.selectedLitten!.title == 'undefined'
-                          ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
-                          : null,
-                    ),
-                  )
-                : Text(
-                    l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
-                    style: const TextStyle(fontSize: 14),
+          // 노트 탭(index 1)일 때만 AppBar 표시
+          appBar: appState.selectedTabIndex == 1
+              ? AppBar(
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      Icon(Icons.calendar_today, size: 24, color: Theme.of(context).primaryColor),
+                      AppSpacing.horizontalSpaceXS,
+                      _buildLittenCountBadge(appState, context),
+                    ],
                   ),
-            actions: [_buildFileCountBadgesOnly(appState, context)],
-          ),
+                  leadingWidth: 120,
+                  title: appState.selectedLitten != null
+                      ? Text(
+                          appState.selectedLitten!.title == 'undefined' ? '-' : appState.selectedLitten!.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: appState.selectedLitten!.title == 'undefined'
+                                ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
+                                : null,
+                          ),
+                        )
+                      : Text(
+                          l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                  actions: [_buildFileCountBadgesOnly(appState, context)],
+                )
+              : null,
           body: Column(
             children: [
               if (!appState.isPremiumUser) const AdBanner(),
@@ -238,6 +241,18 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               ),
             ],
           ),
+          // 홈 탭(index 0)일 때만 FloatingActionButton 표시
+          floatingActionButton: appState.selectedTabIndex == 0
+              ? FloatingActionButton(
+                  onPressed: () {
+                    // HomeScreen의 _showCreateLittenDialog 호출
+                    _homeScreenKey.currentState?.showCreateLittenDialog();
+                  },
+                  tooltip: l10n?.createLitten ?? '리튼 생성',
+                  backgroundColor: Theme.of(context).primaryColor,
+                  child: const Icon(Icons.alarm_add, color: Colors.white),
+                )
+              : null,
         );
       },
     );
