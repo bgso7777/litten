@@ -84,42 +84,72 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         }
 
         debugPrint('🔄 [MainTabScreen] build 호출 - 현재 탭: ${appState.selectedTabIndex}');
+        debugPrint('📢 [MainTabScreen] isPremiumUser: ${appState.isPremiumUser}, subscriptionType: ${appState.subscriptionType}');
+
+        debugPrint('🚨 [MainTabScreen] 광고 표시 조건: !isPremiumUser=${!appState.isPremiumUser}');
 
         return Scaffold(
-          // 노트 탭(index 1)일 때만 AppBar 표시
-          appBar: appState.selectedTabIndex == 1
-              ? AppBar(
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(width: 8),
-                      Icon(Icons.calendar_today, size: 24, color: Theme.of(context).primaryColor),
-                      AppSpacing.horizontalSpaceXS,
-                      _buildLittenCountBadge(appState, context),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // 광고 배너 영역 - 최상위 배치
+                Builder(
+                  builder: (context) {
+                    debugPrint('🎯 [MainTabScreen] Builder 진입 - isPremiumUser: ${appState.isPremiumUser}');
+                    if (!appState.isPremiumUser) {
+                      debugPrint('✅ [MainTabScreen] AdBanner 위젯 생성');
+                      return const AdBanner();
+                    } else {
+                      debugPrint('❌ [MainTabScreen] 흰색 컨테이너 생성 (프리미엄 사용자)');
+                      return Container(
+                        height: 50,
+                        color: Colors.white,
+                      );
+                    }
+                  },
+                ),
+              // 노트 탭(index 1)일 때만 통계 영역(AppBar 역할) 표시
+              if (appState.selectedTabIndex == 1)
+                Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).primaryColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        offset: const Offset(0, 2),
+                        blurRadius: 4,
+                      ),
                     ],
                   ),
-                  leadingWidth: 120,
-                  title: appState.selectedLitten != null
-                      ? Text(
-                          appState.selectedLitten!.title == 'undefined' ? '-' : appState.selectedLitten!.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: appState.selectedLitten!.title == 'undefined'
-                                ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
-                                : null,
-                          ),
-                        )
-                      : Text(
-                          l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
-                          style: const TextStyle(fontSize: 14),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 8),
+                      _buildLittenCountBadge(appState, context),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Center(
+                          child: appState.selectedLitten != null
+                              ? Text(
+                                  appState.selectedLitten!.title == 'undefined' ? '-' : appState.selectedLitten!.title,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: appState.selectedLitten!.title == 'undefined'
+                                        ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
+                                        : null,
+                                  ),
+                                )
+                              : Text(
+                                  l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
                         ),
-                  actions: [_buildFileCountBadgesOnly(appState, context)],
-                )
-              : null,
-          body: Column(
-            children: [
-              if (!appState.isPremiumUser) const AdBanner(),
+                      ),
+                      _buildFileCountBadgesOnly(appState, context),
+                    ],
+                  ),
+                ),
               Expanded(
                 // ⭐ PageView를 사용하여 탭 상태 완벽 보존 (physics 비활성화로 스와이프 제스처 차단)
                 child: PageView(
@@ -133,6 +163,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 ),
               ),
             ],
+            ),
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
@@ -430,13 +461,13 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         final notificationCount = appState.notificationService.firedNotifications.length;
 
         if (notificationCount == 0) {
-          return const Icon(Icons.home);
+          return const Icon(Icons.event_available);
         }
 
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(Icons.home),
+            const Icon(Icons.event_available),
             Positioned(
               right: -8,
               top: -8,

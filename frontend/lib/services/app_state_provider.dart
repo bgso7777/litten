@@ -265,9 +265,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _saveThemeType(_themeType);
     }
 
-    // 구독 상태 로드
-    final subscriptionIndex = prefs.getInt('subscription_type') ?? 0;
-    _subscriptionType = SubscriptionType.values[subscriptionIndex];
+    // 구독 상태 로드 (테스트: 무조건 무료로 설정)
+    _subscriptionType = SubscriptionType.free;
+    await prefs.setInt('subscription_type', 0); // SharedPreferences도 초기화
+    debugPrint('💰 [AppStateProvider] 구독 상태 강제 초기화: _subscriptionType=$_subscriptionType, isPremiumUser=${_subscriptionType != SubscriptionType.free}');
 
     // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';

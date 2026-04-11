@@ -454,56 +454,41 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       });
     }
 
-    return Column(
-      children: [
-        // 광고 배너 영역 - 스크롤되지 않고 상단에 고정
-        if (!appState.isPremiumUser)
-          const AdBanner()
-        else
-          Container(
-            height: 50,
-            color: Colors.white,
-          ),
-        // 스크롤 가능한 영역
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              await appState.refreshLittens();
-              setState(() {});
-            },
-            child: NotificationListener<ScrollUpdateNotification>(
-              onNotification: (notification) {
-                // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
-                if (_globalScrollOffset != null &&
-                    _globalScrollOffset! > 10.0 &&
-                    _scrollController.hasClients &&
-                    _scrollController.offset < 5.0) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
-                          ? _scrollController.position.maxScrollExtent
-                          : _globalScrollOffset!;
-                      _scrollController.jumpTo(targetOffset);
-                      debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
-                    }
-                  });
-                }
-                return false;
-              },
-              child: CustomScrollView(
-                key: const PageStorageKey<String>('home_screen_scroll'),
-                controller: _scrollController,
-                slivers: [
-                  // 캘린더 SliverAppBar
-                  _buildCalendarSliverAppBar(appState, l10n),
-                  // 통합 리스트
-                  _buildUnifiedListSliver(appState, l10n),
-                ],
-              ),
-            ),
-          ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await appState.refreshLittens();
+        setState(() {});
+      },
+      child: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (notification) {
+          // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
+          if (_globalScrollOffset != null &&
+              _globalScrollOffset! > 10.0 &&
+              _scrollController.hasClients &&
+              _scrollController.offset < 5.0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
+                    ? _scrollController.position.maxScrollExtent
+                    : _globalScrollOffset!;
+                _scrollController.jumpTo(targetOffset);
+                debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
+              }
+            });
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          key: const PageStorageKey<String>('home_screen_scroll'),
+          controller: _scrollController,
+          slivers: [
+            // 캘린더 SliverAppBar
+            _buildCalendarSliverAppBar(appState, l10n),
+            // 통합 리스트
+            _buildUnifiedListSliver(appState, l10n),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -1499,31 +1484,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   // 일정과 파일을 통합한 Sliver 리스트
   Widget _buildUnifiedListSliverContent(AppStateProvider appState, AppLocalizations? l10n, List<dynamic> selectedDateNotifications) {
     final bool hasSelectedDate = appState.isDateSelected;
-
-    List<Litten> displayLittens;
-    if (hasSelectedDate) {
-      final littensOnDate = appState.littensForSelectedDate.toList();
-      final notificationLittenIds = selectedDateNotifications
-          .map((item) => (item['litten'] as Litten).id)
-          .toSet();
-      final notificationLittens = appState.littens
-          .where((litten) => notificationLittenIds.contains(litten.id))
-          .toList();
-
-      final allLittenIds = <String>{};
-      displayLittens = [];
-      for (final litten in [...littensOnDate, ...notificationLittens]) {
-        if (!allLittenIds.contains(litten.id)) {
-          allLittenIds.add(litten.id);
-          displayLittens.add(litten);
-        }
-      }
-    } else {
-      displayLittens = appState.littens.toList();
-    }
+    // ⭐ selectedDateNotifications의 길이를 안전하게 캐싱
+    final int notificationCount = selectedDateNotifications.length;
 
     return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey(selectedDateNotifications.length),
+      key: ValueKey('$hasSelectedDate-$notificationCount-${appState.littens.length}'),
       future: appState.getAllFiles(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1534,6 +1499,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         }
 
         final allFiles = snapshot.data ?? [];
+
+        // displayLittens 계산 - selectedDateNotifications 사용 최소화
+        List<Litten> displayLittens;
+        if (hasSelectedDate) {
+          displayLittens = appState.littensForSelectedDate.toList();
+        } else {
+          displayLittens = appState.littens.toList();
+        }
+
         final List<Map<String, dynamic>> littenGroups = [];
 
         for (final litten in displayLittens) {
@@ -1570,24 +1544,25 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
           });
 
+          // ⭐ sortPriority 계산 - 스케줄 기반으로 변경
           int sortPriority = 3;
           DateTime sortTime = litten.createdAt;
 
-          final littenNotifications = selectedDateNotifications
-              .where((item) => (item['litten'] as Litten).id == littenId)
-              .toList();
+          // 알림 규칙이 있는지 확인 (selectedDateNotifications 대신 schedule 사용)
+          final hasSchedule = litten.schedule != null;
+          final hasActiveNotifications = hasSchedule &&
+              litten.schedule!.notificationRules.any((rule) => rule.isEnabled);
 
-          if (littenNotifications.isNotEmpty) {
-            DateTime? latestNotificationTime;
-            for (final notif in littenNotifications) {
-              final triggerTime = notif['notification'].triggerTime as DateTime;
-              if (latestNotificationTime == null || triggerTime.isAfter(latestNotificationTime)) {
-                latestNotificationTime = triggerTime;
-              }
-            }
+          if (hasActiveNotifications && littenFiles.isNotEmpty) {
+            // 알림이 있고 파일도 있으면 우선순위 1
             sortPriority = 1;
-            sortTime = latestNotificationTime!;
+            sortTime = littenFiles.first['updatedAt'] as DateTime;
+          } else if (hasActiveNotifications) {
+            // 알림만 있으면 우선순위 1
+            sortPriority = 1;
+            sortTime = litten.createdAt;
           } else if (littenFiles.isNotEmpty) {
+            // 파일만 있으면 우선순위 2
             final latestFileTime = littenFiles.first['updatedAt'] as DateTime;
             sortPriority = 2;
             sortTime = latestFileTime;
@@ -1599,7 +1574,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             'files': littenFiles,
             'sortPriority': sortPriority,
             'sortTime': sortTime,
-            'hasNotifications': littenNotifications.isNotEmpty,
+            'hasNotifications': hasActiveNotifications,
           });
         }
 
@@ -1609,7 +1584,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
         });
 
-        if (littenGroups.isEmpty && selectedDateNotifications.isEmpty) {
+        // ⭐ selectedDateNotifications 대신 notificationCount 사용
+        if (littenGroups.isEmpty && notificationCount == 0) {
           return const SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyState(
@@ -1620,14 +1596,17 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           );
         }
 
+        // ⭐ 알림 섹션 표시 여부
+        final showNotificationSection = notificationCount > 0 && appState.isDateSelected;
+
         return SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              if (selectedDateNotifications.isNotEmpty && appState.isDateSelected && index == 0) {
+              if (showNotificationSection && index == 0) {
                 return _buildNotificationSection(appState, selectedDateNotifications);
               }
 
-              final itemIndex = (selectedDateNotifications.isNotEmpty && appState.isDateSelected) ? index - 1 : index;
+              final itemIndex = showNotificationSection ? index - 1 : index;
 
               if (itemIndex < 0 || itemIndex >= littenGroups.length) {
                 return const SizedBox.shrink();
@@ -1640,7 +1619,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
               return _buildLittenGroup(context, appState, litten, files, hasNotifications);
             },
-            childCount: (selectedDateNotifications.isNotEmpty && appState.isDateSelected ? 1 : 0) + littenGroups.length,
+            childCount: (showNotificationSection ? 1 : 0) + littenGroups.length,
           ),
         );
       },
@@ -1685,15 +1664,30 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       displayLittens = appState.littens.toList();
     }
 
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<Map<String, dynamic>>(
       key: ValueKey(selectedDateNotifications.length), // 알림 개수가 변경되면 FutureBuilder 재시작
-      future: appState.getAllFiles(),
+      future: Future.wait([
+        appState.getAllFiles(),
+        NotificationStorageService().getAllUnacknowledgedNotifications(),
+      ]).then((results) => {
+        'files': results[0] as List<Map<String, dynamic>>,
+        'notifications': results[1] as List<dynamic>,
+      }),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final allFiles = snapshot.data ?? [];
+        final data = snapshot.data ?? {};
+        final allFiles = (data['files'] as List<Map<String, dynamic>>?) ?? [];
+        final allUnacknowledgedNotifications = (data['notifications'] as List<dynamic>?) ?? [];
+
+        // 리튼별 미확인 알림 매핑
+        final Map<String, bool> littenHasUnacknowledgedNotifications = {};
+        for (final notification in allUnacknowledgedNotifications) {
+          littenHasUnacknowledgedNotifications[notification.littenId] = true;
+        }
+        debugPrint('🔔 [Legacy] 전체 미확인 알림: ${allUnacknowledgedNotifications.length}개, 리튼별 매핑: $littenHasUnacknowledgedNotifications');
 
         // ⭐ 새로운 구조: 리튼 그룹별로 파일들을 정리
         final List<Map<String, dynamic>> littenGroups = [];
@@ -1739,12 +1733,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           int sortPriority = 3; // 기본: 일반 리튼
           DateTime sortTime = litten.createdAt;
 
-          // 2-1. 알림이 있는 리튼인지 확인
+          // 2-1. 알림이 있는 리튼인지 확인 (선택된 날짜의 알림)
           final littenNotifications = selectedDateNotifications
               .where((item) => (item['litten'] as Litten).id == littenId)
               .toList();
 
-          debugPrint('🔔 리튼 "${litten.title}" 알림 개수: ${littenNotifications.length}');
+          debugPrint('🔔 리튼 "${litten.title}" 선택된 날짜 알림 개수: ${littenNotifications.length}');
 
           if (littenNotifications.isNotEmpty) {
             // 가장 최근 알림 시간 찾기
@@ -1770,13 +1764,17 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           }
 
           // 3. 리튼 그룹 생성
+          // ⭐ 전체 미확인 알림 기준으로 hasNotifications 설정
+          final hasUnacknowledgedNotif = littenHasUnacknowledgedNotifications[littenId] ?? false;
+          debugPrint('📌 리튼 "${litten.title}": hasUnacknowledgedNotification=$hasUnacknowledgedNotif');
+
           littenGroups.add({
             'type': 'litten-group',
             'litten': litten,
             'files': littenFiles,
             'sortPriority': sortPriority,
             'sortTime': sortTime,
-            'hasNotifications': littenNotifications.isNotEmpty,
+            'hasNotifications': hasUnacknowledgedNotif,
           });
         }
 
@@ -2039,8 +2037,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         litten.schedule!.notificationRules.any((rule) => rule.isEnabled);
     debugPrint('🔍 리튼 "${litten.title}" - schedule: $hasSchedule, enabled: $hasEnabledNotification');
 
-    // ⭐ 실제로 발생한 알림 중 확인하지 않은 알림이 있는지 확인
-    final hasUnacknowledgedNotification = hasNotifications;
+    // ⭐ 알림 규칙이 활성화되어 있으면 체크 아이콘 표시 (실제 알림 발생 여부와 무관)
+    final hasUnacknowledgedNotification = hasEnabledNotification;
+    debugPrint('🔍 리튼 "${litten.title}" - hasUnacknowledgedNotification: $hasUnacknowledgedNotification');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

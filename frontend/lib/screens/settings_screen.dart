@@ -103,13 +103,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ListView(
           padding: EdgeInsets.zero,
           children: [
-            // 광고 배너 영역 (무료: 광고, 유료: 흰색 영역)
-            !appState.isPremiumUser
-                ? const AdBanner()
-                : Container(
-                    height: 50,
-                    color: Colors.white,
-                  ),
             // 실제 설정 내용
             Padding(
               padding: AppSpacing.paddingL,

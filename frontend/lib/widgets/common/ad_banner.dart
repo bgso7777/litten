@@ -133,7 +133,8 @@ class _AdBannerState extends State<AdBanner> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    
+    debugPrint('🎨 [AdBanner] build 호출 - adState: $_adState, currentAdIndex: $_currentAdIndex');
+
     return Container(
       height: 50,
       width: double.infinity,
