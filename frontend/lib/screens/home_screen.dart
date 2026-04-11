@@ -432,8 +432,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     debugPrint('🔄 [HomeScreen] build 호출 - 저장된 스크롤 위치: $_globalScrollOffset, 컨트롤러 연결: ${_scrollController.hasClients}');
     final l10n = AppLocalizations.of(context);
 
-    // ⭐ appState는 listen: false로 가져와서 재빌드 방지
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    // ⭐ appState는 구독 상태 확인을 위해 listen: true로 변경
+    final appState = Provider.of<AppStateProvider>(context);
 
     // ⭐ build가 호출될 때마다 스크롤 위치 복원 시도
     if (_globalScrollOffset != null && _globalScrollOffset! > 0) {
@@ -454,51 +454,57 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       });
     }
 
-    return RefreshIndicator(
-        onRefresh: () async {
-          await appState.refreshLittens();
-          setState(() {});
-        },
-        child: NotificationListener<ScrollUpdateNotification>(
-          onNotification: (notification) {
-            // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
-            if (_globalScrollOffset != null &&
-                _globalScrollOffset! > 10.0 &&
-                _scrollController.hasClients &&
-                _scrollController.offset < 5.0) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_scrollController.hasClients) {
-                  final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
-                      ? _scrollController.position.maxScrollExtent
-                      : _globalScrollOffset!;
-                  _scrollController.jumpTo(targetOffset);
-                  debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
+    return Column(
+      children: [
+        // 광고 배너 영역 - 스크롤되지 않고 상단에 고정
+        if (!appState.isPremiumUser)
+          const AdBanner()
+        else
+          Container(
+            height: 50,
+            color: Colors.white,
+          ),
+        // 스크롤 가능한 영역
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await appState.refreshLittens();
+              setState(() {});
+            },
+            child: NotificationListener<ScrollUpdateNotification>(
+              onNotification: (notification) {
+                // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
+                if (_globalScrollOffset != null &&
+                    _globalScrollOffset! > 10.0 &&
+                    _scrollController.hasClients &&
+                    _scrollController.offset < 5.0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
+                          ? _scrollController.position.maxScrollExtent
+                          : _globalScrollOffset!;
+                      _scrollController.jumpTo(targetOffset);
+                      debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
+                    }
+                  });
                 }
-              });
-            }
-            return false;
-          },
-          child: CustomScrollView(
-            key: const PageStorageKey<String>('home_screen_scroll'),
-            controller: _scrollController,
-            slivers: [
-              // 광고 배너 영역 (무료: 광고, 유료: 흰색 영역)
-              SliverToBoxAdapter(
-                child: !appState.isPremiumUser
-                    ? const AdBanner()
-                    : Container(
-                        height: 50,
-                        color: Colors.white,
-                      ),
+                return false;
+              },
+              child: CustomScrollView(
+                key: const PageStorageKey<String>('home_screen_scroll'),
+                controller: _scrollController,
+                slivers: [
+                  // 캘린더 SliverAppBar
+                  _buildCalendarSliverAppBar(appState, l10n),
+                  // 통합 리스트
+                  _buildUnifiedListSliver(appState, l10n),
+                ],
               ),
-              // 캘린더 SliverAppBar
-              _buildCalendarSliverAppBar(appState, l10n),
-              // 통합 리스트
-              _buildUnifiedListSliver(appState, l10n),
-            ],
+            ),
           ),
         ),
-      );
+      ],
+    );
   }
 
   void _showRenameLittenDialog(String littenId, String currentTitle) {
