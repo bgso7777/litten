@@ -12,8 +12,12 @@ import 'config/themes.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 백그라운드 알림 서비스 초기화
-  await BackgroundNotificationService().initialize();
+  // 백그라운드 알림 서비스 초기화 (실패해도 앱 실행 계속)
+  try {
+    await BackgroundNotificationService().initialize();
+  } catch (e) {
+    debugPrint('⚠️ BackgroundNotificationService 초기화 실패, 앱은 계속 실행됨: $e');
+  }
 
   runApp(
     ChangeNotifierProvider(
