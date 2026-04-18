@@ -38,7 +38,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   // 음성 인식(STT) 관련
   late stt.SpeechToText _speechToText;
   bool _isListening = false;
-  String _lastPartialText = ''; // 마지막 중간 결과 (교체용)
+  String _lastPartialText = ''; // 마지막 중간 결과 차분 (임시 span 표시용)
+  int _confirmedLength = 0; // ⭐ 이미 확정된 텍스트의 길이 (중복 방지용)
   Timer? _autoSaveTimer; // STT 중 주기적 자동 저장 타이머
 
   // 오디오 녹음 관련 (STT와 동시 실행)
@@ -800,7 +801,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // 음성 인식 시작 - 이전 인식 결과 초기화
     setState(() {
       _isListening = true;
+      _confirmedLength = 0; // ⭐ 확정된 텍스트 길이 초기화
     });
+    debugPrint('🔄 확정된 텍스트 길이 초기화됨 (0)');
 
     // ⭐ 전역 STT 상태 업데이트 (다른 탭에서도 확인 가능)
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -871,11 +874,17 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         final currentText = _formatNumbers(result.recognizedWords);
 
         if (result.finalResult) {
-          // 최종 결과: 임시 span 제거 후 실제 텍스트 삽입
-          debugPrint('🏁 최종 결과 - 커서 위치에 삽입: "$currentText"');
+          // 최종 결과: 임시 span을 검은색 텍스트로 즉시 확정
+          debugPrint('🏁 최종 결과 - 즉시 확정: "$currentText"');
 
-          _removePartialSpan();
-          _insertFinalText('$currentText ');
+          // ⭐ 임시 span을 검은색 텍스트로 변환
+          _convertPartialToFinal();
+
+          // ⭐ 확정된 길이 업데이트
+          if (_lastPartialText.isNotEmpty) {
+            _confirmedLength += _lastPartialText.length;
+            debugPrint('💾 최종 확정 길이: $_confirmedLength (추가: ${_lastPartialText.length})');
+          }
 
           // 다음 인식을 위해 초기화
           setState(() {
@@ -884,11 +893,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
           debugPrint('✅ 다음 문장 인식 준비 완료');
         } else {
-          // 중간 결과: 실시간으로 임시 span에 표시
+          // 중간 결과: 문자열 길이 기반 차분 계산으로 중복 방지
           debugPrint('💬 중간 결과 (실시간): "$currentText"');
 
-          _updatePartialSpan(currentText);
-          _lastPartialText = currentText;
+          // ⭐ 문자열 길이 기반 차분 계산
+          String newText = '';
+          if (currentText.length > _confirmedLength) {
+            // 확정된 부분 이후의 텍스트만 추출
+            newText = currentText.substring(_confirmedLength);
+          }
+
+          debugPrint('   📊 길이 분석: 전체=${currentText.length}, 확정=$_confirmedLength, 신규=${newText.length}');
+          debugPrint('   ✨ 차분 텍스트: "$newText"');
+
+          // 차분만 임시 span에 표시
+          if (newText.isNotEmpty) {
+            _updatePartialSpan(newText);
+            _lastPartialText = newText;
+          }
         }
       },
       localeId: selectedLocaleId, // 사용 가능한 한국어 locale 사용
@@ -909,15 +931,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       _startRecordingWithSTT();
     }
 
-    // ⭐ STT 중 주기적 자동 저장 시작 (30초마다)
+    // ⭐ STT 중 주기적 자동 저장 시작 (30초마다) - 파일 저장만 수행
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (_isListening && mounted) {
-        debugPrint('⏰ STT 중 자동 저장 (30초 주기)');
-
-        // ⭐ 저장 전에 임시 span을 최종 텍스트로 변환 (시각적 구분)
-        _convertPartialToFinal();
-
+        debugPrint('⏰ STT 중 자동 저장 (30초 주기) - 파일만 저장');
         _saveCurrentTextFile();
       }
     });
@@ -972,43 +990,29 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           span.style.fontStyle = 'italic';
           span.textContent = '$escapedText';
 
-          // 현재 커서 위치에 삽입
-          var selection = window.getSelection();
-          if (selection.rangeCount > 0) {
-            var range = selection.getRangeAt(0);
-            range.insertNode(span);
+          // ⭐ 항상 에디터의 맨 끝에 삽입 (커서 위치 무시)
+          var editable = summernote.next('.note-editor').find('.note-editable')[0];
+          if (editable) {
+            editable.appendChild(span);
 
-            // 커서를 span 뒤로 이동
-            range.setStartAfter(span);
-            range.setEndAfter(span);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            // ⭐ 커서를 span 뒤(= 문서 맨 끝)로 이동
+            var selection = window.getSelection();
+            if (selection) {
+              var range = document.createRange();
+              range.setStartAfter(span);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
 
-            // ⭐ span 삽입 후 span이 보이도록 스크롤
+            // ⭐ 자동 스크롤: 항상 맨 아래로
             setTimeout(function() {
               try {
-                var editable = summernote.next('.note-editor').find('.note-editable')[0];
-                if (editable && span) {
-                  // 에디터 내에서 span의 상대 위치 계산
-                  var spanTop = span.offsetTop;
-                  var editableScrollTop = editable.scrollTop;
-                  var editableHeight = editable.clientHeight;
-
-                  // ⭐ span이 화면 하단 50%보다 아래에 있으면 스크롤 (더 적극적)
-                  var visibleBottom = editableScrollTop + editableHeight * 0.5;
-                  if (spanTop > visibleBottom) {
-                    // 부드러운 스크롤 애니메이션
-                    var targetScroll = spanTop - editableHeight * 0.2;
-                    editable.scrollTo({
-                      top: targetScroll,
-                      behavior: 'smooth'
-                    });
-                  }
-                }
+                editable.scrollTop = editable.scrollHeight;
               } catch(e) {
                 console.log('span 스크롤 에러:', e);
               }
-            }, 30);
+            }, 50);
           }
 
           return 'success';
@@ -1037,13 +1041,20 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         try {
           var span = document.getElementById('stt-partial-text');
           if (span) {
-            // 임시 span의 텍스트를 일반 텍스트로 변환
+            // ⭐ 임시 span을 일반 텍스트 노드로 직접 교체 (커서 위치 유지)
             var text = span.textContent;
-            span.remove();
+            var textNode = document.createTextNode(text + ' ');
+            span.parentNode.replaceChild(textNode, span);
 
-            // 일반 텍스트로 삽입 (검은색)
-            var summernote = \$('#summernote-2');
-            summernote.summernote('insertText', text);
+            // ⭐ 커서를 텍스트 노드 뒤로 이동 (다음 span이 올바른 위치에 삽입되도록)
+            var selection = window.getSelection();
+            if (selection) {
+              var range = document.createRange();
+              range.setStartAfter(textNode);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
 
             return 'converted: ' + text;
           }
@@ -1094,78 +1105,6 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         });
   }
 
-  /// 최종 텍스트 삽입
-  void _insertFinalText(String text) {
-    final escapedText = text
-        .replaceAll('\\', '\\\\')
-        .replaceAll("'", "\\'")
-        .replaceAll('\n', '\\n')
-        .replaceAll('\r', '\\r');
-
-    final jsCode =
-        '''
-      (function() {
-        try {
-          var summernote = \$('#summernote-2');
-          if (!summernote.length) return 'editor_not_found';
-
-          summernote.summernote('focus');
-          summernote.summernote('insertText', '$escapedText');
-
-          // ⭐ 텍스트 삽입 후 커서가 보이도록 스크롤
-          setTimeout(function() {
-            try {
-              var editable = summernote.next('.note-editor').find('.note-editable')[0];
-              if (editable) {
-                var selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                  var range = selection.getRangeAt(0);
-
-                  // 임시 span 생성하여 커서 위치 확인
-                  var tempSpan = document.createElement('span');
-                  range.insertNode(tempSpan);
-
-                  // 에디터 내에서 커서의 상대 위치 계산
-                  var spanTop = tempSpan.offsetTop;
-                  var editableScrollTop = editable.scrollTop;
-                  var editableHeight = editable.clientHeight;
-
-                  // ⭐ 커서가 화면 하단 50%보다 아래에 있으면 스크롤 (더 적극적)
-                  var visibleBottom = editableScrollTop + editableHeight * 0.5;
-                  if (spanTop > visibleBottom) {
-                    // 부드러운 스크롤 애니메이션
-                    var targetScroll = spanTop - editableHeight * 0.2;
-                    editable.scrollTo({
-                      top: targetScroll,
-                      behavior: 'smooth'
-                    });
-                  }
-
-                  // 임시 span 제거
-                  tempSpan.remove();
-                }
-              }
-            } catch(e) {
-              console.log('스크롤 에러:', e);
-            }
-          }, 50);
-
-          return 'success';
-        } catch(e) {
-          return 'error: ' + e.message;
-        }
-      })();
-    ''';
-
-    _htmlController.editorController
-        ?.evaluateJavascript(source: jsCode)
-        .then((result) {
-          debugPrint('✅ 최종 텍스트 삽입: $result');
-        })
-        .catchError((e) {
-          debugPrint('❌ 최종 텍스트 삽입 실패: $e');
-        });
-  }
 
   /// 음성 인식 재시작 (자동 재시작용)
   Future<void> _restartListening() async {
@@ -1246,7 +1185,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // 상태 초기화
     setState(() {
       _lastPartialText = '';
+      _confirmedLength = 0; // ⭐ 확정 길이 초기화
     });
+    debugPrint('🔄 STT 종료 - 확정 길이 초기화됨');
 
     // 🎙️ STT와 함께 녹음이 진행 중이었다면 녹음도 중지하고 파일 저장
     if (_isRecordingWithSTT) {
@@ -2048,7 +1989,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                             child: HtmlEditor(
                               controller: _htmlController,
                               htmlEditorOptions: const HtmlEditorOptions(
-                                hint: '여기에 텍스트를 입력하세요...',
+                                hint: '',  // placeholder 제거
                                 shouldEnsureVisible: true,
                                 adjustHeightForKeyboard: true,
                                 darkMode: false,
