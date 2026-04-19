@@ -1081,39 +1081,151 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
+                  // 기본 셀 빌더 - 날짜 아래에 리튼 제목 표시
+                  defaultBuilder: (context, day, focusedDay) {
+                    // 해당 날짜의 리튼 찾기
+                    final targetDate = DateTime(day.year, day.month, day.day);
+                    final littensOnDate = appState.littens.where((litten) {
+                      if (litten.title == 'undefined') return false;
+                      final littenDate = DateTime(
+                        litten.createdAt.year,
+                        litten.createdAt.month,
+                        litten.createdAt.day,
+                      );
+                      return littenDate.isAtSameMomentAs(targetDate);
+                    }).toList();
+
+                    // 리튼 제목 (최대 1개만 표시)
+                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+
+                    return Container(
+                      margin: const EdgeInsets.all(4.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (littenTitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              littenTitle,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                   selectedBuilder: (context, day, focusedDay) {
+                    // 해당 날짜의 리튼 찾기
+                    final targetDate = DateTime(day.year, day.month, day.day);
+                    final littensOnDate = appState.littens.where((litten) {
+                      if (litten.title == 'undefined') return false;
+                      final littenDate = DateTime(
+                        litten.createdAt.year,
+                        litten.createdAt.month,
+                        litten.createdAt.day,
+                      );
+                      return littenDate.isAtSameMomentAs(targetDate);
+                    }).toList();
+
+                    // 리튼 제목 (최대 1개만 표시)
+                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+
                     return Container(
                       margin: const EdgeInsets.all(4.0),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: const TextStyle().copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                          if (littenTitle != null) ...[
+                            const SizedBox(height: 2),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                              child: Text(
+                                littenTitle,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   },
                   todayBuilder: (context, day, focusedDay) {
+                    // 해당 날짜의 리튼 찾기
+                    final targetDate = DateTime(day.year, day.month, day.day);
+                    final littensOnDate = appState.littens.where((litten) {
+                      if (litten.title == 'undefined') return false;
+                      final littenDate = DateTime(
+                        litten.createdAt.year,
+                        litten.createdAt.month,
+                        litten.createdAt.day,
+                      );
+                      return littenDate.isAtSameMomentAs(targetDate);
+                    }).toList();
+
+                    // 리튼 제목 (최대 1개만 표시)
+                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+
                     return Container(
                       margin: const EdgeInsets.all(4.0),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: const TextStyle().copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${day.day}',
+                            style: const TextStyle().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                          if (littenTitle != null) ...[
+                            const SizedBox(height: 2),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                              child: Text(
+                                littenTitle,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   },
@@ -1253,6 +1365,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     CalendarFormat.month: 'Month',
                   },
                   headerVisible: false,
+                  daysOfWeekStyle: const DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(fontWeight: FontWeight.bold),
+                    weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
                   calendarStyle: CalendarStyle(
                     outsideDaysVisible: false,
                     weekendTextStyle: TextStyle(color: Colors.red[400]),
@@ -1374,7 +1490,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                       color: isHovered
                                           ? Theme.of(context).primaryColor
                                           : null,
-                                      fontWeight: isHovered ? FontWeight.bold : null,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
@@ -1404,38 +1520,136 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       );
                     },
                     selectedBuilder: (context, day, focusedDay) {
+                      // 해당 날짜의 알림이 있는 리튼 ID 가져오기
+                      final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                      final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                      // 해당 리튼들의 제목 가져오기 (최대 2개만 표시)
+                      final notificationTitles = littenIdsWithNotification
+                          .take(2)
+                          .map((littenId) {
+                            final litten = appState.littens.firstWhere(
+                              (l) => l.id == littenId,
+                              orElse: () => Litten(
+                                id: '',
+                                title: '',
+                                createdAt: DateTime.now(),
+                              ),
+                            );
+                            return litten.title;
+                          })
+                          .where((title) => title.isNotEmpty)
+                          .toList();
+
                       return Container(
-                        margin: const EdgeInsets.all(4.0),
+                        width: double.infinity,
+                        height: double.infinity,
                         decoration: BoxDecoration(
                           color: Theme.of(context).primaryColor,
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // 날짜 숫자
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            // 알림 제목
+                            if (notificationTitles.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: notificationTitles.map((title) => Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      color: Colors.white,
+                                      height: 1.1,
+                                    ),
+                                  )).toList(),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },
                     todayBuilder: (context, day, focusedDay) {
+                      // 해당 날짜의 알림이 있는 리튼 ID 가져오기
+                      final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                      final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                      // 해당 리튼들의 제목 가져오기 (최대 2개만 표시)
+                      final notificationTitles = littenIdsWithNotification
+                          .take(2)
+                          .map((littenId) {
+                            final litten = appState.littens.firstWhere(
+                              (l) => l.id == littenId,
+                              orElse: () => Litten(
+                                id: '',
+                                title: '',
+                                createdAt: DateTime.now(),
+                              ),
+                            );
+                            return litten.title;
+                          })
+                          .where((title) => title.isNotEmpty)
+                          .toList();
+
                       return Container(
-                        margin: const EdgeInsets.all(4.0),
+                        width: double.infinity,
+                        height: double.infinity,
                         decoration: BoxDecoration(
                           color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // 날짜 숫자
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            // 알림 제목
+                            if (notificationTitles.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: notificationTitles.map((title) => Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      color: Colors.white,
+                                      height: 1.1,
+                                    ),
+                                  )).toList(),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },

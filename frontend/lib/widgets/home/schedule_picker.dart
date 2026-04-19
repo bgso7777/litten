@@ -169,7 +169,10 @@ class _SchedulePickerState extends State<SchedulePicker> {
             child: ListTile(
               leading: const Icon(Icons.calendar_today),
               title: Text(l10n?.date ?? '시작 날짜'),
-              subtitle: Text(DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate)),
+              subtitle: Text(
+                DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () => _selectDate(context),
             ),
@@ -201,6 +204,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
                             style: TextStyle(
                               fontSize: 12,
                               color: _selectedEndDate != null ? Colors.black : Colors.grey,
+                              fontWeight: _selectedEndDate != null ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ],
