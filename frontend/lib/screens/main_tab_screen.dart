@@ -175,64 +175,29 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
-              // 홈탭(index 0) 터치 시 처리
+              // 캘린더탭(index 0) 터치 시 처리
               if (index == 0) {
-                // ⭐ 홈 탭 터치 시 처리
-                final notifications = appState.notificationService.firedNotifications;
-                debugPrint('🔔 발생한 알림 개수: ${notifications.length}');
+                // ⭐ 캘린더 탭 터치 시 - 항상 초기 상태로 리셋
+                debugPrint('📍 [MainTabScreen] 캘린더 탭 터치 - 이번 달로 이동');
 
-                // 다른 탭에서 홈탭으로 전환 시에만 처리
-                if (appState.selectedTabIndex != 0) {
-                  debugPrint('📍 [MainTabScreen] 다른 탭에서 홈탭으로 전환');
-                } else {
-                  debugPrint('📍 [MainTabScreen] 이미 홈탭에 있음 - 오늘로 이동만');
-                }
+                // 날짜 선택 해제
+                appState.clearDateSelection();
 
-                if (appState.selectedTabIndex != 0) {
-                  if (notifications.isNotEmpty) {
-                    // 알림이 있으면 가장 오래된 알림으로 이동
-                    final sortedNotifications = List.from(notifications)
-                      ..sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+                // 이번 달로 focusedDate 변경
+                appState.changeFocusedDate(DateTime.now());
 
-                    final oldestNotification = sortedNotifications.first;
-                    debugPrint('📅 가장 오래된 알림: ${oldestNotification.littenTitle} - ${oldestNotification.triggerTime}');
+                // undefined 리튼 선택
+                final undefinedLitten = appState.littens.firstWhere(
+                  (litten) => litten.title == 'undefined',
+                  orElse: () => appState.littens.first,
+                );
+                appState.selectLitten(undefinedLitten);
 
-                    // 해당 리튼 찾기
-                    final targetLitten = appState.littens.firstWhere(
-                      (litten) => litten.id == oldestNotification.littenId,
-                      orElse: () => appState.littens.first,
-                    );
-
-                    debugPrint('🎯 이동할 리튼: ${targetLitten.title}');
-
-                    // 해당 리튼의 스케줄 날짜로 selectedDate 변경
-                    if (targetLitten.schedule != null) {
-                      final targetDate = targetLitten.schedule!.date;
-                      debugPrint('📅 이동할 날짜: $targetDate');
-                      appState.selectDate(targetDate);
-                    }
-
-                    // 해당 리튼 선택
-                    appState.selectLitten(targetLitten);
-
-                    // 홈 화면의 일정 탭(인덱스 1) 선택
-                    appState.setHomeBottomTabIndex(1);
-
-                    debugPrint('✅ 가장 오래된 알림의 리튼으로 이동 완료 (일정 탭 선택)');
-                  } else {
-                    // 알림이 없으면 undefined 선택 및 전체 일정 표시
-                    appState.clearDateSelection();
-                    final undefinedLitten = appState.littens.firstWhere(
-                      (litten) => litten.title == 'undefined',
-                      orElse: () => appState.littens.first,
-                    );
-                    appState.selectLitten(undefinedLitten);
-                  }
-                } else {
-                  // 이미 홈탭에 있을 때 - 오늘로 이동 (스크롤 위치 유지)
-                  _homeScreenKey.currentState?.goToToday();
-                  debugPrint('📅 HomeScreen: undefined 리튼 선택 - 모든 일정 표시');
-                }
+                // 스크롤을 맨 위로 (캘린더 표시)
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _homeScreenKey.currentState?.scrollToTop();
+                  debugPrint('📅 캘린더 탭: 이번 달로 이동 완료');
+                });
               }
 
               // 탭 전환 처리
@@ -260,7 +225,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             items: [
               BottomNavigationBarItem(
                 icon: _buildHomeIconWithBadge(appState),
-                label: l10n?.homeTitle ?? '홈',
+                label: '캘린더',
               ),
               BottomNavigationBarItem(
                 icon: const Icon(Icons.edit_note),

@@ -1302,7 +1302,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       style: const TextStyle(
                         fontSize: 9,
                         color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.bold,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
