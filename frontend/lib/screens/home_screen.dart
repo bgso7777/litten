@@ -901,7 +901,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         color: Theme.of(context).cardColor,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // max에서 min으로 변경하여 공백 최소화
+        mainAxisSize: MainAxisSize.min,
         children: [
           // 월 네비게이션 헤더
           Row(
@@ -939,9 +939,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ],
           ),
           // 캘린더
-          Transform.scale(
-            scale: 0.95, // 캘린더를 95% 크기로 축소 (간격 최소화)
-            child: TableCalendar<dynamic>(
+          Stack(
+            children: [
+              Transform.scale(
+                scale: 0.95, // 캘린더를 95% 크기로 축소 (간격 최소화)
+                child: TableCalendar<dynamic>(
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2030, 12, 31),
                 focusedDay: appState.focusedDate,
@@ -1009,52 +1011,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 calendarBuilders: CalendarBuilders(
                   // 기본 셀 빌더 - 날짜 아래에 리튼 제목 표시
                   defaultBuilder: (context, day, focusedDay) {
-                    final targetDate = DateTime(day.year, day.month, day.day);
-
-                    // 알림이 있는 리튼 찾기
-                    final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                    final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
-
-                    // 해당 날짜에 시작하거나 종료되는 일정만 표시
-                    final scheduleBoxes = <Widget>[];
-                    for (final littenId in notificationLittenIds) {
-                      final litten = appState.littens.firstWhere(
-                        (l) => l.id == littenId,
-                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
-                      );
-
-                      if (litten.id.isEmpty || litten.title == 'undefined' || litten.schedule == null) continue;
-
-                      final schedule = litten.schedule!;
-                      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-                      final endDate = schedule.endDate != null
-                        ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
-                        : startDate;
-
-                      // 시작일 또는 종료일인 경우에만 박스 표시
-                      if (targetDate.isAtSameMomentAs(startDate) || targetDate.isAtSameMomentAs(endDate)) {
-                        scheduleBoxes.add(
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              litten.title,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color: Colors.white,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        );
-                      }
-                    }
-
                     return Container(
                       margin: const EdgeInsets.all(4.0),
                       child: Column(
@@ -1066,10 +1022,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (scheduleBoxes.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            ...scheduleBoxes,
-                          ],
                         ],
                       ),
                     );
@@ -1197,7 +1149,172 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 ),
               ),
             ),
+            // 일정 바 오버레이
+            Positioned.fill(
+              child: _buildScheduleBars(appState),
+            ),
+          ],
+        ),
         ],
+      ),
+    );
+  }
+
+  // 일정 바 오버레이 빌드
+  Widget _buildScheduleBars(AppStateProvider appState) {
+    debugPrint('📅 _buildScheduleBars 호출');
+
+    // 현재 포커스된 날짜의 월과 연도
+    final focusedMonth = _calendarFocusedDate.value.month;
+    final focusedYear = _calendarFocusedDate.value.year;
+
+    // 해당 월의 일정들 수집 (모든 일정)
+    final schedules = <Map<String, dynamic>>[];
+
+    for (final litten in appState.littens) {
+      if (litten.title == 'undefined' || litten.schedule == null) {
+        continue;
+      }
+
+      final schedule = litten.schedule!;
+
+      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      // endDate가 null이면 startDate와 같은 날로 처리 (단일 날짜 일정)
+      final endDate = schedule.endDate != null
+        ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
+        : startDate;
+
+      // 현재 월과 겹치는 일정만 포함
+      final firstDayOfMonth = DateTime(focusedYear, focusedMonth, 1);
+      final lastDayOfMonth = DateTime(focusedYear, focusedMonth + 1, 0);
+
+      if (endDate.isBefore(firstDayOfMonth) || startDate.isAfter(lastDayOfMonth)) {
+        continue;
+      }
+
+      schedules.add({
+        'title': litten.title,
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+
+      debugPrint('📅 일정 추가: ${litten.title}, $startDate ~ $endDate');
+    }
+
+    debugPrint('📅 총 ${schedules.length}개 일정 표시');
+
+    if (schedules.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cellWidth = constraints.maxWidth / 7;
+
+          // daysOfWeekHeight 계산 (전체 높이의 12%)
+          final daysOfWeekHeight = constraints.maxHeight * 0.12;
+          // 실제 캘린더 셀 영역 높이
+          final calendarCellsHeight = constraints.maxHeight - daysOfWeekHeight;
+          final cellHeight = calendarCellsHeight / 6; // 6주 표시
+
+          // 월의 첫 날이 무슨 요일인지 계산 (일요일=0)
+          final firstDayOfMonth = DateTime(focusedYear, focusedMonth, 1);
+          final startDayOfWeek = firstDayOfMonth.weekday % 7;
+
+          // 셀별로 일정 그룹화 (같은 셀의 일정들을 세로로 배치하기 위해)
+          // key: "row_col" (예: "3_2" = 3번째 행, 2번째 열)
+          final cellSchedules = <String, List<Map<String, dynamic>>>{};
+
+          for (final schedule in schedules) {
+            final startDate = schedule['startDate'] as DateTime;
+            final endDate = schedule['endDate'] as DateTime;
+            final title = schedule['title'] as String;
+
+            // 시작일과 종료일이 같은 월인지 확인
+            if (startDate.month != focusedMonth || endDate.month != focusedMonth) {
+              debugPrint('📅 일정 "$title": 다른 월에 걸쳐있어서 건너뜀');
+              continue;
+            }
+
+            // 시작일의 행과 열 계산
+            final startPosition = startDayOfWeek + startDate.day - 1;
+            final startRow = startPosition ~/ 7;
+            final startCol = startPosition % 7;
+
+            // 종료일의 행과 열 계산
+            final endPosition = startDayOfWeek + endDate.day - 1;
+            final endRow = endPosition ~/ 7;
+            final endCol = endPosition % 7;
+
+            // 같은 행에 있는 경우에만 표시
+            if (startRow != endRow) {
+              debugPrint('📅 일정 "$title": 여러 행에 걸쳐있어서 건너뜀');
+              continue;
+            }
+
+            // 셀별 그룹에 추가 (시작 셀 기준)
+            final cellKey = '${startRow}_$startCol';
+            cellSchedules.putIfAbsent(cellKey, () => []);
+            cellSchedules[cellKey]!.add({
+              'title': title,
+              'startDate': startDate,
+              'endDate': endDate,
+              'startRow': startRow,
+              'startCol': startCol,
+              'endCol': endCol,
+            });
+          }
+
+          final bars = <Widget>[];
+
+          // 각 셀의 일정들을 세로로 배치
+          cellSchedules.forEach((cellKey, scheduleList) {
+            for (int i = 0; i < scheduleList.length; i++) {
+              final schedule = scheduleList[i];
+              final title = schedule['title'] as String;
+              final startRow = schedule['startRow'] as int;
+              final startCol = schedule['startCol'] as int;
+              final endCol = schedule['endCol'] as int;
+
+              final left = startCol * cellWidth;
+              // daysOfWeekHeight를 더하고, 날짜 숫자(21px) 아래에 배치
+              // 각 일정은 15픽셀씩 아래로 배치 (i * 15)
+              final top = daysOfWeekHeight + (startRow * cellHeight) + 26 + (i * 15);
+              final width = (endCol - startCol + 1) * cellWidth;
+
+              debugPrint('📅 일정 "$title": cell=$cellKey, index=$i, left=$left, top=$top, width=$width');
+
+              bars.add(
+                Positioned(
+                  left: left,
+                  top: top,
+                  width: width,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              );
+            }
+          });
+
+          return Stack(children: bars);
+        },
       ),
     );
   }
@@ -1301,7 +1418,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     return ValueListenableBuilder<DateTime>(
                       valueListenable: _calendarFocusedDate,
                       builder: (context, focusedDate, child) {
-                        return TableCalendar<dynamic>(
+                        return Stack(
+                          children: [
+                            TableCalendar<dynamic>(
                           firstDay: DateTime.utc(2020, 1, 1),
                           lastDay: DateTime.utc(2030, 12, 31),
                           focusedDay: focusedDate,
@@ -1609,6 +1728,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       );
                     },
                   ),
+                        ),
+                            // 일정 바 오버레이
+                            Positioned.fill(
+                              child: _buildScheduleBars(currentAppState),
+                            ),
+                          ],
                         );
                       },
                     );
