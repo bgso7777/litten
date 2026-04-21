@@ -1432,10 +1432,36 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                         return isSameDay(currentAppState.selectedDate, day);
                       },
                       onDaySelected: (selectedDay, focusedDay) async {
+                        // 현재 스크롤 위치 저장
+                        final currentScrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                        debugPrint('📅 날짜 선택 전 스크롤 위치: $currentScrollPosition');
+
                         _calendarFocusedDate.value = focusedDay;
                         currentAppState.selectDate(selectedDay);
                         // changeFocusedDate 호출하지 않음 - 스크롤 위치 유지
                         await _loadNotificationsForSelectedDate(selectedDay, currentAppState);
+
+                        // 스크롤 위치 즉시 복원 (여러 번 시도)
+                        if (_scrollController.hasClients && mounted) {
+                          _scrollController.jumpTo(currentScrollPosition);
+                          debugPrint('📅 스크롤 위치 즉시 복원 (1차): $currentScrollPosition');
+
+                          // 프레임 완료 후 다시 복원
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_scrollController.hasClients && mounted) {
+                              _scrollController.jumpTo(currentScrollPosition);
+                              debugPrint('📅 스크롤 위치 복원 (2차): $currentScrollPosition');
+                            }
+                          });
+
+                          // 한 번 더 복원 (레이아웃이 완전히 완료된 후)
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            if (_scrollController.hasClients && mounted) {
+                              _scrollController.jumpTo(currentScrollPosition);
+                              debugPrint('📅 스크롤 위치 복원 (3차): $currentScrollPosition');
+                            }
+                          });
+                        }
                       },
                       onPageChanged: (focusedDay) {
                         // 로컬 상태만 업데이트 (전역 상태 변경하지 않음 - 스크롤 위치 유지)
