@@ -18,7 +18,7 @@ class NotificationGeneratorService {
     }
 
     final schedule = litten.schedule!;
-    debugPrint('   📅 스케줄 정보: date=${schedule.date}, startTime=${schedule.startTime}');
+    debugPrint('   📅 스케줄 정보: date=${schedule.date}, endDate=${schedule.endDate}, startTime=${schedule.startTime}');
     debugPrint('   📋 알림 규칙 수: ${schedule.notificationRules.length}');
 
     final List<StoredNotification> allNotifications = [];

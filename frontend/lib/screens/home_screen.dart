@@ -158,91 +158,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   /// 일정 기간 시작일 반환 (선택된 리튼 또는 모든 리튼)
-  DateTime? _getFirstScheduleRangeStart(AppStateProvider appState) {
-    // ⭐ 선택된 리튼이 undefined가 아닌 경우
-    if (appState.selectedLitten != null &&
-        appState.selectedLitten!.title != 'undefined') {
-      // 일정이 없거나 endDate가 없으면 null 반환 (범위 표시 안 함)
-      if (appState.selectedLitten!.schedule == null) {
-        return null;
-      }
-      final schedule = appState.selectedLitten!.schedule!;
-      if (schedule.endDate == null) {
-        return null;
-      }
-      // 일정의 기간 표시
-      return DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-    }
-
-    // ⭐ undefined 리튼이 선택된 경우, 모든 리튼의 일정 중 가장 이른 시작일 찾기
-    final focusedMonth = DateTime(appState.focusedDate.year, appState.focusedDate.month, 1);
-    final focusedMonthEnd = DateTime(appState.focusedDate.year, appState.focusedDate.month + 1, 0);
-
-    DateTime? earliestStart;
-
-    for (final litten in appState.littens) {
-      if (litten.title == 'undefined' || litten.schedule == null) continue;
-
-      final schedule = litten.schedule!;
-      if (schedule.endDate == null) continue;
-
-      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-      final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
-
-      // 일정이 현재 월과 겹치는지 확인
-      if (endDate.isAfter(focusedMonth.subtract(const Duration(days: 1))) &&
-          startDate.isBefore(focusedMonthEnd.add(const Duration(days: 1)))) {
-        if (earliestStart == null || startDate.isBefore(earliestStart)) {
-          earliestStart = startDate;
-        }
-      }
-    }
-    return earliestStart;
-  }
-
-  /// 일정 기간 종료일 반환 (선택된 리튼 또는 모든 리튼)
-  DateTime? _getFirstScheduleRangeEnd(AppStateProvider appState) {
-    // ⭐ 선택된 리튼이 undefined가 아닌 경우
-    if (appState.selectedLitten != null &&
-        appState.selectedLitten!.title != 'undefined') {
-      // 일정이 없거나 endDate가 없으면 null 반환 (범위 표시 안 함)
-      if (appState.selectedLitten!.schedule == null) {
-        return null;
-      }
-      final schedule = appState.selectedLitten!.schedule!;
-      if (schedule.endDate == null) {
-        return null;
-      }
-      // 일정의 기간 표시
-      return DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
-    }
-
-    // ⭐ undefined 리튼이 선택된 경우, 모든 리튼의 일정 중 가장 늦은 종료일 찾기
-    final focusedMonth = DateTime(appState.focusedDate.year, appState.focusedDate.month, 1);
-    final focusedMonthEnd = DateTime(appState.focusedDate.year, appState.focusedDate.month + 1, 0);
-
-    DateTime? latestEnd;
-
-    for (final litten in appState.littens) {
-      if (litten.title == 'undefined' || litten.schedule == null) continue;
-
-      final schedule = litten.schedule!;
-      if (schedule.endDate == null) continue;
-
-      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-      final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
-
-      // 일정이 현재 월과 겹치는지 확인
-      if (endDate.isAfter(focusedMonth.subtract(const Duration(days: 1))) &&
-          startDate.isBefore(focusedMonthEnd.add(const Duration(days: 1)))) {
-        if (latestEnd == null || endDate.isAfter(latestEnd)) {
-          latestEnd = endDate;
-        }
-      }
-    }
-    return latestEnd;
-  }
-
   /// 숨겨진 리튼 ID 목록 로드
   Future<void> _loadCollapsedLittenIds() async {
     try {
@@ -299,14 +214,41 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   /// 알림 날짜 캐시 로드
   Future<void> _loadNotificationDates() async {
     try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
       final storage = NotificationStorageService();
       final allNotifications = await storage.loadNotifications();
+
+      if (!mounted) return;
 
       // 날짜별로 알림이 있는 리튼 ID Set 계산
       final dateMap = <String, Set<String>>{};
       for (final notification in allNotifications) {
-        final dateKey = '${notification.triggerTime.year}-${notification.triggerTime.month.toString().padLeft(2, '0')}-${notification.triggerTime.day.toString().padLeft(2, '0')}';
-        dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
+        // 해당 리튼 찾기
+        final litten = appState.littens.firstWhere(
+          (l) => l.id == notification.littenId,
+          orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
+        );
+
+        if (litten.id.isEmpty) continue;
+
+        // 일정 범위 확인
+        final schedule = litten.schedule;
+        if (schedule != null && schedule.endDate != null) {
+          // 시작일부터 종료일까지 모든 날짜에 추가
+          final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+          final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
+
+          DateTime currentDate = startDate;
+          while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
+            final dateKey = '${currentDate.year}-${currentDate.month.toString().padLeft(2, '0')}-${currentDate.day.toString().padLeft(2, '0')}';
+            dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
+            currentDate = currentDate.add(const Duration(days: 1));
+          }
+        } else {
+          // endDate가 없으면 트리거 시간만 사용
+          final dateKey = '${notification.triggerTime.year}-${notification.triggerTime.month.toString().padLeft(2, '0')}-${notification.triggerTime.day.toString().padLeft(2, '0')}';
+          dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
+        }
       }
 
       setState(() {
@@ -646,6 +588,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         onRulesChanged: (rules) {
           final updatedSchedule = LittenSchedule(
             date: selectedSchedule.date,
+            endDate: selectedSchedule.endDate,
             startTime: selectedSchedule.startTime,
             endTime: selectedSchedule.endTime,
             notes: selectedSchedule.notes,
@@ -822,6 +765,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         onRulesChanged: (rules) {
           final updatedSchedule = LittenSchedule(
             date: selectedSchedule.date,
+            endDate: selectedSchedule.endDate,
             startTime: selectedSchedule.startTime,
             endTime: selectedSchedule.endTime,
             notes: selectedSchedule.notes,
@@ -1004,10 +948,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 daysOfWeekHeight: ResponsiveUtils.getCalendarDaysOfWeekHeight(context),
                 rowHeight: ResponsiveUtils.getCalendarRowHeight(context),
 
-                // ⭐ 일정 기간 표시 (endDate가 있는 경우)
-                rangeStartDay: _getFirstScheduleRangeStart(appState),
-                rangeEndDay: _getFirstScheduleRangeEnd(appState),
-
                 selectedDayPredicate: (day) {
                   // 날짜가 선택된 경우에만 선택 표시
                   if (!appState.isDateSelected) return false;
@@ -1041,20 +981,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   markerSize: 6.0, // 마커 크기 명시
                   markersMaxCount: 3,
                   markersAlignment: Alignment.bottomCenter, // 마커를 날짜 아래쪽에 배치
-                  // ⭐ 일정 기간 스타일 (시작일~종료일 연결선)
-                  rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                  rangeStartDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  rangeEndDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  withinRangeDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
                 ),
                 eventLoader: (day) {
                   // 1. 해당 날짜에 생성된 리튼 ID Set
@@ -1083,25 +1009,56 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 calendarBuilders: CalendarBuilders(
                   // 기본 셀 빌더 - 날짜 아래에 리튼 제목 표시
                   defaultBuilder: (context, day, focusedDay) {
-                    // 해당 날짜의 리튼 찾기
                     final targetDate = DateTime(day.year, day.month, day.day);
-                    final littensOnDate = appState.littens.where((litten) {
-                      if (litten.title == 'undefined') return false;
-                      final littenDate = DateTime(
-                        litten.createdAt.year,
-                        litten.createdAt.month,
-                        litten.createdAt.day,
-                      );
-                      return littenDate.isAtSameMomentAs(targetDate);
-                    }).toList();
 
-                    // 리튼 제목 (최대 1개만 표시)
-                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+                    // 알림이 있는 리튼 찾기
+                    final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                    final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
+
+                    // 해당 날짜에 시작하거나 종료되는 일정만 표시
+                    final scheduleBoxes = <Widget>[];
+                    for (final littenId in notificationLittenIds) {
+                      final litten = appState.littens.firstWhere(
+                        (l) => l.id == littenId,
+                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
+                      );
+
+                      if (litten.id.isEmpty || litten.title == 'undefined' || litten.schedule == null) continue;
+
+                      final schedule = litten.schedule!;
+                      final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+                      final endDate = schedule.endDate != null
+                        ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
+                        : startDate;
+
+                      // 시작일 또는 종료일인 경우에만 박스 표시
+                      if (targetDate.isAtSameMomentAs(startDate) || targetDate.isAtSameMomentAs(endDate)) {
+                        scheduleBoxes.add(
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              litten.title,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        );
+                      }
+                    }
 
                     return Container(
                       margin: const EdgeInsets.all(4.0),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           Text(
                             '${day.day}',
@@ -1109,17 +1066,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (littenTitle != null) ...[
+                          if (scheduleBoxes.isNotEmpty) ...[
                             const SizedBox(height: 2),
-                            Text(
-                              littenTitle,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            ...scheduleBoxes,
                           ],
                         ],
                       ),
@@ -1143,18 +1092,26 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
                     return Container(
                       margin: const EdgeInsets.all(4.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          // 원형 배경의 날짜
+                          Container(
+                            width: 21,
+                            height: 21,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
                           if (littenTitle != null) ...[
@@ -1163,9 +1120,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               padding: const EdgeInsets.symmetric(horizontal: 2),
                               child: Text(
                                 littenTitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 9,
-                                  color: Colors.white,
+                                  color: Colors.grey.shade600,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1195,18 +1152,26 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
                     return Container(
                       margin: const EdgeInsets.all(4.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          Text(
-                            '${day.day}',
-                            style: const TextStyle().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          // 원형 배경의 날짜
+                          Container(
+                            width: 21,
+                            height: 21,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle().copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
                           if (littenTitle != null) ...[
@@ -1215,9 +1180,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               padding: const EdgeInsets.symmetric(horizontal: 2),
                               child: Text(
                                 littenTitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 9,
-                                  color: Colors.white,
+                                  color: Colors.grey.shade600,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1343,9 +1308,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           daysOfWeekHeight: daysOfWeekHeight,
                           rowHeight: rowHeight,
 
-                      rangeStartDay: _getFirstScheduleRangeStart(currentAppState),
-                      rangeEndDay: _getFirstScheduleRangeEnd(currentAppState),
-
                       selectedDayPredicate: (day) {
                         if (!currentAppState.isDateSelected) return false;
                         return isSameDay(currentAppState.selectedDate, day);
@@ -1380,19 +1342,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       color: Colors.transparent, // 전체 화면에서는 마커(점) 숨김
                     ),
                     markersMaxCount: 3,
-                    rangeHighlightColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                    rangeStartDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                      shape: BoxShape.circle,
-                    ),
-                    rangeEndDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                      shape: BoxShape.circle,
-                    ),
-                    withinRangeDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
                   ),
                   eventLoader: (day) {
                     final targetDate = DateTime(day.year, day.month, day.day);
@@ -1542,24 +1491,27 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           .toList();
 
                       return Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        margin: const EdgeInsets.all(4.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // 날짜 숫자
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle().copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                            // 원형 배경의 날짜
+                            Container(
+                              width: 21,
+                              height: 21,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1574,9 +1526,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 8,
-                                      color: Colors.white,
+                                      color: Colors.grey[600],
                                       height: 1.1,
                                     ),
                                   )).toList(),
@@ -1609,24 +1561,27 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           .toList();
 
                       return Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        margin: const EdgeInsets.all(4.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // 날짜 숫자
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle().copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                            // 원형 배경의 날짜
+                            Container(
+                              width: 21,
+                              height: 21,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1641,9 +1596,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 8,
-                                      color: Colors.white,
+                                      color: Colors.grey[600],
                                       height: 1.1,
                                     ),
                                   )).toList(),
