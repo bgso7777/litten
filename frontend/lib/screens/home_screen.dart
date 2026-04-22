@@ -261,48 +261,61 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
-  /// 선택된 날짜의 알림 목록 로드
+  /// 선택된 날짜의 일정 목록 로드 (알림 설정 여부와 관계없이 모든 일정)
   Future<void> _loadNotificationsForSelectedDate(DateTime date, AppStateProvider appState) async {
     try {
-      final storage = NotificationStorageService();
-      final allNotifications = await storage.loadNotifications();
+      debugPrint('📅 _loadNotificationsForSelectedDate 시작: ${DateFormat('yyyy-MM-dd').format(date)}');
 
-      // 선택된 날짜의 알림만 필터링 (acknowledged된 알림은 제외)
       final targetDate = DateTime(date.year, date.month, date.day);
-      final notifications = allNotifications.where((notification) {
-        final triggerDate = DateTime(
-          notification.triggerTime.year,
-          notification.triggerTime.month,
-          notification.triggerTime.day,
+      final schedulesWithLitten = <Map<String, dynamic>>[];
+
+      // 모든 리튼을 순회하며 선택된 날짜에 해당하는 일정이 있는지 확인
+      for (final litten in appState.littens) {
+        if (litten.schedule == null) {
+          continue;
+        }
+
+        final schedule = litten.schedule!;
+        final scheduleDate = DateTime(
+          schedule.date.year,
+          schedule.date.month,
+          schedule.date.day,
         );
-        return triggerDate.isAtSameMomentAs(targetDate) && !notification.isAcknowledged;
-      }).toList();
 
-      // 시간순으로 정렬
-      notifications.sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+        // 시작일이 선택된 날짜와 일치하는지 확인
+        if (scheduleDate.isAtSameMomentAs(targetDate)) {
+          // 일정의 시작 시간을 DateTime으로 변환
+          final scheduleStartDateTime = DateTime(
+            schedule.date.year,
+            schedule.date.month,
+            schedule.date.day,
+            schedule.startTime.hour,
+            schedule.startTime.minute,
+          );
 
-      // 각 알림에 해당하는 리튼 정보 추가
-      final notificationsWithLitten = notifications.map((notification) {
-        final litten = appState.littens.firstWhere(
-          (l) => l.id == notification.littenId,
-          orElse: () => Litten(
-            id: notification.littenId,
-            title: '삭제된 리튼',
-            createdAt: DateTime.now(),
-          ),
-        );
-        return {
-          'notification': notification,
-          'litten': litten,
-        };
-      }).toList();
+          schedulesWithLitten.add({
+            'litten': litten,
+            'schedule': schedule,
+            'startDateTime': scheduleStartDateTime,
+          });
 
-      // AppStateProvider에 알림 설정 (notifyListeners 자동 호출)
-      appState.setSelectedDateNotifications(notificationsWithLitten);
-      debugPrint('📋 선택된 날짜(${DateFormat('yyyy-MM-dd').format(date)})의 알림: ${notifications.length}개');
+          debugPrint('   ✅ 일정 발견: "${litten.title}" - ${DateFormat('HH:mm').format(scheduleStartDateTime)}');
+        }
+      }
+
+      // 시작 시간순으로 정렬
+      schedulesWithLitten.sort((a, b) {
+        final aTime = a['startDateTime'] as DateTime;
+        final bTime = b['startDateTime'] as DateTime;
+        return aTime.compareTo(bTime);
+      });
+
+      // AppStateProvider에 일정 설정 (notifyListeners 자동 호출)
+      appState.setSelectedDateNotifications(schedulesWithLitten);
+      debugPrint('📋 선택된 날짜(${DateFormat('yyyy-MM-dd').format(date)})의 일정: ${schedulesWithLitten.length}개');
       debugPrint('🔍 AppState 업데이트 완료: selectedDateNotifications.length = ${appState.selectedDateNotifications.length}');
     } catch (e) {
-      debugPrint('❌ 선택된 날짜 알림 로드 실패: $e');
+      debugPrint('❌ 선택된 날짜 일정 로드 실패: $e');
       appState.setSelectedDateNotifications([]);
     }
   }
@@ -2165,7 +2178,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     );
   }
 
-  // 선택된 날짜의 알림 섹션 빌드
+  // 선택된 날짜의 일정 섹션 빌드
   Widget _buildNotificationSection(AppStateProvider appState, List<dynamic> selectedDateNotifications) {
     final selectedDate = appState.selectedDate;
 
@@ -2191,10 +2204,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ),
             child: Row(
               children: [
-                Icon(Icons.notifications_active, color: Colors.blue.shade700, size: 20),
+                Icon(Icons.event, color: Colors.blue.shade700, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  '${DateFormat('M월 d일 (E)', 'ko').format(selectedDate)} 알림',
+                  '${DateFormat('M월 d일 (E)', 'ko').format(selectedDate)} 일정',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -2220,7 +2233,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               ],
             ),
           ),
-          // 알림 목록
+          // 일정 목록
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -2231,15 +2244,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ),
             itemBuilder: (context, index) {
               final item = selectedDateNotifications[index];
-              final notification = item['notification'];
               final litten = item['litten'] as Litten;
-              final triggerTime = notification.triggerTime as DateTime;
+              final schedule = item['schedule'] as LittenSchedule;
+              final startDateTime = item['startDateTime'] as DateTime;
               final now = DateTime.now();
-              final isPast = triggerTime.isBefore(now);
+              final isPast = startDateTime.isBefore(now);
+
+              // 시간 범위 표시
+              final timeRange = '${DateFormat('HH:mm').format(startDateTime)} - ${schedule.endTime.hour.toString().padLeft(2, '0')}:${schedule.endTime.minute.toString().padLeft(2, '0')}';
 
               return ListTile(
                 leading: Icon(
-                  isPast ? Icons.check_circle : Icons.event_available,
+                  isPast ? Icons.event_available : Icons.event,
                   color: isPast ? Colors.grey : Theme.of(context).primaryColor,
                   size: 24,
                 ),
@@ -2248,64 +2264,36 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: isPast ? Colors.grey.shade600 : Colors.black87,
-                    decoration: isPast ? TextDecoration.lineThrough : null,
                   ),
                 ),
-                subtitle: Text(
-                  '${DateFormat('HH:mm').format(triggerTime)} - ${notification.rule.frequency.label}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isPast ? Colors.grey.shade500 : Colors.grey.shade700,
-                  ),
-                ),
-                trailing: isPast
-                    ? Text(
-                        '완료',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                      )
-                    : Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: Colors.blue.shade300,
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      timeRange,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isPast ? Colors.grey.shade500 : Colors.grey.shade700,
                       ),
+                    ),
+                    if (schedule.notes != null && schedule.notes!.isNotEmpty)
+                      Text(
+                        schedule.notes!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.blue.shade300,
+                ),
                 onTap: () async {
-                  // 알림을 확인됨으로 표시
-                  try {
-                    final storage = NotificationStorageService();
-                    final allNotifications = await storage.loadNotifications();
-
-                    // 해당 알림을 찾아서 acknowledged로 표시
-                    final updatedNotifications = allNotifications.map((n) {
-                      if (n.id == notification.id) {
-                        return n.markAsAcknowledged();
-                      }
-                      return n;
-                    }).toList();
-
-                    await storage.saveNotifications(updatedNotifications);
-                    debugPrint('✅ 알림 확인 처리됨: ${notification.id}');
-
-                    // NotificationService의 firedNotifications에서도 제거
-                    final firedNotification = appState.notificationService.firedNotifications
-                        .where((fired) =>
-                            fired.littenId == notification.littenId &&
-                            fired.triggerTime.isAtSameMomentAs(notification.triggerTime))
-                        .firstOrNull;
-
-                    if (firedNotification != null) {
-                      await appState.notificationService.dismissNotification(firedNotification);
-                      debugPrint('✅ firedNotifications에서 알림 제거: ${notification.id}');
-                    }
-
-                    // 알림 목록 새로고침
-                    await _loadNotificationsForSelectedDate(appState.selectedDate, appState);
-                  } catch (e) {
-                    debugPrint('❌ 알림 확인 처리 실패: $e');
-                  }
-
                   // 해당 리튼으로 이동
                   try {
                     // ⭐ STT 중에는 리튼 선택 차단
