@@ -1071,36 +1071,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   // selectedDecoration과 todayDecoration 제거 - builder 사용
                   selectedDecoration: const BoxDecoration(),
                   todayDecoration: const BoxDecoration(),
-                  markerDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    shape: BoxShape.circle,
+                  // 전체 화면에서는 마커(점) 숨김
+                  markerDecoration: const BoxDecoration(
+                    color: Colors.transparent,
                   ),
-                  markerSize: 6.0, // 마커 크기 명시
-                  markersMaxCount: 3,
-                  markersAlignment: Alignment.bottomCenter, // 마커를 날짜 아래쪽에 배치
+                  markersMaxCount: 0,
                 ),
                 eventLoader: (day) {
-                  // 1. 해당 날짜에 생성된 리튼 ID Set
-                  final targetDate = DateTime(day.year, day.month, day.day);
-                  final littenIds = appState.littens.where((litten) {
-                    if (litten.title == 'undefined') return false;
-                    final littenDate = DateTime(
-                      litten.createdAt.year,
-                      litten.createdAt.month,
-                      litten.createdAt.day,
-                    );
-                    return littenDate.isAtSameMomentAs(targetDate);
-                  }).map((l) => l.id).toSet();
-
-                  // 2. 해당 날짜에 알림이 있는 리튼 ID Set
-                  final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                  final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
-
-                  // 3. 두 Set을 합쳐서 중복 제거 (같은 리튼이 생성일과 알림 날짜가 같아도 1개로 카운트)
-                  final allLittenIds = {...littenIds, ...notificationLittenIds};
-                  final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
-
-                  return List.generate(markerCount, (index) => 'event');
+                  // 전체 화면에서는 마커(점)를 표시하지 않음
+                  return [];
                 },
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
@@ -1257,7 +1236,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
   // 일정 바 오버레이 빌드
   Widget _buildScheduleBars(AppStateProvider appState) {
-    debugPrint('📅 _buildScheduleBars 호출');
+    debugPrint('📅 _buildScheduleBars 호출 - _scheduleListVisible: $_scheduleListVisible');
+
+    // 캘린더가 축소된 상태(일정 리스트 표시)면 일정 바를 숨김
+    if (_scheduleListVisible) {
+      return const SizedBox.shrink();
+    }
 
     // 현재 포커스된 날짜의 월과 연도
     final focusedMonth = _calendarFocusedDate.value.month;
@@ -1267,6 +1251,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final schedules = <Map<String, dynamic>>[];
 
     for (final litten in appState.littens) {
+      debugPrint('   리튼: "${litten.title}", schedule: ${litten.schedule != null ? "있음" : "없음"}');
+
       if (litten.title == 'undefined' || litten.schedule == null) {
         continue;
       }
@@ -1326,9 +1312,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             final endDate = schedule['endDate'] as DateTime;
             final title = schedule['title'] as String;
 
-            // 시작일과 종료일이 같은 월인지 확인
-            if (startDate.month != focusedMonth || endDate.month != focusedMonth) {
-              debugPrint('📅 일정 "$title": 다른 월에 걸쳐있어서 건너뜀');
+            // 시작일이 현재 월에 있는지만 확인 (종료일은 다음 달이어도 OK)
+            if (startDate.month != focusedMonth) {
+              debugPrint('📅 일정 "$title": 시작일($startDate)이 다른 월이어서 건너뜀');
               continue;
             }
 
@@ -1342,23 +1328,54 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             final endRow = endPosition ~/ 7;
             final endCol = endPosition % 7;
 
-            // 같은 행에 있는 경우에만 표시
+            // 여러 행에 걸친 경우, 각 행마다 별도의 바를 생성
             if (startRow != endRow) {
-              debugPrint('📅 일정 "$title": 여러 행에 걸쳐있어서 건너뜀');
-              continue;
-            }
+              debugPrint('📅 일정 "$title": 여러 행에 걸쳐있음 ($startRow ~ $endRow)');
 
-            // 셀별 그룹에 추가 (시작 셀 기준)
-            final cellKey = '${startRow}_$startCol';
-            cellSchedules.putIfAbsent(cellKey, () => []);
-            cellSchedules[cellKey]!.add({
-              'title': title,
-              'startDate': startDate,
-              'endDate': endDate,
-              'startRow': startRow,
-              'startCol': startCol,
-              'endCol': endCol,
-            });
+              // 각 행마다 일정 바 추가
+              for (int row = startRow; row <= endRow; row++) {
+                int colStart, colEnd;
+
+                if (row == startRow) {
+                  // 첫 번째 행: 시작 위치부터 토요일(6)까지
+                  colStart = startCol;
+                  colEnd = 6;
+                } else if (row == endRow) {
+                  // 마지막 행: 일요일(0)부터 종료 위치까지
+                  colStart = 0;
+                  colEnd = endCol;
+                } else {
+                  // 중간 행: 일요일(0)부터 토요일(6)까지
+                  colStart = 0;
+                  colEnd = 6;
+                }
+
+                final cellKey = '${row}_$colStart';
+                cellSchedules.putIfAbsent(cellKey, () => []);
+                cellSchedules[cellKey]!.add({
+                  'title': title,
+                  'startDate': startDate,
+                  'endDate': endDate,
+                  'startRow': row,
+                  'startCol': colStart,
+                  'endCol': colEnd,
+                });
+
+                debugPrint('   행 $row: $colStart ~ $colEnd');
+              }
+            } else {
+              // 같은 행에 있는 경우
+              final cellKey = '${startRow}_$startCol';
+              cellSchedules.putIfAbsent(cellKey, () => []);
+              cellSchedules[cellKey]!.add({
+                'title': title,
+                'startDate': startDate,
+                'endDate': endDate,
+                'startRow': startRow,
+                'startCol': startCol,
+                'endCol': endCol,
+              });
+            }
           }
 
           final bars = <Widget>[];
@@ -1538,30 +1555,40 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               holidayTextStyle: TextStyle(color: Colors.red[400]),
                               selectedDecoration: const BoxDecoration(),
                               todayDecoration: const BoxDecoration(),
-                              markerDecoration: const BoxDecoration(
-                                color: Colors.transparent,
+                              markerDecoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                shape: BoxShape.circle,
                               ),
+                              markerSize: 5.0,
                               markersMaxCount: 3,
+                              markersAlignment: Alignment.bottomCenter,
                             ),
                             eventLoader: (day) {
+                              // 축소 모드일 때만 점 표시, 전체 화면일 때는 점 숨김
+                              if (!_scheduleListVisible) {
+                                return [];
+                              }
+
+                              // 해당 날짜에 시작하는 일정 개수를 세기
                               final targetDate = DateTime(day.year, day.month, day.day);
-                              final littenIds = currentAppState.littens.where((litten) {
-                                if (litten.title == 'undefined') return false;
-                                final littenDate = DateTime(
-                                  litten.createdAt.year,
-                                  litten.createdAt.month,
-                                  litten.createdAt.day,
-                                );
-                                return littenDate.isAtSameMomentAs(targetDate);
-                              }).map((l) => l.id).toSet();
+                              int scheduleCount = 0;
 
-                              final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                              final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
+                              for (final litten in currentAppState.littens) {
+                                if (litten.schedule != null) {
+                                  final scheduleDate = DateTime(
+                                    litten.schedule!.date.year,
+                                    litten.schedule!.date.month,
+                                    litten.schedule!.date.day,
+                                  );
+                                  if (scheduleDate.isAtSameMomentAs(targetDate)) {
+                                    scheduleCount++;
+                                  }
+                                }
+                              }
 
-                              final allLittenIds = {...littenIds, ...notificationLittenIds};
-                              final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
-
-                              return List.generate(markerCount, (index) => 'event');
+                              // 최대 3개까지만 점 표시
+                              final markerCount = scheduleCount > 3 ? 3 : scheduleCount;
+                              return List.generate(markerCount, (index) => 'schedule_$index');
                             },
                             locale: appState.locale.languageCode,
                             calendarBuilders: CalendarBuilders(
@@ -1652,29 +1679,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 );
                               },
                               selectedBuilder: (context, day, focusedDay) {
-                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
-                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
-
-                                final targetDate = DateTime(day.year, day.month, day.day);
-                                final littenIdsOnDate = appState.littens.where((litten) {
-                                  if (litten.title == 'undefined') return false;
-                                  final littenDate = DateTime(litten.createdAt.year, litten.createdAt.month, litten.createdAt.day);
-                                  return littenDate.isAtSameMomentAs(targetDate);
-                                }).map((l) => l.id).toSet();
-                                final allLittenIds = {...littenIdsOnDate, ...littenIdsWithNotification};
-
-                                final notificationTitles = allLittenIds
-                                    .take(2)
-                                    .map((littenId) {
-                                      final litten = appState.littens.firstWhere(
-                                        (l) => l.id == littenId,
-                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
-                                      );
-                                      return litten.title;
-                                    })
-                                    .where((title) => title.isNotEmpty)
-                                    .toList();
-
+                                // 축소 모드에서는 간단하게 선택된 날짜만 표시
                                 return Container(
                                   margin: const EdgeInsets.all(4.0),
                                   child: Column(
@@ -1699,48 +1704,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
-                                      if (notificationTitles.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: notificationTitles.map((title) => Text(
-                                              title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
-                                            )).toList(),
-                                          ),
-                                        ),
+                                      // 축소 모드에서는 제목 표시하지 않음 (점으로만 표시)
                                     ],
                                   ),
                                 );
                               },
                               todayBuilder: (context, day, focusedDay) {
-                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
-                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
-
-                                final targetDate = DateTime(day.year, day.month, day.day);
-                                final littenIdsOnDate = appState.littens.where((litten) {
-                                  if (litten.title == 'undefined') return false;
-                                  final littenDate = DateTime(litten.createdAt.year, litten.createdAt.month, litten.createdAt.day);
-                                  return littenDate.isAtSameMomentAs(targetDate);
-                                }).map((l) => l.id).toSet();
-                                final allLittenIds = {...littenIdsOnDate, ...littenIdsWithNotification};
-
-                                final notificationTitles = allLittenIds
-                                    .take(2)
-                                    .map((littenId) {
-                                      final litten = appState.littens.firstWhere(
-                                        (l) => l.id == littenId,
-                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
-                                      );
-                                      return litten.title;
-                                    })
-                                    .where((title) => title.isNotEmpty)
-                                    .toList();
-
+                                // 축소 모드에서는 간단하게 오늘 날짜만 표시
                                 return Container(
                                   margin: const EdgeInsets.all(4.0),
                                   child: Column(
@@ -1765,20 +1735,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
-                                      if (notificationTitles.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: notificationTitles.map((title) => Text(
-                                              title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
-                                            )).toList(),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 );
@@ -1971,27 +1927,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     markerDecoration: const BoxDecoration(
                       color: Colors.transparent, // 전체 화면에서는 마커(점) 숨김
                     ),
-                    markersMaxCount: 3,
+                    markersMaxCount: 0,
                   ),
                   eventLoader: (day) {
-                    final targetDate = DateTime(day.year, day.month, day.day);
-                    final littenIds = currentAppState.littens.where((litten) {
-                      if (litten.title == 'undefined') return false;
-                      final littenDate = DateTime(
-                        litten.createdAt.year,
-                        litten.createdAt.month,
-                        litten.createdAt.day,
-                      );
-                      return littenDate.isAtSameMomentAs(targetDate);
-                    }).map((l) => l.id).toSet();
-
-                    final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                    final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
-
-                    final allLittenIds = {...littenIds, ...notificationLittenIds};
-                    final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
-
-                    return List.generate(markerCount, (index) => 'event');
+                    // 전체 화면에서는 마커(점)를 표시하지 않음
+                    return [];
                   },
                   locale: appState.locale.languageCode,
                   calendarBuilders: CalendarBuilders(
