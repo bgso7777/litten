@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
 import '../l10n/app_localizations.dart';
+import '../config/themes.dart';
+import '../utils/responsive_utils.dart';
 
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
@@ -145,40 +147,167 @@ class _WritingScreenState extends State<WritingScreen> {
           },
         );
         // 리튼이 선택되지 않았을 때
-        if (appState.selectedLitten == null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        final body = appState.selectedLitten == null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.create_new_folder,
+                      size: 64,
+                      color: Theme.of(context).disabledColor,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '먼저 리튼을 선택하거나 생성하세요',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).disabledColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '홈 탭에서 리튼을 관리할 수 있습니다',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).disabledColor.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : draggableTabLayout;
+
+        return Column(
+          children: [
+            _buildStatsHeader(context, appState),
+            Expanded(child: body),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatsHeader(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
+    final littenCount = appState.littens.where((l) => l.title != 'undefined').length;
+    final hasNotifications = appState.notificationService.firedNotifications.isNotEmpty;
+    final displayCount = hasNotifications ? littenCount - 1 : littenCount;
+
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).primaryColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            offset: const Offset(0, 2),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          // 리튼 수 배지
+          Container(
+            padding: ResponsiveUtils.getBadgePadding(context),
+            decoration: BoxDecoration(
+              color: littenCount > 0
+                  ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
+                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.create_new_folder,
-                  size: 64,
-                  color: Theme.of(context).disabledColor,
-                ),
-                const SizedBox(height: 16),
+                Icon(Icons.folder,
+                    size: ResponsiveUtils.getBadgeIconSize(context),
+                    color: littenCount > 0 ? Colors.white : Colors.white70),
+                AppSpacing.horizontalSpaceXS,
                 Text(
-                  '먼저 리튼을 선택하거나 생성하세요',
+                  displayCount.toString(),
                   style: TextStyle(
-                    fontSize: 18,
-                    color: Theme.of(context).disabledColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '홈 탭에서 리튼을 관리할 수 있습니다',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).disabledColor.withValues(alpha: 0.7),
+                    color: littenCount > 0 ? Colors.white : Colors.white70,
+                    fontSize: ResponsiveUtils.getBadgeFontSize(context),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-          );
-        }
+          ),
+          const SizedBox(width: 8),
+          // 선택된 리튼 이름
+          Expanded(
+            child: Center(
+              child: appState.selectedLitten != null
+                  ? Text(
+                      appState.selectedLitten!.title == 'undefined'
+                          ? '-'
+                          : appState.selectedLitten!.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: appState.selectedLitten!.title == 'undefined'
+                            ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
+                            : null,
+                      ),
+                    )
+                  : Text(
+                      l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+            ),
+          ),
+          // 파일 수 배지들
+          _buildFileCountBadges(context, appState),
+        ],
+      ),
+    );
+  }
 
-        // 드래그 가능한 탭 레이아웃 반환
-        return draggableTabLayout;
-      },
+  Widget _buildFileCountBadges(BuildContext context, AppStateProvider appState) {
+    final audioCount = appState.actualAudioCount;
+    final textCount = appState.actualTextCount;
+    final handwritingCount = appState.actualHandwritingCount;
+
+    Widget badge(int count, IconData icon) => Container(
+          padding: ResponsiveUtils.getBadgePadding(context),
+          decoration: BoxDecoration(
+            color: count > 0
+                ? Theme.of(context).primaryColor
+                : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: ResponsiveUtils.getBadgeIconSize(context),
+                  color: count > 0 ? Colors.white : Colors.white70),
+              AppSpacing.horizontalSpaceXS,
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  color: count > 0 ? Colors.white : Colors.white70,
+                  fontSize: ResponsiveUtils.getBadgeFontSize(context),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        badge(textCount, Icons.keyboard),
+        AppSpacing.horizontalSpaceXS,
+        badge(handwritingCount, Icons.draw),
+        AppSpacing.horizontalSpaceXS,
+        badge(audioCount, Icons.mic),
+        AppSpacing.horizontalSpaceM,
+      ],
     );
   }
 }
