@@ -615,11 +615,14 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
       displayTime = handwritingFile.updatedAt;
     }
 
+    final littenId = fileData['littenId'] as String;
+    final litten = appState.littens.firstWhere((l) => l.id == littenId,
+        orElse: () => appState.littens.first);
+    final littenTitle = litten.title == 'undefined' ? '-' : litten.title;
+
     return InkWell(
       onTap: () async {
         try {
-          final littenId = fileData['littenId'] as String;
-          final litten = appState.littens.firstWhere((l) => l.id == littenId);
           if (appState.isSTTActive) {
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
             return;
@@ -635,15 +638,36 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5))),
         child: Row(
           children: [
-            Icon(icon, color: themeColor, size: 18),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis, maxLines: 1)),
-            const SizedBox(width: 12),
-            Text(DateFormat('HH:mm').format(displayTime), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            // 일정명
+            SizedBox(
+              width: 80,
+              child: Text(
+                littenTitle,
+                style: TextStyle(fontSize: 12, color: themeColor, fontWeight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 파일명
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 생성일시
+            Text(
+              DateFormat('MM/dd HH:mm').format(createdAt),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+            ),
           ],
         ),
       ),

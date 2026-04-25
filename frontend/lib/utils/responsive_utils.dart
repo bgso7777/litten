@@ -108,11 +108,11 @@ class ResponsiveUtils {
   static double getBadgeIconSize(BuildContext context) {
     final screenWidth = getScreenWidth(context);
     if (screenWidth < 360) {
-      return 8.0;
+      return 9.2;
     } else if (screenWidth < 400) {
-      return 8.5;
+      return 9.9;
     } else {
-      return 9.7;
+      return 11.2;
     }
   }
   

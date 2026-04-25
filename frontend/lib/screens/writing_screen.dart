@@ -185,7 +185,7 @@ class _WritingScreenState extends State<WritingScreen> {
           builder: (context, constraints) {
             final totalHeight = constraints.maxHeight;
             final halfHeight = totalHeight / 2;
-            const headerHeight = 56.0;
+            const headerHeight = 45.0;
             final listPanelHeight = halfHeight - headerHeight;
 
             return Stack(
@@ -263,7 +263,7 @@ class _WritingScreenState extends State<WritingScreen> {
     final displayCount = hasNotifications ? littenCount - 1 : littenCount;
 
     return Container(
-      height: 56,
+      height: 45,
       decoration: BoxDecoration(
         color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).primaryColor,
         boxShadow: [
@@ -289,7 +289,7 @@ class _WritingScreenState extends State<WritingScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder,
+                Icon(Icons.event_available,
                     size: ResponsiveUtils.getBadgeIconSize(context),
                     color: littenCount > 0 ? Colors.white : Colors.white70),
                 AppSpacing.horizontalSpaceXS,
@@ -314,7 +314,7 @@ class _WritingScreenState extends State<WritingScreen> {
                           ? '-'
                           : appState.selectedLitten!.title,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: appState.selectedLitten!.title == 'undefined'
                             ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
@@ -390,9 +390,9 @@ class _WritingScreenState extends State<WritingScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         badge(textCount, Icons.keyboard, 'text'),
-        AppSpacing.horizontalSpaceXS,
+        const SizedBox(width: 4.6),
         badge(handwritingCount, Icons.draw, 'handwriting'),
-        AppSpacing.horizontalSpaceXS,
+        const SizedBox(width: 4.6),
         badge(audioCount, Icons.mic, 'audio'),
         AppSpacing.horizontalSpaceM,
       ],
