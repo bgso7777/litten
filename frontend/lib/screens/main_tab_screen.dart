@@ -33,12 +33,28 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     _pageController = PageController(initialPage: appState.selectedTabIndex);
 
+    // HomeScreen 등 외부에서 changeTabIndex() 호출 시 PageController 동기화
+    appState.addListener(_onAppStateTabChanged);
+
     WidgetsBinding.instance.addObserver(this);
     debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 시작');
   }
 
+  void _onAppStateTabChanged() {
+    if (!mounted) return;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final targetIndex = appState.selectedTabIndex;
+    if (_pageController.hasClients &&
+        _pageController.page?.round() != targetIndex) {
+      debugPrint('🔄 [MainTabScreen] 외부 탭 전환 감지 → $targetIndex');
+      _pageController.jumpToPage(targetIndex);
+    }
+  }
+
   @override
   void dispose() {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    appState.removeListener(_onAppStateTabChanged);
     _pageController.dispose(); // ⭐ PageController dispose
     WidgetsBinding.instance.removeObserver(this);
     debugPrint('🎵 MainTabScreen: 백그라운드 재생 지원을 위한 생명주기 관리 종료');

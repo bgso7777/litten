@@ -41,6 +41,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   Map<String, Set<String>> _notificationDateCache = {}; // 날짜별 알림이 있는 리튼 ID Set (YYYY-MM-DD -> Set<littenId>)
   Set<String> _collapsedLittenIds = {}; // 숨겨진 리튼 ID Set
   late ValueNotifier<DateTime> _calendarFocusedDate; // 캘린더 focusedDate (스크롤 위치 유지용)
+  bool _scheduleListVisible = false; // 일정 리스트 표시 여부 (false: 캘린더 전체화면, true: 50/50 분할)
+  double? _pointerDownY;           // 터치 시작 Y 좌표
+  double? _pointerDownX;           // 터치 시작 X 좌표
+  double? _pointerDownListOffset;  // 터치 시작 시 리스트 스크롤 오프셋
+  DateTime? _pointerDownTime;      // 터치 시작 시각 (속도 계산용)
 
   @override
   bool get wantKeepAlive => true; // 화면 회전 및 탭 전환 시에도 상태 유지
@@ -414,35 +419,116 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         await appState.refreshLittens();
         setState(() {});
       },
-      child: NotificationListener<ScrollUpdateNotification>(
-        onNotification: (notification) {
-          // ⭐ 스크롤이 0 근처로 리셋되었을 때 저장된 위치로 복원
-          if (_globalScrollOffset != null &&
-              _globalScrollOffset! > 10.0 &&
-              _scrollController.hasClients &&
-              _scrollController.offset < 5.0) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_scrollController.hasClients) {
-                final targetOffset = _globalScrollOffset! > _scrollController.position.maxScrollExtent
-                    ? _scrollController.position.maxScrollExtent
-                    : _globalScrollOffset!;
-                _scrollController.jumpTo(targetOffset);
-                debugPrint('⚡ [HomeScreen] 스크롤 리셋 감지 - 즉시 복원: $targetOffset');
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalHeight = constraints.maxHeight;
+          final halfHeight = totalHeight / 2;
+
+          // 캘린더 영역 구분을 위한 Y 기준점 (전역 좌표)
+          // status bar 아래부터 시작, 50/50 분할 시 절반 지점
+          final statusBarHeight = MediaQuery.of(context).padding.top;
+          final splitYGlobal = statusBarHeight + halfHeight;
+
+          return Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (event) {
+              _pointerDownY = event.position.dy;
+              _pointerDownX = event.position.dx;
+              _pointerDownTime = DateTime.now();
+              _pointerDownListOffset = _scrollController.hasClients ? _scrollController.offset : 0;
+            },
+            onPointerUp: (event) {
+              if (_pointerDownY == null || _pointerDownX == null || _pointerDownTime == null) return;
+              if (!mounted) return;
+
+              final dy = event.position.dy - _pointerDownY!;
+              final dx = event.position.dx - _pointerDownX!;
+              final dt = DateTime.now().difference(_pointerDownTime!).inMilliseconds.clamp(16, 1000);
+              final velocityY = (dy / dt) * 1000; // px/s (양수=아래, 음수=위)
+
+              debugPrint('📅 [Listener] dx=$dx dy=$dy velocityY=${velocityY.toStringAsFixed(0)} visible=$_scheduleListVisible offset=$_pointerDownListOffset');
+
+              final startedInCalendar = _pointerDownY! < splitYGlobal;
+              final isHorizontalSwipe = dx.abs() > dy.abs() && dx.abs() > 40;
+
+              // 좌로 스와이프 → 노트(쓰기) 탭으로 이동 (리스트 영역에서만)
+              if (_scheduleListVisible && isHorizontalSwipe && dx < -40 && !startedInCalendar) {
+                debugPrint('📅 [HomeScreen] 좌 스와이프 → 노트 탭 이동');
+                final currentAppState = Provider.of<AppStateProvider>(context, listen: false);
+                currentAppState.changeTabIndex(1);
+                currentAppState.setCurrentMainTab(1);
               }
-            });
-          }
-          return false;
+              // 위로 스와이프 → 리스트 표시 (캘린더 전체화면일 때)
+              else if (!_scheduleListVisible && velocityY < -300 && dy < -30) {
+                debugPrint('📅 [HomeScreen] 리스트 표시');
+                setState(() { _scheduleListVisible = true; });
+              }
+              // 아래로 스와이프 → 리스트 숨김
+              else if (_scheduleListVisible && velocityY > 300 && dy > 30 && !isHorizontalSwipe) {
+                final startedInListAtTop = !startedInCalendar && (_pointerDownListOffset ?? 0) <= 5;
+                debugPrint('📅 [HomeScreen] 다운 스와이프 - calendar=$startedInCalendar listTop=$startedInListAtTop');
+                if (startedInCalendar || startedInListAtTop) {
+                  setState(() { _scheduleListVisible = false; });
+                }
+              }
+
+              _pointerDownY = null;
+              _pointerDownX = null;
+              _pointerDownTime = null;
+              _pointerDownListOffset = null;
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              clipBehavior: Clip.hardEdge,
+              children: [
+                // 캘린더: 초기 전체화면 → 위로 스와이프 시 상단 50%
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: _scheduleListVisible ? halfHeight : totalHeight,
+                  child: _buildCalendarContent(appState, l10n),
+                ),
+                // 일정 리스트: 초기 화면 밖 → 위로 스와이프 시 하단 50%로 슬라이드 업
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  top: _scheduleListVisible ? halfHeight : totalHeight,
+                  left: 0,
+                  right: 0,
+                  height: halfHeight,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (!_scheduleListVisible) return false;
+                      // BouncingScrollPhysics 바운스 감지 (보조 수단)
+                      if (notification is ScrollUpdateNotification &&
+                          notification.metrics.pixels < 0) {
+                        setState(() { _scheduleListVisible = false; });
+                        return true;
+                      }
+                      if (notification is OverscrollNotification &&
+                          notification.overscroll < -5) {
+                        setState(() { _scheduleListVisible = false; });
+                        return true;
+                      }
+                      return false;
+                    },
+                    child: CustomScrollView(
+                      key: const PageStorageKey<String>('home_screen_scroll'),
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      slivers: [
+                        _buildUnifiedListSliver(appState, l10n),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
         },
-        child: CustomScrollView(
-          key: const PageStorageKey<String>('home_screen_scroll'),
-          controller: _scrollController,
-          slivers: [
-            // 캘린더 SliverAppBar
-            _buildCalendarSliverAppBar(appState, l10n),
-            // 통합 리스트
-            _buildUnifiedListSliver(appState, l10n),
-          ],
-        ),
       ),
     );
   }
@@ -1328,6 +1414,394 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
           return Stack(children: bars);
         },
+      ),
+    );
+  }
+
+  // 캘린더 콘텐츠 (50% 고정 레이아웃용)
+  Widget _buildCalendarContent(AppStateProvider appState, AppLocalizations? l10n) {
+    final currentAppState = Provider.of<AppStateProvider>(context, listen: false);
+
+    return Container(
+      color: Theme.of(context).cardColor,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.paddingM.left,
+          right: AppSpacing.paddingM.right,
+          top: 8,
+          bottom: 8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            // 월 네비게이션 헤더
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    final previousMonth = DateTime(
+                      _calendarFocusedDate.value.year,
+                      _calendarFocusedDate.value.month - 1,
+                    );
+                    _calendarFocusedDate.value = previousMonth;
+                  },
+                  icon: const Icon(Icons.chevron_left),
+                  tooltip: '이전 달',
+                ),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _calendarFocusedDate,
+                  builder: (context, focusedDate, child) {
+                    return Text(
+                      DateFormat.yMMMM(currentAppState.locale.languageCode).format(focusedDate),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  onPressed: () {
+                    final nextMonth = DateTime(
+                      _calendarFocusedDate.value.year,
+                      _calendarFocusedDate.value.month + 1,
+                    );
+                    _calendarFocusedDate.value = nextMonth;
+                  },
+                  icon: const Icon(Icons.chevron_right),
+                  tooltip: '다음 달',
+                ),
+              ],
+            ),
+            // 캘린더 (Expanded로 전체 공간 차지)
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final availableHeight = constraints.maxHeight;
+                  final daysOfWeekHeight = availableHeight * 0.12;
+                  final rowHeight = (availableHeight - daysOfWeekHeight) / 6;
+
+                  return ValueListenableBuilder<DateTime>(
+                    valueListenable: _calendarFocusedDate,
+                    builder: (context, focusedDate, child) {
+                      return Stack(
+                        children: [
+                          TableCalendar<dynamic>(
+                            firstDay: DateTime.utc(2020, 1, 1),
+                            lastDay: DateTime.utc(2030, 12, 31),
+                            focusedDay: focusedDate,
+                            daysOfWeekHeight: daysOfWeekHeight,
+                            rowHeight: rowHeight,
+                            selectedDayPredicate: (day) {
+                              if (!currentAppState.isDateSelected) return false;
+                              return isSameDay(currentAppState.selectedDate, day);
+                            },
+                            onDaySelected: (selectedDay, focusedDay) async {
+                              final currentScrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                              debugPrint('📅 날짜 선택 전 스크롤 위치: $currentScrollPosition');
+
+                              _calendarFocusedDate.value = focusedDay;
+                              currentAppState.selectDate(selectedDay);
+                              await _loadNotificationsForSelectedDate(selectedDay, currentAppState);
+
+                              if (_scrollController.hasClients && mounted) {
+                                _scrollController.jumpTo(currentScrollPosition);
+                                debugPrint('📅 스크롤 위치 즉시 복원 (1차): $currentScrollPosition');
+
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (_scrollController.hasClients && mounted) {
+                                    _scrollController.jumpTo(currentScrollPosition);
+                                    debugPrint('📅 스크롤 위치 복원 (2차): $currentScrollPosition');
+                                  }
+                                });
+
+                                Future.delayed(const Duration(milliseconds: 50), () {
+                                  if (_scrollController.hasClients && mounted) {
+                                    _scrollController.jumpTo(currentScrollPosition);
+                                    debugPrint('📅 스크롤 위치 복원 (3차): $currentScrollPosition');
+                                  }
+                                });
+                              }
+                            },
+                            onPageChanged: (focusedDay) {
+                              _calendarFocusedDate.value = focusedDay;
+                            },
+                            calendarFormat: CalendarFormat.month,
+                            availableCalendarFormats: const {
+                              CalendarFormat.month: 'Month',
+                            },
+                            headerVisible: false,
+                            daysOfWeekStyle: const DaysOfWeekStyle(
+                              weekdayStyle: TextStyle(fontWeight: FontWeight.bold),
+                              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                            ),
+                            calendarStyle: CalendarStyle(
+                              outsideDaysVisible: false,
+                              weekendTextStyle: TextStyle(color: Colors.red[400]),
+                              holidayTextStyle: TextStyle(color: Colors.red[400]),
+                              selectedDecoration: const BoxDecoration(),
+                              todayDecoration: const BoxDecoration(),
+                              markerDecoration: const BoxDecoration(
+                                color: Colors.transparent,
+                              ),
+                              markersMaxCount: 3,
+                            ),
+                            eventLoader: (day) {
+                              final targetDate = DateTime(day.year, day.month, day.day);
+                              final littenIds = currentAppState.littens.where((litten) {
+                                if (litten.title == 'undefined') return false;
+                                final littenDate = DateTime(
+                                  litten.createdAt.year,
+                                  litten.createdAt.month,
+                                  litten.createdAt.day,
+                                );
+                                return littenDate.isAtSameMomentAs(targetDate);
+                              }).map((l) => l.id).toSet();
+
+                              final dateKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                              final notificationLittenIds = _notificationDateCache[dateKey] ?? <String>{};
+
+                              final allLittenIds = {...littenIds, ...notificationLittenIds};
+                              final markerCount = allLittenIds.length > 3 ? 3 : allLittenIds.length;
+
+                              return List.generate(markerCount, (index) => 'event');
+                            },
+                            locale: appState.locale.languageCode,
+                            calendarBuilders: CalendarBuilders(
+                              defaultBuilder: (context, day, focusedDay) {
+                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                                final notificationTitles = littenIdsWithNotification
+                                    .take(2)
+                                    .map((littenId) {
+                                      final litten = appState.littens.firstWhere(
+                                        (l) => l.id == littenId,
+                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
+                                      );
+                                      return litten.title;
+                                    })
+                                    .where((title) => title.isNotEmpty)
+                                    .toList();
+
+                                return DragTarget<String>(
+                                  onAcceptWithDetails: (details) async {
+                                    try {
+                                      await appState.moveLittenToDate(details.data, day);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                                            backgroundColor: Colors.orange,
+                                            duration: const Duration(seconds: 3),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  onWillAcceptWithDetails: (details) => true,
+                                  builder: (context, candidateData, rejectedData) {
+                                    final isHovered = candidateData.isNotEmpty;
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: isHovered
+                                            ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                                            : null,
+                                        border: isHovered
+                                            ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+                                            : null,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4.0),
+                                            child: Text(
+                                              '${day.day}',
+                                              style: const TextStyle().copyWith(
+                                                color: isHovered ? Theme.of(context).primaryColor : null,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          if (notificationTitles.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: notificationTitles.map((title) => Text(
+                                                  title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
+                                                )).toList(),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              selectedBuilder: (context, day, focusedDay) {
+                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                                final targetDate = DateTime(day.year, day.month, day.day);
+                                final littenIdsOnDate = appState.littens.where((litten) {
+                                  if (litten.title == 'undefined') return false;
+                                  final littenDate = DateTime(litten.createdAt.year, litten.createdAt.month, litten.createdAt.day);
+                                  return littenDate.isAtSameMomentAs(targetDate);
+                                }).map((l) => l.id).toSet();
+                                final allLittenIds = {...littenIdsOnDate, ...littenIdsWithNotification};
+
+                                final notificationTitles = allLittenIds
+                                    .take(2)
+                                    .map((littenId) {
+                                      final litten = appState.littens.firstWhere(
+                                        (l) => l.id == littenId,
+                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
+                                      );
+                                      return litten.title;
+                                    })
+                                    .where((title) => title.isNotEmpty)
+                                    .toList();
+
+                                return Container(
+                                  margin: const EdgeInsets.all(4.0),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 21,
+                                        height: 21,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).primaryColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${day.day}',
+                                            style: const TextStyle().copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (notificationTitles.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: notificationTitles.map((title) => Text(
+                                              title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
+                                            )).toList(),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              todayBuilder: (context, day, focusedDay) {
+                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
+                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
+
+                                final targetDate = DateTime(day.year, day.month, day.day);
+                                final littenIdsOnDate = appState.littens.where((litten) {
+                                  if (litten.title == 'undefined') return false;
+                                  final littenDate = DateTime(litten.createdAt.year, litten.createdAt.month, litten.createdAt.day);
+                                  return littenDate.isAtSameMomentAs(targetDate);
+                                }).map((l) => l.id).toSet();
+                                final allLittenIds = {...littenIdsOnDate, ...littenIdsWithNotification};
+
+                                final notificationTitles = allLittenIds
+                                    .take(2)
+                                    .map((littenId) {
+                                      final litten = appState.littens.firstWhere(
+                                        (l) => l.id == littenId,
+                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
+                                      );
+                                      return litten.title;
+                                    })
+                                    .where((title) => title.isNotEmpty)
+                                    .toList();
+
+                                return Container(
+                                  margin: const EdgeInsets.all(4.0),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 21,
+                                        height: 21,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${day.day}',
+                                            style: const TextStyle().copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (notificationTitles.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: notificationTitles.map((title) => Text(
+                                              title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
+                                            )).toList(),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          // 일정 바 오버레이
+                          Positioned.fill(
+                            child: _buildScheduleBars(currentAppState),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
