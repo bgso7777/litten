@@ -556,9 +556,12 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                     ],
                   ),
                 ),
-                if (audioCount > 0) ...[_buildFileCountBadge(Icons.mic, audioCount, themeColor), const SizedBox(width: 4)],
-                if (textCount > 0) ...[_buildFileCountBadge(Icons.keyboard, textCount, themeColor), const SizedBox(width: 4)],
-                if (handwritingCount > 0) ...[_buildFileCountBadge(Icons.draw, handwritingCount, themeColor), const SizedBox(width: 4)],
+                _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
+                const SizedBox(width: 4),
+                _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
+                const SizedBox(width: 4),
+                _buildFileCountBadge(Icons.mic, audioCount, themeColor),
+                const SizedBox(width: 4),
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     if (value == 'edit') _showEditLittenDialog(litten.id);
@@ -634,7 +637,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final littenId = fileData['littenId'] as String;
     final litten = appState.littens.firstWhere((l) => l.id == littenId,
         orElse: () => appState.littens.first);
-    final littenTitle = litten.title == 'undefined' ? '전체' : litten.title;
+    final littenTitle = litten.title == 'undefined' ? '' : litten.title;
 
     return InkWell(
       onTap: () async {
@@ -663,7 +666,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
               width: 80,
               child: Text(
                 littenTitle,
-                style: TextStyle(fontSize: 12, color: themeColor, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
