@@ -116,11 +116,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                       debugPrint('✅ [MainTabScreen] AdBanner 위젯 생성');
                       return const AdBanner();
                     } else {
-                      debugPrint('❌ [MainTabScreen] 흰색 컨테이너 생성 (프리미엄 사용자)');
-                      return Container(
-                        height: 50,
-                        color: Colors.white,
-                      );
+                      debugPrint('✅ [MainTabScreen] 유료 사용자 - 광고 영역 제거 (공간 확장)');
+                      return const SizedBox.shrink();
                     }
                   },
                 ),

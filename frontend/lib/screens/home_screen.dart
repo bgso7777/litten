@@ -42,8 +42,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   Set<String> _collapsedLittenIds = {}; // 숨겨진 리튼 ID Set
   late ValueNotifier<DateTime> _calendarFocusedDate; // 캘린더 focusedDate (스크롤 위치 유지용)
   bool _scheduleListVisible = false; // 일정 리스트 표시 여부 (false: 캘린더 전체화면, true: 50/50 분할)
-  double? _pointerDownY;           // 터치 시작 Y 좌표
-  double? _pointerDownX;           // 터치 시작 X 좌표
+  double? _pointerDownY;           // 터치 시작 Y 좌표 (글로벌 - 이동 거리 계산용)
+  double? _pointerDownX;           // 터치 시작 X 좌표 (글로벌 - 이동 거리 계산용)
+  double? _pointerDownLocalY;      // 터치 시작 Y 좌표 (로컬 - 캘린더/리스트 영역 판단용)
   double? _pointerDownListOffset;  // 터치 시작 시 리스트 스크롤 오프셋
   DateTime? _pointerDownTime;      // 터치 시작 시각 (속도 계산용)
 
@@ -424,16 +425,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           final totalHeight = constraints.maxHeight;
           final halfHeight = totalHeight / 2;
 
-          // 캘린더 영역 구분을 위한 Y 기준점 (전역 좌표)
-          // status bar 아래부터 시작, 50/50 분할 시 절반 지점
-          final statusBarHeight = MediaQuery.of(context).padding.top;
-          final splitYGlobal = statusBarHeight + halfHeight;
-
           return Listener(
             behavior: HitTestBehavior.translucent,
             onPointerDown: (event) {
               _pointerDownY = event.position.dy;
               _pointerDownX = event.position.dx;
+              _pointerDownLocalY = event.localPosition.dy;
               _pointerDownTime = DateTime.now();
               _pointerDownListOffset = _scrollController.hasClients ? _scrollController.offset : 0;
             },
@@ -448,7 +445,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
               debugPrint('📅 [Listener] dx=$dx dy=$dy velocityY=${velocityY.toStringAsFixed(0)} visible=$_scheduleListVisible offset=$_pointerDownListOffset');
 
-              final startedInCalendar = _pointerDownY! < splitYGlobal;
+              // 로컬 좌표 기준으로 캘린더/리스트 영역 판단 (광고 유무와 무관하게 정확)
+              final startedInCalendar = (_pointerDownLocalY ?? _pointerDownY!) < halfHeight;
               final isHorizontalSwipe = dx.abs() > dy.abs() && dx.abs() > 40;
 
               // 좌로 스와이프 → 노트(쓰기) 탭으로 이동 (리스트 영역에서만)
@@ -474,6 +472,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
               _pointerDownY = null;
               _pointerDownX = null;
+              _pointerDownLocalY = null;
               _pointerDownTime = null;
               _pointerDownListOffset = null;
             },
@@ -1815,11 +1814,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
     // 전체 화면 높이 (초기 상태)
     // 광고 유무에 따라 캘린더 크기 조정
-    // - 광고 있을 때 (무료): 95% (현재 크기)
-    // - 광고 없을 때 (유료): 99% (리튼 알림이 거의 안 보이는 크기)
+    // - 광고 있을 때 (무료): 95% + 광고 배너 50px 차지 → PageView 공간 감소
+    // - 광고 없을 때 (유료): 95% + 광고 영역 없음 → PageView 공간 50px 추가 확보
+    const double adBannerHeight = 50.0;
     final availableHeight = screenHeight - statusBarHeight - bottomNavHeight - bottomNavBarHeight;
-    final maxHeightRatio = appState.isPremiumUser ? 0.99 : 0.95;
-    final maxHeight = availableHeight * maxHeightRatio;
+    final effectiveHeight = appState.isPremiumUser ? availableHeight : availableHeight - adBannerHeight;
+    final maxHeightRatio = 0.95;
+    final maxHeight = effectiveHeight * maxHeightRatio;
 
     // 축소 후 높이 (화면의 45%)
     final minHeight = availableHeight * 0.45;
