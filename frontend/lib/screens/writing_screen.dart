@@ -223,6 +223,9 @@ class _WritingScreenState extends State<WritingScreen> {
                             child: LittenUnifiedListView(
                               padding: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
                               filterType: _filterType,
+                              littenId: (_filterType != null && appState.selectedLitten?.title != 'undefined')
+                                  ? appState.selectedLitten?.id
+                                  : null,
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -277,53 +280,57 @@ class _WritingScreenState extends State<WritingScreen> {
       child: Row(
         children: [
           const SizedBox(width: 8),
-          // 리튼 수 배지
-          Container(
-            padding: ResponsiveUtils.getBadgePadding(context),
-            decoration: BoxDecoration(
-              color: littenCount > 0
-                  ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
-                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.event_available,
-                    size: ResponsiveUtils.getBadgeIconSize(context) * 1.331,
-                    color: littenCount > 0 ? Colors.white : Colors.white70),
-                AppSpacing.horizontalSpaceXS,
-                Text(
-                  displayCount.toString(),
-                  style: TextStyle(
-                    color: littenCount > 0 ? Colors.white : Colors.white70,
-                    fontSize: ResponsiveUtils.getBadgeFontSize(context),
-                    fontWeight: FontWeight.bold,
+          // 리튼 수 배지 — 패널 열린 상태에서 탭이 헤더 토글로 전파되지 않도록 차단
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (_listVisible) {
+                // 패널이 열려있으면 필터 해제만 (패널 유지)
+                setState(() => _filterType = null);
+              } else {
+                // 패널이 닫혀있으면 열기
+                setState(() => _listVisible = true);
+              }
+            },
+            child: Container(
+              padding: ResponsiveUtils.getBadgePadding(context),
+              decoration: BoxDecoration(
+                color: littenCount > 0
+                    ? (hasNotifications ? Colors.orange : Theme.of(context).primaryColor)
+                    : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.event_available,
+                      size: ResponsiveUtils.getBadgeIconSize(context) * 1.331,
+                      color: littenCount > 0 ? Colors.white : Colors.white70),
+                  AppSpacing.horizontalSpaceXS,
+                  Text(
+                    displayCount.toString(),
+                    style: TextStyle(
+                      color: littenCount > 0 ? Colors.white : Colors.white70,
+                      fontSize: ResponsiveUtils.getBadgeFontSize(context),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
           // 선택된 리튼 이름
           Expanded(
-            child: appState.selectedLitten != null
-                  ? Text(
-                      appState.selectedLitten!.title == 'undefined'
-                          ? '-'
-                          : appState.selectedLitten!.title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: appState.selectedLitten!.title == 'undefined'
-                            ? Theme.of(context).textTheme.titleLarge?.color?.withValues(alpha: 0.33)
-                            : null,
-                      ),
-                    )
-                  : Text(
-                      l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
-                      style: const TextStyle(fontSize: 14),
+            child: appState.selectedLitten != null && appState.selectedLitten!.title != 'undefined'
+                ? Text(
+                    appState.selectedLitten!.title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
+                  )
+                : const SizedBox.shrink(),
           ),
           // 파일 수 배지들
           _buildFileCountBadges(context, appState),
@@ -342,10 +349,9 @@ class _WritingScreenState extends State<WritingScreen> {
       return GestureDetector(
         onTap: () {
           setState(() {
-            if (_filterType == type && _listVisible) {
-              // 같은 배지 다시 탭하면 전체 보기로 전환
+            if (_filterType == type) {
+              // 같은 배지 재탭 → 필터 해제, 패널은 유지
               _filterType = null;
-              _listVisible = false;
             } else {
               _filterType = type;
               _listVisible = true;

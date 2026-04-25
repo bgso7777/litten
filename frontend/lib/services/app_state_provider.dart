@@ -477,6 +477,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint('✅ 리튼 선택 완료 및 영구 저장');
   }
 
+  Future<void> clearSelectedLitten() async {
+    debugPrint('🔄 선택된 리튼 해제');
+    _selectedLitten = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('selected_litten_id');
+    await updateFileCount();
+    notifyListeners();
+    debugPrint('✅ 리튼 선택 해제 완료');
+  }
+
   // 선택된 리튼 상태 저장
   Future<void> _saveSelectedLittenState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1674,6 +1684,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 파일 카운트 업데이트 (파일 추가/삭제 시 호출)
   Future<void> updateFileCount() async {
+    // undefined 리튼 또는 미선택 시 전체 카운트, 그 외는 해당 일정 카운트
     final littenId = (_selectedLitten == null || _selectedLitten!.title == 'undefined')
         ? null
         : _selectedLitten!.id;

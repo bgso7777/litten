@@ -289,11 +289,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
 
         final List<Map<String, dynamic>> littenGroups = [];
         for (final litten in displayLittens) {
-          final littenId = litten.id;
+          final isUndefined = litten.title == 'undefined';
+          final currentLittenId = litten.id;
           List<Map<String, dynamic>> littenFiles = [];
 
           for (final fileData in allFiles) {
-            if (fileData['littenId'] == littenId) {
+            // undefined 리튼은 전체 파일, 그 외는 해당 리튼 파일만
+            if (isUndefined || fileData['littenId'] == currentLittenId) {
               final file = fileData['file'];
               final createdAt = fileData['createdAt'] as DateTime;
               DateTime updatedAt;
@@ -343,6 +345,11 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         }
 
         littenGroups.sort((a, b) {
+          final la = a['litten'] as Litten;
+          final lb = b['litten'] as Litten;
+          // undefined 리튼 항상 맨 위 고정
+          if (la.title == 'undefined') return -1;
+          if (lb.title == 'undefined') return 1;
           int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
           if (priorityCompare != 0) return priorityCompare;
           return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
@@ -531,13 +538,17 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 Expanded(
                   child: Row(
                     children: [
-                      if (litten.title != 'undefined') ...[
-                        Icon(hasEnabledNotification ? Icons.event_available : Icons.calendar_today, color: themeColor, size: 20),
-                        const SizedBox(width: 8),
-                      ],
+                      Icon(
+                        litten.title == 'undefined'
+                            ? Icons.folder_open
+                            : (hasEnabledNotification ? Icons.event_available : Icons.calendar_today),
+                        color: themeColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          litten.title == 'undefined' ? '-' : litten.title,
+                          litten.title == 'undefined' ? '' : litten.title,
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: litten.title == 'undefined' ? Colors.grey.shade600 : null),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -623,7 +634,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final littenId = fileData['littenId'] as String;
     final litten = appState.littens.firstWhere((l) => l.id == littenId,
         orElse: () => appState.littens.first);
-    final littenTitle = litten.title == 'undefined' ? '-' : litten.title;
+    final littenTitle = litten.title == 'undefined' ? '전체' : litten.title;
 
     return InkWell(
       onTap: () async {
