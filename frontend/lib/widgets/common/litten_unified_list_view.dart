@@ -17,8 +17,9 @@ import '../../widgets/dialogs/edit_litten_dialog.dart';
 class LittenUnifiedListView extends StatefulWidget {
   final ScrollController? scrollController;
   final EdgeInsets? padding;
+  final String? filterType; // 'text', 'handwriting', 'audio' — null이면 전체 표시
 
-  const LittenUnifiedListView({super.key, this.scrollController, this.padding});
+  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType});
 
   @override
   State<LittenUnifiedListView> createState() => _LittenUnifiedListViewState();
@@ -135,16 +136,118 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
               bottom: AppSpacing.paddingM.left + 80,
             );
 
+        final sliver = widget.filterType != null
+            ? _buildFilteredSliverContent(context, appState, widget.filterType!)
+            : _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications);
+
         return CustomScrollView(
-          key: widget.key != null ? null : const PageStorageKey<String>('litten_unified_list'),
+          key: widget.key != null ? null : PageStorageKey<String>('litten_unified_list_${widget.filterType ?? 'all'}'),
           controller: widget.scrollController,
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
             SliverPadding(
               padding: effectivePadding,
-              sliver: _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications),
+              sliver: sliver,
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFilteredSliverContent(BuildContext context, AppStateProvider appState, String filterType) {
+    final IconData headerIcon;
+    final String headerTitle;
+    switch (filterType) {
+      case 'text':
+        headerIcon = Icons.keyboard;
+        headerTitle = '텍스트 파일';
+        break;
+      case 'handwriting':
+        headerIcon = Icons.draw;
+        headerTitle = '필기 파일';
+        break;
+      case 'audio':
+        headerIcon = Icons.mic;
+        headerTitle = '녹음 파일';
+        break;
+      default:
+        headerIcon = Icons.folder;
+        headerTitle = '파일';
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('filter-$filterType-${appState.littens.length}'),
+      future: appState.getAllFiles(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final allFiles = snapshot.data ?? [];
+
+        // 해당 타입의 파일만 필터링, 최근 수정순 정렬
+        final filteredFiles = allFiles
+            .where((f) => f['type'] == filterType)
+            .toList();
+
+        filteredFiles.sort((a, b) {
+          final fileA = a['file'];
+          final fileB = b['file'];
+          DateTime timeA;
+          DateTime timeB;
+          if (fileA is AudioFile) timeA = a['createdAt'] as DateTime;
+          else if (fileA is TextFile) timeA = fileA.updatedAt;
+          else if (fileA is HandwritingFile) timeA = fileA.updatedAt;
+          else timeA = DateTime.now();
+          if (fileB is AudioFile) timeB = b['createdAt'] as DateTime;
+          else if (fileB is TextFile) timeB = fileB.updatedAt;
+          else if (fileB is HandwritingFile) timeB = fileB.updatedAt;
+          else timeB = DateTime.now();
+          return timeB.compareTo(timeA);
+        });
+
+        if (filteredFiles.isEmpty) {
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: headerIcon,
+              title: '$headerTitle이 없습니다',
+              description: '파일을 추가해보세요',
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              if (index == 0) {
+                // 헤더
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(headerIcon, size: 16, color: Theme.of(context).primaryColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$headerTitle (${filteredFiles.length}개)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return _buildFileItem(context, appState, filteredFiles[index - 1]);
+            },
+            childCount: filteredFiles.length + 1, // +1 for header
+          ),
         );
       },
     );

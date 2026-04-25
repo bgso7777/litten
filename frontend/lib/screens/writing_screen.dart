@@ -25,6 +25,7 @@ class _WritingScreenState extends State<WritingScreen> {
   final GlobalKey _tabLayoutKey = GlobalKey();
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
   bool _listVisible = false; // 일정/파일 리스트 패널 표시 여부
+  String? _filterType; // 필터 타입: 'text', 'handwriting', 'audio', null=전체
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -210,17 +211,18 @@ class _WritingScreenState extends State<WritingScreen> {
                             onNotification: (notification) {
                               // 리스트 맨 위에서 위로 오버스크롤 → 패널 닫기
                               if (notification is OverscrollNotification && notification.overscroll < -5) {
-                                setState(() => _listVisible = false);
+                                setState(() { _listVisible = false; _filterType = null; });
                                 return true;
                               }
                               if (notification is ScrollUpdateNotification && notification.metrics.pixels < 0) {
-                                setState(() => _listVisible = false);
+                                setState(() { _listVisible = false; _filterType = null; });
                                 return true;
                               }
                               return false;
                             },
-                            child: const LittenUnifiedListView(
-                              padding: EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
+                            child: LittenUnifiedListView(
+                              padding: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
+                              filterType: _filterType,
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -231,13 +233,16 @@ class _WritingScreenState extends State<WritingScreen> {
                   top: 0, left: 0, right: 0, height: headerHeight,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() => _listVisible = !_listVisible),
+                    onTap: () => setState(() {
+                      _listVisible = !_listVisible;
+                      if (!_listVisible) _filterType = null;
+                    }),
                     onVerticalDragEnd: (details) {
                       final velocity = details.primaryVelocity ?? 0;
                       if (velocity > 150 && !_listVisible) {
                         setState(() => _listVisible = true);
                       } else if (velocity < -150 && _listVisible) {
-                        setState(() => _listVisible = false);
+                        setState(() { _listVisible = false; _filterType = null; });
                       }
                     },
                     child: _buildStatsHeader(context, appState),
@@ -334,13 +339,31 @@ class _WritingScreenState extends State<WritingScreen> {
     final textCount = appState.actualTextCount;
     final handwritingCount = appState.actualHandwritingCount;
 
-    Widget badge(int count, IconData icon) => Container(
+    Widget badge(int count, IconData icon, String type) {
+      final isActive = _filterType == type && _listVisible;
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            if (_filterType == type && _listVisible) {
+              // 같은 배지 다시 탭하면 전체 보기로 전환
+              _filterType = null;
+              _listVisible = false;
+            } else {
+              _filterType = type;
+              _listVisible = true;
+            }
+          });
+        },
+        child: Container(
           padding: ResponsiveUtils.getBadgePadding(context),
           decoration: BoxDecoration(
-            color: count > 0
+            color: isActive
                 ? Theme.of(context).primaryColor
-                : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                : count > 0
+                    ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                    : Theme.of(context).primaryColor.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
+            border: isActive ? Border.all(color: Colors.white, width: 2) : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -359,16 +382,18 @@ class _WritingScreenState extends State<WritingScreen> {
               ),
             ],
           ),
-        );
+        ),
+      );
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        badge(textCount, Icons.keyboard),
+        badge(textCount, Icons.keyboard, 'text'),
         AppSpacing.horizontalSpaceXS,
-        badge(handwritingCount, Icons.draw),
+        badge(handwritingCount, Icons.draw, 'handwriting'),
         AppSpacing.horizontalSpaceXS,
-        badge(audioCount, Icons.mic),
+        badge(audioCount, Icons.mic, 'audio'),
         AppSpacing.horizontalSpaceM,
       ],
     );
