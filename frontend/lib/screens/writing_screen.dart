@@ -290,7 +290,7 @@ class _WritingScreenState extends State<WritingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.event_available,
-                    size: ResponsiveUtils.getBadgeIconSize(context),
+                    size: ResponsiveUtils.getBadgeIconSize(context) * 1.331,
                     color: littenCount > 0 ? Colors.white : Colors.white70),
                 AppSpacing.horizontalSpaceXS,
                 Text(
@@ -307,8 +307,7 @@ class _WritingScreenState extends State<WritingScreen> {
           const SizedBox(width: 8),
           // 선택된 리튼 이름
           Expanded(
-            child: Center(
-              child: appState.selectedLitten != null
+            child: appState.selectedLitten != null
                   ? Text(
                       appState.selectedLitten!.title == 'undefined'
                           ? '-'
@@ -325,7 +324,6 @@ class _WritingScreenState extends State<WritingScreen> {
                       l10n?.emptyLittenTitle ?? '리튼을 생성하거나 선택하세요',
                       style: const TextStyle(fontSize: 14),
                     ),
-            ),
           ),
           // 파일 수 배지들
           _buildFileCountBadges(context, appState),
@@ -360,7 +358,7 @@ class _WritingScreenState extends State<WritingScreen> {
             color: isActive
                 ? Theme.of(context).primaryColor
                 : count > 0
-                    ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                    ? Theme.of(context).primaryColor
                     : Theme.of(context).primaryColor.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(ResponsiveUtils.getBadgeBorderRadius(context)),
             border: isActive ? Border.all(color: Colors.white, width: 2) : null,
@@ -369,13 +367,13 @@ class _WritingScreenState extends State<WritingScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  size: ResponsiveUtils.getBadgeIconSize(context),
-                  color: count > 0 ? Colors.white : Colors.white70),
+                  size: ResponsiveUtils.getBadgeIconSize(context) * 1.331,
+                  color: Colors.white),
               AppSpacing.horizontalSpaceXS,
               Text(
                 count.toString(),
                 style: TextStyle(
-                  color: count > 0 ? Colors.white : Colors.white70,
+                  color: Colors.white,
                   fontSize: ResponsiveUtils.getBadgeFontSize(context),
                   fontWeight: FontWeight.bold,
                 ),
@@ -390,9 +388,9 @@ class _WritingScreenState extends State<WritingScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         badge(textCount, Icons.keyboard, 'text'),
-        const SizedBox(width: 4.6),
+        const SizedBox(width: 5.1),
         badge(handwritingCount, Icons.draw, 'handwriting'),
-        const SizedBox(width: 4.6),
+        const SizedBox(width: 5.1),
         badge(audioCount, Icons.mic, 'audio'),
         AppSpacing.horizontalSpaceM,
       ],

@@ -18,8 +18,9 @@ class LittenUnifiedListView extends StatefulWidget {
   final ScrollController? scrollController;
   final EdgeInsets? padding;
   final String? filterType; // 'text', 'handwriting', 'audio' — null이면 전체 표시
+  final String? littenId;   // 설정 시 해당 일정의 파일만 표시
 
-  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType});
+  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId});
 
   @override
   State<LittenUnifiedListView> createState() => _LittenUnifiedListViewState();
@@ -137,11 +138,11 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             );
 
         final sliver = widget.filterType != null
-            ? _buildFilteredSliverContent(context, appState, widget.filterType!)
-            : _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications);
+            ? _buildFilteredSliverContent(context, appState, widget.filterType!, littenId: widget.littenId)
+            : _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications, littenId: widget.littenId);
 
         return CustomScrollView(
-          key: widget.key != null ? null : PageStorageKey<String>('litten_unified_list_${widget.filterType ?? 'all'}'),
+          key: widget.key != null ? null : PageStorageKey<String>('litten_unified_list_${widget.filterType ?? 'all'}_${widget.littenId ?? 'all'}'),
           controller: widget.scrollController,
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
@@ -155,7 +156,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     );
   }
 
-  Widget _buildFilteredSliverContent(BuildContext context, AppStateProvider appState, String filterType) {
+  Widget _buildFilteredSliverContent(BuildContext context, AppStateProvider appState, String filterType, {String? littenId}) {
     final IconData headerIcon;
     final String headerTitle;
     switch (filterType) {
@@ -189,9 +190,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
 
         final allFiles = snapshot.data ?? [];
 
-        // 해당 타입의 파일만 필터링, 최근 수정순 정렬
+        // 타입 필터 + 선택된 일정 필터
         final filteredFiles = allFiles
-            .where((f) => f['type'] == filterType)
+            .where((f) => f['type'] == filterType && (littenId == null || f['littenId'] == littenId))
             .toList();
 
         filteredFiles.sort((a, b) {
@@ -257,13 +258,14 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     BuildContext context,
     AppStateProvider appState,
     AppLocalizations? l10n,
-    List<dynamic> selectedDateNotifications,
-  ) {
+    List<dynamic> selectedDateNotifications, {
+    String? littenId,
+  }) {
     final bool hasSelectedDate = appState.isDateSelected;
-    final int notificationCount = selectedDateNotifications.length;
+    final int notificationCount = littenId != null ? 0 : selectedDateNotifications.length;
 
     return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey('$hasSelectedDate-$notificationCount-${appState.littens.length}'),
+      key: ValueKey('$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}'),
       future: appState.getAllFiles(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -276,7 +278,10 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         final allFiles = snapshot.data ?? [];
 
         List<Litten> displayLittens;
-        if (hasSelectedDate) {
+        if (littenId != null) {
+          // 선택된 일정만 표시
+          displayLittens = appState.littens.where((l) => l.id == littenId).toList();
+        } else if (hasSelectedDate) {
           displayLittens = appState.littensForSelectedDate.toList();
         } else {
           displayLittens = appState.littens.toList();
