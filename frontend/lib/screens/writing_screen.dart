@@ -5,6 +5,7 @@ import '../widgets/draggable_tab_layout.dart';
 import '../l10n/app_localizations.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
+import '../widgets/common/litten_unified_list_view.dart';
 
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
@@ -23,6 +24,7 @@ class _WritingScreenState extends State<WritingScreen> {
   late List<TabItem> _tabs;
   final GlobalKey _tabLayoutKey = GlobalKey();
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
+  bool _listVisible = false; // 일정/파일 리스트 패널 표시 여부
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -178,11 +180,71 @@ class _WritingScreenState extends State<WritingScreen> {
               )
             : draggableTabLayout;
 
-        return Column(
-          children: [
-            _buildStatsHeader(context, appState),
-            Expanded(child: body),
-          ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final totalHeight = constraints.maxHeight;
+            final halfHeight = totalHeight / 2;
+            const headerHeight = 56.0;
+            final listPanelHeight = halfHeight - headerHeight;
+
+            return Stack(
+              children: [
+                // 메인 콘텐츠 (DraggableTabLayout / 빈 화면)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  top: _listVisible ? halfHeight : headerHeight,
+                  left: 0, right: 0, bottom: 0,
+                  child: body,
+                ),
+                // 일정/파일 리스트 패널 (아래로 스와이프 시 나타남)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  top: headerHeight,
+                  left: 0, right: 0,
+                  height: _listVisible ? listPanelHeight : 0,
+                  child: ClipRect(
+                    child: _listVisible
+                        ? NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              // 리스트 맨 위에서 위로 오버스크롤 → 패널 닫기
+                              if (notification is OverscrollNotification && notification.overscroll < -5) {
+                                setState(() => _listVisible = false);
+                                return true;
+                              }
+                              if (notification is ScrollUpdateNotification && notification.metrics.pixels < 0) {
+                                setState(() => _listVisible = false);
+                                return true;
+                              }
+                              return false;
+                            },
+                            child: const LittenUnifiedListView(
+                              padding: EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+                // 통계 헤더 (항상 최상단)
+                Positioned(
+                  top: 0, left: 0, right: 0, height: headerHeight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragEnd: (details) {
+                      final velocity = details.primaryVelocity ?? 0;
+                      if (velocity > 150 && !_listVisible) {
+                        setState(() => _listVisible = true);
+                      } else if (velocity < -150 && _listVisible) {
+                        setState(() => _listVisible = false);
+                      }
+                    },
+                    child: _buildStatsHeader(context, appState),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
