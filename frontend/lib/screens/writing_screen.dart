@@ -231,6 +231,7 @@ class _WritingScreenState extends State<WritingScreen> {
                   top: 0, left: 0, right: 0, height: headerHeight,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _listVisible = !_listVisible),
                     onVerticalDragEnd: (details) {
                       final velocity = details.primaryVelocity ?? 0;
                       if (velocity > 150 && !_listVisible) {

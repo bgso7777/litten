@@ -64,7 +64,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   Orientation? _previousOrientation;
 
   // 분할선 비율 (0.0 ~ 1.0)
-  double _horizontalDividerRatio = 0.8; // 상하 분할 비율 (상단 80%, 하단 20%)
+  double _horizontalDividerRatio = 0.93; // 상하 분할 비율 (상단 93%, 하단 7%)
   double _topVerticalDividerRatio = 0.5; // 상단 좌우 분할 비율
   double _bottomVerticalDividerRatio = 0.5; // 하단 좌우 분할 비율
 
@@ -325,7 +325,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             )
           else if (hasTop && !hasBottom)
             Expanded(
-              flex: 20,
+              flex: 4,
               child: _buildQuadrant(
                 TabPosition.bottomLeft,
                 double.infinity,
@@ -801,55 +801,16 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         borderRadius: BorderRadius.circular(8),
       ),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: isHovered ? 1.2 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isHovered
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isHovered
-                        ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                        : Colors.grey.withValues(alpha: 0.3),
-                    width: 2,
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: Icon(
-                  Icons.add_box_outlined,
-                  size: 24,
-                  color: isHovered
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey[400],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Builder(
-              builder: (context) {
-                final positionLabel = _getPositionLabel(context, position);
-                final l10n = AppLocalizations.of(context);
-                return Text(
-                  l10n?.dragTabHere(positionLabel) ?? '탭을 여기로 드래그하세요 ($positionLabel)',
-                  style: TextStyle(
-                    color: isHovered
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey[600],
-                    fontSize: 14,
-                    fontWeight: isHovered ? FontWeight.bold : FontWeight.w500,
-                  ),
-                );
-              },
-            ),
-          ],
+        child: AnimatedScale(
+          scale: isHovered ? 1.2 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            Icons.add_box_outlined,
+            size: 14,
+            color: isHovered
+                ? Theme.of(context).primaryColor
+                : Colors.grey[350],
+          ),
         ),
       ),
     );
