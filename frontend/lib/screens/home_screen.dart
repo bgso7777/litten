@@ -1064,9 +1064,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   CalendarFormat.month: 'Month',
                 },
                 headerVisible: false, // 커스텀 헤더를 사용하므로 기본 헤더 숨김
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(fontWeight: FontWeight.bold),
+                  weekendStyle: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: false,
-                  weekendTextStyle: TextStyle(color: Colors.red[400]),
+                  weekendTextStyle: const TextStyle(color: Colors.black),
                   holidayTextStyle: TextStyle(color: Colors.red[400]),
                   // selectedDecoration과 todayDecoration 제거 - builder 사용
                   selectedDecoration: const BoxDecoration(),
@@ -1083,6 +1087,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
                 locale: appState.locale.languageCode,
                 calendarBuilders: CalendarBuilders(
+                  // 요일 헤더 빌더 - 토요일은 검은색, 일요일은 빨간색
+                  dowBuilder: (context, day) {
+                    final text = DateFormat.E(appState.locale.languageCode).format(day);
+                    return Center(
+                      child: Text(
+                        text,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: day.weekday == DateTime.sunday ? Colors.red : Colors.black,
+                        ),
+                      ),
+                    );
+                  },
                   // 기본 셀 빌더 - 날짜 아래에 리튼 제목 표시
                   defaultBuilder: (context, day, focusedDay) {
                     return Container(
@@ -1094,6 +1111,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                             '${day.day}',
                             style: const TextStyle().copyWith(
                               fontWeight: FontWeight.bold,
+                              color: day.weekday == DateTime.sunday ? Colors.red : Colors.black,
                             ),
                           ),
                         ],
@@ -1303,20 +1321,25 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           final firstDayOfMonth = DateTime(focusedYear, focusedMonth, 1);
           final startDayOfWeek = firstDayOfMonth.weekday % 7;
 
-          // 셀별로 일정 그룹화 (같은 셀의 일정들을 세로로 배치하기 위해)
-          // key: "row_col" (예: "3_2" = 3번째 행, 2번째 열)
-          final cellSchedules = <String, List<Map<String, dynamic>>>{};
+          // 일정별로 처리 (각 일정의 레이어를 먼저 결정)
+          // scheduleId -> layer 매핑
+          final scheduleLayers = <String, int>{};
+
+          // 각 행별로 어떤 레이어가 사용 중인지 추적
+          final rowLayerOccupancy = <int, Map<int, Set<int>>>{}; // row -> layer -> Set<column>
 
           for (final schedule in schedules) {
             final startDate = schedule['startDate'] as DateTime;
             final endDate = schedule['endDate'] as DateTime;
             final title = schedule['title'] as String;
 
-            // 시작일이 현재 월에 있는지만 확인 (종료일은 다음 달이어도 OK)
+            // 시작일이 현재 월에 있는지만 확인
             if (startDate.month != focusedMonth) {
               debugPrint('📅 일정 "$title": 시작일($startDate)이 다른 월이어서 건너뜀');
               continue;
             }
+
+            final scheduleId = '${title}_${startDate}_${endDate}';
 
             // 시작일의 행과 열 계산
             final startPosition = startDayOfWeek + startDate.day - 1;
@@ -1328,102 +1351,169 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             final endRow = endPosition ~/ 7;
             final endCol = endPosition % 7;
 
-            // 여러 행에 걸친 경우, 각 행마다 별도의 바를 생성
+            // 이 일정이 차지하는 모든 행과 열 범위 수집
+            final occupiedSpaces = <Map<String, dynamic>>[];
+
             if (startRow != endRow) {
               debugPrint('📅 일정 "$title": 여러 행에 걸쳐있음 ($startRow ~ $endRow)');
-
-              // 각 행마다 일정 바 추가
               for (int row = startRow; row <= endRow; row++) {
                 int colStart, colEnd;
-
                 if (row == startRow) {
-                  // 첫 번째 행: 시작 위치부터 토요일(6)까지
                   colStart = startCol;
                   colEnd = 6;
                 } else if (row == endRow) {
-                  // 마지막 행: 일요일(0)부터 종료 위치까지
                   colStart = 0;
                   colEnd = endCol;
                 } else {
-                  // 중간 행: 일요일(0)부터 토요일(6)까지
                   colStart = 0;
                   colEnd = 6;
                 }
-
-                final cellKey = '${row}_$colStart';
-                cellSchedules.putIfAbsent(cellKey, () => []);
-                cellSchedules[cellKey]!.add({
-                  'title': title,
-                  'startDate': startDate,
-                  'endDate': endDate,
-                  'startRow': row,
-                  'startCol': colStart,
-                  'endCol': colEnd,
-                });
-
+                occupiedSpaces.add({'row': row, 'colStart': colStart, 'colEnd': colEnd});
                 debugPrint('   행 $row: $colStart ~ $colEnd');
               }
             } else {
-              // 같은 행에 있는 경우
-              final cellKey = '${startRow}_$startCol';
-              cellSchedules.putIfAbsent(cellKey, () => []);
-              cellSchedules[cellKey]!.add({
+              occupiedSpaces.add({'row': startRow, 'colStart': startCol, 'colEnd': endCol});
+            }
+
+            // 이 일정에 사용 가능한 레이어 찾기
+            final usedLayers = <int>{};
+            for (final space in occupiedSpaces) {
+              final row = space['row'] as int;
+              final colStart = space['colStart'] as int;
+              final colEnd = space['colEnd'] as int;
+
+              rowLayerOccupancy.putIfAbsent(row, () => {});
+
+              // 이 행의 모든 레이어를 확인
+              rowLayerOccupancy[row]!.forEach((layer, occupiedCols) {
+                // 열이 겹치는지 확인
+                for (int col = colStart; col <= colEnd; col++) {
+                  if (occupiedCols.contains(col)) {
+                    usedLayers.add(layer);
+                    break;
+                  }
+                }
+              });
+            }
+
+            // 사용 가능한 가장 낮은 레이어 찾기
+            int layer = 0;
+            while (usedLayers.contains(layer)) {
+              layer++;
+            }
+            scheduleLayers[scheduleId] = layer;
+
+            // 이 일정이 차지하는 공간을 레이어에 등록
+            for (final space in occupiedSpaces) {
+              final row = space['row'] as int;
+              final colStart = space['colStart'] as int;
+              final colEnd = space['colEnd'] as int;
+
+              rowLayerOccupancy[row]!.putIfAbsent(layer, () => {});
+              for (int col = colStart; col <= colEnd; col++) {
+                rowLayerOccupancy[row]![layer]!.add(col);
+              }
+            }
+          }
+
+          // 이제 세그먼트 생성
+          final scheduleSegments = <Map<String, dynamic>>[];
+
+          for (final schedule in schedules) {
+            final startDate = schedule['startDate'] as DateTime;
+            final endDate = schedule['endDate'] as DateTime;
+            final title = schedule['title'] as String;
+
+            if (startDate.month != focusedMonth) continue;
+
+            final scheduleId = '${title}_${startDate}_${endDate}';
+            final layer = scheduleLayers[scheduleId]!;
+
+            final startPosition = startDayOfWeek + startDate.day - 1;
+            final startRow = startPosition ~/ 7;
+            final startCol = startPosition % 7;
+
+            final endPosition = startDayOfWeek + endDate.day - 1;
+            final endRow = endPosition ~/ 7;
+            final endCol = endPosition % 7;
+
+            if (startRow != endRow) {
+              for (int row = startRow; row <= endRow; row++) {
+                int colStart, colEnd;
+                if (row == startRow) {
+                  colStart = startCol;
+                  colEnd = 6;
+                } else if (row == endRow) {
+                  colStart = 0;
+                  colEnd = endCol;
+                } else {
+                  colStart = 0;
+                  colEnd = 6;
+                }
+                scheduleSegments.add({
+                  'title': title,
+                  'row': row,
+                  'colStart': colStart,
+                  'colEnd': colEnd,
+                  'layer': layer,
+                });
+              }
+            } else {
+              scheduleSegments.add({
                 'title': title,
-                'startDate': startDate,
-                'endDate': endDate,
-                'startRow': startRow,
-                'startCol': startCol,
-                'endCol': endCol,
+                'row': startRow,
+                'colStart': startCol,
+                'colEnd': endCol,
+                'layer': layer,
               });
             }
           }
 
           final bars = <Widget>[];
 
-          // 각 셀의 일정들을 세로로 배치
-          cellSchedules.forEach((cellKey, scheduleList) {
-            for (int i = 0; i < scheduleList.length; i++) {
-              final schedule = scheduleList[i];
-              final title = schedule['title'] as String;
-              final startRow = schedule['startRow'] as int;
-              final startCol = schedule['startCol'] as int;
-              final endCol = schedule['endCol'] as int;
+          // 각 세그먼트를 레이어에 맞춰 배치
+          for (int i = 0; i < scheduleSegments.length; i++) {
+            final segment = scheduleSegments[i];
+            final title = segment['title'] as String;
+            final row = segment['row'] as int;
+            final colStart = segment['colStart'] as int;
+            final colEnd = segment['colEnd'] as int;
+            final layer = segment['layer'] as int;
 
-              final left = startCol * cellWidth;
-              // daysOfWeekHeight를 더하고, 날짜 숫자(21px) 아래에 배치
-              // 각 일정은 15픽셀씩 아래로 배치 (i * 15)
-              final top = daysOfWeekHeight + (startRow * cellHeight) + 26 + (i * 15);
-              final width = (endCol - startCol + 1) * cellWidth;
+            final left = colStart * cellWidth;
+            // daysOfWeekHeight를 더하고, 날짜 숫자(21px) 아래에 배치
+            // 각 레이어는 18픽셀씩 아래로 배치
+            final top = daysOfWeekHeight + (row * cellHeight) + 26 + (layer * 18);
+            final width = (colEnd - colStart + 1) * cellWidth;
 
-              debugPrint('📅 일정 "$title": cell=$cellKey, index=$i, left=$left, top=$top, width=$width');
+            debugPrint('📅 일정 "$title": row=$row, cols=$colStart~$colEnd, layer=$layer, left=$left, top=$top, width=$width');
 
-              bars.add(
-                Positioned(
-                  left: left,
-                  top: top,
-                  width: width,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(4),
+            bars.add(
+              Positioned(
+                left: left,
+                top: top,
+                width: width,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              );
-            }
-          });
+              ),
+            );
+          }
 
           return Stack(children: bars);
         },
@@ -1551,7 +1641,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                             ),
                             calendarStyle: CalendarStyle(
                               outsideDaysVisible: false,
-                              weekendTextStyle: TextStyle(color: Colors.red[400]),
+                              weekendTextStyle: const TextStyle(color: Colors.black),
                               holidayTextStyle: TextStyle(color: Colors.red[400]),
                               selectedDecoration: const BoxDecoration(),
                               todayDecoration: const BoxDecoration(),
@@ -1569,18 +1659,30 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 return [];
                               }
 
-                              // 해당 날짜에 시작하는 일정 개수를 세기
+                              // 해당 날짜에 일정이 있는지 확인 (시작일자 ~ 종료일자 범위 포함)
                               final targetDate = DateTime(day.year, day.month, day.day);
                               int scheduleCount = 0;
 
                               for (final litten in currentAppState.littens) {
                                 if (litten.schedule != null) {
-                                  final scheduleDate = DateTime(
+                                  final startDate = DateTime(
                                     litten.schedule!.date.year,
                                     litten.schedule!.date.month,
                                     litten.schedule!.date.day,
                                   );
-                                  if (scheduleDate.isAtSameMomentAs(targetDate)) {
+
+                                  // 종료일자가 있으면 종료일자까지, 없으면 시작일자만
+                                  final endDate = litten.schedule!.endDate != null
+                                      ? DateTime(
+                                          litten.schedule!.endDate!.year,
+                                          litten.schedule!.endDate!.month,
+                                          litten.schedule!.endDate!.day,
+                                        )
+                                      : startDate;
+
+                                  // targetDate가 startDate와 endDate 사이에 있는지 확인
+                                  if ((targetDate.isAtSameMomentAs(startDate) || targetDate.isAfter(startDate)) &&
+                                      (targetDate.isAtSameMomentAs(endDate) || targetDate.isBefore(endDate))) {
                                     scheduleCount++;
                                   }
                                 }
@@ -1592,6 +1694,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                             },
                             locale: appState.locale.languageCode,
                             calendarBuilders: CalendarBuilders(
+                              // 요일 헤더 빌더 - 토요일은 검은색, 일요일은 빨간색
+                              dowBuilder: (context, day) {
+                                final text = DateFormat.E(appState.locale.languageCode).format(day);
+                                return Center(
+                                  child: Text(
+                                    text,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: day.weekday == DateTime.sunday ? Colors.red : Colors.black,
+                                    ),
+                                  ),
+                                );
+                              },
                               defaultBuilder: (context, day, focusedDay) {
                                 final dateKey = DateFormat('yyyy-MM-dd').format(day);
                                 final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
@@ -1653,7 +1768,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                             child: Text(
                                               '${day.day}',
                                               style: const TextStyle().copyWith(
-                                                color: isHovered ? Theme.of(context).primaryColor : null,
+                                                color: isHovered
+                                                    ? Theme.of(context).primaryColor
+                                                    : (day.weekday == DateTime.sunday ? Colors.red : Colors.black),
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -1919,7 +2036,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   ),
                   calendarStyle: CalendarStyle(
                     outsideDaysVisible: false,
-                    weekendTextStyle: TextStyle(color: Colors.red[400]),
+                    weekendTextStyle: const TextStyle(color: Colors.black),
                     holidayTextStyle: TextStyle(color: Colors.red[400]),
                     // selectedDecoration과 todayDecoration 제거 - builder 사용
                     selectedDecoration: const BoxDecoration(),
@@ -1935,6 +2052,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   },
                   locale: appState.locale.languageCode,
                   calendarBuilders: CalendarBuilders(
+                    // 요일 헤더 빌더 - 토요일은 검은색, 일요일은 빨간색
+                    dowBuilder: (context, day) {
+                      final text = DateFormat.E(appState.locale.languageCode).format(day);
+                      return Center(
+                        child: Text(
+                          text,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: day.weekday == DateTime.sunday ? Colors.red : Colors.black,
+                          ),
+                        ),
+                      );
+                    },
                     defaultBuilder: (context, day, focusedDay) {
                       // 해당 날짜의 알림이 있는 리튼 ID 가져오기
                       final dateKey = DateFormat('yyyy-MM-dd').format(day);
@@ -2008,7 +2138,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     style: const TextStyle().copyWith(
                                       color: isHovered
                                           ? Theme.of(context).primaryColor
-                                          : null,
+                                          : (day.weekday == DateTime.sunday ? Colors.red : Colors.black),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

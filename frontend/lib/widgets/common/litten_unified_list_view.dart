@@ -415,7 +415,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             ),
             child: Row(
               children: [
-                Icon(Icons.event, color: Colors.blue.shade700, size: 20),
+                Icon(Icons.calendar_month, color: Theme.of(context).primaryColor, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   '${DateFormat('M월 d일 (E)', 'ko').format(selectedDate)} 일정',
@@ -447,12 +447,23 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
               final timeRange = '${DateFormat('HH:mm').format(startDateTime)} - '
                   '${schedule.endTime.hour.toString().padLeft(2, '0')}:${schedule.endTime.minute.toString().padLeft(2, '0')}';
 
-              return ListTile(
-                leading: Icon(
-                  isPast ? Icons.event_available : Icons.event,
-                  color: isPast ? Colors.grey : Theme.of(context).primaryColor,
-                  size: 24,
+              final isSelected = appState.selectedLitten?.id == litten.id;
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : null,
+                  border: isSelected ? Border.all(
+                    color: Theme.of(context).primaryColor,
+                    width: 1.5,
+                  ) : null,
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.calendar_month,
+                    color: Theme.of(context).primaryColor,
+                    size: 24,
+                  ),
                 title: Text(litten.title, style: TextStyle(fontWeight: FontWeight.w600, color: isPast ? Colors.grey.shade600 : Colors.black87)),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,19 +473,20 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                       Text(schedule.notes!, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
-                trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.blue.shade300),
-                onTap: () async {
-                  try {
-                    if (appState.isSTTActive) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
-                      return;
+                  trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.blue.shade300),
+                  onTap: () async {
+                    try {
+                      if (appState.isSTTActive) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
+                        return;
+                      }
+                      await appState.selectLitten(litten);
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange));
                     }
-                    await appState.selectLitten(litten);
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange));
-                  }
-                },
+                  },
+                ),
               );
             },
           ),

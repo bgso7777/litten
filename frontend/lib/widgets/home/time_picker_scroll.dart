@@ -119,8 +119,8 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
           ),
           // 시간 선택 영역
           Container(
-            height: 140,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            height: 100,
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
                 // 시간 선택
@@ -138,9 +138,9 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
                           controller: _hourController,
-                          itemExtent: 40,
+                          itemExtent: 30,
                           perspective: 0.01,
-                          diameterRatio: 1.8,
+                          diameterRatio: 1.5,
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
@@ -201,9 +201,9 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
                           controller: _minuteController,
-                          itemExtent: 40,
+                          itemExtent: 30,
                           perspective: 0.01,
-                          diameterRatio: 1.8,
+                          diameterRatio: 1.5,
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {

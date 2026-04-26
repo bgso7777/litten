@@ -59,14 +59,6 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: Center(
-        child: Text(
-          l10n?.editSchedule ?? '일정 수정',
-          style: const TextStyle(
-            fontSize: 16, // 텍스트 필드와 동일한 크기
-          ),
-        ),
-      ),
       content: SizedBox(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,
@@ -82,7 +74,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                   focusNode: _titleFocusNode,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: l10n?.scheduleTitle ?? '일정 제목',
+                    hintText: l10n?.scheduleTitle ?? '일정 제목을 입력하세요.',
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(

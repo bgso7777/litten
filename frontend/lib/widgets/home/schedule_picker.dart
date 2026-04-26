@@ -166,15 +166,37 @@ class _SchedulePickerState extends State<SchedulePicker> {
         const SizedBox(height: 8),
           // 시작 날짜 선택
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: Text(l10n?.date ?? '시작 날짜'),
-              subtitle: Text(
-                DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios),
+            child: InkWell(
               onTap: () => _selectDate(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '시작일자',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
