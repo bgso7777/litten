@@ -113,6 +113,9 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     } else {
       print('[DraggableTabLayout] 활성 탭 유지: $_activeTabId');
     }
+
+    // 탭 타이틀 등 속성 변경을 즉시 반영
+    setState(() {});
   }
 
   /// 방향 변경 시 탭 위치 매핑

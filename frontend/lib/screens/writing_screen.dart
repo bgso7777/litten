@@ -22,6 +22,7 @@ class _WritingScreenState extends State<WritingScreen> {
   final GlobalKey _tabLayoutKey = GlobalKey();
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
   bool _listVisible = false;
+  AppStateProvider? _appState;
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -31,10 +32,29 @@ class _WritingScreenState extends State<WritingScreen> {
   @override
   void initState() {
     super.initState();
-    // 탭 초기화는 build()에서 AppStateProvider의 저장된 위치를 사용하여 수행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _appState = Provider.of<AppStateProvider>(context, listen: false);
+      _appState!.addListener(_onAppStateChanged);
+      _onAppStateChanged(); // 초기 상태 확인
+    });
   }
 
-  void _initializeTabs(Map<String, String> savedPositions) {
+  void _onAppStateChanged() {
+    if (!mounted) return;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    // 노트탭(index 1)이 활성이고 선택된 일정이 없으면 리스트 펼치기
+    if (appState.selectedTabIndex == 1 && appState.selectedLitten == null && !_listVisible) {
+      setState(() => _listVisible = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _appState?.removeListener(_onAppStateChanged);
+    super.dispose();
+  }
+
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int audioCount = 0}) {
     // 저장된 위치를 TabPosition enum으로 변환하는 헬퍼 함수
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
@@ -59,21 +79,21 @@ class _WritingScreenState extends State<WritingScreen> {
     _tabs = [
       TabItem(
         id: 'text',
-        title: l10n?.textTab ?? '텍스트',
+        title: textCount.toString(),
         icon: Icons.keyboard,
         content: TextTab(key: _textTabKey),
         position: parsePosition(savedPositions['text'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'handwriting',
-        title: l10n?.handwritingTab ?? '필기',
+        title: handwritingCount.toString(),
         icon: Icons.draw,
         content: HandwritingTab(key: _handwritingTabKey),
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
       ),
       TabItem(
         id: 'audio',
-        title: l10n?.audioTab ?? '녹음',
+        title: audioCount.toString(),
         icon: Icons.mic,
         content: RecordingTab(key: ValueKey(_recordingTabRefreshCount)),
         position: parsePosition(savedPositions['audio'] ?? 'topLeft'),
@@ -92,8 +112,13 @@ class _WritingScreenState extends State<WritingScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
-        // ⭐ 저장된 탭 위치로 초기화
-        _initializeTabs(appState.writingTabPositions);
+        // ⭐ 저장된 탭 위치로 초기화 (선택된 리튼의 파일 카운트를 탭 제목으로 표시)
+        _initializeTabs(
+          appState.writingTabPositions,
+          textCount: appState.actualTextCount,
+          handwritingCount: appState.actualHandwritingCount,
+          audioCount: appState.actualAudioCount,
+        );
 
         // TabPosition enum을 문자열로 변환하는 헬퍼 함수
         String positionToString(TabPosition position) {
@@ -152,24 +177,16 @@ class _WritingScreenState extends State<WritingScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.create_new_folder,
+                      Icons.event_note,
                       size: 64,
                       color: Theme.of(context).disabledColor,
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '먼저 리튼을 선택하거나 생성하세요',
+                      '먼저 일정을 선택하세요.',
                       style: TextStyle(
                         fontSize: 18,
                         color: Theme.of(context).disabledColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '홈 탭에서 리튼을 관리할 수 있습니다',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).disabledColor.withValues(alpha: 0.7),
                       ),
                     ),
                   ],

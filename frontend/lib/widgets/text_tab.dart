@@ -455,8 +455,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
+      final littenName = selectedLitten.title == 'undefined' ? '텍스트' : selectedLitten.title;
       final defaultTitle =
-          '텍스트 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+          '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
       final newTextFile = TextFile(
         littenId: selectedLitten.id,
@@ -1392,8 +1393,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             );
           }
 
-          // 파일 카운트 업데이트는 파일 추가/삭제 시에만 필요 (저장 시에는 불필요)
-          // await appState.updateFileCount();
+          // 새 파일 추가 시에만 카운트 업데이트 (기존 파일 수정은 제외)
+          if (existingIndex < 0) {
+            await appState.updateFileCount();
+          }
         }
 
         print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');

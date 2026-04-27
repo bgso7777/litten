@@ -569,8 +569,9 @@ class _HandwritingTabState extends State<HandwritingTab>
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
+      final littenName = selectedLitten.title == 'undefined' ? '필기' : selectedLitten.title;
       final defaultTitle =
-          '필기 ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+          '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
       // 임시 경로 - 실제로는 제대로 된 경로를 사용해야 함
       final newHandwritingFile = HandwritingFile(
