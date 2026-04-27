@@ -41,10 +41,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Litten? _selectedLitten;
   int _selectedTabIndex = 0;
 
-  // 실제 파일 카운트 (실시간 업데이트)
+  // 선택된 리튼의 파일 카운트 (WritingScreen 헤더용)
   int _actualAudioCount = 0;
   int _actualTextCount = 0;
   int _actualHandwritingCount = 0;
+
+  // 전체 파일 카운트 (캘린더 통계 영역용 - 항상 전체 합계)
+  int _totalAudioCount = 0;
+  int _totalTextCount = 0;
+  int _totalHandwritingCount = 0;
 
   // WritingScreen 내부 탭 선택 상태
   String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
@@ -126,10 +131,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   AudioService get audioService => _audioService;
   bool get isRecording => _audioService.isRecording;
 
-  // 실제 파일 카운트 Getters
+  // 선택 리튼 파일 카운트 Getters (WritingScreen 헤더용)
   int get actualAudioCount => _actualAudioCount;
   int get actualTextCount => _actualTextCount;
   int get actualHandwritingCount => _actualHandwritingCount;
+
+  // 전체 파일 카운트 Getters (캘린더 통계 영역용 - 항상 전체 합계)
+  int get totalAudioCount => _totalAudioCount;
+  int get totalTextCount => _totalTextCount;
+  int get totalHandwritingCount => _totalHandwritingCount;
 
   // 캘린더 관련 Getters
   DateTime get selectedDate => _selectedDate;
@@ -187,9 +197,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // undefined 리튼 확인 및 생성
     await _ensureUndefinedLitten();
 
-    // ⭐ 첫 렌더 전에 선택된 리튼 복원 (깜빡임 방지)
-    // undefined는 복원하지 않음 - 기본 선택 없음이 원칙
-    await _loadSelectedLitten();
+    // ⭐ 앱 콜드 스타트 시 선택 초기화 (이전 세션 선택 미복원)
+    // background→foreground 재개 시는 _restoreSelectedLittenState()가 복원함
+    _selectedLitten = null;
+    await _littenService.setSelectedLittenId(null);
+    final _startPrefs = await SharedPreferences.getInstance();
+    await _startPrefs.remove('selected_litten_id');
+    debugPrint('🔄 콜드 스타트: 선택 리튼 초기화 완료');
 
     // 캘린더를 오늘 날짜로 초기화
     final today = DateTime.now();
@@ -1633,60 +1647,52 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // 실제 파일 개수를 직접 카운트하는 메서드
+  // 항상 전체 리튼을 1회 순회하여 전체 카운트와 선택 리튼 카운트를 동시에 계산
   Future<Map<String, int>> getActualFileCounts({String? littenId}) async {
     debugPrint('📊 실제 파일 카운트 시작 - littenId: $littenId');
 
     final fileStorageService = FileStorageService.instance;
 
-    int audioCount = 0;
-    int textCount = 0;
-    int handwritingCount = 0;
+    int totalAudio = 0, totalText = 0, totalHandwriting = 0;
+    int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
 
-    if (littenId == null) {
-      // undefined이거나 리튼이 선택되지 않은 경우: 모든 리튼의 파일 카운트
-      for (final litten in _littens) {
-        // 오디오 파일 카운트 (AudioService 사용)
-        final audioFiles = await _audioService.getAudioFiles(litten);
-        audioCount += audioFiles.length;
+    for (final litten in _littens) {
+      final audioFiles = await _audioService.getAudioFiles(litten);
+      final textFiles = await fileStorageService.loadTextFiles(litten.id);
+      final handwritingFiles = await fileStorageService.loadHandwritingFiles(litten.id);
 
-        // 텍스트 파일 카운트
-        final textFiles = await fileStorageService.loadTextFiles(litten.id);
-        textCount += textFiles.length;
+      totalAudio += audioFiles.length;
+      totalText += textFiles.length;
+      totalHandwriting += handwritingFiles.length;
 
-        // 필기 파일 카운트
-        final handwritingFiles = await fileStorageService.loadHandwritingFiles(litten.id);
-        handwritingCount += handwritingFiles.length;
+      if (littenId == null || litten.id == littenId) {
+        selectedAudio += audioFiles.length;
+        selectedText += textFiles.length;
+        selectedHandwriting += handwritingFiles.length;
       }
-      debugPrint('📊 전체 리튼 파일 수 - 오디오: $audioCount, 텍스트: $textCount, 필기: $handwritingCount');
-    } else {
-      // 특정 리튼이 선택된 경우: 해당 리튼의 파일만 카운트
-      final selectedLittenObj = _littens.firstWhere((l) => l.id == littenId, orElse: () => _littens.first);
-
-      // 오디오 파일 카운트 (AudioService 사용)
-      final audioFiles = await _audioService.getAudioFiles(selectedLittenObj);
-      audioCount = audioFiles.length;
-
-      // 텍스트 파일 카운트
-      final textFiles = await fileStorageService.loadTextFiles(littenId);
-      textCount = textFiles.length;
-
-      // 필기 파일 카운트
-      final handwritingFiles = await fileStorageService.loadHandwritingFiles(littenId);
-      handwritingCount = handwritingFiles.length;
-
-      debugPrint('📊 리튼 "$littenId" 파일 수 - 오디오: $audioCount, 텍스트: $textCount, 필기: $handwritingCount');
     }
 
-    // 상태 변수 업데이트
-    _actualAudioCount = audioCount;
-    _actualTextCount = textCount;
-    _actualHandwritingCount = handwritingCount;
+    // 전체 카운트 업데이트 (캘린더 통계 영역 - 항상 전체)
+    _totalAudioCount = totalAudio;
+    _totalTextCount = totalText;
+    _totalHandwritingCount = totalHandwriting;
+
+    // 선택 리튼 카운트 업데이트 (WritingScreen 헤더용)
+    _actualAudioCount = selectedAudio;
+    _actualTextCount = selectedText;
+    _actualHandwritingCount = selectedHandwriting;
+
+    debugPrint('📊 전체 파일 수 - 오디오: $totalAudio, 텍스트: $totalText, 필기: $totalHandwriting');
+    if (littenId != null) {
+      debugPrint('📊 선택 리튼 "$littenId" 파일 수 - 오디오: $selectedAudio, 텍스트: $selectedText, 필기: $selectedHandwriting');
+    }
+
     notifyListeners();
 
     return {
-      'audio': audioCount,
-      'text': textCount,
-      'handwriting': handwritingCount,
+      'audio': selectedAudio,
+      'text': selectedText,
+      'handwriting': selectedHandwriting,
     };
   }
 
