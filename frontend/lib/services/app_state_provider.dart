@@ -99,7 +99,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isInitialized => _isInitialized;
   bool get isFirstLaunch => _isFirstLaunch;
   List<Litten> get littens => _littens;
-  Litten? get selectedLitten => _selectedLitten;
+  Litten? get selectedLitten => (_selectedLitten?.title == 'undefined') ? null : _selectedLitten;
   int get selectedTabIndex => _selectedTabIndex;
   String? get targetWritingTabId => _targetWritingTabId;
   int get homeBottomTabIndex => _homeBottomTabIndex;
