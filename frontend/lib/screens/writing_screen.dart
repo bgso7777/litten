@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/common/litten_unified_list_view.dart';
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
 import '../widgets/text_tab.dart';
@@ -20,6 +21,7 @@ class _WritingScreenState extends State<WritingScreen> {
   late List<TabItem> _tabs;
   final GlobalKey _tabLayoutKey = GlobalKey();
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
+  bool _listVisible = false;
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -175,7 +177,30 @@ class _WritingScreenState extends State<WritingScreen> {
               )
             : draggableTabLayout;
 
-        return body;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            const statsHeight = 45.0;
+            final panelHeight = _listVisible
+                ? constraints.maxHeight / 2
+                : statsHeight;
+
+            return Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: panelHeight,
+                  child: LittenUnifiedListView(
+                    padding: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
+                    listVisible: _listVisible,
+                    onListToggle: () => setState(() => _listVisible = !_listVisible),
+                  ),
+                ),
+                Expanded(child: body),
+              ],
+            );
+          },
+        );
       },
     );
   }

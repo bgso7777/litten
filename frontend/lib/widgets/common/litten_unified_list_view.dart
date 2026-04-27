@@ -19,8 +19,10 @@ class LittenUnifiedListView extends StatefulWidget {
   final EdgeInsets? padding;
   final String? filterType; // 'text', 'handwriting', 'audio' — null이면 전체 표시
   final String? littenId;   // 설정 시 해당 일정의 파일만 표시
+  final bool? listVisible;  // 외부에서 리스트 표시 여부를 제어할 때 사용
+  final VoidCallback? onListToggle; // 외부 토글 콜백
 
-  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId});
+  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId, this.listVisible, this.onListToggle});
 
   @override
   State<LittenUnifiedListView> createState() => _LittenUnifiedListViewState();
@@ -178,10 +180,19 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final handwritingCount = appState.totalHandwritingCount;
     final themeColor = Theme.of(context).primaryColor;
     final hPad = widget.padding?.left ?? 0;
+    final effectiveVisible = widget.listVisible ?? _littenListVisible;
+
+    void handleToggle() {
+      if (widget.onListToggle != null) {
+        widget.onListToggle!();
+      } else {
+        setState(() => _littenListVisible = !_littenListVisible);
+      }
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _littenListVisible = !_littenListVisible),
+      onTap: handleToggle,
       child: Container(
         height: 45,
         decoration: BoxDecoration(
@@ -215,17 +226,15 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
               onTap: () {},
               child: PopupMenuButton<String>(
                 onSelected: (value) {
-                  if (value == 'toggle') {
-                    setState(() => _littenListVisible = !_littenListVisible);
-                  }
+                  if (value == 'toggle') handleToggle();
                 },
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'toggle',
                     child: Row(children: [
-                      Icon(_littenListVisible ? Icons.visibility_off : Icons.visibility, size: 18),
+                      Icon(effectiveVisible ? Icons.visibility_off : Icons.visibility, size: 18),
                       const SizedBox(width: 8),
-                      Text(_littenListVisible ? '감추기' : '보이기'),
+                      Text(effectiveVisible ? '감추기' : '보이기'),
                     ]),
                   ),
                 ],
@@ -446,7 +455,8 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         }
 
         final showNotificationSection = notificationCount > 0 && appState.isDateSelected;
-        final effectiveLittenGroups = _littenListVisible ? littenGroups : <Map<String, dynamic>>[];
+        final isListVisible = widget.listVisible ?? _littenListVisible;
+        final effectiveLittenGroups = isListVisible ? littenGroups : <Map<String, dynamic>>[];
 
         return SliverList(
           delegate: SliverChildBuilderDelegate(
