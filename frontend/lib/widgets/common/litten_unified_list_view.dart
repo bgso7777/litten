@@ -29,6 +29,17 @@ class LittenUnifiedListView extends StatefulWidget {
 class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
   Set<String> _collapsedLittenIds = {};
   int _currentTabIndex = 0;
+  bool _littenListVisible = true;
+
+  Future<List<Map<String, dynamic>>>? _filesFuture;
+  String? _filesFutureKey;
+
+  void _refreshFilesFutureIfNeeded(AppStateProvider appState, String key) {
+    if (_filesFutureKey != key) {
+      _filesFutureKey = key;
+      _filesFuture = appState.getAllFiles();
+    }
+  }
 
   @override
   void initState() {
@@ -176,22 +187,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
       child: Row(
         children: [
           const SizedBox(width: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: themeColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: themeColor.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.event_available, size: 20, color: themeColor),
-                const SizedBox(width: 2),
-                Text('$littenCount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: themeColor)),
-              ],
-            ),
-          ),
+          Icon(Icons.event_available, size: 20, color: themeColor),
+          const SizedBox(width: 4),
+          Text('$littenCount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: themeColor)),
           const SizedBox(width: 8),
           Expanded(
             child: appState.selectedLitten != null && appState.selectedLitten!.title != 'undefined'
@@ -208,7 +206,25 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           const SizedBox(width: 4),
           _buildFileCountBadge(Icons.mic, audioCount, themeColor),
           const SizedBox(width: 4),
-          const SizedBox(width: 48),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'toggle') {
+                setState(() => _littenListVisible = !_littenListVisible);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'toggle',
+                child: Row(children: [
+                  Icon(_littenListVisible ? Icons.visibility_off : Icons.visibility, size: 18),
+                  const SizedBox(width: 8),
+                  Text(_littenListVisible ? '감추기' : '보이기'),
+                ]),
+              ),
+            ],
+            child: Icon(Icons.more_vert, color: Colors.grey.shade600, size: 20),
+          ),
+          const SizedBox(width: 16),
         ],
       ),
     );
@@ -235,9 +251,10 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         headerTitle = '파일';
     }
 
+    final filterKey = 'filter-$filterType-${appState.littens.length}-${littenId ?? ''}';
+    _refreshFilesFutureIfNeeded(appState, filterKey);
     return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey('filter-$filterType-${appState.littens.length}'),
-      future: appState.getAllFiles(),
+      future: _filesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverFillRemaining(
@@ -322,9 +339,10 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final bool hasSelectedDate = appState.isDateSelected;
     final int notificationCount = littenId != null ? 0 : selectedDateNotifications.length;
 
+    final contentKey = '$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}';
+    _refreshFilesFutureIfNeeded(appState, contentKey);
     return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey('$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}'),
-      future: appState.getAllFiles(),
+      future: _filesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverFillRemaining(
@@ -419,6 +437,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         }
 
         final showNotificationSection = notificationCount > 0 && appState.isDateSelected;
+        final effectiveLittenGroups = _littenListVisible ? littenGroups : <Map<String, dynamic>>[];
 
         return SliverList(
           delegate: SliverChildBuilderDelegate(
@@ -427,8 +446,8 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 return _buildNotificationSection(appState, selectedDateNotifications);
               }
               final itemIndex = showNotificationSection ? index - 1 : index;
-              if (itemIndex < 0 || itemIndex >= littenGroups.length) return const SizedBox.shrink();
-              final group = littenGroups[itemIndex];
+              if (itemIndex < 0 || itemIndex >= effectiveLittenGroups.length) return const SizedBox.shrink();
+              final group = effectiveLittenGroups[itemIndex];
               return _buildLittenGroup(
                 context,
                 appState,
@@ -437,7 +456,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 group['hasNotifications'] as bool,
               );
             },
-            childCount: (showNotificationSection ? 1 : 0) + littenGroups.length,
+            childCount: (showNotificationSection ? 1 : 0) + effectiveLittenGroups.length,
           ),
         );
       },

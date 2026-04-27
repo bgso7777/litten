@@ -99,7 +99,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isInitialized => _isInitialized;
   bool get isFirstLaunch => _isFirstLaunch;
   List<Litten> get littens => _littens;
-  Litten? get selectedLitten => (_selectedLitten?.title == 'undefined') ? null : _selectedLitten;
+  Litten? get selectedLitten => _selectedLitten;
   int get selectedTabIndex => _selectedTabIndex;
   String? get targetWritingTabId => _targetWritingTabId;
   int get homeBottomTabIndex => _homeBottomTabIndex;
@@ -323,13 +323,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _loadSelectedLitten() async {
     final selectedLittenId = await _littenService.getSelectedLittenId();
     if (selectedLittenId != null) {
-      final litten = await _littenService.getLittenById(selectedLittenId);
-      if (litten != null && litten.title != 'undefined') {
-        _selectedLitten = litten;
-      } else {
-        _selectedLitten = null;
-        await _littenService.setSelectedLittenId(null);
-      }
+      _selectedLitten = await _littenService.getLittenById(selectedLittenId);
     }
   }
 
@@ -519,11 +513,6 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (memoryLitten.id.isNotEmpty) {
-        if (memoryLitten.title == 'undefined') {
-          _selectedLitten = null;
-          await prefs.remove('selected_litten_id');
-          return;
-        }
         _selectedLitten = memoryLitten;
         debugPrint('🔄 메모리에서 리튼 복원: ${memoryLitten.title} (${memoryLitten.id})');
         notifyListeners();
@@ -533,11 +522,6 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       // 메모리에 없으면 스토리지에서 로드
       final litten = await _littenService.getLittenById(selectedLittenId);
       if (litten != null) {
-        if (litten.title == 'undefined') {
-          _selectedLitten = null;
-          await prefs.remove('selected_litten_id');
-          return;
-        }
         _selectedLitten = litten;
         // 메모리 리스트도 업데이트
         final index = _littens.indexWhere((l) => l.id == litten.id);
