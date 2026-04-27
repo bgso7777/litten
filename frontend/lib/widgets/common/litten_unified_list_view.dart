@@ -173,13 +173,10 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
 
   Widget _buildStatsSection(BuildContext context, AppStateProvider appState) {
     final littenCount = appState.littens.where((l) => l.title != 'undefined').length;
-    // 통계 영역은 항상 전체 합계를 표시
     final audioCount = appState.totalAudioCount;
     final textCount = appState.totalTextCount;
     final handwritingCount = appState.totalHandwritingCount;
     final themeColor = Theme.of(context).primaryColor;
-
-    // SliverPadding의 left/right 오프셋을 반영하여 아이콘 위치를 일정 행과 정렬
     final hPad = widget.padding?.left ?? 0;
 
     return GestureDetector(
@@ -213,10 +210,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             const SizedBox(width: 4),
             _buildFileCountBadge(Icons.mic, audioCount, themeColor),
             const SizedBox(width: 4),
-            // "..." 버튼은 이벤트 전파 차단 (탭이 토글 두 번 되는 것 방지)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {}, // 부모 탭 이벤트 흡수
+              onTap: () {},
               child: PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'toggle') {
