@@ -86,17 +86,6 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       builder: (context, appState, child) {
         final l10n = AppLocalizations.of(context);
 
-        // selectedLitten이 null이면 undefined 리튼 자동 선택 (디폴트 선택)
-        if (appState.selectedLitten == null && appState.littens.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final undefinedLitten = appState.littens.where((l) => l.title == 'undefined').firstOrNull;
-            if (undefinedLitten != null) {
-              appState.selectLitten(undefinedLitten);
-              debugPrint('✅ MainTabScreen: undefined 리튼 디폴트 선택');
-            }
-          });
-        }
-
         debugPrint('🔄 [MainTabScreen] build 호출 - 현재 탭: ${appState.selectedTabIndex}');
         debugPrint('📢 [MainTabScreen] isPremiumUser: ${appState.isPremiumUser}, subscriptionType: ${appState.subscriptionType}');
 
@@ -155,9 +144,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 이번 달로 focusedDate 변경
                 appState.changeFocusedDate(DateTime.now());
 
-                // undefined 리튼 선택 (전체 파일 카운트 표시)
-                final undefinedLitten = appState.littens.where((l) => l.title == 'undefined').firstOrNull;
-                if (undefinedLitten != null) appState.selectLitten(undefinedLitten);
+                // 선택 해제 (전체 파일 카운트 표시)
+                appState.clearSelectedLitten();
 
                 // 스크롤을 맨 위로 (캘린더 표시)
                 WidgetsBinding.instance.addPostFrameCallback((_) {

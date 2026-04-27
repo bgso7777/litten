@@ -187,6 +187,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // undefined 리튼 확인 및 생성
     await _ensureUndefinedLitten();
 
+    // ⭐ 첫 렌더 전에 선택된 리튼 복원 (깜빡임 방지)
+    // undefined는 복원하지 않음 - 기본 선택 없음이 원칙
+    await _loadSelectedLitten();
+
     // 캘린더를 오늘 날짜로 초기화
     final today = DateTime.now();
     _selectedDate = today;
@@ -323,7 +327,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _loadSelectedLitten() async {
     final selectedLittenId = await _littenService.getSelectedLittenId();
     if (selectedLittenId != null) {
-      _selectedLitten = await _littenService.getLittenById(selectedLittenId);
+      final litten = await _littenService.getLittenById(selectedLittenId);
+      // undefined는 기본 선택으로 복원하지 않음
+      if (litten != null && litten.title != 'undefined') {
+        _selectedLitten = litten;
+        debugPrint('✅ 선택된 리튼 복원: ${litten.title}');
+      } else {
+        _selectedLitten = null;
+        debugPrint('ℹ️ 저장된 리튼이 undefined 또는 없음 - 선택 없음으로 시작');
+      }
     }
   }
 
@@ -462,8 +474,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _selectedLitten = litten;
-    await _littenService.setSelectedLittenId(litten.id);
-    await _saveSelectedLittenState();
+
+    // undefined 리튼 선택은 세션 내에서만 유지 (영구 저장 안 함)
+    // → 앱 재시작 시 undefined가 기본 선택되는 것 방지
+    if (litten.title != 'undefined') {
+      await _littenService.setSelectedLittenId(litten.id);
+      await _saveSelectedLittenState();
+    } else {
+      debugPrint('ℹ️ undefined 리튼 선택 - 세션 내에서만 유지 (영구 저장 생략)');
+    }
 
     // 리튼 선택 시 파일 카운트 업데이트
     await updateFileCount();
@@ -512,16 +531,20 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         ),
       );
 
-      if (memoryLitten.id.isNotEmpty) {
+      // undefined는 복원하지 않음
+      if (memoryLitten.id.isNotEmpty && memoryLitten.title != 'undefined') {
         _selectedLitten = memoryLitten;
         debugPrint('🔄 메모리에서 리튼 복원: ${memoryLitten.title} (${memoryLitten.id})');
         notifyListeners();
+        return;
+      } else if (memoryLitten.title == 'undefined') {
+        debugPrint('ℹ️ 복원 대상이 undefined 리튼 - 선택 해제 유지');
         return;
       }
 
       // 메모리에 없으면 스토리지에서 로드
       final litten = await _littenService.getLittenById(selectedLittenId);
-      if (litten != null) {
+      if (litten != null && litten.title != 'undefined') {
         _selectedLitten = litten;
         // 메모리 리스트도 업데이트
         final index = _littens.indexWhere((l) => l.id == litten.id);
@@ -533,7 +556,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('🔄 스토리지에서 리튼 복원: ${litten.title} (${litten.id})');
         notifyListeners();
       } else {
-        debugPrint('⚠️ 저장된 리튼 ID를 찾을 수 없음: $selectedLittenId');
+        debugPrint('⚠️ 저장된 리튼 ID를 찾을 수 없거나 undefined: $selectedLittenId');
         _selectedLitten = null;
       }
     }
