@@ -141,11 +141,15 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             ? _buildFilteredSliverContent(context, appState, widget.filterType!, littenId: widget.littenId)
             : _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications, littenId: widget.littenId);
 
+        final showStats = widget.filterType == null && widget.littenId == null;
+
         return CustomScrollView(
           key: widget.key != null ? null : PageStorageKey<String>('litten_unified_list_${widget.filterType ?? 'all'}_${widget.littenId ?? 'all'}'),
           controller: widget.scrollController,
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
+            if (showStats)
+              SliverToBoxAdapter(child: _buildStatsSection(context, appState)),
             SliverPadding(
               padding: effectivePadding,
               sliver: sliver,
@@ -153,6 +157,60 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildStatsSection(BuildContext context, AppStateProvider appState) {
+    final littenCount = appState.littens.where((l) => l.title != 'undefined').length;
+    final audioCount = appState.actualAudioCount;
+    final textCount = appState.actualTextCount;
+    final handwritingCount = appState.actualHandwritingCount;
+    final themeColor = Theme.of(context).primaryColor;
+
+    return Container(
+      height: 45,
+      decoration: BoxDecoration(
+        color: themeColor.withValues(alpha: 0.1),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: themeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: themeColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.event_available, size: 20, color: themeColor),
+                const SizedBox(width: 2),
+                Text('$littenCount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: themeColor)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: appState.selectedLitten != null && appState.selectedLitten!.title != 'undefined'
+                ? Text(
+                    appState.selectedLitten!.title,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: themeColor),
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : const SizedBox.shrink(),
+          ),
+          _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
+          const SizedBox(width: 4),
+          _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
+          const SizedBox(width: 4),
+          _buildFileCountBadge(Icons.mic, audioCount, themeColor),
+          const SizedBox(width: 4),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 
@@ -294,8 +352,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           List<Map<String, dynamic>> littenFiles = [];
 
           for (final fileData in allFiles) {
-            // undefined 리튼은 전체 파일, 그 외는 해당 리튼 파일만
-            if (isUndefined || fileData['littenId'] == currentLittenId) {
+            if (fileData['littenId'] == currentLittenId) {
               final file = fileData['file'];
               final createdAt = fileData['createdAt'] as DateTime;
               DateTime updatedAt;
@@ -345,11 +402,6 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         }
 
         littenGroups.sort((a, b) {
-          final la = a['litten'] as Litten;
-          final lb = b['litten'] as Litten;
-          // undefined 리튼 항상 맨 위 고정
-          if (la.title == 'undefined') return -1;
-          if (lb.title == 'undefined') return 1;
           int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
           if (priorityCompare != 0) return priorityCompare;
           return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
@@ -449,31 +501,29 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
 
               final isSelected = appState.selectedLitten?.id == litten.id;
 
+              final itemFg = isSelected ? Colors.white : (isPast ? Colors.grey.shade600 : Colors.black87);
+              final itemSub = isSelected ? Colors.white70 : (isPast ? Colors.grey.shade500 : Colors.grey.shade700);
               return Container(
                 decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : null,
-                  border: isSelected ? Border.all(
-                    color: Theme.of(context).primaryColor,
-                    width: 1.5,
-                  ) : null,
+                  color: isSelected ? Theme.of(context).primaryColor : null,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
                   leading: Icon(
-                    Icons.calendar_month,
-                    color: Theme.of(context).primaryColor,
+                    Icons.event_available,
+                    color: isSelected ? Colors.white : Theme.of(context).primaryColor,
                     size: 24,
                   ),
-                title: Text(litten.title, style: TextStyle(fontWeight: FontWeight.w600, color: isPast ? Colors.grey.shade600 : Colors.black87)),
+                title: Text(litten.title, style: TextStyle(fontWeight: FontWeight.w600, color: itemFg)),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(timeRange, style: TextStyle(fontSize: 12, color: isPast ? Colors.grey.shade500 : Colors.grey.shade700)),
+                    Text(timeRange, style: TextStyle(fontSize: 12, color: itemSub)),
                     if (schedule.notes != null && schedule.notes!.isNotEmpty)
-                      Text(schedule.notes!, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(schedule.notes!, style: TextStyle(fontSize: 11, color: itemSub), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.blue.shade300),
+                  trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isSelected ? Colors.white54 : Colors.blue.shade300),
                   onTap: () async {
                     try {
                       if (appState.isSTTActive) {
@@ -539,60 +589,69 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             }
           },
           onLongPress: () => _showEditLittenDialog(litten.id),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: appState.selectedLitten?.id == litten.id ? themeColor.withValues(alpha: 0.1) : Colors.grey.shade50,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(
-                        litten.title == 'undefined'
-                            ? Icons.folder_open
-                            : (hasEnabledNotification ? Icons.event_available : Icons.calendar_today),
-                        color: themeColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          litten.title == 'undefined' ? '' : litten.title,
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: litten.title == 'undefined' ? Colors.grey.shade600 : null),
-                          overflow: TextOverflow.ellipsis,
+          child: Builder(builder: (context) {
+            final isSelected = appState.selectedLitten?.id == litten.id;
+            final fgColor = isSelected ? Colors.white : themeColor;
+            final badgeColor = isSelected ? Colors.white : themeColor;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? themeColor : Colors.grey.shade50,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          litten.title == 'undefined'
+                              ? Icons.folder_open
+                              : (hasEnabledNotification ? Icons.event_available : Icons.calendar_today),
+                          color: fgColor,
+                          size: 20,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
-                const SizedBox(width: 4),
-                _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
-                const SizedBox(width: 4),
-                _buildFileCountBadge(Icons.mic, audioCount, themeColor),
-                const SizedBox(width: 4),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'edit') _showEditLittenDialog(litten.id);
-                    else if (value == 'delete') _showDeleteDialog(litten.id, litten.title);
-                    else if (value == 'toggle_collapse') _toggleLittenCollapse(litten.id);
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'toggle_collapse',
-                      child: Row(children: [Icon(isCollapsed ? Icons.visibility : Icons.visibility_off, size: 18), const SizedBox(width: 8), Text(isCollapsed ? '보이기' : '숨기기')]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            litten.title == 'undefined' ? '' : litten.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: isSelected ? Colors.white : (litten.title == 'undefined' ? Colors.grey.shade600 : null),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    const PopupMenuItem(value: 'edit', child: Text('수정')),
-                    const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                  ],
-                  child: Icon(Icons.more_vert, color: Colors.grey.shade600, size: 20),
-                ),
-              ],
-            ),
-          ),
+                  ),
+                  _buildFileCountBadge(Icons.keyboard, textCount, badgeColor),
+                  const SizedBox(width: 4),
+                  _buildFileCountBadge(Icons.draw, handwritingCount, badgeColor),
+                  const SizedBox(width: 4),
+                  _buildFileCountBadge(Icons.mic, audioCount, badgeColor),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') _showEditLittenDialog(litten.id);
+                      else if (value == 'delete') _showDeleteDialog(litten.id, litten.title);
+                      else if (value == 'toggle_collapse') _toggleLittenCollapse(litten.id);
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'toggle_collapse',
+                        child: Row(children: [Icon(isCollapsed ? Icons.visibility : Icons.visibility_off, size: 18), const SizedBox(width: 8), Text(isCollapsed ? '보이기' : '숨기기')]),
+                      ),
+                      const PopupMenuItem(value: 'edit', child: Text('수정')),
+                      const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                    ],
+                    child: Icon(Icons.more_vert, color: isSelected ? Colors.white70 : Colors.grey.shade600, size: 20),
+                  ),
+                ],
+              ),
+            );
+          }),
         ),
         if (!isCollapsed)
           ...files.map((fileInfo) => _buildFileItem(context, appState, fileInfo['fileData'] as Map<String, dynamic>)),

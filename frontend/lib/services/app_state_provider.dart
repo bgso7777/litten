@@ -187,11 +187,6 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // undefined 리튼 확인 및 생성
     await _ensureUndefinedLitten();
 
-    // 리튼이 선택되지 않은 경우 undefined 리튼 자동 선택
-    if (_selectedLitten == null) {
-      _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
-    }
-
     // 캘린더를 오늘 날짜로 초기화
     final today = DateTime.now();
     _selectedDate = today;
@@ -328,7 +323,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _loadSelectedLitten() async {
     final selectedLittenId = await _littenService.getSelectedLittenId();
     if (selectedLittenId != null) {
-      _selectedLitten = await _littenService.getLittenById(selectedLittenId);
+      final litten = await _littenService.getLittenById(selectedLittenId);
+      if (litten != null && litten.title != 'undefined') {
+        _selectedLitten = litten;
+      } else {
+        _selectedLitten = null;
+        await _littenService.setSelectedLittenId(null);
+      }
     }
   }
 
@@ -518,6 +519,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (memoryLitten.id.isNotEmpty) {
+        if (memoryLitten.title == 'undefined') {
+          _selectedLitten = null;
+          await prefs.remove('selected_litten_id');
+          return;
+        }
         _selectedLitten = memoryLitten;
         debugPrint('🔄 메모리에서 리튼 복원: ${memoryLitten.title} (${memoryLitten.id})');
         notifyListeners();
@@ -527,6 +533,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       // 메모리에 없으면 스토리지에서 로드
       final litten = await _littenService.getLittenById(selectedLittenId);
       if (litten != null) {
+        if (litten.title == 'undefined') {
+          _selectedLitten = null;
+          await prefs.remove('selected_litten_id');
+          return;
+        }
         _selectedLitten = litten;
         // 메모리 리스트도 업데이트
         final index = _littens.indexWhere((l) => l.id == litten.id);
@@ -539,11 +550,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       } else {
         debugPrint('⚠️ 저장된 리튼 ID를 찾을 수 없음: $selectedLittenId');
-        // undefined 리튼으로 폴백
-        _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
-        if (_selectedLitten != null) {
-          await _saveSelectedLittenState();
-        }
+        _selectedLitten = null;
       }
     }
   }
@@ -656,16 +663,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _littenService.deleteLitten(littenId);
     await refreshLittens();
 
-    // 선택된 리튼이 삭제된 경우 undefined 리튼 자동 선택
     if (_selectedLitten?.id == littenId) {
-      // undefined 리튼이 존재하는지 확인하고 없으면 생성
-      await _ensureUndefinedLitten();
-
-      // undefined 리튼 자동 선택
-      _selectedLitten = _littens.where((l) => l.title == 'undefined').firstOrNull;
-      await _littenService.setSelectedLittenId(_selectedLitten?.id);
-
-      debugPrint('✅ 리튼 삭제 후 undefined 리튼 자동 선택 완료');
+      _selectedLitten = null;
+      await _littenService.setSelectedLittenId(null);
+      debugPrint('✅ 리튼 삭제 후 선택 해제');
     }
   }
 
