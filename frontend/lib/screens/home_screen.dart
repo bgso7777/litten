@@ -1958,27 +1958,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 펼침');
             setState(() { _scheduleListVisible = true; });
           },
-          child: Container(
+          child: CustomPaint(
+            painter: _ConcaveChipPainter(
+              fillColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+              borderColor: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+              backgroundColor: Theme.of(context).cardColor,
+            ),
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-              border: Border(
-                top: BorderSide(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
-                ),
-                left: BorderSide(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
-                ),
-                right: BorderSide(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
-                ),
-              ),
-            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1996,10 +1984,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 Icon(Icons.keyboard_arrow_up, size: 16, color: Theme.of(context).primaryColor),
               ],
             ),
-          ),
-        ),
-      ),
-    );
+          ),         // Container
+          ),         // CustomPaint
+        ),           // GestureDetector
+      ),             // AnimatedOpacity
+    );               // IgnorePointer
   }
 
   // 캘린더 SliverAppBar 빌드
@@ -2456,6 +2445,83 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       ),
     );
   }
+}
+
+/// 힌트 칩 배경 Painter — 상단 좌우 모서리를 오목(concave) 곡선으로 처리
+/// 코너 영역을 backgroundColor(cardColor)로 덮어 오목 효과를 시각적으로 표현
+class _ConcaveChipPainter extends CustomPainter {
+  final Color fillColor;
+  final Color borderColor;
+  final Color backgroundColor;
+  final double cornerRadius;
+
+  const _ConcaveChipPainter({
+    required this.fillColor,
+    required this.borderColor,
+    required this.backgroundColor,
+    this.cornerRadius = 16.0,
+  });
+
+  /// 칩 본체 경로 (오목 코너 포함)
+  Path _buildChipPath(Size size) {
+    final r = cornerRadius;
+    final path = Path();
+    path.moveTo(r, 0);
+    path.quadraticBezierTo(0, 0, 0, r);       // 좌상단 오목 곡선
+    path.lineTo(0, size.height);
+    path.lineTo(size.width, size.height);
+    path.lineTo(size.width, r);
+    path.quadraticBezierTo(size.width, 0, size.width - r, 0); // 우상단 오목 곡선
+    path.lineTo(r, 0);
+    path.close();
+    return path;
+  }
+
+  /// 좌상단 코너 오목 영역 — 이 영역을 backgroundColor로 덮어 오목 효과를 표현
+  Path _buildLeftCornerPath(Size size) {
+    final r = cornerRadius;
+    final path = Path();
+    path.moveTo(0, 0);
+    path.lineTo(r, 0);
+    path.quadraticBezierTo(0, 0, 0, r);
+    path.close();
+    return path;
+  }
+
+  /// 우상단 코너 오목 영역
+  Path _buildRightCornerPath(Size size) {
+    final r = cornerRadius;
+    final path = Path();
+    path.moveTo(size.width, 0);
+    path.lineTo(size.width - r, 0);
+    path.quadraticBezierTo(size.width, 0, size.width, r);
+    path.close();
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. 칩 배경 채우기
+    canvas.drawPath(_buildChipPath(size), Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill,
+    );
+    // 2. 오목 코너 영역을 캘린더 배경색으로 덮어써서 오목 효과 표현
+    final bgPaint = Paint()..color = backgroundColor..style = PaintingStyle.fill;
+    canvas.drawPath(_buildLeftCornerPath(size), bgPaint);
+    canvas.drawPath(_buildRightCornerPath(size), bgPaint);
+    // 3. 칩 테두리 (코너 포함)
+    canvas.drawPath(_buildChipPath(size), Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ConcaveChipPainter old) =>
+      old.fillColor != fillColor || old.borderColor != borderColor ||
+      old.backgroundColor != backgroundColor || old.cornerRadius != cornerRadius;
 }
 
 /// 캘린더를 위한 Custom SliverPersistentHeaderDelegate
