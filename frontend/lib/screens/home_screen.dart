@@ -1959,16 +1959,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             setState(() { _scheduleListVisible = true; });
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+                ),
               ),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.event_note, size: 14, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 6),
