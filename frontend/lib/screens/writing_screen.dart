@@ -42,7 +42,7 @@ class _WritingScreenState extends State<WritingScreen> {
   void _onAppStateChanged() {
     if (!mounted) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    if (appState.selectedTabIndex == 1 && appState.selectedLitten == null) {
+    if (appState.selectedTabIndex == 0 && appState.selectedLitten == null) {
       _autoSelectLittenForNoteTab(appState);
     }
   }

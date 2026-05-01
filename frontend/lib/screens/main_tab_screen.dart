@@ -114,8 +114,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                   controller: _pageController,
                   physics: const NeverScrollableScrollPhysics(), // 스와이프로 페이지 변경 방지
                   children: [
-                    HomeScreen(key: _homeScreenKey),
                     WritingScreen(),
+                    HomeScreen(key: _homeScreenKey),
                     SettingsScreen(),
                   ],
                 ),
@@ -142,8 +142,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
-              // 캘린더탭(index 0) 터치 시 처리
-              if (index == 0) {
+              // 캘린더탭(index 1) 터치 시 처리
+              if (index == 1) {
                 debugPrint('📍 [MainTabScreen] 캘린더 탭 터치 - 이번 달로 이동');
 
                 // 날짜 선택 해제
@@ -152,9 +152,9 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 이번 달로 focusedDate 변경
                 appState.changeFocusedDate(DateTime.now());
 
-                // 노트탭(index 1)에서 선택된 일정이 있으면 유지, 그 외엔 해제
+                // 노트탭(index 0)에서 선택된 일정이 있으면 유지, 그 외엔 해제
                 final comingFromNoteWithSelection =
-                    appState.selectedTabIndex == 1 && appState.selectedLitten != null;
+                    appState.selectedTabIndex == 0 && appState.selectedLitten != null;
                 if (!comingFromNoteWithSelection) {
                   appState.clearSelectedLitten();
                 } else {
@@ -178,11 +178,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // ⭐ PageView 페이지 전환 (애니메이션 없이)
                 _pageController.jumpToPage(index);
 
-                // ⭐ 홈 탭으로 돌아올 때 캘린더가 보이도록 스크롤을 맨 위로
-                if (index == 0) {
+                // ⭐ 캘린더 탭으로 돌아올 때 캘린더가 보이도록 스크롤을 맨 위로
+                if (index == 1) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _homeScreenKey.currentState?.scrollToTop();
-                    debugPrint('📜 [MainTabScreen] 홈 탭으로 전환 - 캘린더 표시 (스크롤 맨 위)');
+                    debugPrint('📜 [MainTabScreen] 캘린더 탭으로 전환 - 캘린더 표시 (스크롤 맨 위)');
                   });
                 }
 
@@ -195,12 +195,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             type: BottomNavigationBarType.fixed,
             items: [
               BottomNavigationBarItem(
-                icon: _buildHomeIconWithBadge(appState),
-                label: '캘린더',
-              ),
-              BottomNavigationBarItem(
                 icon: const Icon(Icons.edit_note),
                 label: l10n?.writingTitle ?? '쓰기',
+              ),
+              BottomNavigationBarItem(
+                icon: _buildHomeIconWithBadge(appState),
+                label: '캘린더',
               ),
               BottomNavigationBarItem(
                 icon: const Icon(Icons.settings),
@@ -209,8 +209,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             ],
             ),
           ),
-          // 홈 탭(index 0)일 때만 FloatingActionButton 표시
-          floatingActionButton: appState.selectedTabIndex == 0
+          // 캘린더 탭(index 1)일 때만 FloatingActionButton 표시
+          floatingActionButton: appState.selectedTabIndex == 1
               ? Transform.translate(
                   offset: const Offset(0, -12),
                   child: FloatingActionButton(

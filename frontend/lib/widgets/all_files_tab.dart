@@ -699,6 +699,18 @@ class _BottomFabRow extends StatefulWidget {
 class _BottomFabRowState extends State<_BottomFabRow> {
   bool _isExpanded = false;
 
+  @override
+  void didUpdateWidget(_BottomFabRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRecording && !oldWidget.isRecording) {
+      // 녹음 시작 → 다이얼 강제 열기
+      setState(() => _isExpanded = true);
+    } else if (!widget.isRecording && oldWidget.isRecording) {
+      // 녹음 종료 → 다이얼 닫기
+      setState(() => _isExpanded = false);
+    }
+  }
+
   void _handleAction(VoidCallback action) {
     setState(() => _isExpanded = false);
     action();
@@ -707,6 +719,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
+    final recordColor = widget.isRecording ? Colors.red : color;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -728,6 +741,14 @@ class _BottomFabRowState extends State<_BottomFabRow> {
                     const SizedBox(height: 8),
                     _SpeedDialItem(label: '텍스트', icon: Icons.keyboard, color: color,
                         onTap: () => _handleAction(widget.onText)),
+                    const SizedBox(height: 8),
+                    // 녹음 항목: 녹음 중이면 중지 아이콘/레이블, didUpdateWidget이 다이얼 상태 관리
+                    _SpeedDialItem(
+                      label: widget.isRecording ? '녹음 중지' : '녹음',
+                      icon: widget.isRecording ? Icons.stop : Icons.mic,
+                      color: recordColor,
+                      onTap: widget.onAudio,
+                    ),
                   ],
                 ),
               ),
@@ -739,16 +760,14 @@ class _BottomFabRowState extends State<_BottomFabRow> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             _FabBtn(
-              icon: widget.isRecording ? Icons.stop : Icons.mic,
-              color: color,
-              onTap: widget.onAudio,
-            ),
-            const SizedBox(width: 8),
-            _FabBtn(
               icon: _isExpanded ? Icons.close : Icons.add,
               color: color,
               heroTag: 'fab_add_toggle',
-              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              onTap: () {
+                // 녹음 중엔 다이얼 닫기 불가
+                if (widget.isRecording) return;
+                setState(() => _isExpanded = !_isExpanded);
+              },
             ),
             const SizedBox(width: 16),
           ],
