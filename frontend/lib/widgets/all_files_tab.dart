@@ -66,10 +66,39 @@ class _AllFilesTabState extends State<AllFilesTab> {
   void initState() {
     super.initState();
     _audioService.addListener(_onAudioStateChanged);
+    // 앱/탭 전환 후 돌아왔을 때 AudioService 녹음 상태 복원
+    if (_audioService.isRecording) {
+      _isRecording = true;
+      _recordingDuration = _audioService.recordingDuration;
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recordingDuration += const Duration(seconds: 1));
+      });
+      debugPrint('🔄 [AllFilesTab] initState - 녹음 중 상태 복원');
+    }
   }
 
   void _onAudioStateChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final nowRecording = _audioService.isRecording;
+    if (nowRecording == _isRecording) {
+      setState(() {});
+      return;
+    }
+    if (nowRecording) {
+      // STT 등 외부에서 녹음 시작됨 → 타이머 시작
+      _recordingTimer?.cancel();
+      _recordingDuration = Duration.zero;
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recordingDuration += const Duration(seconds: 1));
+      });
+      debugPrint('🔄 [AllFilesTab] 외부 녹음 시작 감지 (STT 등)');
+    } else {
+      // 외부에서 녹음 종료
+      _recordingTimer?.cancel();
+      _recordingDuration = Duration.zero;
+      debugPrint('🔄 [AllFilesTab] 외부 녹음 종료 감지');
+    }
+    setState(() => _isRecording = nowRecording);
   }
 
   @override
@@ -698,6 +727,13 @@ class _BottomFabRow extends StatefulWidget {
 
 class _BottomFabRowState extends State<_BottomFabRow> {
   bool _isExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 녹음 중인 상태로 위젯이 (재)생성되면 처음부터 확장
+    _isExpanded = widget.isRecording;
+  }
 
   @override
   void didUpdateWidget(_BottomFabRow oldWidget) {

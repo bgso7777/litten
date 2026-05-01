@@ -10,6 +10,7 @@ import '../widgets/text_tab.dart';
 import '../widgets/handwriting_tab.dart';
 import '../widgets/browser_tab.dart';
 import '../widgets/all_files_tab.dart';
+import '../services/audio_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -18,7 +19,9 @@ class WritingScreen extends StatefulWidget {
   State<WritingScreen> createState() => _WritingScreenState();
 }
 
-class _WritingScreenState extends State<WritingScreen> {
+class _WritingScreenState extends State<WritingScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   late List<TabItem> _tabs;
   int _recordingTabRefreshCount = 0;
   bool _isAutoSelecting = false;
@@ -42,6 +45,8 @@ class _WritingScreenState extends State<WritingScreen> {
   void _onAppStateChanged() {
     if (!mounted) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
+    // 녹음 중이면 리튼 자동 선택 시도하지 않음
+    if (AudioService().isRecording) return;
     if (appState.selectedTabIndex == 0 && appState.selectedLitten == null) {
       _autoSelectLittenForNoteTab(appState);
     }
@@ -163,6 +168,7 @@ class _WritingScreenState extends State<WritingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         _initializeTabs(
