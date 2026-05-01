@@ -78,6 +78,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
   int _currentMainTabIndex = 0; // 메인 탭 인덱스 (0: 홈, 1: 쓰기, 2: 설정)
 
+  // ⭐ 노트탭 가시성 설정 (기본: 전체탭만 표시)
+  Set<String> _noteTabVisibility = {'all'};
+
   // ⭐ WritingScreen 탭 위치 저장 (text, handwriting, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
     'text': 'topLeft',
@@ -117,6 +120,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get currentWritingTabId => _currentWritingTabId;
   int get currentMainTabIndex => _currentMainTabIndex;
   Map<String, String> get writingTabPositions => _writingTabPositions;
+  Set<String> get noteTabVisibility => _noteTabVisibility;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -295,6 +299,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       'browser': prefs.getString('tab_position_browser') ?? 'topLeft',
     };
     debugPrint('✅ [AppStateProvider] 저장된 탭 위치들 복원: $_writingTabPositions');
+
+    // ⭐ 노트탭 가시성 복원 (기본: 전체탭만)
+    final savedVisibility = prefs.getStringList('note_tab_visibility');
+    if (savedVisibility != null && savedVisibility.isNotEmpty) {
+      _noteTabVisibility = savedVisibility.toSet();
+    } else {
+      _noteTabVisibility = {'all'};
+    }
+    debugPrint('✅ [AppStateProvider] 노트탭 가시성 복원: $_noteTabVisibility');
   }
 
   String _getSystemLanguage() {
@@ -1136,6 +1149,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       // notifyListeners()를 호출하지 않음 - 탭 위치 변경만으로 UI 전체 재빌드 불필요
     }
+  }
+
+  /// 노트탭 가시성 저장
+  Future<void> setNoteTabVisibility(Set<String> visibility) async {
+    _noteTabVisibility = {'all', ...visibility}; // 전체탭은 항상 포함
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('note_tab_visibility', _noteTabVisibility.toList());
+    debugPrint('💾 [AppStateProvider] 노트탭 가시성 저장: $_noteTabVisibility');
+    notifyListeners();
   }
 
   Future<void> updateSubscriptionType(SubscriptionType subscriptionType) async {

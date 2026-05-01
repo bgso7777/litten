@@ -4,11 +4,24 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
+import '../services/file_storage_service.dart';
+import '../services/litten_service.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../models/audio_file.dart';
 import 'text_tab.dart';
 import 'handwriting_tab.dart';
+
+// ───────────────────────────── 파일 타입 통합 래퍼 ─────────────────────────────
+
+enum _FileType { text, handwriting, audio }
+
+class _MergedFile {
+  final _FileType type;
+  final dynamic file; // TextFile | HandwritingFile | AudioFile
+  final DateTime createdAt;
+  _MergedFile({required this.type, required this.file, required this.createdAt});
+}
 
 /// 텍스트 · 필기 · 녹음 파일을 하나의 탭에서 모두 보여주는 통합 뷰
 class AllFilesTab extends StatefulWidget {
@@ -31,11 +44,33 @@ class _AllFilesTabState extends State<AllFilesTab> {
   HandwritingInitialAction _handwritingAction = HandwritingInitialAction.none;
   bool _autoCreate = false;
 
-  // 인라인 녹음 상태
+  // 인라인 녹음 / 재생 상태
   final AudioService _audioService = AudioService();
   bool _isRecording = false;
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
+
+  // 병합 정렬 파일 목록 (createdAt 내림차순)
+  List<_MergedFile> get _mergedFiles {
+    final list = <_MergedFile>[
+      ..._textFiles.map((f) => _MergedFile(type: _FileType.text, file: f, createdAt: f.createdAt)),
+      ..._pdfFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
+      ..._canvasFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
+      ..._audioFiles.map((f) => _MergedFile(type: _FileType.audio, file: f, createdAt: f.createdAt)),
+    ];
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _audioService.addListener(_onAudioStateChanged);
+  }
+
+  void _onAudioStateChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didChangeDependencies() {
@@ -101,6 +136,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   @override
   void dispose() {
+    _audioService.removeListener(_onAudioStateChanged);
     _recordingTimer?.cancel();
     super.dispose();
   }
@@ -198,15 +234,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   Widget _buildFileList() {
-    final hasAny = _textFiles.isNotEmpty || _pdfFiles.isNotEmpty || _canvasFiles.isNotEmpty || _audioFiles.isNotEmpty;
-    if (!hasAny) {
+    final merged = _mergedFiles;
+    if (merged.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.folder_open, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 12),
-            Text('파일이 없습니다.\n위 버튼으로 추가하세요.',
+            Text('파일이 없습니다.\n아래 버튼으로 추가하세요.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500])),
           ],
@@ -214,27 +250,395 @@ class _AllFilesTabState extends State<AllFilesTab> {
       );
     }
 
-    return ListView(
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 80),
-      children: [
-        if (_textFiles.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.keyboard, title: '텍스트쓰기', count: _textFiles.length),
-          ..._textFiles.map((f) => _TextFileItem(file: f, onTap: () => _openEditorView(_EditorType.text))),
-        ],
-        if (_pdfFiles.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.picture_as_pdf, title: 'PDF필기', count: _pdfFiles.length),
-          ..._pdfFiles.map((f) => _HwFileItem(file: f, onTap: () => _openEditorView(_EditorType.handwriting))),
-        ],
-        if (_canvasFiles.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.draw, title: '캔버스필기', count: _canvasFiles.length),
-          ..._canvasFiles.map((f) => _HwFileItem(file: f, onTap: () => _openEditorView(_EditorType.handwriting))),
-        ],
-        if (_audioFiles.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.mic, title: '녹음', count: _audioFiles.length),
-          ..._audioFiles.map((f) => _AudioFileItem(file: f, onTap: () {})),
-        ],
-      ],
+      itemCount: merged.length,
+      itemBuilder: (context, index) {
+        final entry = merged[index];
+        switch (entry.type) {
+          case _FileType.text:
+            return _buildTextCard(entry.file as TextFile);
+          case _FileType.handwriting:
+            return _buildHandwritingCard(entry.file as HandwritingFile);
+          case _FileType.audio:
+            return _buildAudioCard(entry.file as AudioFile);
+        }
+      },
     );
+  }
+
+  // ── 텍스트 카드 ──
+  Widget _buildTextCard(TextFile file) {
+    final color = Theme.of(context).primaryColor;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.1),
+          child: Icon(Icons.keyboard, color: color),
+        ),
+        title: Text(
+          file.title.isNotEmpty
+              ? file.title
+              : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('${file.characterCount}자',
+                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(file.updatedAt.toString().substring(0, 16),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ),
+        ]),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: color),
+            onPressed: () => _showRenameTextDialog(file),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: color),
+            onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
+          ),
+        ]),
+        onTap: () => _openEditorView(_EditorType.text),
+      ),
+    );
+  }
+
+  // ── 필기 카드 ──
+  Widget _buildHandwritingCard(HandwritingFile file) {
+    final color = Theme.of(context).primaryColor;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.1),
+          child: Icon(
+            file.type == HandwritingType.pdfConvert ? Icons.picture_as_pdf : Icons.draw,
+            color: color,
+          ),
+        ),
+        title: Text(
+          file.displayTitle,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(children: [
+          if (file.isMultiPage) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('${file.totalPages}페이지',
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(file.updatedAt.toString().substring(0, 16),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ),
+        ]),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: color),
+            onPressed: () => _showRenameHandwritingDialog(file),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: color),
+            onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
+          ),
+        ]),
+        onTap: () => _openEditorView(_EditorType.handwriting),
+      ),
+    );
+  }
+
+  // ── 녹음 카드 ──
+  Widget _buildAudioCard(AudioFile file) {
+    final color = Theme.of(context).primaryColor;
+    final isCurrentPlaying = _audioService.currentPlayingFile?.id == file.id;
+    final isPlaying = isCurrentPlaying && _audioService.isPlaying;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
+          child: Icon(
+            isPlaying ? Icons.pause : Icons.play_arrow,
+            color: isPlaying ? Colors.white : color,
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              file.fileName,
+              style: TextStyle(fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '생성: ${file.createdAt.month}/${file.createdAt.day} ${file.createdAt.hour}:${file.createdAt.minute.toString().padLeft(2, '0')}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            if (isCurrentPlaying) ...[
+              const SizedBox(height: 8),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2.0,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                ),
+                child: Slider(
+                  value: _audioService.totalDuration.inMilliseconds > 0
+                      ? _audioService.playbackDuration.inMilliseconds.toDouble()
+                      : 0.0,
+                  min: 0.0,
+                  max: _audioService.totalDuration.inMilliseconds.toDouble(),
+                  onChanged: (v) => _audioService.seekAudio(Duration(milliseconds: v.toInt())),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_formatDuration(_audioService.playbackDuration),
+                        style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                    Text(_formatDuration(_audioService.totalDuration),
+                        style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: color),
+            onPressed: () => _showRenameAudioDialog(file),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: color),
+            onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
+          ),
+        ]),
+        onTap: () => _playAudio(file),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  // ── 재생 ──
+  Future<void> _playAudio(AudioFile file) async {
+    if (_audioService.currentPlayingFile?.id == file.id) {
+      if (_audioService.isPlaying) {
+        await _audioService.pauseAudio();
+      } else {
+        await _audioService.resumeAudio();
+      }
+    } else {
+      await _audioService.playAudio(file);
+    }
+  }
+
+  // ── 삭제 공통 다이얼로그 ──
+  void _showDeleteDialog(String name, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('파일 삭제'),
+        content: Text('"$name"을(를) 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); onConfirm(); },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 텍스트 이름 변경 ──
+  void _showRenameTextDialog(TextFile file) {
+    final controller = TextEditingController(text: file.title);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () async {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty) {
+                Navigator.pop(ctx);
+                await _renameTextFile(file, newTitle);
+              }
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameTextFile(TextFile file, String newTitle) async {
+    try {
+      final storage = FileStorageService.instance;
+      final allFiles = await storage.loadTextFiles(file.littenId);
+      final updated = allFiles.map((f) => f.id == file.id ? f.copyWith(title: newTitle) : f).toList();
+      await storage.saveTextFiles(file.littenId, updated);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.refreshLittens();
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 텍스트 이름 변경 실패: $e');
+    }
+  }
+
+  Future<void> _deleteTextFile(TextFile file) async {
+    try {
+      final storage = FileStorageService.instance;
+      await storage.deleteTextFile(file);
+      final allFiles = await storage.loadTextFiles(file.littenId);
+      final updated = allFiles.where((f) => f.id != file.id).toList();
+      await storage.saveTextFiles(file.littenId, updated);
+      final littenService = LittenService();
+      await littenService.removeTextFileFromLitten(file.littenId, file.id);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.updateFileCount();
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 텍스트 삭제 실패: $e');
+    }
+  }
+
+  // ── 필기 이름 변경 ──
+  void _showRenameHandwritingDialog(HandwritingFile file) {
+    final controller = TextEditingController(text: file.title);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () async {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty) {
+                Navigator.pop(ctx);
+                await _renameHandwritingFile(file, newTitle);
+              }
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameHandwritingFile(HandwritingFile file, String newTitle) async {
+    try {
+      final storage = FileStorageService.instance;
+      final allFiles = await storage.loadHandwritingFiles(file.littenId);
+      final updated = allFiles.map((f) => f.id == file.id ? f.copyWith(title: newTitle) : f).toList();
+      await storage.saveHandwritingFiles(file.littenId, updated);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.refreshLittens();
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 필기 이름 변경 실패: $e');
+    }
+  }
+
+  Future<void> _deleteHandwritingFile(HandwritingFile file) async {
+    try {
+      final storage = FileStorageService.instance;
+      await storage.deleteHandwritingFile(file);
+      final allFiles = await storage.loadHandwritingFiles(file.littenId);
+      final updated = allFiles.where((f) => f.id != file.id).toList();
+      await storage.saveHandwritingFiles(file.littenId, updated);
+      final littenService = LittenService();
+      await littenService.removeHandwritingFileFromLitten(file.littenId, file.id);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.updateFileCount();
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 필기 삭제 실패: $e');
+    }
+  }
+
+  // ── 녹음 이름 변경 ──
+  void _showRenameAudioDialog(AudioFile file) {
+    final controller = TextEditingController(text: file.fileName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                Navigator.pop(ctx);
+                await _renameAudioFile(file, newName);
+              }
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameAudioFile(AudioFile file, String newName) async {
+    try {
+      await _audioService.renameAudioFile(file, newName);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 녹음 이름 변경 실패: $e');
+    }
+  }
+
+  Future<void> _deleteAudioFile(AudioFile file) async {
+    try {
+      await _audioService.deleteAudioFile(file);
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.updateFileCount();
+      await _loadFiles(appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 녹음 삭제 실패: $e');
+    }
   }
 }
 
@@ -308,111 +712,6 @@ class _FabBtn extends StatelessWidget {
           const Icon(Icons.add, size: 16),
         ],
       ),
-    );
-  }
-}
-
-// ───────────────────────────── 섹션 헤더 ─────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final int count;
-
-  const _SectionHeader({required this.icon, required this.title, required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 6),
-          Text(title,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor)),
-          const SizedBox(width: 4),
-          Text('$count', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-        ],
-      ),
-    );
-  }
-}
-
-// ───────────────────────────── 파일 아이템들 ─────────────────────────────
-
-class _TextFileItem extends StatelessWidget {
-  final TextFile file;
-  final VoidCallback onTap;
-
-  const _TextFileItem({required this.file, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: const Icon(Icons.text_snippet, size: 20),
-      title: Text(file.title, style: const TextStyle(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        DateFormat('MM/dd HH:mm').format(file.updatedAt),
-        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _HwFileItem extends StatelessWidget {
-  final HandwritingFile file;
-  final VoidCallback onTap;
-
-  const _HwFileItem({required this.file, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        file.type == HandwritingType.pdfConvert ? Icons.picture_as_pdf : Icons.draw,
-        size: 20,
-      ),
-      title: Text(file.displayTitle, style: const TextStyle(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '${DateFormat('MM/dd HH:mm').format(file.updatedAt)}${file.isMultiPage ? '  •  ${file.pageInfo}' : ''}',
-        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _AudioFileItem extends StatelessWidget {
-  final AudioFile file;
-  final VoidCallback onTap;
-
-  const _AudioFileItem({required this.file, required this.onTap});
-
-  String _formatDuration(Duration? d) {
-    if (d == null) return '';
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: const Icon(Icons.audio_file, size: 20),
-      title: Text(file.fileName, style: const TextStyle(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '${DateFormat('MM/dd HH:mm').format(file.createdAt)}${file.duration != null ? '  •  ${_formatDuration(file.duration)}' : ''}',
-        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-      ),
-      onTap: onTap,
     );
   }
 }

@@ -82,7 +82,7 @@ class _WritingScreenState extends State<WritingScreen> {
     super.dispose();
   }
 
-  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int audioCount = 0, String? littenTitle}) {
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
         case 'topLeft':
@@ -121,7 +121,7 @@ class _WritingScreenState extends State<WritingScreen> {
         icon: Icons.keyboard,
         content: TextTab(key: _textTabKey),
         position: parsePosition(savedPositions['text'] ?? 'topLeft'),
-        isVisible: false,
+        isVisible: noteTabVisibility.contains('text'),
       ),
       TabItem(
         id: 'handwriting',
@@ -129,7 +129,7 @@ class _WritingScreenState extends State<WritingScreen> {
         icon: Icons.draw,
         content: HandwritingTab(key: _handwritingTabKey),
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
-        isVisible: false,
+        isVisible: noteTabVisibility.contains('handwriting'),
       ),
       TabItem(
         id: 'audio',
@@ -137,7 +137,7 @@ class _WritingScreenState extends State<WritingScreen> {
         icon: Icons.mic,
         content: RecordingTab(key: ValueKey(_recordingTabRefreshCount)),
         position: parsePosition(savedPositions['audio'] ?? 'topLeft'),
-        isVisible: false,
+        isVisible: noteTabVisibility.contains('audio'),
       ),
       TabItem(
         id: 'browser',
@@ -145,7 +145,7 @@ class _WritingScreenState extends State<WritingScreen> {
         icon: Icons.public,
         content: BrowserTab(key: _browserTabKey),
         position: parsePosition(savedPositions['browser'] ?? 'topLeft'),
-        isVisible: false,
+        isVisible: noteTabVisibility.contains('browser'),
       ),
     ];
   }
@@ -160,6 +160,7 @@ class _WritingScreenState extends State<WritingScreen> {
           handwritingCount: appState.actualHandwritingCount,
           audioCount: appState.actualAudioCount,
           littenTitle: appState.selectedLitten?.title,
+          noteTabVisibility: appState.noteTabVisibility,
         );
 
         String positionToString(TabPosition position) {

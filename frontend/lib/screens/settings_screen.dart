@@ -155,6 +155,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: l10n?.homeTitle ?? '홈',
                 iconColor: Theme.of(context).primaryColor,
               ),
+              _buildSettingsItem(
+                icon: Icons.tab,
+                title: '노트탭 보기',
+                subtitle: _getNoteTabVisibilityText(appState.noteTabVisibility),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showNoteTabVisibilityDialog(context, appState),
+              ),
             ]),
             AppSpacing.verticalSpaceL,
 
@@ -639,6 +646,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  String _getNoteTabVisibilityText(Set<String> visibility) {
+    final labels = <String>[];
+    if (visibility.contains('all')) labels.add('전체');
+    if (visibility.contains('text')) labels.add('텍스트');
+    if (visibility.contains('handwriting')) labels.add('필기');
+    if (visibility.contains('audio')) labels.add('녹음');
+    if (visibility.contains('browser')) labels.add('검색');
+    return labels.join(', ');
+  }
+
+  void _showNoteTabVisibilityDialog(BuildContext context, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (context) => _NoteTabVisibilityDialog(appState: appState),
     );
   }
 
@@ -1267,6 +1291,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ───────────────────────────── 노트탭 보기 설정 다이얼로그 ─────────────────────────────
+
+class _NoteTabVisibilityDialog extends StatefulWidget {
+  final AppStateProvider appState;
+  const _NoteTabVisibilityDialog({required this.appState});
+
+  @override
+  State<_NoteTabVisibilityDialog> createState() => _NoteTabVisibilityDialogState();
+}
+
+class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
+  late Set<String> _selected;
+
+  static const _tabs = [
+    {'id': 'text', 'label': '텍스트탭', 'icon': Icons.keyboard},
+    {'id': 'handwriting', 'label': '필기탭', 'icon': Icons.draw},
+    {'id': 'audio', 'label': '녹음탭', 'icon': Icons.mic},
+    {'id': 'browser', 'label': '검색탭', 'icon': Icons.public},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.appState.noteTabVisibility);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).primaryColor;
+    return AlertDialog(
+      title: const Text('노트탭 보기'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 전체탭은 항상 활성 (고정)
+          ListTile(
+            dense: true,
+            leading: Icon(Icons.apps, size: 20, color: themeColor),
+            title: const Text('전체탭'),
+            trailing: Icon(Icons.check_circle, color: themeColor, size: 20),
+          ),
+          const Divider(height: 1),
+          ..._tabs.map((tab) {
+            final id = tab['id'] as String;
+            final label = tab['label'] as String;
+            final icon = tab['icon'] as IconData;
+            final isChecked = _selected.contains(id);
+            return CheckboxListTile(
+              dense: true,
+              secondary: Icon(icon, size: 20, color: isChecked ? themeColor : Colors.grey),
+              title: Text(label),
+              value: isChecked,
+              activeColor: themeColor,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) {
+                    _selected.add(id);
+                  } else {
+                    _selected.remove(id);
+                  }
+                });
+              },
+            );
+          }),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.appState.setNoteTabVisibility(_selected);
+            Navigator.of(context).pop();
+          },
+          child: const Text('확인'),
+        ),
+      ],
     );
   }
 }
