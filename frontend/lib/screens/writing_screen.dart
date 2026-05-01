@@ -199,6 +199,7 @@ class _WritingScreenState extends State<WritingScreen> with AutomaticKeepAliveCl
           key: ValueKey(appState.targetWritingTabId),
           tabs: _tabs,
           initialActiveTabId: appState.currentWritingTabId,
+          showBottomDock: appState.dockingEnabled,
           onTabPositionChanged: (tabId, newPosition) {
             setState(() {
               for (final tab in _tabs) {

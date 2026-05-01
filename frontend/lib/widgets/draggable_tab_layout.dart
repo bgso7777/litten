@@ -17,6 +17,7 @@ class TabItem {
   final Widget? customTabWidget; // 탭 버튼 커스텀 위젯 (제공 시 icon+title 대체)
   TabPosition position;
   bool isVisible;
+  final bool isDraggable;
 
   TabItem({
     required this.id,
@@ -26,6 +27,7 @@ class TabItem {
     this.customTabWidget,
     this.position = TabPosition.fullScreen,
     this.isVisible = true,
+    this.isDraggable = true,
   });
 }
 
@@ -33,16 +35,18 @@ class DraggableTabLayout extends StatefulWidget {
   final List<TabItem> tabs;
   final Function(String tabId, TabPosition newPosition)? onTabPositionChanged;
   final Function(String tabId)? onTabTapped;
-  final Function(String tabId)? onTabChanged; // ⭐ 탭 변경 콜백 추가
-  final String? initialActiveTabId; // 초기 활성 탭 ID
+  final Function(String tabId)? onTabChanged;
+  final String? initialActiveTabId;
+  final bool showBottomDock; // 하단 도킹 영역 표시 여부
 
   const DraggableTabLayout({
     super.key,
     required this.tabs,
     this.onTabPositionChanged,
     this.onTabTapped,
-    this.onTabChanged, // ⭐ 콜백 파라미터 추가
+    this.onTabChanged,
     this.initialActiveTabId,
+    this.showBottomDock = false,
   });
 
   @override
@@ -274,26 +278,25 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
     final screenSize = MediaQuery.of(context).size;
 
-    // 세로 모드: 상하 2분할만 사용
+    // 세로 모드: 상하 분할
     if (isPortrait) {
-      // 상단과 하단에 탭이 있는지 확인
       final hasTop = hasTopLeft || hasTopRight;
       final hasBottom = hasBottomLeft || hasBottomRight;
+      // 도킹 사용 시 하단 영역 항상 표시, 미사용 시 탭이 있을 때만 표시
+      final showBottom = widget.showBottomDock || hasBottom;
 
       return Column(
         children: [
-          // 상단 영역
-          if (hasTop)
-            Expanded(
-              flex: hasBottom ? (_horizontalDividerRatio * 100).round() : 1,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
+          // 상단 영역 (항상 표시)
+          Expanded(
+            flex: showBottom ? (_horizontalDividerRatio * 100).round() : 1,
+            child: _buildQuadrant(
+              TabPosition.topLeft,
+              double.infinity,
+              double.infinity,
             ),
-          // 가로 분할선 - 상단과 하단 모두 있을 때만 표시
-          if (hasTop && hasBottom)
+          ),
+          if (showBottom)
             _buildHorizontalDivider(
               onDrag: (delta) {
                 setState(() {
@@ -301,21 +304,11 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                 });
               },
             ),
-          // 하단 영역
-          if (hasBottom)
+          if (showBottom)
             Expanded(
-              flex: hasTop ? ((1 - _horizontalDividerRatio) * 100).round() : 1,
+              flex: ((1 - _horizontalDividerRatio) * 100).round(),
               child: _buildQuadrant(
                 TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          // 아무것도 없을 때 - 상단만 표시
-          if (!hasTop && !hasBottom)
-            Expanded(
-              child: _buildQuadrant(
-                TabPosition.topLeft,
                 double.infinity,
                 double.infinity,
               ),
@@ -512,7 +505,124 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
   Widget _buildTabHeader(TabItem tab, {required bool isFullScreen}) {
     final isActive = tab.id == _activeTabId;
-    final isDragging = _draggingTabId == tab.id;
+
+    // 탭 클릭 핸들러 (draggable/non-draggable 공통)
+    Widget tabContent = InkWell(
+      onTap: () {
+        debugPrint('[DraggableTabLayout] 탭 클릭: ${tab.id} (${tab.title})');
+        setState(() {
+          _activeTabId = tab.id;
+        });
+        debugPrint('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
+        widget.onTabTapped?.call(tab.id);
+        widget.onTabChanged?.call(tab.id);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive
+                ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                : Colors.transparent,
+            width: 1,
+          ),
+          boxShadow: isActive ? [
+            BoxShadow(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: tab.customTabWidget != null
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconTheme(
+                    data: IconThemeData(
+                      size: 14,
+                      color: isActive
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[600],
+                    ),
+                    child: DefaultTextStyle(
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                        color: isActive
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[700],
+                      ),
+                      child: tab.customTabWidget!,
+                    ),
+                  ),
+                  if (tab.isDraggable)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 14,
+                        color: isActive
+                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                            : Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedScale(
+                    scale: isActive ? 1.1 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      tab.icon,
+                      size: 16,
+                      color: isActive
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      tab.title,
+                      style: TextStyle(
+                        fontSize: isFullScreen ? 14 : 12,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[700],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (tab.isDraggable)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 14,
+                        color: isActive
+                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                            : Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+
+    // isDraggable == false: Draggable 래퍼 없이 바로 반환
+    if (!tab.isDraggable) {
+      return tabContent;
+    }
 
     return Draggable<String>(
       data: tab.id,
@@ -594,115 +704,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           color: Colors.grey.withValues(alpha: 0.6),
         ),
       ),
-      child: InkWell(
-        onTap: () {
-          debugPrint('[DraggableTabLayout] 탭 클릭: ${tab.id} (${tab.title})');
-          setState(() {
-            _activeTabId = tab.id;
-          });
-          debugPrint('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
-          widget.onTabTapped?.call(tab.id);
-          widget.onTabChanged?.call(tab.id);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isActive
-                  ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                  : Colors.transparent,
-              width: 1,
-            ),
-            boxShadow: isActive ? [
-              BoxShadow(
-                color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ] : null,
-          ),
-          child: tab.customTabWidget != null
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconTheme(
-                      data: IconThemeData(
-                        size: 14,
-                        color: isActive
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                      child: DefaultTextStyle(
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                          color: isActive
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey[700],
-                        ),
-                        child: tab.customTabWidget!,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.drag_indicator,
-                        size: 14,
-                        color: isActive
-                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
-                            : Colors.grey.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AnimatedScale(
-                      scale: isActive ? 1.1 : 1.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        tab.icon,
-                        size: 16,
-                        color: isActive
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        tab.title,
-                        style: TextStyle(
-                          fontSize: isFullScreen ? 14 : 12,
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                          color: isActive
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey[700],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.drag_indicator,
-                        size: 14,
-                        color: isActive
-                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
-                            : Colors.grey.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
+      child: tabContent,
     );
   }
 

@@ -84,8 +84,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
 
-  // ⭐ WritingScreen 탭 위치 저장 (text, handwriting, audio, browser 각각의 위치)
+  // ⭐ 도킹 사용 여부 (기본: false)
+  bool _dockingEnabled = false;
+
+  // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
+    'all': 'topLeft',
     'text': 'topLeft',
     'handwriting': 'topLeft',
     'audio': 'topLeft',
@@ -125,6 +129,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, String> get writingTabPositions => _writingTabPositions;
   Set<String> get noteTabVisibility => _noteTabVisibility;
   String get startScreen => _startScreen;
+  bool get dockingEnabled => _dockingEnabled;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -295,8 +300,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';
     debugPrint('✅ [AppStateProvider] 저장된 쓰기 탭 위치 복원: $_currentWritingTabId');
 
-    // ⭐ 각 탭의 위치 복원 (text, handwriting, audio, browser)
+    // ⭐ 각 탭의 위치 복원 (all, text, handwriting, audio, browser)
     _writingTabPositions = {
+      'all': prefs.getString('tab_position_all') ?? 'topLeft',
       'text': prefs.getString('tab_position_text') ?? 'topLeft',
       'handwriting': prefs.getString('tab_position_handwriting') ?? 'topLeft',
       'audio': prefs.getString('tab_position_audio') ?? 'topLeft',
@@ -316,6 +322,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // ⭐ 시작 화면 복원 (기본: note)
     _startScreen = prefs.getString('start_screen') ?? 'note';
     debugPrint('✅ [AppStateProvider] 시작 화면 복원: $_startScreen');
+
+    _dockingEnabled = prefs.getBool('docking_enabled') ?? false;
+    debugPrint('✅ [AppStateProvider] 도킹 사용 여부 복원: $_dockingEnabled');
   }
 
   String _getSystemLanguage() {
@@ -1169,6 +1178,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 시작 화면 저장 ('note' | 'calendar')
+  Future<void> setDockingEnabled(bool enabled) async {
+    if (_dockingEnabled == enabled) return;
+    _dockingEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('docking_enabled', enabled);
+    debugPrint('💾 [AppStateProvider] 도킹 사용 여부 저장: $_dockingEnabled');
+    notifyListeners();
+  }
+
   Future<void> setStartScreen(String screen) async {
     if (_startScreen == screen) return;
     _startScreen = screen;

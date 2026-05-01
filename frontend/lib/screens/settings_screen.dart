@@ -156,6 +156,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showStartScreenDialog(context, appState),
               ),
+              _buildSettingsSwitchItem(
+                icon: Icons.view_quilt,
+                title: '도킹',
+                subtitle: '노트 화면 하단 영역 표시',
+                iconColor: Theme.of(context).primaryColor,
+                value: appState.dockingEnabled,
+                onChanged: (v) => appState.setDockingEnabled(v),
+              ),
               _buildSettingsItem(
                 icon: Icons.tab,
                 title: '노트탭 보기',
@@ -318,6 +326,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ...children,
         ],
       ),
+    );
+  }
+
+  Widget _buildSettingsSwitchItem({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Color iconColor = Colors.blue,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(title, style: AppTextStyles.bodyText2),
+      subtitle: subtitle != null
+          ? Text(subtitle, style: AppTextStyles.caption)
+          : null,
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: iconColor,
+      ),
+      onTap: () => onChanged(!value),
     );
   }
 
