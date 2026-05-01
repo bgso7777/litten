@@ -154,13 +154,13 @@ class NotificationGeneratorService {
 
     switch (rule.frequency) {
       case NotificationFrequency.onDay:
-        // 당일 알림: 스케줄 시간 기준
-        return baseTime.isAfter(now) ? baseTime : null;
+        // 당일 알림: 2분 이내 지난 트리거도 허용 (일정 생성 시 타이밍 오차 보정)
+        return !baseTime.isBefore(now.subtract(const Duration(minutes: 2))) ? baseTime : null;
 
       case NotificationFrequency.oneDayBefore:
-        // 1일 전 알림
+        // 1일 전 알림: 2분 이내 지난 트리거도 허용
         final oneDayBefore = baseTime.subtract(const Duration(days: 1));
-        return oneDayBefore.isAfter(now) ? oneDayBefore : null;
+        return !oneDayBefore.isBefore(now.subtract(const Duration(minutes: 2))) ? oneDayBefore : null;
 
       case NotificationFrequency.daily:
         // 매일 알림

@@ -144,7 +144,6 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
               // 캘린더탭(index 0) 터치 시 처리
               if (index == 0) {
-                // ⭐ 캘린더 탭 터치 시 - 항상 초기 상태로 리셋
                 debugPrint('📍 [MainTabScreen] 캘린더 탭 터치 - 이번 달로 이동');
 
                 // 날짜 선택 해제
@@ -153,13 +152,21 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 이번 달로 focusedDate 변경
                 appState.changeFocusedDate(DateTime.now());
 
-                // 선택 해제 (전체 파일 카운트 표시)
-                appState.clearSelectedLitten();
+                // 노트탭(index 1)에서 선택된 일정이 있으면 유지, 그 외엔 해제
+                final comingFromNoteWithSelection =
+                    appState.selectedTabIndex == 1 && appState.selectedLitten != null;
+                if (!comingFromNoteWithSelection) {
+                  appState.clearSelectedLitten();
+                } else {
+                  debugPrint('📍 [MainTabScreen] 노트탭 선택 일정 유지: ${appState.selectedLitten!.title}');
+                }
 
-                // 스크롤을 맨 위로 (캘린더 표시) + 현재 시간 일정 자동 선택
+                // 스크롤을 맨 위로 (캘린더 표시) + 현재 시간 일정 자동 선택(선택 일정 없을 때만)
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _homeScreenKey.currentState?.scrollToTop();
-                  _homeScreenKey.currentState?.autoSelectActiveSchedule();
+                  if (!comingFromNoteWithSelection) {
+                    _homeScreenKey.currentState?.autoSelectActiveSchedule();
+                  }
                   debugPrint('📅 캘린더 탭: 이번 달로 이동 완료');
                 });
               }
@@ -236,7 +243,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     return AnimatedBuilder(
       animation: appState.notificationService,
       builder: (context, child) {
-        final notificationCount = appState.notificationService.firedNotifications.length;
+        final notificationCount = appState.notificationService.scheduleBadgeCount;
 
         if (notificationCount == 0) {
           return const Icon(Icons.event_available);

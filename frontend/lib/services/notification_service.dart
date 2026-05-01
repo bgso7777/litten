@@ -80,6 +80,15 @@ class NotificationService extends ChangeNotifier {
   List<NotificationEvent> get firedNotifications => List.unmodifiable(_firedNotifications);
   bool get isRunning => _isRunning;
 
+  // 오늘 날짜 기준 미해제 스케줄 뱃지 수 (HomeScreen._loadNotificationDates에서 업데이트)
+  int _scheduleBadgeCount = 0;
+  int get scheduleBadgeCount => _scheduleBadgeCount;
+  void updateScheduleBadgeCount(int count) {
+    if (_scheduleBadgeCount == count) return;
+    _scheduleBadgeCount = count;
+    notifyListeners();
+  }
+
   void startNotificationChecker() {
     debugPrint('🚀 알림 체커 시작 - 30초마다 자동 체크');
     _isRunning = true;
@@ -566,6 +575,8 @@ class NotificationService extends ChangeNotifier {
 
       if (success) {
         debugPrint('✅ 알림 스케줄링 완료 (저장소 기반)');
+        // 스케줄링 직후 즉시 체크: 방금 생성된 알림이 현재 시간과 일치하면 즉시 발생
+        await _safeCheckNotifications();
       } else {
         debugPrint('⚠️ 알림 스케줄링 일부 실패');
       }
@@ -728,6 +739,9 @@ class NotificationService extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  /// 외부에서 뱃지 갱신이 필요할 때 리스너에게 알림
+  void notifyBadgeChange() => notifyListeners();
 
   @override
   void dispose() {

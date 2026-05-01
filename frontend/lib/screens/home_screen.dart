@@ -63,6 +63,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     // listener 제거
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     appState.removeListener(_syncCalendarFocusedDate);
+    appState.notificationService.removeListener(_onNotificationChanged);
 
     // WidgetsBindingObserver 제거
     WidgetsBinding.instance.removeObserver(this);
@@ -98,6 +99,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     // appState.focusedDate 변경 시 _calendarFocusedDate 동기화
     appState.addListener(_syncCalendarFocusedDate);
 
+    // 알림 상태 변화(발생·해제) 시 캘린더 뱃지 갱신
+    appState.notificationService.addListener(_onNotificationChanged);
+
     // 스크롤 컨트롤러 리스너 추가 (스크롤 위치 자동 저장)
     _scrollController.addListener(_onScroll);
 
@@ -114,10 +118,26 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       debugPrint('🔄 [HomeScreen] 재초기화 - 스크롤 위치 유지 ($_globalScrollOffset)');
     }
 
-    // 힌트 칩 1분마다 갱신 (분 단위 시간 표시 업데이트)
-    _chipRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
-      debugPrint('⏱️ [HomeScreen] 힌트 칩 1분 갱신');
+    // 힌트 칩 갱신 타이머 시작 (0분이면 10초, 그 외엔 1분 간격)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleChipRefresh();
+    });
+  }
+
+  /// 힌트 칩 갱신 타이머 - 60초 미만이면 10초, 그 외엔 1분 간격으로 자기 재귀
+  void _scheduleChipRefresh() {
+    if (!mounted) return;
+    _chipRefreshTimer?.cancel();
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
+    final isUnder1Min = hint.secondsUntilToday != null && hint.secondsUntilToday! < 60;
+    final interval = isUnder1Min ? const Duration(seconds: 10) : const Duration(minutes: 1);
+    debugPrint('⏱️ [HomeScreen] 힌트 칩 타이머 설정: ${isUnder1Min ? "10초" : "1분"} (secondsUntilToday: ${hint.secondsUntilToday})');
+    _chipRefreshTimer = Timer(interval, () {
+      if (!mounted) return;
+      setState(() {});
+      debugPrint('⏱️ [HomeScreen] 힌트 칩 갱신 완료 (${isUnder1Min ? "10초" : "1분"} 모드)');
+      _scheduleChipRefresh();
     });
   }
 
@@ -146,6 +166,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       scrollToTop();
       debugPrint('📱 화면 회전 감지 - 캘린더 표시 (스크롤 맨 위)');
     });
+  }
+
+  /// 알림 상태 변화 시 캘린더 뱃지 캐시 갱신
+  void _onNotificationChanged() {
+    if (mounted) _loadNotificationDates();
   }
 
   /// appState.focusedDate가 변경되면 _calendarFocusedDate 동기화
@@ -265,42 +290,50 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   /// 알림 날짜 캐시 로드
+  /// 리튼 스케줄을 직접 기반으로 뱃지 계산 (StoredNotification 미생성 문제 우회)
   Future<void> _loadNotificationDates() async {
     try {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final storage = NotificationStorageService();
+
+      // 저장된 알림에서 리튼별 확인 상태 계산
       final allNotifications = await storage.loadNotifications();
+      final Map<String, bool> storageAcknowledged = {};
+      for (final litten in appState.littens) {
+        final littenNotifs = allNotifications.where((n) => n.littenId == litten.id).toList();
+        if (littenNotifs.isNotEmpty) {
+          storageAcknowledged[litten.id] = littenNotifs.every((n) => n.isAcknowledged);
+        }
+      }
+
+      // SharedPreferences에서 수동으로 닫은 리튼 ID 읽기
+      final prefs = await SharedPreferences.getInstance();
+      final manuallyDismissed = prefs.getStringList('badge_dismissed_litten_ids')?.toSet() ?? {};
 
       if (!mounted) return;
 
-      // 날짜별로 알림이 있는 리튼 ID Set 계산
+      // 리튼 스케줄 기반으로 날짜별 뱃지 계산
       final dateMap = <String, Set<String>>{};
-      for (final notification in allNotifications) {
-        // 해당 리튼 찾기
-        final litten = appState.littens.firstWhere(
-          (l) => l.id == notification.littenId,
-          orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
-        );
-
-        if (litten.id.isEmpty) continue;
-
-        // 일정 범위 확인
+      for (final litten in appState.littens) {
         final schedule = litten.schedule;
-        if (schedule != null && schedule.endDate != null) {
-          // 시작일부터 종료일까지 모든 날짜에 추가
-          final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-          final endDate = DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day);
+        if (schedule == null) continue;
+        // 저장 알림이 모두 확인됐거나 수동으로 닫혔으면 건너뜀
+        if (storageAcknowledged[litten.id] == true || manuallyDismissed.contains(litten.id)) continue;
+        // 미확인 저장 알림이 없고, 활성화된 알림 규칙도 없으면 건너뜀
+        final hasUnacknowledgedStored = storageAcknowledged.containsKey(litten.id) && storageAcknowledged[litten.id] == false;
+        final hasEnabledRules = schedule.notificationRules.any((r) => r.isEnabled);
+        if (!hasUnacknowledgedStored && !hasEnabledRules) continue;
 
-          DateTime currentDate = startDate;
-          while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
-            final dateKey = '${currentDate.year}-${currentDate.month.toString().padLeft(2, '0')}-${currentDate.day.toString().padLeft(2, '0')}';
-            dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
-            currentDate = currentDate.add(const Duration(days: 1));
-          }
-        } else {
-          // endDate가 없으면 트리거 시간만 사용
-          final dateKey = '${notification.triggerTime.year}-${notification.triggerTime.month.toString().padLeft(2, '0')}-${notification.triggerTime.day.toString().padLeft(2, '0')}';
-          dateMap.putIfAbsent(dateKey, () => {}).add(notification.littenId);
+        final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+        final endDate = schedule.endDate != null
+            ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
+            : startDate;
+
+        DateTime cur = startDate;
+        while (!cur.isAfter(endDate)) {
+          final dateKey = DateFormat('yyyy-MM-dd').format(cur);
+          dateMap.putIfAbsent(dateKey, () => {}).add(litten.id);
+          cur = cur.add(const Duration(days: 1));
         }
       }
 
@@ -308,7 +341,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         _notificationDateCache = dateMap;
       });
 
-      debugPrint('📅 알림 날짜 캐시 로드 완료: ${_notificationDateCache.length}개 날짜');
+      // 오늘 날짜의 스케줄 뱃지 수를 NotificationService에 반영 → 하단 탭 뱃지 업데이트
+      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayBadgeCount = (dateMap[todayKey] ?? {}).length;
+      appState.notificationService.updateScheduleBadgeCount(todayBadgeCount);
+
+      debugPrint('📅 알림 날짜 캐시 로드 완료: ${_notificationDateCache.length}개 날짜, 오늘 뱃지: $todayBadgeCount');
     } catch (e) {
       debugPrint('❌ 알림 날짜 캐시 로드 실패: $e');
     }
@@ -1926,14 +1964,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   // 일정 힌트 데이터 계산
-  // minutesUntilToday: 오늘 다음 일정까지 남은 분 (null = 오늘 예정 일정 없음)
+  // secondsUntilToday: 오늘 다음 일정까지 남은 초 (null = 오늘 예정 일정 없음)
   // daysUntilNext: 미래 가장 가까운 일정까지 남은 일수 (-1 = 없음)
   // nearestTitle: 가장 임박한 일정의 제목
-  ({int? minutesUntilToday, int daysUntilNext, String? nearestTitle}) _getScheduleHint(List<Litten> littens, String languageCode) {
+  ({int? secondsUntilToday, int daysUntilNext, String? nearestTitle}) _getScheduleHint(List<Litten> littens, String languageCode) {
     // 선택된 언어의 타임존 기준 현재 시각
     final now = nowForLanguage(languageCode);
     final todayOnly = DateTime(now.year, now.month, now.day);
-    int? nearestTodayMinutes;
+    int? nearestTodaySeconds;
     int nearestDays = -1;
     String? nearestTitle;
 
@@ -1964,9 +2002,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           litten.schedule!.startTime.minute,
         );
         if (scheduleStart.isAfter(now)) {
-          final diff = scheduleStart.difference(now).inMinutes;
-          if (nearestTodayMinutes == null || diff < nearestTodayMinutes) {
-            nearestTodayMinutes = diff;
+          final diffSec = scheduleStart.difference(now).inSeconds;
+          if (nearestTodaySeconds == null || diffSec < nearestTodaySeconds) {
+            nearestTodaySeconds = diffSec;
             nearestTitle = litten.title;
           }
         }
@@ -1974,11 +2012,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         final diff = start.difference(todayOnly).inDays;
         if (nearestDays == -1 || diff < nearestDays) {
           nearestDays = diff;
-          if (nearestTodayMinutes == null) nearestTitle = litten.title;
+          if (nearestTodaySeconds == null) nearestTitle = litten.title;
         }
       }
     }
-    return (minutesUntilToday: nearestTodayMinutes, daysUntilNext: nearestDays, nearestTitle: nearestTitle);
+    return (secondsUntilToday: nearestTodaySeconds, daysUntilNext: nearestDays, nearestTitle: nearestTitle);
   }
 
   // 일정 목록 스크롤 유도 힌트 칩 위젯
@@ -1986,9 +2024,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
 
     final String timeLabel;
-    if (hint.minutesUntilToday != null) {
-      final minutes = hint.minutesUntilToday!;
-      if (minutes < 60) {
+    if (hint.secondsUntilToday != null) {
+      final totalSec = hint.secondsUntilToday!;
+      final minutes = totalSec ~/ 60;
+      final seconds = totalSec % 60;
+      if (minutes == 0) {
+        timeLabel = '0분 ${seconds}초 후 일정 있음';
+      } else if (minutes < 60) {
         timeLabel = '$minutes분 후 일정 있음';
       } else {
         final hours = minutes ~/ 60;
@@ -2031,7 +2073,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

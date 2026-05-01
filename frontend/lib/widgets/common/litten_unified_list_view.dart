@@ -182,7 +182,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final textCount = appState.totalTextCount;
     final handwritingCount = appState.totalHandwritingCount;
     final themeColor = Theme.of(context).primaryColor;
-    final hPad = widget.padding?.left ?? 0;
+    final hPad = widget.padding?.left ?? AppSpacing.paddingM.left;
     final effectiveVisible = widget.listVisible ?? _littenListVisible;
 
     void handleToggle() {
@@ -640,6 +640,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                   if (fired != null) await appState.notificationService.dismissNotification(fired);
                 }
                 if (mounted) setState(() {});
+              } else if (litten.schedule != null && litten.schedule!.notificationRules.any((r) => r.isEnabled)) {
+                // 저장된 알림 없지만 활성 규칙 있음 → 수동 해제로 표시
+                final prefs = await SharedPreferences.getInstance();
+                final dismissed = prefs.getStringList('badge_dismissed_litten_ids')?.toSet() ?? {};
+                dismissed.add(litten.id);
+                await prefs.setStringList('badge_dismissed_litten_ids', dismissed.toList());
+                appState.notificationService.notifyBadgeChange();
               }
             } catch (e) {
               debugPrint('❌ 리튼 알림 확인 처리 실패: $e');
