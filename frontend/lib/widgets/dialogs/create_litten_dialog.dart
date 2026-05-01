@@ -152,7 +152,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(currentContext)})'
                     : '';
                 scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text(l10n?.littenCreated(title) ?? '$title 리튼이 생성되었습니다.$scheduleText')),
+                  SnackBar(content: Text(l10n?.littenCreated(title) ?? '$title 일정이 생성되었습니다.$scheduleText')),
                 );
               }
             } catch (e) {

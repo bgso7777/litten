@@ -211,6 +211,7 @@ class _WritingScreenState extends State<WritingScreen> {
                     padding: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
                     listVisible: _listVisible,
                     onListToggle: () => setState(() => _listVisible = !_listVisible),
+                    ignoreSelectedDate: true,
                   ),
                 ),
                 Expanded(child: body),

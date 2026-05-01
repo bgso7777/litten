@@ -321,7 +321,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String littenCreated(String title) {
-    return '$title 리튼이 생성되었습니다.';
+    return '$title 일정이 생성되었습니다.';
   }
 
   @override
@@ -793,7 +793,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String littenUpdated(String title) {
-    return '$title 리튼이 수정되었습니다.';
+    return '$title 일정이 수정되었습니다.';
   }
 
   @override

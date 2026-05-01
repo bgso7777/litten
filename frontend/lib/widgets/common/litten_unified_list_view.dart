@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../utils/timezone_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/themes.dart';
@@ -21,8 +22,9 @@ class LittenUnifiedListView extends StatefulWidget {
   final String? littenId;   // 설정 시 해당 일정의 파일만 표시
   final bool? listVisible;  // 외부에서 리스트 표시 여부를 제어할 때 사용
   final VoidCallback? onListToggle; // 외부 토글 콜백
+  final bool ignoreSelectedDate; // true면 캘린더 날짜 선택을 무시하고 전체 일정 표시
 
-  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId, this.listVisible, this.onListToggle});
+  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId, this.listVisible, this.onListToggle, this.ignoreSelectedDate = false});
 
   @override
   State<LittenUnifiedListView> createState() => _LittenUnifiedListViewState();
@@ -354,8 +356,8 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     List<dynamic> selectedDateNotifications, {
     String? littenId,
   }) {
-    final bool hasSelectedDate = appState.isDateSelected;
-    final int notificationCount = littenId != null ? 0 : selectedDateNotifications.length;
+    final bool hasSelectedDate = !widget.ignoreSelectedDate && appState.isDateSelected;
+    final int notificationCount = (littenId != null || widget.ignoreSelectedDate) ? 0 : selectedDateNotifications.length;
 
     final contentKey = '$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}';
     _refreshFilesFutureIfNeeded(appState, contentKey);
@@ -426,7 +428,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             );
           }
 
-          final now = DateTime.now();
+          final now = nowForLanguage(appState.locale.languageCode);
           final isUpcoming = scheduleDateTime != null && scheduleDateTime.isAfter(now);
           final isPast = scheduleDateTime != null && !scheduleDateTime.isAfter(now);
 
@@ -705,8 +707,10 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                         value: 'toggle_collapse',
                         child: Row(children: [Icon(isCollapsed ? Icons.visibility : Icons.visibility_off, size: 18), const SizedBox(width: 8), Text(isCollapsed ? '보이기' : '숨기기')]),
                       ),
-                      const PopupMenuItem(value: 'edit', child: Text('수정')),
-                      const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      if (litten.title != 'undefined') ...[
+                        const PopupMenuItem(value: 'edit', child: Text('수정')),
+                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      ],
                     ],
                     child: Icon(Icons.more_vert, color: isSelected ? Colors.white70 : Colors.grey.shade600, size: 20),
                   ),

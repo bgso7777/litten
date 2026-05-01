@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +18,7 @@ import '../widgets/home/schedule_picker.dart';
 import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
+import '../utils/timezone_utils.dart';
 import '../models/litten.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
@@ -49,12 +51,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   double? _pointerDownLocalY;      // 터치 시작 Y 좌표 (로컬 - 캘린더/리스트 영역 판단용)
   double? _pointerDownListOffset;  // 터치 시작 시 리스트 스크롤 오프셋
   DateTime? _pointerDownTime;      // 터치 시작 시각 (속도 계산용)
+  Timer? _chipRefreshTimer;        // 힌트 칩 1분 단위 갱신 타이머
 
   @override
   bool get wantKeepAlive => true; // 화면 회전 및 탭 전환 시에도 상태 유지
 
   @override
   void dispose() {
+    _chipRefreshTimer?.cancel();
+
     // listener 제거
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     appState.removeListener(_syncCalendarFocusedDate);
@@ -108,6 +113,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     } else {
       debugPrint('🔄 [HomeScreen] 재초기화 - 스크롤 위치 유지 ($_globalScrollOffset)');
     }
+
+    // 힌트 칩 1분마다 갱신 (분 단위 시간 표시 업데이트)
+    _chipRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+      debugPrint('⏱️ [HomeScreen] 힌트 칩 1분 갱신');
+    });
   }
 
   /// 스크롤 리스너 - 스크롤 위치 자동 저장
@@ -936,7 +947,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ? ' (${DateFormat('M월 d일').format(newSchedule.date)} ${newSchedule.startTime.format(context)})'
             : '';
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('${updatedLitten.title} 리튼이 수정되었습니다.$scheduleText')),
+          SnackBar(content: Text('${updatedLitten.title} 일정이 수정되었습니다.$scheduleText')),
         );
         debugPrint('✅ 리튼 수정 완료: ${updatedLitten.id}');
       }
@@ -1881,12 +1892,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   // 일정 힌트 데이터 계산
   // minutesUntilToday: 오늘 다음 일정까지 남은 분 (null = 오늘 예정 일정 없음)
   // daysUntilNext: 미래 가장 가까운 일정까지 남은 일수 (-1 = 없음)
-  ({int? minutesUntilToday, int daysUntilNext}) _getScheduleHint(List<Litten> littens) {
-    // 에뮬레이터/기기 시간대 무관하게 KST 기준 현재 시각 사용
-    final now = tz.TZDateTime.now(tz.getLocation('Asia/Seoul'));
+  // nearestTitle: 가장 임박한 일정의 제목
+  ({int? minutesUntilToday, int daysUntilNext, String? nearestTitle}) _getScheduleHint(List<Litten> littens, String languageCode) {
+    // 선택된 언어의 타임존 기준 현재 시각
+    final now = nowForLanguage(languageCode);
     final todayOnly = DateTime(now.year, now.month, now.day);
     int? nearestTodayMinutes;
     int nearestDays = -1;
+    String? nearestTitle;
 
     for (final litten in littens) {
       if (litten.schedule == null || litten.title == 'undefined') continue;
@@ -1907,9 +1920,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           (todayOnly.isAtSameMomentAs(end) || todayOnly.isBefore(end));
 
       if (isToday) {
-        // 오늘 일정의 시작 시각을 KST TZDateTime으로 생성 (now와 동일 시간대)
+        // 오늘 일정의 시작 시각을 선택된 언어의 타임존으로 생성
         final scheduleStart = tz.TZDateTime(
-          tz.getLocation('Asia/Seoul'),
+          getTimezoneForLanguage(languageCode),
           now.year, now.month, now.day,
           litten.schedule!.startTime.hour,
           litten.schedule!.startTime.minute,
@@ -1918,35 +1931,40 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           final diff = scheduleStart.difference(now).inMinutes;
           if (nearestTodayMinutes == null || diff < nearestTodayMinutes) {
             nearestTodayMinutes = diff;
+            nearestTitle = litten.title;
           }
         }
       } else if (start.isAfter(todayOnly)) {
         final diff = start.difference(todayOnly).inDays;
-        if (nearestDays == -1 || diff < nearestDays) nearestDays = diff;
+        if (nearestDays == -1 || diff < nearestDays) {
+          nearestDays = diff;
+          if (nearestTodayMinutes == null) nearestTitle = litten.title;
+        }
       }
     }
-    return (minutesUntilToday: nearestTodayMinutes, daysUntilNext: nearestDays);
+    return (minutesUntilToday: nearestTodayMinutes, daysUntilNext: nearestDays, nearestTitle: nearestTitle);
   }
 
   // 일정 목록 스크롤 유도 힌트 칩 위젯
   Widget _buildScheduleHintChip(AppStateProvider appState) {
-    final hint = _getScheduleHint(appState.littens);
+    final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
 
-    final String label;
+    final String timeLabel;
     if (hint.minutesUntilToday != null) {
       final minutes = hint.minutesUntilToday!;
       if (minutes < 60) {
-        label = '$minutes분 후 일정 있음';
+        timeLabel = '$minutes분 후 일정 있음';
       } else {
         final hours = minutes ~/ 60;
         final remaining = minutes % 60;
-        label = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
+        timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
       }
     } else if (hint.daysUntilNext > 0) {
-      label = '${hint.daysUntilNext}일 후 일정 있음';
+      timeLabel = '${hint.daysUntilNext}일 후 일정 있음';
     } else {
-      label = '일정 목록 보기';
+      timeLabel = '일정 목록 보기';
     }
+    final String? title = hint.nearestTitle;
 
     return IgnorePointer(
       ignoring: _scheduleListVisible,
@@ -1970,10 +1988,20 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.event_note, size: 14, color: Theme.of(context).primaryColor),
-                const SizedBox(width: 6),
+                if (title != null) ...[
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(width: 6),
+                ],
                 Text(
-                  label,
+                  timeLabel,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).primaryColor,
