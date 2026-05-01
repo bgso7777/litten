@@ -81,6 +81,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 노트탭 가시성 설정 (기본: 전체탭만 표시)
   Set<String> _noteTabVisibility = {'all'};
 
+  // ⭐ 시작 화면 설정 (기본: note)
+  String _startScreen = 'note'; // 'note' | 'calendar'
+
   // ⭐ WritingScreen 탭 위치 저장 (text, handwriting, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
     'text': 'topLeft',
@@ -121,6 +124,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get currentMainTabIndex => _currentMainTabIndex;
   Map<String, String> get writingTabPositions => _writingTabPositions;
   Set<String> get noteTabVisibility => _noteTabVisibility;
+  String get startScreen => _startScreen;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -308,6 +312,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _noteTabVisibility = {'all'};
     }
     debugPrint('✅ [AppStateProvider] 노트탭 가시성 복원: $_noteTabVisibility');
+
+    // ⭐ 시작 화면 복원 (기본: note)
+    _startScreen = prefs.getString('start_screen') ?? 'note';
+    debugPrint('✅ [AppStateProvider] 시작 화면 복원: $_startScreen');
   }
 
   String _getSystemLanguage() {
@@ -1157,6 +1165,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('note_tab_visibility', _noteTabVisibility.toList());
     debugPrint('💾 [AppStateProvider] 노트탭 가시성 저장: $_noteTabVisibility');
+    notifyListeners();
+  }
+
+  /// 시작 화면 저장 ('note' | 'calendar')
+  Future<void> setStartScreen(String screen) async {
+    if (_startScreen == screen) return;
+    _startScreen = screen;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('start_screen', screen);
+    debugPrint('💾 [AppStateProvider] 시작 화면 저장: $_startScreen');
     notifyListeners();
   }
 

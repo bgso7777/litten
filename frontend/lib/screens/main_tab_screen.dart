@@ -29,9 +29,14 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     super.initState();
     audioService = AudioService();
 
-    // PageController 초기화
+    // PageController 초기화: 시작 화면 설정 반영 (note=0, calendar=1)
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    _pageController = PageController(initialPage: appState.selectedTabIndex);
+    final initialPage = appState.startScreen == 'calendar' ? 1 : 0;
+    _pageController = PageController(initialPage: initialPage);
+    // 시작 탭 인덱스를 상태에 동기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appState.changeTabIndex(initialPage);
+    });
 
     // HomeScreen 등 외부에서 changeTabIndex() 호출 시 PageController 동기화
     appState.addListener(_onAppStateTabChanged);

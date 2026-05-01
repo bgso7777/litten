@@ -152,8 +152,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingsItem(
                 icon: Icons.home,
                 title: l10n?.startScreen ?? '시작 화면',
-                subtitle: l10n?.homeTitle ?? '홈',
+                subtitle: appState.startScreen == 'calendar' ? '캘린더' : '노트',
                 iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showStartScreenDialog(context, appState),
               ),
               _buildSettingsItem(
                 icon: Icons.tab,
@@ -657,6 +658,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (visibility.contains('audio')) labels.add('녹음');
     if (visibility.contains('browser')) labels.add('검색');
     return labels.join(', ');
+  }
+
+  void _showStartScreenDialog(BuildContext context, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('시작 화면'),
+        children: [
+          RadioListTile<String>(
+            value: 'note',
+            groupValue: appState.startScreen,
+            title: const Text('노트'),
+            onChanged: (v) {
+              appState.setStartScreen(v!);
+              Navigator.pop(ctx);
+            },
+          ),
+          RadioListTile<String>(
+            value: 'calendar',
+            groupValue: appState.startScreen,
+            title: const Text('캘린더'),
+            onChanged: (v) {
+              appState.setStartScreen(v!);
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showNoteTabVisibilityDialog(BuildContext context, AppStateProvider appState) {
