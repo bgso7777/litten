@@ -1963,8 +1963,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
               border: Border(
                 top: BorderSide(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+                ),
+                left: BorderSide(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+                ),
+                right: BorderSide(
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
                 ),
               ),

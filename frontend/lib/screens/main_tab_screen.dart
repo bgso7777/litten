@@ -204,7 +204,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           // 홈 탭(index 0)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 0
               ? Transform.translate(
-                  offset: const Offset(0, 16),
+                  offset: const Offset(0, -12),
                   child: FloatingActionButton(
                     onPressed: () {
                       // HomeScreen의 _showCreateLittenDialog 호출
