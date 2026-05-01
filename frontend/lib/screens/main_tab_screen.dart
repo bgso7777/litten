@@ -123,7 +123,16 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             ],
             ),
           ),
-          bottomNavigationBar: BottomNavigationBar(
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+                  width: 1.0,
+                ),
+              ),
+            ),
+            child: BottomNavigationBar(
             currentIndex: appState.selectedTabIndex,
             selectedFontSize: 12,
             unselectedFontSize: 12,
@@ -190,6 +199,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 label: l10n?.settingsTitle ?? '설정',
               ),
             ],
+            ),
           ),
           // 홈 탭(index 0)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 0
