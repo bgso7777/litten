@@ -193,14 +193,17 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           ),
           // 홈 탭(index 0)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 0
-              ? FloatingActionButton(
-                  onPressed: () {
-                    // HomeScreen의 _showCreateLittenDialog 호출
-                    _homeScreenKey.currentState?.showCreateLittenDialog();
-                  },
-                  tooltip: l10n?.createLitten ?? '리튼 생성',
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: const Icon(Icons.alarm_add, color: Colors.white),
+              ? Transform.translate(
+                  offset: const Offset(0, 16),
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      // HomeScreen의 _showCreateLittenDialog 호출
+                      _homeScreenKey.currentState?.showCreateLittenDialog();
+                    },
+                    tooltip: l10n?.createLitten ?? '리튼 생성',
+                    backgroundColor: Theme.of(context).primaryColor,
+                    child: const Icon(Icons.alarm_add, color: Colors.white),
+                  ),
                 )
               : null,
         );

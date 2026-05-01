@@ -411,20 +411,40 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
           });
 
-          int sortPriority = 3;
-          DateTime sortTime = litten.createdAt;
           final hasSchedule = litten.schedule != null;
           final hasActiveNotifications = hasSchedule && litten.schedule!.notificationRules.any((r) => r.isEnabled);
 
-          if (hasActiveNotifications && littenFiles.isNotEmpty) {
+          // 일정 시작 DateTime 계산
+          DateTime? scheduleDateTime;
+          if (hasSchedule) {
+            scheduleDateTime = DateTime(
+              litten.schedule!.date.year,
+              litten.schedule!.date.month,
+              litten.schedule!.date.day,
+              litten.schedule!.startTime.hour,
+              litten.schedule!.startTime.minute,
+            );
+          }
+
+          final now = DateTime.now();
+          final isUpcoming = scheduleDateTime != null && scheduleDateTime.isAfter(now);
+          final isPast = scheduleDateTime != null && !scheduleDateTime.isAfter(now);
+
+          // 상단(1): 시작 안 한 일정 (알림 유무 무관) → 빠른 시간 상위
+          // 중단(2): 시작시간이 지난 일정 → 최신 상위
+          // 하단(3): 일정 없음 → 생성시간 최신 상위
+          int sortPriority;
+          DateTime sortTime;
+
+          if (isUpcoming) {
             sortPriority = 1;
-            sortTime = littenFiles.first['updatedAt'] as DateTime;
-          } else if (hasActiveNotifications) {
-            sortPriority = 1;
-            sortTime = litten.createdAt;
-          } else if (littenFiles.isNotEmpty) {
+            sortTime = scheduleDateTime!;
+          } else if (isPast) {
             sortPriority = 2;
-            sortTime = littenFiles.first['updatedAt'] as DateTime;
+            sortTime = scheduleDateTime!;
+          } else {
+            sortPriority = 3;
+            sortTime = litten.createdAt;
           }
 
           littenGroups.add({
@@ -437,9 +457,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           });
         }
 
+        // 우선순위 오름차순, 상단(1)은 빠른 시간 상위(오름차순), 중단·하단은 최신 상위(내림차순)
         littenGroups.sort((a, b) {
           int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
           if (priorityCompare != 0) return priorityCompare;
+          if ((a['sortPriority'] as int) == 1) {
+            return (a['sortTime'] as DateTime).compareTo(b['sortTime'] as DateTime);
+          }
           return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
         });
 

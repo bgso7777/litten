@@ -2,6 +2,7 @@
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../l10n/app_localizations.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1532,7 +1533,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           left: AppSpacing.paddingM.left,
           right: AppSpacing.paddingM.right,
           top: 8,
-          bottom: 8,
+          bottom: 0,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.max,
@@ -1869,7 +1870,121 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
               ),
             ),
+            // 일정 목록 스크롤 유도 힌트 칩 (메인 메뉴에 가깝게)
+            _buildScheduleHintChip(appState),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 일정 힌트 데이터 계산
+  // minutesUntilToday: 오늘 다음 일정까지 남은 분 (null = 오늘 예정 일정 없음)
+  // daysUntilNext: 미래 가장 가까운 일정까지 남은 일수 (-1 = 없음)
+  ({int? minutesUntilToday, int daysUntilNext}) _getScheduleHint(List<Litten> littens) {
+    // 에뮬레이터/기기 시간대 무관하게 KST 기준 현재 시각 사용
+    final now = tz.TZDateTime.now(tz.getLocation('Asia/Seoul'));
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    int? nearestTodayMinutes;
+    int nearestDays = -1;
+
+    for (final litten in littens) {
+      if (litten.schedule == null || litten.title == 'undefined') continue;
+      final start = DateTime(
+        litten.schedule!.date.year,
+        litten.schedule!.date.month,
+        litten.schedule!.date.day,
+      );
+      final end = litten.schedule!.endDate != null
+          ? DateTime(
+              litten.schedule!.endDate!.year,
+              litten.schedule!.endDate!.month,
+              litten.schedule!.endDate!.day,
+            )
+          : start;
+
+      final isToday = (todayOnly.isAtSameMomentAs(start) || todayOnly.isAfter(start)) &&
+          (todayOnly.isAtSameMomentAs(end) || todayOnly.isBefore(end));
+
+      if (isToday) {
+        // 오늘 일정의 시작 시각을 KST TZDateTime으로 생성 (now와 동일 시간대)
+        final scheduleStart = tz.TZDateTime(
+          tz.getLocation('Asia/Seoul'),
+          now.year, now.month, now.day,
+          litten.schedule!.startTime.hour,
+          litten.schedule!.startTime.minute,
+        );
+        if (scheduleStart.isAfter(now)) {
+          final diff = scheduleStart.difference(now).inMinutes;
+          if (nearestTodayMinutes == null || diff < nearestTodayMinutes) {
+            nearestTodayMinutes = diff;
+          }
+        }
+      } else if (start.isAfter(todayOnly)) {
+        final diff = start.difference(todayOnly).inDays;
+        if (nearestDays == -1 || diff < nearestDays) nearestDays = diff;
+      }
+    }
+    return (minutesUntilToday: nearestTodayMinutes, daysUntilNext: nearestDays);
+  }
+
+  // 일정 목록 스크롤 유도 힌트 칩 위젯
+  Widget _buildScheduleHintChip(AppStateProvider appState) {
+    final hint = _getScheduleHint(appState.littens);
+
+    final String label;
+    if (hint.minutesUntilToday != null) {
+      final minutes = hint.minutesUntilToday!;
+      if (minutes < 60) {
+        label = '$minutes분 후 일정 있음';
+      } else {
+        final hours = minutes ~/ 60;
+        final remaining = minutes % 60;
+        label = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
+      }
+    } else if (hint.daysUntilNext > 0) {
+      label = '${hint.daysUntilNext}일 후 일정 있음';
+    } else {
+      label = '일정 목록 보기';
+    }
+
+    return IgnorePointer(
+      ignoring: _scheduleListVisible,
+      child: AnimatedOpacity(
+        opacity: _scheduleListVisible ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: GestureDetector(
+          onTap: () {
+            debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 펼침');
+            setState(() { _scheduleListVisible = true; });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.event_note, size: 14, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_up, size: 16, color: Theme.of(context).primaryColor),
+              ],
+            ),
+          ),
         ),
       ),
     );
