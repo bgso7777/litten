@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
@@ -23,6 +24,7 @@ class _WritingScreenState extends State<WritingScreen> {
   int _recordingTabRefreshCount = 0; // 녹음 탭 새로고침 카운터
   bool _listVisible = false;
   AppStateProvider? _appState;
+  final ScrollController _listScrollController = ScrollController();
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -32,11 +34,21 @@ class _WritingScreenState extends State<WritingScreen> {
   @override
   void initState() {
     super.initState();
+    _listScrollController.addListener(_onListScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _appState = Provider.of<AppStateProvider>(context, listen: false);
       _appState!.addListener(_onAppStateChanged);
       _onAppStateChanged(); // 초기 상태 확인
     });
+  }
+
+  void _onListScroll() {
+    if (!mounted || !_listScrollController.hasClients) return;
+    final pos = _listScrollController.position;
+    // 최상단에서 위 방향으로 드래그 시 리스트 접기
+    if (pos.pixels <= 0 && pos.userScrollDirection == ScrollDirection.reverse && _listVisible) {
+      setState(() => _listVisible = false);
+    }
   }
 
   void _onAppStateChanged() {
@@ -50,6 +62,7 @@ class _WritingScreenState extends State<WritingScreen> {
 
   @override
   void dispose() {
+    _listScrollController.dispose();
     _appState?.removeListener(_onAppStateChanged);
     super.dispose();
   }
@@ -208,6 +221,7 @@ class _WritingScreenState extends State<WritingScreen> {
                   curve: Curves.easeInOut,
                   height: panelHeight,
                   child: LittenUnifiedListView(
+                    scrollController: _listScrollController,
                     padding: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 8),
                     listVisible: _listVisible,
                     onListToggle: () => setState(() => _listVisible = !_listVisible),
