@@ -119,7 +119,6 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 await appState.deleteLitten(littenId);
                 if (mounted) {
                   navigator.pop();
-                  scaffoldMessenger.showSnackBar(SnackBar(content: Text('$title 일정이 삭제되었습니다.')));
                 }
               } catch (e) {
                 if (mounted) {

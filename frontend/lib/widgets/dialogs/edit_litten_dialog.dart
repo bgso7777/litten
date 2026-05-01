@@ -333,12 +333,6 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
       await appState.updateLitten(updatedLitten);
 
       if (mounted) {
-        final scheduleText = _selectedSchedule != null
-            ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(context)})'
-            : '';
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(l10n?.littenUpdated(updatedLitten.title) ?? '${updatedLitten.title} 일정이 수정되었습니다.$scheduleText')),
-        );
         debugPrint('✅ 리튼 수정 완료: ${updatedLitten.id}');
       }
       return true;

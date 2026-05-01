@@ -133,7 +133,6 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
 
             final navigator = Navigator.of(context);
             final scaffoldMessenger = ScaffoldMessenger.of(context);
-            final currentContext = context;
 
             try {
               debugPrint('🔥 리튼 생성 시작: $title');
@@ -147,13 +146,6 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
 
                 // 다이얼로그 닫기
                 navigator.pop();
-
-                final scheduleText = _selectedSchedule != null
-                    ? ' (${DateFormat('M월 d일').format(_selectedSchedule!.date)} ${_selectedSchedule!.startTime.format(currentContext)})'
-                    : '';
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text(l10n?.littenCreated(title) ?? '$title 일정이 생성되었습니다.$scheduleText')),
-                );
               }
             } catch (e) {
               debugPrint('❌ 리튼 생성 에러: $e');

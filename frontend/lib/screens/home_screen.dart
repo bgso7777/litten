@@ -1017,12 +1017,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       await appState.updateLitten(updatedLitten);
 
       if (mounted) {
-        final scheduleText = newSchedule != null
-            ? ' (${DateFormat('M월 d일').format(newSchedule.date)} ${newSchedule.startTime.format(context)})'
-            : '';
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('${updatedLitten.title} 일정이 수정되었습니다.$scheduleText')),
-        );
         debugPrint('✅ 리튼 수정 완료: ${updatedLitten.id}');
       }
       return true; // 성공 시 다이얼로그를 닫음
@@ -1059,9 +1053,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     try {
       await appState.renameLitten(littenId, newTitle);
       navigator.pop();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('리튼 이름이 \'$newTitle\'로 변경되었습니다.')),
-      );
     } catch (e) {
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('${l10n?.error ?? '오류'}: $e')),
@@ -1813,14 +1804,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                   onAcceptWithDetails: (details) async {
                                     try {
                                       await appState.moveLittenToDate(details.data, day);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                            duration: const Duration(seconds: 2),
-                                          ),
-                                        );
-                                      }
                                     } catch (e) {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -2314,14 +2297,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                         onAcceptWithDetails: (details) async {
                           try {
                             await appState.moveLittenToDate(details.data, day);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('리튼이 ${DateFormat('M월 d일').format(day)}로 이동되었습니다.'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
