@@ -20,8 +20,12 @@ import '../models/litten.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 
+enum HandwritingInitialAction { none, loadPdf, createCanvas }
+
 class HandwritingTab extends StatefulWidget {
-  const HandwritingTab({super.key});
+  final HandwritingInitialAction initialAction;
+  final VoidCallback? onClose;
+  const HandwritingTab({super.key, this.initialAction = HandwritingInitialAction.none, this.onClose});
 
   @override
   State<HandwritingTab> createState() => _HandwritingTabState();
@@ -131,6 +135,17 @@ class _HandwritingTabState extends State<HandwritingTab>
     _painterController.freeStyleColor = _selectedColor;
 
     _loadFiles();
+
+    if (widget.initialAction != HandwritingInitialAction.none) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.initialAction == HandwritingInitialAction.loadPdf) {
+          _loadPdfForNewFile();
+        } else if (widget.initialAction == HandwritingInitialAction.createCanvas) {
+          _createEmptyHandwritingFile();
+        }
+      });
+    }
   }
 
   // 캔버스를 좌상단으로 초기화하는 함수 (중복 호출 방지)
@@ -2680,13 +2695,14 @@ class _HandwritingTabState extends State<HandwritingTab>
                 children: [
                   IconButton(
                     onPressed: () async {
-                      // 파일 목록 새로고침하여 최근 저장된 파일이 위로 오도록
+                      if (widget.onClose != null) {
+                        widget.onClose!();
+                        return;
+                      }
                       await _loadFiles();
-
                       setState(() {
                         _isEditing = false;
                         _currentHandwritingFile = null;
-                        // 배경 이미지 정보 초기화
                         _backgroundImageOriginalSize = null;
                       });
                     },

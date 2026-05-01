@@ -1698,11 +1698,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 파일 카운트 업데이트 (파일 추가/삭제 시 호출)
   Future<void> updateFileCount() async {
-    // undefined 리튼 또는 미선택 시 전체 카운트, 그 외는 해당 일정 카운트
-    final littenId = (_selectedLitten == null || _selectedLitten!.title == 'undefined')
-        ? null
-        : _selectedLitten!.id;
-    await getActualFileCounts(littenId: littenId);
+    // 선택된 리튼이 있으면 해당 리튼 카운트, 없으면 전체 카운트
+    await getActualFileCounts(littenId: _selectedLitten?.id);
   }
 }
 

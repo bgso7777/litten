@@ -18,7 +18,10 @@ import '../services/litten_service.dart';
 import '../services/audio_service.dart';
 
 class TextTab extends StatefulWidget {
-  const TextTab({super.key});
+  final bool autoCreate;
+  final VoidCallback? onClose;
+
+  const TextTab({super.key, this.autoCreate = false, this.onClose});
 
   @override
   State<TextTab> createState() => _TextTabState();
@@ -59,6 +62,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     // ⭐ AppStateProvider 리스닝 - STT 상태 변화 감지
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.autoCreate && mounted) {
+        _createNewTextFile();
+      }
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       appState.addListener(_onAppStateChanged);
       _lastSTTActiveState = appState.isSTTActive;
@@ -1937,9 +1943,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             children: [
               IconButton(
                 onPressed: _isListening ? null : () async {
-                  // 파일 목록 새로고침하여 최근 저장된 파일이 위로 오도록
+                  if (widget.onClose != null) {
+                    widget.onClose!();
+                    return;
+                  }
                   await _loadFiles();
-
                   setState(() {
                     _isEditing = false;
                     _currentTextFile = null;

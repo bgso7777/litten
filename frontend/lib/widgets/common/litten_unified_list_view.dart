@@ -210,15 +210,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             const SizedBox(width: 4),
             Text('$littenCount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: themeColor)),
             const SizedBox(width: 8),
-            Expanded(
-              child: appState.selectedLitten != null && appState.selectedLitten!.title != 'undefined'
-                  ? Text(
-                      appState.selectedLitten!.title,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: themeColor),
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            const Spacer(),
             _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
             const SizedBox(width: 4),
             _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
@@ -273,7 +265,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         headerTitle = '파일';
     }
 
-    final filterKey = 'filter-$filterType-${appState.littens.length}-${littenId ?? ''}';
+    final filterKey = 'filter-$filterType-${appState.littens.length}-${littenId ?? ''}-${appState.totalTextCount}-${appState.totalHandwritingCount}-${appState.totalAudioCount}';
     _refreshFilesFutureIfNeeded(appState, filterKey);
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _filesFuture,
@@ -361,7 +353,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final bool hasSelectedDate = !widget.ignoreSelectedDate && appState.isDateSelected;
     final int notificationCount = (littenId != null || widget.ignoreSelectedDate) ? 0 : selectedDateNotifications.length;
 
-    final contentKey = '$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}';
+    final contentKey = '$hasSelectedDate-$notificationCount-${appState.littens.length}-${littenId ?? ''}-${appState.totalTextCount}-${appState.totalHandwritingCount}-${appState.totalAudioCount}';
     _refreshFilesFutureIfNeeded(appState, contentKey);
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _filesFuture,

@@ -10,7 +10,9 @@ import '../config/themes.dart';
 import '../models/audio_file.dart';
 
 class RecordingTab extends StatefulWidget {
-  const RecordingTab({super.key});
+  final bool autoStart;
+
+  const RecordingTab({super.key, this.autoStart = false});
 
   @override
   State<RecordingTab> createState() => _RecordingTabState();
@@ -25,6 +27,11 @@ class _RecordingTabState extends State<RecordingTab> {
   void initState() {
     super.initState();
     _loadAudioFiles();
+    if (widget.autoStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _toggleRecording();
+      });
+    }
   }
 
   // ⭐ 외부에서 호출 가능한 public 새로고침 메서드

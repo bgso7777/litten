@@ -14,6 +14,7 @@ class TabItem {
   final String title;
   final Widget content;
   final IconData icon;
+  final Widget? customTabWidget; // 탭 버튼 커스텀 위젯 (제공 시 icon+title 대체)
   TabPosition position;
   bool isVisible;
 
@@ -22,6 +23,7 @@ class TabItem {
     required this.title,
     required this.content,
     required this.icon,
+    this.customTabWidget,
     this.position = TabPosition.fullScreen,
     this.isVisible = true,
   });
@@ -177,6 +179,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   void _organizeTabsByPosition() {
     _tabsByPosition.clear();
     for (final tab in widget.tabs) {
+      if (!tab.isVisible) continue;
       _tabsByPosition.putIfAbsent(tab.position, () => []).add(tab);
     }
   }
@@ -279,36 +282,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
 
       return Column(
         children: [
-          // 상단 영역 (topLeft와 topRight 통합)
-          if (hasTop && hasBottom)
+          // 상단 영역
+          if (hasTop)
             Expanded(
-              flex: (_horizontalDividerRatio * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (hasTop && !hasBottom)
-            Expanded(
-              flex: 80,
-              child: _buildQuadrant(
-                TabPosition.topLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (!hasTop && hasBottom)
-            Expanded(
-              flex: 20,
+              flex: hasBottom ? (_horizontalDividerRatio * 100).round() : 1,
               child: _buildQuadrant(
                 TabPosition.topLeft,
                 double.infinity,
                 double.infinity,
               ),
             ),
-          // 가로 분할선
-          if (hasTop || hasBottom)
+          // 가로 분할선 - 상단과 하단 모두 있을 때만 표시
+          if (hasTop && hasBottom)
             _buildHorizontalDivider(
               onDrag: (delta) {
                 setState(() {
@@ -316,60 +301,25 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                 });
               },
             ),
-          // 하단 영역 (bottomLeft와 bottomRight 통합)
-          if (hasTop && hasBottom)
+          // 하단 영역
+          if (hasBottom)
             Expanded(
-              flex: ((1 - _horizontalDividerRatio) * 100).round(),
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (hasTop && !hasBottom)
-            Expanded(
-              flex: 4,
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            )
-          else if (!hasTop && hasBottom)
-            Expanded(
-              flex: 80,
+              flex: hasTop ? ((1 - _horizontalDividerRatio) * 100).round() : 1,
               child: _buildQuadrant(
                 TabPosition.bottomLeft,
                 double.infinity,
                 double.infinity,
               ),
             ),
-          // 아무것도 없을 때
-          if (!hasTop && !hasBottom) ...[
+          // 아무것도 없을 때 - 상단만 표시
+          if (!hasTop && !hasBottom)
             Expanded(
-              flex: 50,
               child: _buildQuadrant(
                 TabPosition.topLeft,
                 double.infinity,
                 double.infinity,
               ),
             ),
-            _buildHorizontalDivider(
-              onDrag: (delta) {
-                setState(() {
-                  _horizontalDividerRatio = (_horizontalDividerRatio + delta.delta.dy / screenSize.height).clamp(0.1, 0.9);
-                });
-              },
-            ),
-            Expanded(
-              flex: 50,
-              child: _buildQuadrant(
-                TabPosition.bottomLeft,
-                double.infinity,
-                double.infinity,
-              ),
-            ),
-          ],
         ],
       );
     }
@@ -600,28 +550,30 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(tab.icon, size: 20, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                tab.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.none,
+          child: tab.customTabWidget != null
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  tab.customTabWidget!,
+                  const SizedBox(width: 8),
+                  const Icon(Icons.open_with, size: 16, color: Colors.white70),
+                ])
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(tab.icon, size: 20, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Text(
+                      tab.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.open_with, size: 16, color: Colors.white70),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.open_with,
-                size: 16,
-                color: Colors.white70,
-              ),
-            ],
-          ),
         ),
       ),
       childWhenDragging: AnimatedContainer(
@@ -636,27 +588,10 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             width: 2,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              tab.icon,
-              size: 16,
-              color: Colors.grey.withValues(alpha: 0.6),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                tab.title,
-                style: TextStyle(
-                  fontSize: isFullScreen ? 14 : 12,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.grey.withValues(alpha: 0.6),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        child: Icon(
+          tab.customTabWidget != null ? Icons.apps : tab.icon,
+          size: 16,
+          color: Colors.grey.withValues(alpha: 0.6),
         ),
       ),
       child: InkWell(
@@ -667,7 +602,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           });
           debugPrint('[DraggableTabLayout] 활성 탭 변경됨: $_activeTabId');
           widget.onTabTapped?.call(tab.id);
-          widget.onTabChanged?.call(tab.id); // ⭐ 탭 변경 콜백 호출
+          widget.onTabChanged?.call(tab.id);
         },
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
@@ -692,46 +627,80 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
               ),
             ] : null,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedScale(
-                scale: isActive ? 1.1 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  tab.icon,
-                  size: 16,
-                  color: isActive
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey[600],
+          child: tab.customTabWidget != null
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconTheme(
+                      data: IconThemeData(
+                        size: 14,
+                        color: isActive
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[600],
+                      ),
+                      child: DefaultTextStyle(
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                          color: isActive
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey[700],
+                        ),
+                        child: tab.customTabWidget!,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 14,
+                        color: isActive
+                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                            : Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedScale(
+                      scale: isActive ? 1.1 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        tab.icon,
+                        size: 16,
+                        color: isActive
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        tab.title,
+                        style: TextStyle(
+                          fontSize: isFullScreen ? 14 : 12,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          color: isActive
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey[700],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 14,
+                        color: isActive
+                            ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                            : Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  tab.title,
-                  style: TextStyle(
-                    fontSize: isFullScreen ? 14 : 12,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                    color: isActive
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey[700],
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 14,
-                  color: isActive
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.7)
-                      : Colors.grey.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
