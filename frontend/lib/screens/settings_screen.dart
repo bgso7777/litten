@@ -347,10 +347,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Text(title, style: AppTextStyles.bodyText2),
-      subtitle: subtitle != null
-          ? Text(subtitle, style: AppTextStyles.caption)
-          : null,
+      title: Row(
+        children: [
+          Text(title, style: AppTextStyles.bodyText2),
+          if (subtitle != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                subtitle,
+                style: AppTextStyles.caption.copyWith(color: Colors.grey.shade600),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
@@ -377,10 +388,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Text(title, style: AppTextStyles.bodyText2),
-      subtitle: subtitle != null
-          ? Text(subtitle, style: AppTextStyles.caption)
-          : null,
+      title: Row(
+        children: [
+          Text(title, style: AppTextStyles.bodyText2),
+          if (subtitle != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                subtitle,
+                style: AppTextStyles.caption.copyWith(color: Colors.grey.shade600),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
       trailing: onTap != null
           ? const Icon(Icons.arrow_forward_ios, size: 16)
           : null,

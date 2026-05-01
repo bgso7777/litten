@@ -25,7 +25,8 @@ enum HandwritingInitialAction { none, loadPdf, createCanvas }
 class HandwritingTab extends StatefulWidget {
   final HandwritingInitialAction initialAction;
   final VoidCallback? onClose;
-  const HandwritingTab({super.key, this.initialAction = HandwritingInitialAction.none, this.onClose});
+  final HandwritingFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
+  const HandwritingTab({super.key, this.initialAction = HandwritingInitialAction.none, this.onClose, this.initialFile});
 
   @override
   State<HandwritingTab> createState() => _HandwritingTabState();
@@ -136,7 +137,14 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     _loadFiles();
 
-    if (widget.initialAction != HandwritingInitialAction.none) {
+    if (widget.initialFile != null) {
+      // ⭐ initialFile이 있으면 해당 파일을 바로 편집 모드로 열기
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        debugPrint('📂 initialFile 감지됨 - 파일 자동 열기: ${widget.initialFile!.displayTitle}');
+        _editHandwritingFile(widget.initialFile!);
+      });
+    } else if (widget.initialAction != HandwritingInitialAction.none) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.initialAction == HandwritingInitialAction.loadPdf) {

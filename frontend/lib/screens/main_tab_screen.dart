@@ -157,20 +157,21 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 이번 달로 focusedDate 변경
                 appState.changeFocusedDate(DateTime.now());
 
-                // 노트탭(index 0)에서 선택된 일정이 있으면 유지, 그 외엔 해제
-                final comingFromNoteWithSelection =
-                    appState.selectedTabIndex == 0 && appState.selectedLitten != null;
-                if (!comingFromNoteWithSelection) {
+                // ⭐ 노트탭(index 0) 또는 설정탭(index 2)에서 선택된 일정이 있으면 유지
+                final comingFromNoteOrSettingsWithSelection =
+                    (appState.selectedTabIndex == 0 || appState.selectedTabIndex == 2) &&
+                    appState.selectedLitten != null;
+                if (!comingFromNoteOrSettingsWithSelection) {
                   appState.clearSelectedLitten();
                 } else {
-                  debugPrint('📍 [MainTabScreen] 노트탭 선택 일정 유지: ${appState.selectedLitten!.title}');
+                  debugPrint('📍 [MainTabScreen] 선택 일정 유지: ${appState.selectedLitten!.title}');
                 }
 
-                // 스크롤을 맨 위로 (캘린더 표시) + 현재 시간 일정 자동 선택(선택 일정 없을 때만)
+                // 스크롤을 맨 위로 (캘린더 표시) + undefined 자동 선택(선택 일정 없을 때만)
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _homeScreenKey.currentState?.scrollToTop();
-                  if (!comingFromNoteWithSelection) {
-                    _homeScreenKey.currentState?.autoSelectActiveSchedule();
+                  if (!comingFromNoteOrSettingsWithSelection) {
+                    _homeScreenKey.currentState?.autoSelectUndefinedIfNeeded();
                   }
                   debugPrint('📅 캘린더 탭: 이번 달로 이동 완료');
                 });

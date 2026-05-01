@@ -20,8 +20,10 @@ import '../services/audio_service.dart';
 class TextTab extends StatefulWidget {
   final bool autoCreate;
   final VoidCallback? onClose;
+  final TextFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
+  final bool autoStartSTT; // ⭐ STT 자동 시작 여부
 
-  const TextTab({super.key, this.autoCreate = false, this.onClose});
+  const TextTab({super.key, this.autoCreate = false, this.onClose, this.initialFile, this.autoStartSTT = false});
 
   @override
   State<TextTab> createState() => _TextTabState();
@@ -62,7 +64,21 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     // ⭐ AppStateProvider 리스닝 - STT 상태 변화 감지
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.autoCreate && mounted) {
+      if (widget.initialFile != null && mounted) {
+        // ⭐ initialFile이 있으면 해당 파일을 바로 편집 모드로 열기
+        debugPrint('📂 initialFile 감지됨 - 파일 자동 열기: ${widget.initialFile!.displayTitle}');
+        _editTextFile(widget.initialFile!);
+      } else if (widget.autoStartSTT && mounted) {
+        // ⭐ STT 자동 시작 모드: 새 파일 생성 후 STT 시작
+        debugPrint('🎤 STT 자동 시작 모드 - 새 파일 생성 및 STT 시작');
+        _createNewTextFile();
+        // STT 시작을 위해 1초 대기 (파일 생성 완료 대기)
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted && _currentTextFile != null) {
+            _startListening();
+          }
+        });
+      } else if (widget.autoCreate && mounted) {
         _createNewTextFile();
       }
       final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1528,8 +1544,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               builder: (context, appState, child) {
                 // ⭐ STT 또는 녹음 중일 때 정지 아이콘 표시
                 final isActive = _isListening || _audioService.isRecording;
+                // ⭐ autoStartSTT로 진입했을 때만 활성화
+                final isEnabled = widget.autoStartSTT;
                 return InkWell(
-                  onTap: _toggleSpeechToText,
+                  onTap: isEnabled ? _toggleSpeechToText : null,
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     padding: const EdgeInsets.all(6),
@@ -1537,13 +1555,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       color: Colors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.grey.shade600,
+                        color: isEnabled ? Colors.grey.shade600 : Colors.grey.shade300,
                         width: 1.5,
                       ),
                     ),
                     child: Icon(
                       isActive ? Icons.stop : Icons.mic_none,
-                      color: Colors.grey.shade700,
+                      color: isEnabled ? Colors.grey.shade700 : Colors.grey.shade300,
                       size: 20,
                     ),
                   ),

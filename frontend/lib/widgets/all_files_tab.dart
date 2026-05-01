@@ -38,11 +38,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
   List<AudioFile> _audioFiles = [];
   bool _loading = false;
   String? _activeLittenId = '__init__';
+  int _lastFileListVersion = 0; // ⭐ 마지막으로 로드한 파일 목록 버전
 
   // 현재 전체화면으로 열린 에디터
   _EditorType? _openEditor;
   HandwritingInitialAction _handwritingAction = HandwritingInitialAction.none;
   bool _autoCreate = false;
+  TextFile? _selectedTextFile; // ⭐ 선택된 텍스트 파일
+  HandwritingFile? _selectedHandwritingFile; // ⭐ 선택된 필기 파일
 
   // 인라인 녹음 / 재생 상태
   final AudioService _audioService = AudioService();
@@ -150,14 +153,23 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  // ⭐ STT 자동 시작 플래그 추가
+  bool _autoStartSTT = false;
+
   void _openEditorView(_EditorType type, {
     HandwritingInitialAction action = HandwritingInitialAction.none,
     bool autoCreate = false,
+    bool autoStartSTT = false, // ⭐ STT 자동 시작 여부
+    TextFile? textFile, // ⭐ 열 텍스트 파일
+    HandwritingFile? handwritingFile, // ⭐ 열 필기 파일
   }) {
     setState(() {
       _openEditor = type;
       _handwritingAction = action;
       _autoCreate = autoCreate;
+      _autoStartSTT = autoStartSTT;
+      _selectedTextFile = textFile;
+      _selectedHandwritingFile = handwritingFile;
     });
   }
 
@@ -208,8 +220,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
     return Consumer<AppStateProvider>(
       builder: (context, appState, _) {
         final littenId = appState.selectedLitten?.id;
-        if (littenId != _activeLittenId) {
+        final currentFileListVersion = appState.fileListVersion;
+
+        // 리튼 ID가 변경되었거나 파일 목록 버전이 변경된 경우 파일 목록 새로고침
+        if (littenId != _activeLittenId || currentFileListVersion != _lastFileListVersion) {
           _activeLittenId = littenId;
+          _lastFileListVersion = currentFileListVersion;
+          debugPrint('🔄 [AllFilesTab] 파일 목록 새로고침 - 리튼: $littenId, 버전: $currentFileListVersion');
           WidgetsBinding.instance.addPostFrameCallback((_) => _loadFiles(appState));
         }
 
@@ -230,11 +247,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   else
                     _buildFileList(),
                   Positioned(
-                    bottom: 16,
+                    bottom: 4, // ⭐ 16 → 4로 변경하여 캘린더와 동일한 높이
                     left: 0,
                     right: 0,
                     child: _BottomFabRow(
                       onText: () => _openEditorView(_EditorType.text, autoCreate: true),
+                      onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
                       onPdf: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.loadPdf),
                       onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                       onAudio: _toggleRecording,
@@ -254,15 +272,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
     switch (_openEditor!) {
       case _EditorType.text:
         return TextTab(
-          key: ValueKey(_autoCreate),
+          key: ValueKey(_selectedTextFile?.id ?? _autoCreate),
           autoCreate: _autoCreate,
+          autoStartSTT: _autoStartSTT, // ⭐ STT 자동 시작 여부 전달
           onClose: _closeEditor,
+          initialFile: _selectedTextFile, // ⭐ 선택된 파일 전달
         );
       case _EditorType.handwriting:
         return HandwritingTab(
-          key: ValueKey(_handwritingAction),
+          key: ValueKey(_selectedHandwritingFile?.id ?? _handwritingAction),
           initialAction: _handwritingAction,
           onClose: _closeEditor,
+          initialFile: _selectedHandwritingFile, // ⭐ 선택된 파일 전달
         );
     }
   }
@@ -353,7 +374,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
           ),
         ]),
-        onTap: () => _openEditorView(_EditorType.text),
+        onTap: () => _openEditorView(_EditorType.text, textFile: file),
       ),
     );
   }
@@ -414,7 +435,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
           ),
         ]),
-        onTap: () => _openEditorView(_EditorType.handwriting),
+        onTap: () => _openEditorView(_EditorType.handwriting, handwritingFile: file),
       ),
     );
   }
@@ -708,6 +729,7 @@ enum _EditorType { text, handwriting }
 
 class _BottomFabRow extends StatefulWidget {
   final VoidCallback onText;
+  final VoidCallback onTextWithSTT; // ⭐ STT와 함께 텍스트 시작
   final VoidCallback onPdf;
   final VoidCallback onCanvas;
   final VoidCallback onAudio;
@@ -715,6 +737,7 @@ class _BottomFabRow extends StatefulWidget {
 
   const _BottomFabRow({
     required this.onText,
+    required this.onTextWithSTT,
     required this.onPdf,
     required this.onCanvas,
     required this.onAudio,
@@ -785,6 +808,21 @@ class _BottomFabRowState extends State<_BottomFabRow> {
                       color: recordColor,
                       onTap: widget.onAudio,
                     ),
+                    const SizedBox(height: 8),
+                    // ⭐ 텍스트 녹음 항목 (STT 자동 시작) - 키보드 + 마이크 아이콘
+                    _SpeedDialItem(
+                      label: '텍스트 녹음',
+                      customChild: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.keyboard, size: 20, color: Colors.white), // ⭐ 16 → 20
+                          SizedBox(width: 3), // ⭐ 2 → 3
+                          Icon(Icons.mic, size: 20, color: Colors.white), // ⭐ 16 → 20
+                        ],
+                      ),
+                      color: color,
+                      onTap: () => _handleAction(widget.onTextWithSTT),
+                    ),
                   ],
                 ),
               ),
@@ -805,7 +843,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
                 setState(() => _isExpanded = !_isExpanded);
               },
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 16), // ⭐ 8 → 16으로 변경하여 메뉴 버튼들과 정렬
           ],
         ),
       ],
@@ -815,16 +853,18 @@ class _BottomFabRowState extends State<_BottomFabRow> {
 
 class _SpeedDialItem extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customChild; // ⭐ 커스텀 자식 위젯 (아이콘 대신 사용)
   final Color color;
   final VoidCallback onTap;
 
   const _SpeedDialItem({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.customChild,
     required this.color,
     required this.onTap,
-  });
+  }) : assert(icon != null || customChild != null, '아이콘 또는 customChild 중 하나는 필수입니다');
 
   @override
   Widget build(BuildContext context) {
@@ -846,29 +886,42 @@ class _SpeedDialItem extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _FabBtn(icon: icon, color: color, heroTag: 'speed_dial_${icon.codePoint}', onTap: onTap),
+        _FabBtn(
+          icon: icon,
+          customChild: customChild,
+          color: color,
+          heroTag: 'speed_dial_${icon?.codePoint ?? 'custom'}',
+          onTap: onTap,
+        ),
       ],
     );
   }
 }
 
 class _FabBtn extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customChild; // ⭐ 커스텀 자식 위젯 (아이콘 대신 사용)
   final Color color;
   final VoidCallback onTap;
   final Object? heroTag;
 
-  const _FabBtn({required this.icon, required this.color, required this.onTap, this.heroTag});
+  const _FabBtn({
+    this.icon,
+    this.customChild,
+    required this.color,
+    required this.onTap,
+    this.heroTag,
+  }) : assert(icon != null || customChild != null, '아이콘 또는 customChild 중 하나는 필수입니다');
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
-      heroTag: heroTag ?? icon.codePoint.toString(),
+      heroTag: heroTag ?? (icon?.codePoint.toString() ?? 'custom'),
       onPressed: onTap,
       backgroundColor: color,
       foregroundColor: Colors.white,
-      mini: true,
-      child: Icon(icon, size: 20),
+      mini: false, // ⭐ true → false로 변경하여 캘린더와 동일한 크기
+      child: customChild ?? Icon(icon!, size: 24), // ⭐ 20 → 24로 변경
     );
   }
 }
@@ -914,9 +967,9 @@ class AllFilesTabButton extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon),
+        Icon(icon), // IconTheme에서 자동으로 색상과 크기를 상속받음
         const SizedBox(width: 2),
-        Text(count.toString()),
+        Text(count.toString()), // DefaultTextStyle에서 자동으로 색상과 굵기를 상속받음
       ],
     );
   }

@@ -24,7 +24,6 @@ class _WritingScreenState extends State<WritingScreen> with AutomaticKeepAliveCl
   bool get wantKeepAlive => true;
   late List<TabItem> _tabs;
   int _recordingTabRefreshCount = 0;
-  bool _isAutoSelecting = false;
   AppStateProvider? _appState;
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
@@ -45,50 +44,24 @@ class _WritingScreenState extends State<WritingScreen> with AutomaticKeepAliveCl
   void _onAppStateChanged() {
     if (!mounted) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    // 녹음 중이면 리튼 자동 선택 시도하지 않음
-    if (AudioService().isRecording) return;
+
+    // ⭐ 노트탭에서 일정이 선택되지 않았으면 undefined 자동 선택
     if (appState.selectedTabIndex == 0 && appState.selectedLitten == null) {
-      _autoSelectLittenForNoteTab(appState);
+      _autoSelectUndefined(appState);
     }
   }
 
-  Future<void> _autoSelectLittenForNoteTab(AppStateProvider appState) async {
-    if (_isAutoSelecting || !mounted) return;
-    _isAutoSelecting = true;
-    try {
-      final now = nowForLanguage(appState.locale.languageCode);
-      final today = DateTime(now.year, now.month, now.day);
-      final currentMinutes = now.hour * 60 + now.minute;
-
-      // 1순위: 오늘 날짜의 현재 시간 범위 내 일정 선택
-      for (final litten in appState.littens) {
-        final schedule = litten.schedule;
-        if (schedule == null) continue;
-        final d = schedule.date;
-        if (d.year != today.year || d.month != today.month || d.day != today.day) continue;
-        final startMin = schedule.startTime.hour * 60 + schedule.startTime.minute;
-        final endMin = schedule.endTime.hour * 60 + schedule.endTime.minute;
-        if (currentMinutes >= startMin && currentMinutes <= endMin) {
-          debugPrint('⏰ [WritingScreen] 현재 시간 내 일정 자동 선택: ${litten.title}');
-          await appState.selectLitten(litten);
-          return;
-        }
+  Future<void> _autoSelectUndefined(AppStateProvider appState) async {
+    final undefinedLitten = appState.littens
+        .where((l) => l.title == 'undefined')
+        .firstOrNull;
+    if (undefinedLitten != null) {
+      try {
+        await appState.selectLitten(undefinedLitten);
+        debugPrint('✅ [WritingScreen] undefined 리튼 자동 선택 완료');
+      } catch (e) {
+        debugPrint('❌ [WritingScreen] undefined 자동 선택 실패: $e');
       }
-
-      debugPrint('⏰ [WritingScreen] 현재 시간 내 일정 없음 - undefined 자동 선택');
-      final undefinedLitten = appState.littens
-          .where((l) => l.title == 'undefined')
-          .firstOrNull;
-      if (undefinedLitten != null) {
-        try {
-          await appState.selectLitten(undefinedLitten);
-          debugPrint('✅ [WritingScreen] undefined 리튼 자동 선택 완료');
-        } catch (e) {
-          debugPrint('❌ [WritingScreen] undefined 자동 선택 실패: $e');
-        }
-      }
-    } finally {
-      _isAutoSelecting = false;
     }
   }
 

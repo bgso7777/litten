@@ -99,6 +99,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // HomeScreen 하단 탭 선택 상태 (0: 파일, 1: 일정)
   int _homeBottomTabIndex = 0;
 
+  // ⭐ 파일 목록 변경 추적 (PDF 변환 등으로 파일이 추가될 때 증가)
+  int _fileListVersion = 0;
+  int get fileListVersion => _fileListVersion;
+
   // 캘린더 상태
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
@@ -503,7 +507,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 파일 목록 변경 알림 (PDF 변환 등으로 파일이 추가/삭제될 때 호출)
   void notifyFileListChanged() {
-    debugPrint('📄 AppStateProvider: 파일 목록 변경 알림 - UI 강제 새로고침');
+    _fileListVersion++;
+    debugPrint('📄 AppStateProvider: 파일 목록 변경 알림 - UI 강제 새로고침 (version: $_fileListVersion)');
     notifyListeners();
   }
 

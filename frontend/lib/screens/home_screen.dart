@@ -233,51 +233,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
-  /// 외부에서 호출 가능 - 일정 목록이 열려 있을 때만 자동 선택 실행
-  void autoSelectActiveSchedule() {
-    if (_scheduleListVisible) _autoSelectActiveSchedule();
-  }
-
-  /// 현재 시간이 일정 시간 범위 안에 있는 리튼을 자동 선택
-  Future<void> _autoSelectActiveSchedule() async {
-    if (!mounted) return;
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final now = nowForLanguage(appState.locale.languageCode);
-    final today = DateTime(now.year, now.month, now.day);
-    final currentMinutes = now.hour * 60 + now.minute;
-
-    for (final litten in appState.littens) {
-      final schedule = litten.schedule;
-      if (schedule == null) continue;
-      if (!isSameDay(schedule.date, today)) continue;
-
-      final startMinutes = schedule.startTime.hour * 60 + schedule.startTime.minute;
-      final endMinutes = schedule.endTime.hour * 60 + schedule.endTime.minute;
-
-      if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
-        debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 자동 선택: ${litten.title} (${schedule.startTime.format(context)}~${schedule.endTime.format(context)})');
-        try {
-          await appState.selectLitten(litten);
-        } catch (e) {
-          debugPrint('❌ 자동 일정 선택 실패: $e');
-        }
-        return;
-      }
-    }
-    // 현재 시간 내 일정 없고 선택된 일정도 없으면 undefined 선택
-    if (appState.selectedLitten == null) {
-      final undefinedLitten = appState.littens.where((l) => l.title == 'undefined').firstOrNull;
-      if (undefinedLitten != null) {
-        debugPrint('⏰ [HomeScreen] 선택된 일정 없음 - undefined 자동 선택');
-        try {
-          await appState.selectLitten(undefinedLitten);
-        } catch (e) {
-          debugPrint('❌ [HomeScreen] undefined 자동 선택 실패: $e');
+  /// 캘린더 탭에서 일정이 선택되지 않았으면 undefined 자동 선택
+  void autoSelectUndefinedIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      if (appState.selectedLitten == null) {
+        final undefinedLitten = appState.littens.where((l) => l.title == 'undefined').firstOrNull;
+        if (undefinedLitten != null) {
+          debugPrint('✅ [HomeScreen] undefined 리튼 자동 선택');
+          appState.selectLitten(undefinedLitten);
         }
       }
-    } else {
-      debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 없음 - 기존 선택 유지');
-    }
+    });
   }
 
   /// 리튼 숨김/보이기 토글
@@ -325,29 +293,29 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
       if (!mounted) return;
 
-      // 리튼 스케줄 기반으로 날짜별 뱃지 계산
+      // ⭐ 발생한 알림(firedNotifications)만 뱃지로 표시
+      // 저장소의 미리 생성된 알림은 무시 (실제 발생 시점까지 뱃지 표시 안 함)
       final dateMap = <String, Set<String>>{};
-      for (final litten in appState.littens) {
-        final schedule = litten.schedule;
-        if (schedule == null) continue;
-        // 저장 알림이 모두 확인됐거나 수동으로 닫혔으면 건너뜀
-        if (storageAcknowledged[litten.id] == true || manuallyDismissed.contains(litten.id)) continue;
-        // 미확인 저장 알림이 없고, 활성화된 알림 규칙도 없으면 건너뜀
-        final hasUnacknowledgedStored = storageAcknowledged.containsKey(litten.id) && storageAcknowledged[litten.id] == false;
-        final hasEnabledRules = schedule.notificationRules.any((r) => r.isEnabled);
-        if (!hasUnacknowledgedStored && !hasEnabledRules) continue;
 
-        final startDate = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
-        final endDate = schedule.endDate != null
-            ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
-            : startDate;
+      // NotificationService에서 발생한 알림 가져오기
+      final firedNotifications = appState.notificationService.firedNotifications;
 
-        DateTime cur = startDate;
-        while (!cur.isAfter(endDate)) {
-          final dateKey = DateFormat('yyyy-MM-dd').format(cur);
-          dateMap.putIfAbsent(dateKey, () => {}).add(litten.id);
-          cur = cur.add(const Duration(days: 1));
+      debugPrint('📅 뱃지 계산: 발생한 알림 ${firedNotifications.length}개');
+
+      for (final notification in firedNotifications) {
+        final litten = appState.littens.where((l) => l.id == notification.littenId).firstOrNull;
+        if (litten == null) continue;
+
+        // 수동으로 닫힌 리튼은 건너뜀
+        if (manuallyDismissed.contains(litten.id)) {
+          debugPrint('   ⏭️ 수동으로 닫힌 리튼 건너뜀: ${litten.title}');
+          continue;
         }
+
+        // 발생 시간 기준으로 날짜 키 생성
+        final dateKey = DateFormat('yyyy-MM-dd').format(notification.triggerTime);
+        dateMap.putIfAbsent(dateKey, () => {}).add(litten.id);
+        debugPrint('   ✅ 뱃지 추가: ${litten.title} - $dateKey');
       }
 
       setState(() {
@@ -558,7 +526,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               else if (!_scheduleListVisible && velocityY < -300 && dy < -30) {
                 debugPrint('📅 [HomeScreen] 리스트 표시');
                 setState(() { _scheduleListVisible = true; });
-                _autoSelectActiveSchedule();
+                // ⭐ 자동 일정 선택 제거됨
               }
               // 아래로 스와이프 → 리스트 숨김
               else if (_scheduleListVisible && velocityY > 300 && dy > 30 && !isHorizontalSwipe) {
@@ -616,7 +584,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     child: LittenUnifiedListView(
                       key: const PageStorageKey<String>('home_screen_scroll'),
                       scrollController: _scrollController,
-                      onListExpand: _autoSelectActiveSchedule,
+                      onListExpand: null, // ⭐ 자동 일정 선택 제거됨
                     ),
                   ),
                 ),
@@ -2049,7 +2017,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           onTap: () {
             debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 펼침');
             setState(() { _scheduleListVisible = true; });
-            _autoSelectActiveSchedule();
+            // ⭐ 자동 일정 선택 제거됨
           },
           child: CustomPaint(
             painter: _ConcaveChipPainter(
