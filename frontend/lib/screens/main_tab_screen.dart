@@ -156,9 +156,10 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 선택 해제 (전체 파일 카운트 표시)
                 appState.clearSelectedLitten();
 
-                // 스크롤을 맨 위로 (캘린더 표시)
+                // 스크롤을 맨 위로 (캘린더 표시) + 현재 시간 일정 자동 선택
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _homeScreenKey.currentState?.scrollToTop();
+                  _homeScreenKey.currentState?.autoSelectActiveSchedule();
                   debugPrint('📅 캘린더 탭: 이번 달로 이동 완료');
                 });
               }

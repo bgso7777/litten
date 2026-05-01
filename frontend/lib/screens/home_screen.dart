@@ -208,6 +208,40 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
+  /// 외부에서 호출 가능 - 일정 목록이 열려 있을 때만 자동 선택 실행
+  void autoSelectActiveSchedule() {
+    if (_scheduleListVisible) _autoSelectActiveSchedule();
+  }
+
+  /// 현재 시간이 일정 시간 범위 안에 있는 리튼을 자동 선택
+  Future<void> _autoSelectActiveSchedule() async {
+    if (!mounted) return;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final now = nowForLanguage(appState.locale.languageCode);
+    final today = DateTime(now.year, now.month, now.day);
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    for (final litten in appState.littens) {
+      final schedule = litten.schedule;
+      if (schedule == null) continue;
+      if (!isSameDay(schedule.date, today)) continue;
+
+      final startMinutes = schedule.startTime.hour * 60 + schedule.startTime.minute;
+      final endMinutes = schedule.endTime.hour * 60 + schedule.endTime.minute;
+
+      if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+        debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 자동 선택: ${litten.title} (${schedule.startTime.format(context)}~${schedule.endTime.format(context)})');
+        try {
+          await appState.selectLitten(litten);
+        } catch (e) {
+          debugPrint('❌ 자동 일정 선택 실패: $e');
+        }
+        return;
+      }
+    }
+    debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 없음 - 자동 선택 안 함');
+  }
+
   /// 리튼 숨김/보이기 토글
   Future<void> _toggleLittenCollapse(String littenId) async {
     try {
@@ -473,6 +507,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               else if (!_scheduleListVisible && velocityY < -300 && dy < -30) {
                 debugPrint('📅 [HomeScreen] 리스트 표시');
                 setState(() { _scheduleListVisible = true; });
+                _autoSelectActiveSchedule();
               }
               // 아래로 스와이프 → 리스트 숨김
               else if (_scheduleListVisible && velocityY > 300 && dy > 30 && !isHorizontalSwipe) {
@@ -530,6 +565,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     child: LittenUnifiedListView(
                       key: const PageStorageKey<String>('home_screen_scroll'),
                       scrollController: _scrollController,
+                      onListExpand: _autoSelectActiveSchedule,
                     ),
                   ),
                 ),
@@ -1975,6 +2011,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           onTap: () {
             debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 펼침');
             setState(() { _scheduleListVisible = true; });
+            _autoSelectActiveSchedule();
           },
           child: CustomPaint(
             painter: _ConcaveChipPainter(

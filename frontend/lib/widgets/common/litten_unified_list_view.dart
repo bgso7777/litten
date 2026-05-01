@@ -22,9 +22,10 @@ class LittenUnifiedListView extends StatefulWidget {
   final String? littenId;   // 설정 시 해당 일정의 파일만 표시
   final bool? listVisible;  // 외부에서 리스트 표시 여부를 제어할 때 사용
   final VoidCallback? onListToggle; // 외부 토글 콜백
+  final VoidCallback? onListExpand; // 리스트가 숨김→보임으로 전환될 때 콜백
   final bool ignoreSelectedDate; // true면 캘린더 날짜 선택을 무시하고 전체 일정 표시
 
-  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId, this.listVisible, this.onListToggle, this.ignoreSelectedDate = false});
+  const LittenUnifiedListView({super.key, this.scrollController, this.padding, this.filterType, this.littenId, this.listVisible, this.onListToggle, this.onListExpand, this.ignoreSelectedDate = false});
 
   @override
   State<LittenUnifiedListView> createState() => _LittenUnifiedListViewState();
@@ -188,7 +189,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
       if (widget.onListToggle != null) {
         widget.onListToggle!();
       } else {
+        final wasHidden = !_littenListVisible;
         setState(() => _littenListVisible = !_littenListVisible);
+        if (wasHidden) widget.onListExpand?.call(); // 숨김 → 보임 전환 시 콜백
       }
     }
 
