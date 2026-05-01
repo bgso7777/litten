@@ -156,15 +156,11 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             ? _buildFilteredSliverContent(context, appState, widget.filterType!, littenId: widget.littenId)
             : _buildSliverContent(context, appState, l10n, appState.selectedDateNotifications, littenId: widget.littenId);
 
-        final showStats = widget.filterType == null && widget.littenId == null;
-
         return CustomScrollView(
           key: widget.key != null ? null : PageStorageKey<String>('litten_unified_list_${widget.filterType ?? 'all'}_${widget.littenId ?? 'all'}'),
           controller: widget.scrollController,
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
-            if (showStats)
-              SliverToBoxAdapter(child: _buildStatsSection(context, appState)),
             SliverPadding(
               padding: effectivePadding,
               sliver: sliver,
@@ -383,25 +379,30 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           final currentLittenId = litten.id;
           List<Map<String, dynamic>> littenFiles = [];
 
-          for (final fileData in allFiles) {
-            if (fileData['littenId'] == currentLittenId) {
-              final file = fileData['file'];
-              final createdAt = fileData['createdAt'] as DateTime;
-              DateTime updatedAt;
-              if (file is AudioFile) {
-                updatedAt = createdAt;
-              } else if (file is TextFile) {
-                updatedAt = file.updatedAt;
-              } else if (file is HandwritingFile) {
-                updatedAt = file.updatedAt;
-              } else {
-                updatedAt = DateTime.now();
-              }
-              littenFiles.add({'fileData': fileData, 'updatedAt': updatedAt, 'createdAt': createdAt});
+          // undefined 일정은 전체 파일, 그 외는 해당 리튼 파일만
+          final targetFiles = isUndefined ? allFiles : allFiles.where((f) => f['littenId'] == currentLittenId).toList();
+
+          for (final fileData in targetFiles) {
+            final file = fileData['file'];
+            final createdAt = fileData['createdAt'] as DateTime;
+            DateTime updatedAt;
+            if (file is AudioFile) {
+              updatedAt = createdAt;
+            } else if (file is TextFile) {
+              updatedAt = file.updatedAt;
+            } else if (file is HandwritingFile) {
+              updatedAt = file.updatedAt;
+            } else {
+              updatedAt = DateTime.now();
             }
+            littenFiles.add({'fileData': fileData, 'updatedAt': updatedAt, 'createdAt': createdAt});
           }
 
+          // undefined는 생성 순서(최신순), 그 외는 수정 순서
           littenFiles.sort((a, b) {
+            if (isUndefined) {
+              return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
+            }
             int updatedCompare = (b['updatedAt'] as DateTime).compareTo(a['updatedAt'] as DateTime);
             if (updatedCompare != 0) return updatedCompare;
             return (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime);
@@ -462,6 +463,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           }
           return (b['sortTime'] as DateTime).compareTo(a['sortTime'] as DateTime);
         });
+
+        // undefined 일정을 항상 최상위로
+        final undefinedIdx = littenGroups.indexWhere((g) => (g['litten'] as Litten).title == 'undefined');
+        if (undefinedIdx > 0) {
+          final undefinedGroup = littenGroups.removeAt(undefinedIdx);
+          littenGroups.insert(0, undefinedGroup);
+        }
 
         if (littenGroups.isEmpty && notificationCount == 0) {
           return const SliverFillRemaining(
@@ -606,9 +614,11 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
   Widget _buildLittenGroup(BuildContext context, AppStateProvider appState, Litten litten, List<Map<String, dynamic>> files, bool hasNotifications) {
     final themeColor = Theme.of(context).primaryColor;
     final isCollapsed = _collapsedLittenIds.contains(litten.id);
-    final audioCount = files.where((f) => (f['fileData'] as Map)['type'] == 'audio').length;
-    final textCount = files.where((f) => (f['fileData'] as Map)['type'] == 'text').length;
-    final handwritingCount = files.where((f) => (f['fileData'] as Map)['type'] == 'handwriting').length;
+    final isUndefinedLitten = litten.title == 'undefined';
+    // undefined 일정은 전체 합계, 그 외는 해당 리튼 파일 수
+    final audioCount = isUndefinedLitten ? appState.totalAudioCount : files.where((f) => (f['fileData'] as Map)['type'] == 'audio').length;
+    final textCount = isUndefinedLitten ? appState.totalTextCount : files.where((f) => (f['fileData'] as Map)['type'] == 'text').length;
+    final handwritingCount = isUndefinedLitten ? appState.totalHandwritingCount : files.where((f) => (f['fileData'] as Map)['type'] == 'handwriting').length;
     final hasSchedule = litten.schedule != null;
     final hasEnabledNotification = hasSchedule && litten.schedule!.notificationRules.any((r) => r.isEnabled);
 
@@ -656,12 +666,17 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           onLongPress: () => _showEditLittenDialog(litten.id),
           child: Builder(builder: (context) {
             final isSelected = appState.selectedLitten?.id == litten.id;
-            final fgColor = isSelected ? Colors.white : themeColor;
-            final badgeColor = isSelected ? Colors.white : themeColor;
+            // undefined 선택 시 통계바 스타일(연한 배경 + 일반 색상), 일반 선택은 primary 배경 + 흰색
+            final isUndefinedSelected = isUndefinedLitten && isSelected;
+            final bgColor = isSelected
+                ? (isUndefinedLitten ? themeColor.withValues(alpha: 0.1) : themeColor)
+                : Colors.grey.shade50;
+            final fgColor = isUndefinedSelected ? themeColor : (isSelected ? Colors.white : themeColor);
+            final badgeColor = fgColor;
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? themeColor : Colors.grey.shade50,
+                color: bgColor,
                 border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
               ),
               child: Row(
@@ -670,20 +685,27 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                     child: Row(
                       children: [
                         Icon(
-                          litten.title == 'undefined'
-                              ? Icons.folder_open
+                          isUndefinedLitten
+                              ? Icons.event_available
                               : (hasEnabledNotification ? Icons.event_available : Icons.calendar_today),
                           color: fgColor,
                           size: 20,
                         ),
+                        if (isUndefinedLitten) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '${appState.littens.where((l) => l.title != 'undefined').length}',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: fgColor),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            litten.title == 'undefined' ? '' : litten.title,
+                            isUndefinedLitten ? '' : litten.title,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
-                              color: isSelected ? Colors.white : (litten.title == 'undefined' ? Colors.grey.shade600 : null),
+                              color: isSelected && !isUndefinedLitten ? Colors.white : (isUndefinedLitten ? Colors.grey.shade600 : null),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -708,12 +730,12 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                         value: 'toggle_collapse',
                         child: Row(children: [Icon(isCollapsed ? Icons.visibility : Icons.visibility_off, size: 18), const SizedBox(width: 8), Text(isCollapsed ? '보이기' : '숨기기')]),
                       ),
-                      if (litten.title != 'undefined') ...[
+                      if (!isUndefinedLitten) ...[
                         const PopupMenuItem(value: 'edit', child: Text('수정')),
                         const PopupMenuItem(value: 'delete', child: Text('삭제')),
                       ],
                     ],
-                    child: Icon(Icons.more_vert, color: isSelected ? Colors.white70 : Colors.grey.shade600, size: 20),
+                    child: Icon(Icons.more_vert, color: isSelected && !isUndefinedLitten ? Colors.white70 : Colors.grey.shade600, size: 20),
                   ),
                 ],
               ),

@@ -264,7 +264,20 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         return;
       }
     }
-    debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 없음 - 자동 선택 안 함');
+    // 현재 시간 내 일정 없고 선택된 일정도 없으면 undefined 선택
+    if (appState.selectedLitten == null) {
+      final undefinedLitten = appState.littens.where((l) => l.title == 'undefined').firstOrNull;
+      if (undefinedLitten != null) {
+        debugPrint('⏰ [HomeScreen] 선택된 일정 없음 - undefined 자동 선택');
+        try {
+          await appState.selectLitten(undefinedLitten);
+        } catch (e) {
+          debugPrint('❌ [HomeScreen] undefined 자동 선택 실패: $e');
+        }
+      }
+    } else {
+      debugPrint('⏰ [HomeScreen] 현재 시간 내 일정 없음 - 기존 선택 유지');
+    }
   }
 
   /// 리튼 숨김/보이기 토글

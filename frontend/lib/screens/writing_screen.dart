@@ -70,7 +70,18 @@ class _WritingScreenState extends State<WritingScreen> {
         }
       }
 
-      debugPrint('⏰ [WritingScreen] 현재 시간 내 일정 없음 - 자동 선택 안 함');
+      debugPrint('⏰ [WritingScreen] 현재 시간 내 일정 없음 - undefined 자동 선택');
+      final undefinedLitten = appState.littens
+          .where((l) => l.title == 'undefined')
+          .firstOrNull;
+      if (undefinedLitten != null) {
+        try {
+          await appState.selectLitten(undefinedLitten);
+          debugPrint('✅ [WritingScreen] undefined 리튼 자동 선택 완료');
+        } catch (e) {
+          debugPrint('❌ [WritingScreen] undefined 자동 선택 실패: $e');
+        }
+      }
     } finally {
       _isAutoSelecting = false;
     }

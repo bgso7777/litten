@@ -87,7 +87,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (!mounted) return;
     setState(() => _loading = true);
     try {
-      final selectedId = appState.selectedLitten?.id;
+      // undefined 또는 미선택이면 전체 파일, 그 외는 해당 리튼 파일만
+      final selectedLitten = appState.selectedLitten;
+      final filterById = (selectedLitten != null && selectedLitten.title != 'undefined')
+          ? selectedLitten.id
+          : null;
       final allFiles = await appState.getAllFiles();
 
       final List<TextFile> textFiles = [];
@@ -95,7 +99,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final List<AudioFile> audioFiles = [];
 
       for (final f in allFiles) {
-        if (selectedId != null && f['littenId'] != selectedId) continue;
+        if (filterById != null && f['littenId'] != filterById) continue;
         final type = f['type'] as String;
         if (type == 'text') textFiles.add(f['file'] as TextFile);
         else if (type == 'handwriting') hwFiles.add(f['file'] as HandwritingFile);
@@ -185,31 +189,32 @@ class _AllFilesTabState extends State<AllFilesTab> {
           return _buildEditorView(appState);
         }
 
-        return Stack(
+        return Column(
           children: [
-            if (_loading)
-              const Center(child: CircularProgressIndicator())
-            else
-              _buildFileList(),
-            Positioned(
-              bottom: _isRecording ? 48 : 16,
-              left: 0,
-              right: 0,
-              child: _BottomFabRow(
-                onText: () => _openEditorView(_EditorType.text, autoCreate: true),
-                onPdf: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.loadPdf),
-                onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
-                onAudio: _toggleRecording,
-                isRecording: _isRecording,
+            if (_isRecording)
+              _RecordingStatusBar(duration: _recordingDuration),
+            Expanded(
+              child: Stack(
+                children: [
+                  if (_loading)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    _buildFileList(),
+                  Positioned(
+                    bottom: 16,
+                    left: 0,
+                    right: 0,
+                    child: _BottomFabRow(
+                      onText: () => _openEditorView(_EditorType.text, autoCreate: true),
+                      onPdf: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.loadPdf),
+                      onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
+                      onAudio: _toggleRecording,
+                      isRecording: _isRecording,
+                    ),
+                  ),
+                ],
               ),
             ),
-            if (_isRecording)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _RecordingStatusBar(duration: _recordingDuration),
-              ),
           ],
         );
       },
@@ -271,43 +276,51 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildTextCard(TextFile file) {
     final color = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -1),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         leading: CircleAvatar(
+          radius: 16,
           backgroundColor: color.withValues(alpha: 0.1),
-          child: Icon(Icons.keyboard, color: color),
+          child: Icon(Icons.keyboard, color: color, size: 18),
         ),
         title: Text(
           file.title.isNotEmpty
               ? file.title
               : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Row(children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text('${file.characterCount}자',
-                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+                style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(file.updatedAt.toString().substring(0, 16),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           ),
         ]),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color),
+            icon: Icon(Icons.edit_outlined, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showRenameTextDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color),
+            icon: Icon(Icons.delete_outline, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
           ),
         ]),
@@ -320,46 +333,55 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildHandwritingCard(HandwritingFile file) {
     final color = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -1),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         leading: CircleAvatar(
+          radius: 16,
           backgroundColor: color.withValues(alpha: 0.1),
           child: Icon(
             file.type == HandwritingType.pdfConvert ? Icons.picture_as_pdf : Icons.draw,
             color: color,
+            size: 18,
           ),
         ),
         title: Text(
           file.displayTitle,
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Row(children: [
           if (file.isMultiPage) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text('${file.totalPages}페이지',
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
           ],
           Expanded(
             child: Text(file.updatedAt.toString().substring(0, 16),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           ),
         ]),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color),
+            icon: Icon(Icons.edit_outlined, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showRenameHandwritingDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color),
+            icon: Icon(Icons.delete_outline, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
           ),
         ]),
@@ -375,13 +397,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isPlaying = isCurrentPlaying && _audioService.isPlaying;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -1),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         leading: CircleAvatar(
+          radius: 16,
           backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
           child: Icon(
             isPlaying ? Icons.pause : Icons.play_arrow,
             color: isPlaying ? Colors.white : color,
+            size: 18,
           ),
         ),
         title: Column(
@@ -389,17 +416,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
           children: [
             Text(
               file.fileName,
-              style: TextStyle(fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
+              style: TextStyle(fontSize: 13, fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               '생성: ${file.createdAt.month}/${file.createdAt.day} ${file.createdAt.hour}:${file.createdAt.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             ),
             if (isCurrentPlaying) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 2.0,
@@ -432,11 +459,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
         ),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color),
+            icon: Icon(Icons.edit_outlined, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showRenameAudioDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color),
+            icon: Icon(Icons.delete_outline, color: color, size: 20),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
           ),
         ]),
@@ -646,7 +677,7 @@ enum _EditorType { text, handwriting }
 
 // ───────────────────────────── 하단 FAB 버튼 행 ─────────────────────────────
 
-class _BottomFabRow extends StatelessWidget {
+class _BottomFabRow extends StatefulWidget {
   final VoidCallback onText;
   final VoidCallback onPdf;
   final VoidCallback onCanvas;
@@ -662,28 +693,105 @@ class _BottomFabRow extends StatelessWidget {
   });
 
   @override
+  State<_BottomFabRow> createState() => _BottomFabRowState();
+}
+
+class _BottomFabRowState extends State<_BottomFabRow> {
+  bool _isExpanded = false;
+
+  void _handleAction(VoidCallback action) {
+    setState(() => _isExpanded = false);
+    action();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _FabBtn(icon: Icons.keyboard, color: color, onTap: onText),
-        const SizedBox(width: 12),
-        _FabBtn(icon: Icons.picture_as_pdf, color: color, onTap: onPdf),
-        const SizedBox(width: 12),
-        _FabBtn(icon: Icons.draw, color: color, onTap: onCanvas),
-        const SizedBox(width: 12),
-        if (isRecording)
-          FloatingActionButton(
-            heroTag: 'stop_recording',
-            onPressed: onAudio,
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            mini: true,
-            child: const Icon(Icons.stop, size: 20),
-          )
-        else
-          _FabBtn(icon: Icons.mic, color: color, onTap: onAudio),
+        if (_isExpanded) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: IntrinsicWidth(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SpeedDialItem(label: '캔버스', icon: Icons.draw, color: color,
+                        onTap: () => _handleAction(widget.onCanvas)),
+                    const SizedBox(height: 8),
+                    _SpeedDialItem(label: 'PDF', icon: Icons.picture_as_pdf, color: color,
+                        onTap: () => _handleAction(widget.onPdf)),
+                    const SizedBox(height: 8),
+                    _SpeedDialItem(label: '텍스트', icon: Icons.keyboard, color: color,
+                        onTap: () => _handleAction(widget.onText)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _FabBtn(
+              icon: widget.isRecording ? Icons.stop : Icons.mic,
+              color: color,
+              onTap: widget.onAudio,
+            ),
+            const SizedBox(width: 8),
+            _FabBtn(
+              icon: _isExpanded ? Icons.close : Icons.add,
+              color: color,
+              heroTag: 'fab_add_toggle',
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+            ),
+            const SizedBox(width: 16),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SpeedDialItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SpeedDialItem({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Material(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _FabBtn(icon: icon, color: color, heroTag: 'speed_dial_${icon.codePoint}', onTap: onTap),
       ],
     );
   }
@@ -693,25 +801,19 @@ class _FabBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final Object? heroTag;
 
-  const _FabBtn({required this.icon, required this.color, required this.onTap});
+  const _FabBtn({required this.icon, required this.color, required this.onTap, this.heroTag});
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
-      heroTag: icon.codePoint.toString(),
+      heroTag: heroTag ?? icon.codePoint.toString(),
       onPressed: onTap,
       backgroundColor: color,
       foregroundColor: Colors.white,
       mini: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 2),
-          const Icon(Icons.add, size: 16),
-        ],
-      ),
+      child: Icon(icon, size: 20),
     );
   }
 }
@@ -785,7 +887,7 @@ class _RecordingStatusBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.mic, size: 16, color: Colors.red),
+          Icon(Icons.mic, size: 16, color: Theme.of(context).primaryColor),
           const SizedBox(width: 6),
           const Text('녹음 중...', style: TextStyle(fontSize: 13)),
           const Spacer(),
