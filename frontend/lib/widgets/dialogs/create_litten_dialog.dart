@@ -66,16 +66,9 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               focusNode: _titleFocusNode,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: l10n?.scheduleTitle ?? '일정 제목을 입력하세요.',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
+                labelText: l10n?.scheduleTitle ?? '일정 제목',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.title),
               ),
               style: const TextStyle(
                 fontSize: 16,
@@ -140,11 +133,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               debugPrint('✅ 리튼 생성 완료: ${newLitten.id}');
 
               if (mounted) {
-                // 생성된 리튼을 즉시 선택
-                await widget.appState.selectLitten(newLitten);
-                debugPrint('✅ 리튼 선택 완료: ${newLitten.id}');
-
-                // 다이얼로그 닫기
+                // 다이얼로그 닫기 (자동 선택 제거)
                 navigator.pop();
               }
             } catch (e) {

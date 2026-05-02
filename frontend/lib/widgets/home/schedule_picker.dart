@@ -163,75 +163,69 @@ class _SchedulePickerState extends State<SchedulePicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
           // 시작 날짜 선택
           Card(
             child: InkWell(
               onTap: () => _selectDate(context),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(13),
                 child: Row(
                   children: [
                     const Icon(Icons.calendar_today, size: 24),
                     const SizedBox(width: 12),
+                    const Text(
+                      '시작일자',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '시작일자',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.right,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     const Icon(Icons.arrow_forward_ios, size: 18),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           // 종료 날짜 선택
           Card(
             child: InkWell(
               onTap: () => _selectEndDate(context),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(13),
                 child: Row(
                   children: [
                     const Icon(Icons.event, size: 24),
                     const SizedBox(width: 12),
+                    const Text(
+                      '종료 날짜',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '종료 날짜',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _selectedEndDate != null
-                                ? DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedEndDate!)
-                                : '선택 안 함',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _selectedEndDate != null ? Colors.black : Colors.grey,
-                              fontWeight: _selectedEndDate != null ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        _selectedEndDate != null
+                            ? DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedEndDate!)
+                            : '선택 안 함',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: _selectedEndDate != null ? Colors.black : Colors.grey,
+                          fontWeight: _selectedEndDate != null ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        textAlign: TextAlign.right,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     if (_selectedEndDate != null)
                       IconButton(
                         icon: const Icon(Icons.clear, size: 18),
@@ -250,7 +244,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           // 시간 선택 - 스크롤 박스
           Row(
             children: [
@@ -305,20 +299,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // 메모
-          TextField(
-            controller: _notesController,
-            decoration: InputDecoration(
-              labelText: l10n?.notes ?? '메모',
-              hintText: l10n?.scheduleNotesHint ?? '일정에 대한 메모를 입력하세요 (선택사항)',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.note),
-            ),
-            maxLines: 2,
-            onChanged: (_) => _updateSchedule(),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           // 일정 기간 표시
           Container(
             padding: const EdgeInsets.all(12),
@@ -346,6 +327,18 @@ class _SchedulePickerState extends State<SchedulePicker> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          // 메모
+          TextField(
+            controller: _notesController,
+            decoration: InputDecoration(
+              labelText: l10n?.notes ?? '메모',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.note),
+            ),
+            maxLines: 1,
+            onChanged: (_) => _updateSchedule(),
           ),
           if (widget.showNotificationSettings) ...[
             const SizedBox(height: 16),

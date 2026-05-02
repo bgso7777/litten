@@ -247,7 +247,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   else
                     _buildFileList(),
                   Positioned(
-                    bottom: 4, // ⭐ 16 → 4로 변경하여 캘린더와 동일한 높이
+                    bottom: 28, // ⭐ 애니메이션 시 아래로 쳐지지 않도록 더 위로 올림
                     left: 0,
                     right: 0,
                     child: _BottomFabRow(
@@ -876,7 +876,7 @@ class _SpeedDialItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             elevation: 0,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.4),
               child: Text(
                 label,
                 textAlign: TextAlign.center,

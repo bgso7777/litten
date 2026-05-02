@@ -504,7 +504,10 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   }
 
   Widget _buildTabHeader(TabItem tab, {required bool isFullScreen}) {
-    final isActive = tab.id == _activeTabId;
+    // 전체탭만 있을 때는 항상 선택된 색으로 표시
+    final visibleTabs = widget.tabs.where((t) => t.isVisible).toList();
+    final isOnlyAllTab = visibleTabs.length == 1 && visibleTabs.first.id == 'all';
+    final isActive = tab.id == _activeTabId || (isOnlyAllTab && tab.id == 'all');
 
     // 탭 클릭 핸들러 (draggable/non-draggable 공통)
     Widget tabContent = InkWell(

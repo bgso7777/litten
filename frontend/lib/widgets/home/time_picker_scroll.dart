@@ -98,28 +98,20 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                 topRight: Radius.circular(8),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: Colors.grey.shade600,
+            child: Center(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           // 시간 선택 영역
           Container(
-            height: 100,
+            height: 130,
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
@@ -138,9 +130,9 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
                           controller: _hourController,
-                          itemExtent: 30,
+                          itemExtent: 39,
                           perspective: 0.01,
-                          diameterRatio: 1.5,
+                          diameterRatio: 1.6,
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
@@ -181,7 +173,7 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                 // 구분선
                 Container(
                   width: 1,
-                  height: 100,
+                  height: 130,
                   color: Colors.grey.shade300,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                 ),
@@ -201,9 +193,9 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
                           controller: _minuteController,
-                          itemExtent: 30,
+                          itemExtent: 39,
                           perspective: 0.01,
-                          diameterRatio: 1.5,
+                          diameterRatio: 1.6,
                           physics: const BouncingScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
@@ -242,27 +234,6 @@ class _TimePickerScrollState extends State<TimePickerScroll> {
                   ),
                 ),
               ],
-            ),
-          ),
-          // 선택된 시간 표시
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
-              ),
-            ),
-            child: Text(
-              '${_selectedHour.toString().padLeft(2, '0')}:${_selectedMinute.toString().padLeft(2, '0')}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
             ),
           ),
         ],
