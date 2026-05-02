@@ -160,15 +160,8 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
         children: [
           // 탭바
           TabBar(
-            labelColor: _userInteractedWithSchedule && _selectedSchedule != null
-                ? Theme.of(context).primaryColor
-                : Colors.grey,
-            unselectedLabelColor: Colors.grey,
-            indicator: _userInteractedWithSchedule && _selectedSchedule != null
-                ? UnderlineTabIndicator(
-                    borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
-                  )
-                : null,
+            indicator: const BoxDecoration(),
+            labelPadding: EdgeInsets.zero,
             onTap: (index) {
               setState(() {
                 _currentTabIndex = index;
@@ -176,58 +169,27 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               widget.onScheduleIndexChanged(index);
             },
             tabs: [
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _userInteractedWithSchedule && _selectedSchedule != null
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 16,
-                      color: _userInteractedWithSchedule && _selectedSchedule != null
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.schedule, size: 16),
-                    const SizedBox(width: 4),
-                    Text(l10n?.addScheduleTab ?? '일정추가'),
-                  ],
-                ),
+              _buildTab(
+                isActive: _currentTabIndex == 0,
+                checkIcon: _userInteractedWithSchedule && _selectedSchedule != null
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+                checkColor: _userInteractedWithSchedule && _selectedSchedule != null
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey.shade500,
+                icon: Icons.schedule,
+                label: l10n?.addScheduleTab ?? '일정추가',
               ),
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      (_userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true)
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
-                      size: 16,
-                      color: (_userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true)
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade500,
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.notifications,
-                      size: 16,
-                      color: _userInteractedWithSchedule && _selectedSchedule != null
-                          ? null
-                          : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      l10n?.notificationSettingTab ?? '알림설정',
-                      style: TextStyle(
-                        color: _userInteractedWithSchedule && _selectedSchedule != null
-                            ? null
-                            : Colors.grey.shade400,
-                      ),
-                    ),
-                  ],
-                ),
+              _buildTab(
+                isActive: _currentTabIndex == 1,
+                checkIcon: _userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+                checkColor: _userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey.shade500,
+                icon: Icons.notifications,
+                label: l10n?.notificationSettingTab ?? '알림설정',
               ),
             ],
           ),
@@ -279,6 +241,39 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTab({
+    required bool isActive,
+    required IconData checkIcon,
+    required Color checkColor,
+    required IconData icon,
+    required String label,
+  }) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Tab(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+          border: Border.all(
+            color: isActive ? primaryColor.withValues(alpha: 0.3) : Colors.transparent,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(checkIcon, size: 16, color: checkColor),
+            const SizedBox(width: 4),
+            Icon(icon, size: 16),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 13)),
+          ],
+        ),
       ),
     );
   }

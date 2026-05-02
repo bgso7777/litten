@@ -43,14 +43,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   // 음성 인식(STT) 관련
   late stt.SpeechToText _speechToText;
   bool _isListening = false;
-  String _lastPartialText = ''; // 마지막 중간 결과 차분 (임시 span 표시용)
-  int _confirmedLength = 0; // ⭐ 이미 확정된 텍스트의 길이 (중복 방지용)
-  Timer? _autoSaveTimer; // STT 중 주기적 자동 저장 타이머
+  String _lastPartialText = '';
+  int _confirmedLength = 0;
+  Timer? _autoSaveTimer;
+  Timer? _partialUpdateDebounce; // JS 큐 누적 방지용 디바운스 타이머
+  bool _isSaving = false; // 동시 저장 방지 플래그
 
   // 오디오 녹음 관련 (STT와 동시 실행)
   final AudioService _audioService = AudioService();
-  bool _isRecordingWithSTT = false; // STT 중 녹음 진행 여부
-  bool _lastSTTActiveState = false; // 이전 STT 상태 추적
+  bool _isRecordingWithSTT = false;
+  bool _lastSTTActiveState = false;
 
   @override
   void initState() {
@@ -283,6 +285,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // 자동 저장 타이머 정리
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
+    _partialUpdateDebounce?.cancel();
+    _partialUpdateDebounce = null;
     debugPrint('⏰ dispose: 자동 저장 타이머 정리');
 
     try {
@@ -983,8 +987,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     );
   }
 
-  /// 중간 결과를 임시 span에 업데이트
+  /// 중간 결과를 임시 span에 업데이트 (150ms 디바운스 — JS 큐 누적 방지)
   void _updatePartialSpan(String text) {
+    _partialUpdateDebounce?.cancel();
+    _partialUpdateDebounce = Timer(const Duration(milliseconds: 150), () {
+      _executePartialSpanUpdate(text);
+    });
+  }
+
+  void _executePartialSpanUpdate(String text) {
     final escapedText = text
         .replaceAll('\\', '\\\\')
         .replaceAll("'", "\\'")
@@ -1132,6 +1143,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   /// 음성 인식 재시작 (자동 재시작용)
   Future<void> _restartListening() async {
     debugPrint('🔄 STT 재시작 시작');
+
+    // 재시작 전 partial 상태 정리 — 미확정 텍스트를 먼저 확정
+    _partialUpdateDebounce?.cancel();
+    if (_lastPartialText.isNotEmpty) {
+      debugPrint('📝 재시작 전 미확정 텍스트 확정: $_lastPartialText');
+      _convertPartialToFinal();
+      _confirmedLength += _lastPartialText.length;
+      _lastPartialText = '';
+    }
 
     // 기존 STT 완전히 중지
     try {
@@ -1354,19 +1374,35 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   }
 
   Future<void> _saveCurrentTextFile() async {
-    if (_currentTextFile != null) {
-      try {
-        print('디버그: 텍스트 파일 저장 시작 - ${_currentTextFile!.displayTitle}');
+    if (_currentTextFile == null) return;
 
-        // HTML 콘텐츠 가져오기 - 실패 시 현재 저장된 콘텐츠 사용
-        String htmlContent = '';
+    // 동시 저장 방지 — 이전 저장이 끝나지 않았으면 스킵
+    if (_isSaving) {
+      debugPrint('⏩ 저장 스킵 - 이전 저장 진행 중');
+      return;
+    }
+    _isSaving = true;
+
+    try {
+      debugPrint('💾 텍스트 파일 저장 시작 - ${_currentTextFile!.displayTitle}');
+
+      // STT 중 자동 저장: getText() 생략하고 캐시된 콘텐츠 사용
+      // (getText()는 WebView 왕복 비용이 크고 JS 큐를 블록함)
+      String htmlContent;
+      if (_isListening) {
+        htmlContent = _currentTextFile!.content.isNotEmpty
+            ? _currentTextFile!.content
+            : '<p><br></p>';
+        debugPrint('⏩ STT 중 저장 - 캐시된 콘텐츠 사용 (${htmlContent.length}자)');
+      } else {
         try {
           htmlContent = await _htmlController.getText();
-          print('디버그: HTML 내용 로드됨 - 길이: ${htmlContent.length}자');
+          debugPrint('📄 HTML 내용 로드됨 - ${htmlContent.length}자');
         } catch (e) {
-          print('경고: HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
+          debugPrint('⚠️ HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
           htmlContent = _currentTextFile?.content ?? '';
         }
+      }
 
         // 빈 내용이어도 저장 가능하도록 수정
         final updatedFile = _currentTextFile!.copyWith(
@@ -1421,33 +1457,27 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           }
         }
 
-        print('디버그: 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
+        debugPrint('✅ 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
 
-        // 저장 완료 알림
-        if (mounted) {
+        // STT 중 자동 저장 시에는 스낵바 표시 안 함 (방해 방지)
+        if (mounted && !_isListening) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('저장되었습니다'),
-              duration: const Duration(seconds: 1),
+              duration: Duration(seconds: 1),
             ),
           );
         }
-
-        print('✅ [텍스트 저장 완료] 편집 모드 유지 - 화면 전환하지 않음');
-        // 편집 모드를 유지하고 화면 전환하지 않음
-        // setState(() {
-        //   _isEditing = false;
-        //   _currentTextFile = null;
-        // });
       } catch (e) {
-        print('에러: 텍스트 파일 저장 실패 - $e');
+        debugPrint('❌ 텍스트 파일 저장 실패 - $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('저장 실패: $e'), backgroundColor: Colors.red),
           );
         }
+      } finally {
+        _isSaving = false;
       }
-    }
   }
 
   Widget _buildTextFileItem(TextFile file) {

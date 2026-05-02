@@ -176,17 +176,19 @@ class _SchedulePickerState extends State<SchedulePicker> {
                     const SizedBox(width: 12),
                     const Text(
                       '시작일자',
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(fontSize: 12),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                         textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -208,8 +210,8 @@ class _SchedulePickerState extends State<SchedulePicker> {
                     const Icon(Icons.event, size: 24),
                     const SizedBox(width: 12),
                     const Text(
-                      '종료 날짜',
-                      style: TextStyle(fontSize: 14),
+                      '종료일자',
+                      style: TextStyle(fontSize: 12),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -218,11 +220,13 @@ class _SchedulePickerState extends State<SchedulePicker> {
                             ? DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedEndDate!)
                             : '선택 안 함',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           color: _selectedEndDate != null ? Colors.black : Colors.grey,
                           fontWeight: _selectedEndDate != null ? FontWeight.bold : FontWeight.normal,
                         ),
                         textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),

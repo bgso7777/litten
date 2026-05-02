@@ -237,8 +237,6 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
         return Column(
           children: [
-            if (_isRecording)
-              _RecordingStatusBar(duration: _recordingDuration),
             Expanded(
               child: Stack(
                 children: [
@@ -257,6 +255,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                       onAudio: _toggleRecording,
                       isRecording: _isRecording,
+                      recordingDuration: _recordingDuration,
                     ),
                   ),
                 ],
@@ -729,11 +728,12 @@ enum _EditorType { text, handwriting }
 
 class _BottomFabRow extends StatefulWidget {
   final VoidCallback onText;
-  final VoidCallback onTextWithSTT; // ⭐ STT와 함께 텍스트 시작
+  final VoidCallback onTextWithSTT;
   final VoidCallback onPdf;
   final VoidCallback onCanvas;
   final VoidCallback onAudio;
   final bool isRecording;
+  final Duration recordingDuration;
 
   const _BottomFabRow({
     required this.onText,
@@ -742,6 +742,7 @@ class _BottomFabRow extends StatefulWidget {
     required this.onCanvas,
     required this.onAudio,
     this.isRecording = false,
+    this.recordingDuration = Duration.zero,
   });
 
   @override
@@ -750,6 +751,12 @@ class _BottomFabRow extends StatefulWidget {
 
 class _BottomFabRowState extends State<_BottomFabRow> {
   bool _isExpanded = false;
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
 
   @override
   void initState() {
@@ -792,34 +799,27 @@ class _BottomFabRowState extends State<_BottomFabRow> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _SpeedDialItem(label: '캔버스', icon: Icons.draw, color: color,
+                    _SpeedDialItem(label: '필기', icon: Icons.draw, color: color,
                         onTap: () => _handleAction(widget.onCanvas)),
                     const SizedBox(height: 8),
                     _SpeedDialItem(label: 'PDF', icon: Icons.picture_as_pdf, color: color,
                         onTap: () => _handleAction(widget.onPdf)),
                     const SizedBox(height: 8),
-                    _SpeedDialItem(label: '텍스트', icon: Icons.keyboard, color: color,
+                    _SpeedDialItem(label: '메모', icon: Icons.notes, color: color,
                         onTap: () => _handleAction(widget.onText)),
                     const SizedBox(height: 8),
-                    // 녹음 항목: 녹음 중이면 중지 아이콘/레이블, didUpdateWidget이 다이얼 상태 관리
                     _SpeedDialItem(
-                      label: widget.isRecording ? '녹음 중지' : '녹음',
+                      label: widget.isRecording
+                          ? '녹음중... ${_formatDuration(widget.recordingDuration)}'
+                          : '녹음',
                       icon: widget.isRecording ? Icons.stop : Icons.mic,
                       color: recordColor,
                       onTap: widget.onAudio,
                     ),
                     const SizedBox(height: 8),
-                    // ⭐ 텍스트 녹음 항목 (STT 자동 시작) - 키보드 + 마이크 아이콘
                     _SpeedDialItem(
-                      label: '텍스트 녹음',
-                      customChild: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.keyboard, size: 20, color: Colors.white), // ⭐ 16 → 20
-                          SizedBox(width: 3), // ⭐ 2 → 3
-                          Icon(Icons.mic, size: 20, color: Colors.white), // ⭐ 16 → 20
-                        ],
-                      ),
+                      label: '음성 메모',
+                      icon: Icons.record_voice_over,
                       color: color,
                       onTap: () => _handleAction(widget.onTextWithSTT),
                     ),
@@ -854,7 +854,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
 class _SpeedDialItem extends StatelessWidget {
   final String label;
   final IconData? icon;
-  final Widget? customChild; // ⭐ 커스텀 자식 위젯 (아이콘 대신 사용)
+  final Widget? customChild;
   final Color color;
   final VoidCallback onTap;
 
@@ -873,14 +873,14 @@ class _SpeedDialItem extends StatelessWidget {
         Expanded(
           child: Material(
             color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             elevation: 0,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
               ),
             ),
           ),
@@ -892,6 +892,7 @@ class _SpeedDialItem extends StatelessWidget {
           color: color,
           heroTag: 'speed_dial_${icon?.codePoint ?? 'custom'}',
           onTap: onTap,
+          mini: true,
         ),
       ],
     );
@@ -900,10 +901,11 @@ class _SpeedDialItem extends StatelessWidget {
 
 class _FabBtn extends StatelessWidget {
   final IconData? icon;
-  final Widget? customChild; // ⭐ 커스텀 자식 위젯 (아이콘 대신 사용)
+  final Widget? customChild;
   final Color color;
   final VoidCallback onTap;
   final Object? heroTag;
+  final bool mini;
 
   const _FabBtn({
     this.icon,
@@ -911,6 +913,7 @@ class _FabBtn extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.heroTag,
+    this.mini = false,
   }) : assert(icon != null || customChild != null, '아이콘 또는 customChild 중 하나는 필수입니다');
 
   @override
@@ -920,8 +923,8 @@ class _FabBtn extends StatelessWidget {
       onPressed: onTap,
       backgroundColor: color,
       foregroundColor: Colors.white,
-      mini: false, // ⭐ true → false로 변경하여 캘린더와 동일한 크기
-      child: customChild ?? Icon(icon!, size: 24), // ⭐ 20 → 24로 변경
+      mini: mini,
+      child: customChild ?? Icon(icon!, size: mini ? 20 : 24),
     );
   }
 }
