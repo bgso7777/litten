@@ -412,7 +412,7 @@ class ApiService {
   /// POST /litten/note/v1/summary
   ///
   /// [_useMock] = true 이면 백엔드 없이 목 응답을 반환 (개발/테스트용)
-  static const bool _useMock = true; // TODO: 백엔드 연동 완료 후 false로 변경
+  static const bool _useMock = false;
 
   Future<String> summarizeText({
     required String text,

@@ -12,6 +12,7 @@ import '../models/audio_file.dart';
 import 'text_tab.dart';
 import 'handwriting_tab.dart';
 import 'dialogs/summary_dialog.dart';
+import 'dialogs/stt_memo_settings_dialog.dart';
 
 // ───────────────────────────── 파일 타입 통합 래퍼 ─────────────────────────────
 
@@ -157,12 +158,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // ⭐ STT 자동 시작 플래그 추가
   bool _autoStartSTT = false;
 
+  SttMemoSettings? _sttMemoSettings; // 음성 메모 설정
+
   void _openEditorView(_EditorType type, {
     HandwritingInitialAction action = HandwritingInitialAction.none,
     bool autoCreate = false,
-    bool autoStartSTT = false, // ⭐ STT 자동 시작 여부
-    TextFile? textFile, // ⭐ 열 텍스트 파일
-    HandwritingFile? handwritingFile, // ⭐ 열 필기 파일
+    bool autoStartSTT = false,
+    TextFile? textFile,
+    HandwritingFile? handwritingFile,
+    SttMemoSettings? sttSettings,
   }) {
     setState(() {
       _openEditor = type;
@@ -171,6 +175,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _autoStartSTT = autoStartSTT;
       _selectedTextFile = textFile;
       _selectedHandwritingFile = handwritingFile;
+      _sttMemoSettings = sttSettings;
     });
   }
 
@@ -274,9 +279,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
         return TextTab(
           key: ValueKey(_selectedTextFile?.id ?? _autoCreate),
           autoCreate: _autoCreate,
-          autoStartSTT: _autoStartSTT, // ⭐ STT 자동 시작 여부 전달
+          autoStartSTT: _autoStartSTT,
           onClose: _closeEditor,
-          initialFile: _selectedTextFile, // ⭐ 선택된 파일 전달
+          initialFile: _selectedTextFile,
+          sttSettings: _sttMemoSettings,
         );
       case _EditorType.handwriting:
         return HandwritingTab(
@@ -573,6 +579,19 @@ class _AllFilesTabState extends State<AllFilesTab> {
         ],
       ),
     );
+  }
+
+  // ── 음성 메모 설정 다이얼로그 ──
+  void _showSttMemoSettings() async {
+    debugPrint('🎤 [AllFilesTab] 음성 메모 설정 다이얼로그 열기');
+    final settings = await showDialog<SttMemoSettings>(
+      context: context,
+      builder: (ctx) => const SttMemoSettingsDialog(),
+    );
+    if (settings != null && mounted) {
+      debugPrint('🎤 [AllFilesTab] 음성 메모 설정 완료 - 주기: ${settings.summaryIntervalMinutes}분');
+      _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true, sttSettings: settings);
+    }
   }
 
   // ── 요약 다이얼로그 ──

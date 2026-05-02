@@ -17,14 +17,23 @@ import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/audio_service.dart';
 import '../services/api_service.dart';
+import 'dialogs/stt_memo_settings_dialog.dart';
 
 class TextTab extends StatefulWidget {
   final bool autoCreate;
   final VoidCallback? onClose;
-  final TextFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
-  final bool autoStartSTT; // ⭐ STT 자동 시작 여부
+  final TextFile? initialFile;
+  final bool autoStartSTT;
+  final SttMemoSettings? sttSettings; // 음성 메모 설정
 
-  const TextTab({super.key, this.autoCreate = false, this.onClose, this.initialFile, this.autoStartSTT = false});
+  const TextTab({
+    super.key,
+    this.autoCreate = false,
+    this.onClose,
+    this.initialFile,
+    this.autoStartSTT = false,
+    this.sttSettings,
+  });
 
   @override
   State<TextTab> createState() => _TextTabState();
@@ -66,8 +75,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   bool _isSttMode = false;
   String _sttSummary = ''; // 요약 영역에 표시할 텍스트
   bool _isSummarizing = false; // 요약 진행 중
-  Timer? _summaryTimer; // 10분마다 자동 요약 타이머
-  static const _summaryInterval = Duration(minutes: 10);
+  Timer? _summaryTimer; // 자동 요약 타이머
+  SttMemoSettings _sttSettings = const SttMemoSettings(); // 음성 메모 설정 (기본값)
 
   @override
   void initState() {
@@ -88,7 +97,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       } else if (widget.autoStartSTT && mounted) {
         // ⭐ STT 자동 시작 모드: 새 파일 생성 후 STT 시작
         debugPrint('🎤 STT 자동 시작 모드 - 새 파일 생성 및 STT 시작');
-        setState(() => _isSttMode = true);
+        setState(() {
+          _isSttMode = true;
+          _sttSettings = widget.sttSettings ?? const SttMemoSettings();
+        });
+        debugPrint('🎤 STT 설정 - 전사언어: ${_sttSettings.textLanguage}, 요약언어: ${_sttSettings.summaryLanguage}, 비율: ${_sttSettings.summaryRatio}, 주기: ${_sttSettings.summaryIntervalMinutes}분');
         _createNewTextFile();
         // STT 시작을 위해 1초 대기 (파일 생성 완료 대기)
         Future.delayed(const Duration(milliseconds: 1000), () {
@@ -912,14 +925,19 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     debugPrint('✅ 음성 인식 시작');
 
-    // STT 모드: 10분마다 자동 요약 타이머 시작
+    // STT 모드: 자동 요약 타이머 시작 (설정에 따라)
     if (_isSttMode) {
       _summaryTimer?.cancel();
-      _summaryTimer = Timer.periodic(_summaryInterval, (_) {
-        debugPrint('⏰ [SttMode] 10분 자동 요약 타이머 실행');
-        _autoSummarizeStt();
-      });
-      debugPrint('⏰ [SttMode] 자동 요약 타이머 시작 (${_summaryInterval.inMinutes}분 간격)');
+      final interval = _sttSettings.summaryInterval;
+      if (interval != null) {
+        _summaryTimer = Timer.periodic(interval, (_) {
+          debugPrint('⏰ [SttMode] 자동 요약 타이머 실행 (${interval.inMinutes}분)');
+          _autoSummarizeStt();
+        });
+        debugPrint('⏰ [SttMode] 자동 요약 타이머 시작 (${interval.inMinutes}분 간격)');
+      } else {
+        debugPrint('ℹ️ [SttMode] 자동 요약 안함 설정');
+      }
     }
 
     await _speechToText.listen(
@@ -1293,6 +1311,20 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     debugPrint('💾 STT 종료 후 텍스트 자동 저장 시작...');
     await _saveCurrentTextFile();
     debugPrint('✅ STT 종료 후 텍스트 자동 저장 완료');
+
+    // 📋 STT 모드: 최종 요약 생성 후 파일 끝에 추가
+    if (_isSttMode) {
+      debugPrint('📋 [SttMode] STT 종료 - 요약 파일 추가 시작');
+      if (_sttSummary.isEmpty) {
+        debugPrint('📋 [SttMode] 요약 없음 - 최종 요약 1회 생성');
+        await _autoSummarizeStt();
+      }
+      if (_sttSummary.isNotEmpty) {
+        await _appendSummaryToFile();
+      } else {
+        debugPrint('ℹ️ [SttMode] 전사 내용이 없어 요약 건너뜀');
+      }
+    }
   }
 
   /// 임시 span을 최종 텍스트로 교체 (STT 종료 시 사용)
@@ -2310,9 +2342,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       final apiService = ApiService();
       final summary = await apiService.summarizeText(
         text: content,
-        textLanguage: 'ko',
-        summaryLanguage: 'ko',
-        summaryRatio: 50,
+        textLanguage: _sttSettings.textLanguage,
+        summaryLanguage: _sttSettings.summaryLanguage,
+        summaryRatio: _sttSettings.summaryRatio,
         fileId: _currentTextFile?.id,
       );
       debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
@@ -2326,9 +2358,96 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     }
   }
 
+  // 요약 텍스트(마크다운 유사)를 HTML로 변환
+  String _summaryToHtml(String summary) {
+    final lines = summary.split('\n');
+    final buf = StringBuffer();
+    buf.write('<hr/><p><strong>📋 AI 요약</strong></p>');
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('# ')) {
+        buf.write('<p><strong>${trimmed.substring(2)}</strong></p>');
+      } else {
+        buf.write('<p>$trimmed</p>');
+      }
+    }
+    return buf.toString();
+  }
+
+  // STT 종료 시 요약 내용을 파일 끝에 추가하고 저장
+  Future<void> _appendSummaryToFile() async {
+    if (_sttSummary.isEmpty || _currentTextFile == null) return;
+    debugPrint('📋 [SttMode] 요약 파일 추가 시작 - 길이: ${_sttSummary.length}');
+
+    try {
+      String currentHtml;
+      try {
+        currentHtml = await _htmlController.getText();
+      } catch (e) {
+        currentHtml = _currentTextFile?.content ?? '';
+      }
+
+      final summaryHtml = _summaryToHtml(_sttSummary);
+      final newHtml = currentHtml + summaryHtml;
+
+      _htmlController.setText(newHtml);
+      debugPrint('📋 [SttMode] 에디터에 요약 삽입 완료');
+
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _saveCurrentTextFile();
+      debugPrint('✅ [SttMode] 요약 포함 저장 완료');
+    } catch (e) {
+      debugPrint('❌ [SttMode] 요약 파일 추가 실패: $e');
+    }
+  }
+
   // STT 요약 영역 위젯
+  // AI 요약 헤더 탭 → 설정 바텀시트
+  // STT 설정 변경 (언어/비율/주기 통합)
+  void _onSttSettingChanged({
+    String? textLanguage,
+    String? summaryLanguage,
+    int? summaryRatio,
+    int? summaryIntervalMinutes,
+  }) {
+    final newSettings = SttMemoSettings(
+      textLanguage: textLanguage ?? _sttSettings.textLanguage,
+      summaryLanguage: summaryLanguage ?? _sttSettings.summaryLanguage,
+      summaryRatio: summaryRatio ?? _sttSettings.summaryRatio,
+      summaryIntervalMinutes: summaryIntervalMinutes ?? _sttSettings.summaryIntervalMinutes,
+    );
+    setState(() => _sttSettings = newSettings);
+    // 주기가 변경된 경우 타이머 재시작
+    if (summaryIntervalMinutes != null) {
+      _summaryTimer?.cancel();
+      _summaryTimer = null;
+      final interval = newSettings.summaryInterval;
+      if (_isListening && interval != null) {
+        _summaryTimer = Timer.periodic(interval, (_) => _autoSummarizeStt());
+        debugPrint('⏰ [SttMode] 주기 변경 - 타이머 재시작 (${interval.inMinutes}분)');
+      }
+    }
+  }
+
   Widget _buildSttSummaryArea() {
     final color = Theme.of(context).primaryColor;
+    const kLangs = [
+      ('ko', '한국어'), ('en', 'English'), ('zh', '中文'), ('ja', '日本語'),
+      ('hi', 'हिन्दी'), ('es', 'Español'), ('fr', 'Français'), ('ar', 'العربية'),
+      ('bn', 'বাংলা'), ('ru', 'Русский'), ('pt', 'Português'), ('ur', 'اردو'),
+      ('id', 'Bahasa Indonesia'), ('de', 'Deutsch'), ('sw', 'Kiswahili'),
+      ('mr', 'मराठी'), ('te', 'తెలుగు'), ('tr', 'Türkçe'), ('ta', 'தமிழ்'),
+      ('fa', 'فارسی'), ('uk', 'Українська'), ('it', 'Italiano'), ('tl', 'Filipino'),
+      ('pl', 'Polski'), ('ps', 'پښتو'), ('ms', 'Bahasa Melayu'), ('ro', 'Română'),
+      ('nl', 'Nederlands'), ('ha', 'Hausa'), ('th', 'ไทย'),
+    ];
+    const kRatios = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+    const kIntervals = [(1, '1분'), (3, '3분'), (5, '5분'), (10, '10분'), (0, '안함')];
+
+    // 공통 드롭다운 스타일
+    TextStyle dropStyle() => TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500);
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
@@ -2340,9 +2459,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더
+          // 헤더: 타이틀 + 4개 드롭다운
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
@@ -2352,10 +2471,93 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
-                Icon(Icons.auto_awesome, size: 14, color: color),
-                const SizedBox(width: 6),
+                Icon(Icons.auto_awesome, size: 13, color: color),
+                const SizedBox(width: 4),
                 Text('AI 요약',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                const SizedBox(width: 4),
+                // 4개 드롭다운 균등 배분
+                Expanded(
+                  child: Row(
+                    children: [
+                      // 언어
+                      Flexible(
+                        flex: 3,
+                        child: DropdownButton<String>(
+                          value: _sttSettings.textLanguage,
+                          isDense: true, isExpanded: true,
+                          underline: const SizedBox(),
+                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                          style: dropStyle(),
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: kLangs.map((l) => DropdownMenuItem(
+                            value: l.$1,
+                            child: Text('${l.$2}(${l.$1})',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: color)),
+                          )).toList(),
+                          onChanged: (v) => _onSttSettingChanged(textLanguage: v),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // 요약언어
+                      Flexible(
+                        flex: 3,
+                        child: DropdownButton<String>(
+                          value: _sttSettings.summaryLanguage,
+                          isDense: true, isExpanded: true,
+                          underline: const SizedBox(),
+                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                          style: dropStyle(),
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: kLangs.map((l) => DropdownMenuItem(
+                            value: l.$1,
+                            child: Text('${l.$2}(${l.$1})',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: color)),
+                          )).toList(),
+                          onChanged: (v) => _onSttSettingChanged(summaryLanguage: v),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // 비율
+                      Flexible(
+                        flex: 2,
+                        child: DropdownButton<int>(
+                          value: _sttSettings.summaryRatio,
+                          isDense: true, isExpanded: true,
+                          underline: const SizedBox(),
+                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                          style: dropStyle(),
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: kRatios.map((r) => DropdownMenuItem(
+                            value: r,
+                            child: Text('$r%', style: TextStyle(fontSize: 12, color: color)),
+                          )).toList(),
+                          onChanged: (v) => _onSttSettingChanged(summaryRatio: v),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // 주기
+                      Flexible(
+                        flex: 2,
+                        child: DropdownButton<int>(
+                          value: _sttSettings.summaryIntervalMinutes,
+                          isDense: true, isExpanded: true,
+                          underline: const SizedBox(),
+                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                          style: dropStyle(),
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: kIntervals.map((opt) => DropdownMenuItem(
+                            value: opt.$1,
+                            child: Text(opt.$2, style: TextStyle(fontSize: 12, color: color)),
+                          )).toList(),
+                          onChanged: (v) => _onSttSettingChanged(summaryIntervalMinutes: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -2376,7 +2578,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                     padding: const EdgeInsets.all(12),
                     child: _sttSummary.isEmpty
                         ? Text(
-                            '녹음 시작 후 10분마다 자동으로 요약됩니다.',
+                            _sttSettings.summaryIntervalMinutes > 0
+                                ? '녹음 시작 후 ${_sttSettings.summaryIntervalMinutes}분마다 자동으로 요약됩니다.'
+                                : '자동 요약이 비활성화되어 있습니다.',
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
                           )
                         : Text(
