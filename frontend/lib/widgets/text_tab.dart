@@ -58,6 +58,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   bool _editorInitialized = false;
   String? _pendingContent; // onInit 이전에 setText 요청된 콘텐츠
 
+  // STT 수동 중지 여부 (true=사용자가 중지, false=시스템 자동 중지)
+  bool _isManualStop = false;
+
+  // 음성 메모 모드 (autoStartSTT로 진입 시 true — 1/3 전사 + 2/3 요약 레이아웃)
+  bool _isSttMode = false;
+  String _sttSummary = ''; // 요약 영역에 표시할 텍스트
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +84,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       } else if (widget.autoStartSTT && mounted) {
         // ⭐ STT 자동 시작 모드: 새 파일 생성 후 STT 시작
         debugPrint('🎤 STT 자동 시작 모드 - 새 파일 생성 및 STT 시작');
+        setState(() => _isSttMode = true);
         _createNewTextFile();
         // STT 시작을 위해 1초 대기 (파일 생성 완료 대기)
         Future.delayed(const Duration(milliseconds: 1000), () {
@@ -116,62 +124,75 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     try {
       final available = await _speechToText.initialize(
         onError: (error) {
-          debugPrint('❌ STT 에러: ${error.errorMsg}');
-          if (mounted) {
-            setState(() {
-              _isListening = false;
-            });
+          debugPrint('❌ STT 에러: ${error.errorMsg}, _isManualStop=$_isManualStop');
+          if (!mounted) return;
 
-            // 에러 메시지 사용자에게 표시
-            String userMessage = '음성 인식 오류가 발생했습니다.';
-            if (error.errorMsg == 'error_language_unavailable') {
-              userMessage = '선택한 언어의 음성 인식을 사용할 수 없습니다.\n실제 기기에서 사용해주세요.';
-            } else if (error.errorMsg == 'error_server_disconnected') {
-              userMessage =
-                  '음성 인식 서버와 연결할 수 없습니다.\nGoogle 앱을 설치/업데이트하거나 네트워크를 확인해주세요.';
-            } else if (error.errorMsg == 'error_no_match') {
-              userMessage = '음성을 인식하지 못했습니다.\n다시 시도해주세요.';
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(userMessage),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-        },
-        onStatus: (status) {
-          debugPrint('ℹ️ STT 상태: $status');
-
-          // ⭐ STT가 자동으로 멈췄을 때 (타임아웃 등) 자동 재시작
-          if (status == 'done' && _isListening && mounted) {
-            debugPrint('⚠️ STT가 자동으로 중단됨 (done) - 3초 후 자동 재시작');
-
-            // 잠시 대기 후 재시작 (즉시 재시작하면 충돌 가능)
+          // 시스템 자동 중지 에러 (타임아웃 등) — 자동 재시작
+          final autoRestartErrors = ['error_speech_timeout', 'error_no_match', 'error_client'];
+          if (!_isManualStop && autoRestartErrors.contains(error.errorMsg)) {
+            debugPrint('⚠️ STT 자동 중지 에러 (${error.errorMsg}) - 3초 후 자동 재시작');
+            setState(() => _isListening = false);
             Future.delayed(const Duration(seconds: 3), () {
-              if (_isListening && mounted) {
-                debugPrint('🔄 STT 자동 재시작 실행');
-                _restartListening();
+              if (mounted && !_isManualStop) {
+                debugPrint('🔄 STT 에러 후 자동 재시작');
+                _startListening();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('음성 인식이 자동으로 재시작됩니다.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
               }
             });
-          } else if (status == 'notListening' && _isListening && mounted) {
-            debugPrint('⚠️ STT가 notListening 상태 - 1초 후 재시작 시도');
+            return;
+          }
 
-            Future.delayed(const Duration(seconds: 1), () {
-              if (_isListening && mounted) {
-                debugPrint('🔄 STT notListening에서 재시작');
-                _restartListening();
+          // 수동 중지이거나 복구 불가 에러 — 완전 중지
+          setState(() => _isListening = false);
+
+          String userMessage = '음성 인식 오류가 발생했습니다.';
+          if (error.errorMsg == 'error_language_unavailable') {
+            userMessage = '선택한 언어의 음성 인식을 사용할 수 없습니다.\n실제 기기에서 사용해주세요.';
+          } else if (error.errorMsg == 'error_server_disconnected') {
+            userMessage = '음성 인식 서버와 연결할 수 없습니다.\nGoogle 앱을 설치/업데이트하거나 네트워크를 확인해주세요.';
+          } else if (error.errorMsg == 'error_no_match' && _isManualStop) {
+            return; // 수동 중지 시 error_no_match는 무시
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(userMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        },
+        onStatus: (status) {
+          debugPrint('ℹ️ STT 상태: $status, _isManualStop=$_isManualStop, _isListening=$_isListening');
+
+          if (!mounted) return;
+
+          if ((status == 'done' || status == 'notListening') && !_isManualStop) {
+            // 시스템 자동 중지 → 자동 재시작
+            debugPrint('⚠️ STT 시스템 자동 중단 ($status) - 2초 후 자동 재시작');
+            setState(() => _isListening = false);
+
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && !_isManualStop) {
+                debugPrint('🔄 STT 자동 재시작 ($status)');
+                _startListening();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('음성 인식이 자동으로 재시작됩니다.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
               }
             });
           } else if (status == 'done' || status == 'notListening') {
-            // STT를 사용자가 의도적으로 중지한 경우
-            if (mounted && !_isListening) {
-              setState(() {
-                _isListening = false;
-              });
-            }
+            // 수동 중지 — 그냥 종료
+            debugPrint('ℹ️ STT 수동 중지 상태 ($status)');
+            setState(() => _isListening = false);
           }
         },
       );
@@ -752,6 +773,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// 음성 인식 시작
   Future<void> _startListening() async {
+    _isManualStop = false; // 자동 재시작 허용
     debugPrint('🎤 음성 인식 시작 시도');
 
     // ⭐ 녹음 중인지 확인 - 녹음 중이면 녹음을 중단하고 STT 시작
@@ -1170,9 +1192,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       debugPrint('⚠️ STT 중지 실패 (재시작 시): $e');
     }
 
-    // STT 상태가 여전히 활성화되어 있는지 확인
-    if (!_isListening || !mounted) {
-      debugPrint('⚠️ STT가 이미 중지됨 - 재시작 취소');
+    // 수동 중지이거나 위젯이 해제된 경우 재시작 취소
+    if (_isManualStop || !mounted) {
+      debugPrint('⚠️ STT 재시작 취소 - _isManualStop=$_isManualStop');
       return;
     }
 
@@ -1182,7 +1204,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// 음성 인식 중지
   Future<void> _stopListening() async {
-    debugPrint('🛑 음성 인식 중지');
+    _isManualStop = true; // 사용자가 직접 중지 → 자동 재시작 금지
+    debugPrint('🛑 음성 인식 중지 (수동)');
 
     // ⭐ 자동 저장 타이머 정리
     _autoSaveTimer?.cancel();
@@ -2030,9 +2053,33 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ),
         ),
 
-        // HTML 에디터
+        // 에디터 + 요약 영역 (STT 모드: 1/3 + 2/3, 일반: 전체)
         Expanded(
-          child: Container(
+          child: _isSttMode
+              ? Column(
+                  children: [
+                    // 전사 영역 (1/3)
+                    Expanded(
+                      flex: 1,
+                      child: _buildEditorContainer(),
+                    ),
+                    // 요약 영역 (2/3)
+                    Expanded(
+                      flex: 2,
+                      child: _buildSttSummaryArea(),
+                    ),
+                  ],
+                )
+              : _buildEditorContainer(),
+        ),
+      ], // Column children 닫기 (outer)
+    ), // Column 닫기 (outer)
+    ); // PopScope 닫기
+  } // _buildTextEditor 닫기
+
+  // 에디터 컨테이너 (툴바 + HTML 에디터)
+  Widget _buildEditorContainer() {
+    return Container(
             width: double.infinity,
             height: double.infinity,
             margin: const EdgeInsets.all(8),
@@ -2216,10 +2263,59 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                 ], // Column children 닫기 (inner)
               ), // Column 닫기 (inner)
             ), // ClipRRect 닫기
-          ), // Container 닫기
-        ), // Expanded 닫기 (outer)
-      ], // Column children 닫기 (outer)
-    ), // Column 닫기 (outer)
-    ); // PopScope 닫기
-  } // _buildTextEditor 닫기
+          ); // Container 닫기 (_buildEditorContainer)
+  }
+
+  // STT 요약 영역 위젯
+  Widget _buildSttSummaryArea() {
+    final color = Theme.of(context).primaryColor;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text('AI 요약',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+              ],
+            ),
+          ),
+          // 요약 내용
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: _sttSummary.isEmpty
+                  ? Text(
+                      '전사가 완료된 후 요약 내용이 여기에 표시됩니다.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
+                    )
+                  : Text(
+                      _sttSummary,
+                      style: const TextStyle(fontSize: 13, height: 1.6),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
