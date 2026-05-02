@@ -153,3 +153,9 @@ jwt:
   secret: aiceaccountjwtsecretparsetargettobase64
 
 cs-center-company-seq: 651
+
+claude:
+  api:
+    key: ${CLAUDE_API_KEY:}
+    model: claude-haiku-4-5-20251001
+    max-tokens: 1024

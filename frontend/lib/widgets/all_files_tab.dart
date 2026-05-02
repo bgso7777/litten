@@ -11,6 +11,7 @@ import '../models/handwriting_file.dart';
 import '../models/audio_file.dart';
 import 'text_tab.dart';
 import 'handwriting_tab.dart';
+import 'dialogs/summary_dialog.dart';
 
 // ───────────────────────────── 파일 타입 통합 래퍼 ─────────────────────────────
 
@@ -361,6 +362,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
         ]),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
+            icon: Icon(
+              Icons.auto_awesome,
+              color: file.hasSummary ? color : Colors.grey.shade400,
+              size: 20,
+            ),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+            tooltip: file.hasSummary ? '요약 보기' : '요약 없음',
+            onPressed: () => _showSummaryDialog(file),
+          ),
+          IconButton(
             icon: Icon(Icons.edit_outlined, color: color, size: 20),
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             padding: EdgeInsets.zero,
@@ -561,6 +573,95 @@ class _AllFilesTabState extends State<AllFilesTab> {
         ],
       ),
     );
+  }
+
+  // ── 요약 다이얼로그 ──
+  void _showSummaryDialog(TextFile file) async {
+    debugPrint('✨ [AllFilesTab] 요약 다이얼로그 열기 - 파일: ${file.displayTitle}');
+
+    final result = await showDialog<SummaryResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => SummaryDialog(file: file),
+    );
+
+    if (result == null || !mounted) return;
+
+    debugPrint('✨ [AllFilesTab] 요약 결과 수신 - 파일에 추가 시작');
+    await _appendSummaryToFile(file, result);
+  }
+
+  Future<void> _appendSummaryToFile(TextFile file, SummaryResult result) async {
+    try {
+      debugPrint('✨ [AllFilesTab] 파일 저장 시작 - 원본 content 길이: ${file.content.length}');
+
+      // 요약을 HTML 단락으로 변환 (hr·이모지·인라인스타일 제거 → html_editor_enhanced 호환)
+      final summaryLines = result.summary
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty)
+          .toList();
+
+      final summaryHtml = summaryLines
+          .map((line) => '<p>${_escapeHtmlText(line.trim())}</p>')
+          .join('');
+
+      final separator = '<p>- - - - - - - - - - - - - - -</p>';
+      final header = '<p><strong>[AI 요약] ${result.summaryRatio}% | ${result.summaryLanguage}</strong></p>';
+
+      final base = file.content.isEmpty ? '<p><br></p>' : file.content;
+      final appendedContent = '$base$separator$header$summaryHtml';
+
+      debugPrint('✨ [AllFilesTab] appendedContent 길이: ${appendedContent.length}');
+
+      final updatedFile = file.copyWith(
+        content: appendedContent,
+        summary: result.summary,
+      );
+
+      // 스토리지 저장
+      final storage = FileStorageService.instance;
+      final allFiles = await storage.loadTextFiles(file.littenId);
+      debugPrint('✨ [AllFilesTab] 기존 파일 수: ${allFiles.length}');
+
+      final updated = allFiles.map((f) => f.id == file.id ? updatedFile : f).toList();
+      final saved = await storage.saveTextFiles(file.littenId, updated);
+      debugPrint('✨ [AllFilesTab] 저장 결과: $saved');
+
+      if (!saved) {
+        throw Exception('파일 저장 실패 (SharedPreferences 오류)');
+      }
+
+      // 파일 목록 새로고침
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await _loadFiles(appState);
+
+      debugPrint('✨ [AllFilesTab] 요약 저장 완료');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('요약이 파일에 추가되었습니다.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 요약 파일 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('요약 저장 실패: $e')),
+        );
+      }
+    }
+  }
+
+  // HTML 텍스트에서 특수문자 이스케이프 (editor의 JS 템플릿 리터럴 안전성 보장)
+  String _escapeHtmlText(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
   }
 
   // ── 텍스트 이름 변경 ──

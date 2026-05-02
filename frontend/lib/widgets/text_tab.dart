@@ -54,6 +54,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   bool _isRecordingWithSTT = false;
   bool _lastSTTActiveState = false;
 
+  // 에디터 초기화 상태 추적
+  bool _editorInitialized = false;
+  String? _pendingContent; // onInit 이전에 setText 요청된 콘텐츠
+
   @override
   void initState() {
     super.initState();
@@ -506,14 +510,19 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       _isEditing = true;
     });
 
-    // HTML 에디터가 로딩될 때까지 대기
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    try {
-      // HTML 컨텐츠 로드
-      _htmlController.setText(file.content);
-    } catch (e) {
-      print('HTML 에디터 로딩 에러: $e');
+    if (_editorInitialized) {
+      // 에디터가 이미 초기화된 경우 바로 로드
+      await Future.delayed(const Duration(milliseconds: 100));
+      try {
+        debugPrint('📂 [TextTab] 에디터 초기화됨 - setText 직접 호출');
+        _htmlController.setText(file.content);
+      } catch (e) {
+        debugPrint('❌ [TextTab] HTML 에디터 로딩 에러: $e');
+      }
+    } else {
+      // 에디터 미초기화 - onInit에서 로드하도록 예약
+      debugPrint('📂 [TextTab] 에디터 미초기화 - pendingContent 설정');
+      _pendingContent = file.content;
     }
   }
 
@@ -2065,7 +2074,25 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                               otherOptions: const OtherOptions(height: 350),
                               callbacks: Callbacks(
                                 onInit: () {
-                                  print('HTML 에디터 초기화 완료');
+                                  debugPrint('📝 [TextTab] HTML 에디터 초기화 완료');
+                                  _editorInitialized = true;
+
+                                  // pendingContent가 있으면 로드
+                                  if (_pendingContent != null) {
+                                    final content = _pendingContent!;
+                                    _pendingContent = null;
+                                    Future.delayed(const Duration(milliseconds: 200), () {
+                                      if (mounted) {
+                                        debugPrint('📂 [TextTab] onInit - pendingContent 로드 (길이: ${content.length})');
+                                        try {
+                                          _htmlController.setText(content);
+                                        } catch (e) {
+                                          debugPrint('❌ [TextTab] onInit setText 에러: $e');
+                                        }
+                                      }
+                                    });
+                                  }
+
                                   // CSS 주입 및 커서 설정
                                   _htmlController.editorController
                                       ?.evaluateJavascript(

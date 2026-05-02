@@ -216,6 +216,7 @@ public class SecurityConfiguration {
 //        .requestMatchers("/litten/changepassword*.html").permitAll()
 
         // litten
+        .requestMatchers("/note/v1/summary/**").permitAll()
         .requestMatchers("/note/v1/members/**").permitAll()
         .requestMatchers("/note/v1/members/install/**").permitAll()
         .requestMatchers("/note/v1/members/signup/**").permitAll()

@@ -18,6 +18,7 @@ class ApiService {
       '/litten/note/v1/members/password-url';
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
   static const String _membersEndpoint = '/litten/note/v1/members';
+  static const String _summaryEndpoint = '/litten/note/v1/summary';
 
   /// HTTP 헤더 생성
   Map<String, String> _getHeaders({String? token}) {
@@ -405,6 +406,88 @@ class ApiService {
       debugPrint('[ApiService] deleteAccount - Error: $e');
       rethrow;
     }
+  }
+
+  /// 텍스트 요약 (Claude API)
+  /// POST /litten/note/v1/summary
+  ///
+  /// [_useMock] = true 이면 백엔드 없이 목 응답을 반환 (개발/테스트용)
+  static const bool _useMock = true; // TODO: 백엔드 연동 완료 후 false로 변경
+
+  Future<String> summarizeText({
+    required String text,
+    required String textLanguage,
+    required String summaryLanguage,
+    required int summaryRatio,
+    String? fileId,
+  }) async {
+    debugPrint('[ApiService] summarizeText - fileId: $fileId, ratio: $summaryRatio, mock: $_useMock');
+
+    if (_useMock) {
+      await Future.delayed(const Duration(milliseconds: 1200)); // 실제 API 느낌
+      return _buildMockSummary(text, summaryLanguage, summaryRatio);
+    }
+
+    try {
+      final url = Uri.parse('$baseUrl$_summaryEndpoint');
+      final body = jsonEncode({
+        'text': text,
+        'textLanguage': textLanguage,
+        'summaryLanguage': summaryLanguage,
+        'summaryRatio': summaryRatio,
+        'fileId': fileId,
+      });
+
+      debugPrint('[ApiService] summarizeText - URL: $url');
+
+      final response = await http
+          .post(url, headers: _getHeaders(), body: body)
+          .timeout(const Duration(seconds: 30));
+
+      debugPrint('[ApiService] summarizeText - Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final success = data['success'] as bool? ?? false;
+
+        if (success) {
+          final summary = data['summary'] as String? ?? '';
+          debugPrint('[ApiService] summarizeText - Success, length: ${summary.length}');
+          return summary;
+        } else {
+          final error = data['error'] as String? ?? '요약 실패';
+          debugPrint('[ApiService] summarizeText - Failed: $error');
+          throw Exception(error);
+        }
+      } else {
+        debugPrint('[ApiService] summarizeText - Failed: ${response.statusCode}');
+        throw Exception('서버 오류: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] summarizeText - Error: $e');
+      rethrow;
+    }
+  }
+
+  String _buildMockSummary(String text, String lang, int ratio) {
+    final pointCount = ratio ~/ 10;
+    final plain = text.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final preview = plain.length > 40 ? plain.substring(0, 40) : plain;
+
+    final points = List.generate(pointCount, (i) => switch (i) {
+      0 => '• 이 문서의 핵심 주제: "$preview..."',
+      1 => '• 주요 내용이 체계적으로 정리되어 있습니다.',
+      2 => '• 중요한 세부 사항이 포함되어 있습니다.',
+      3 => '• 관련 맥락과 배경 정보가 서술되어 있습니다.',
+      4 => '• 결론 및 요약이 문서 후반부에 위치합니다.',
+      5 => '• 추가적인 참고 정보가 기술되어 있습니다.',
+      6 => '• 세부 예시와 설명이 포함되어 있습니다.',
+      7 => '• 관련 항목들이 상세히 나열되어 있습니다.',
+      _ => '• 전반적인 내용이 명확하게 기술되어 있습니다.',
+    });
+
+    debugPrint('[ApiService] _buildMockSummary - pointCount: $pointCount, lang: $lang');
+    return points.join('\n');
   }
 
   /// UUID로 계정 조회

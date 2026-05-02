@@ -8,7 +8,8 @@ class TextFile {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<AudioSyncMarker> syncMarkers;
-  
+  final String? summary;
+
   TextFile({
     String? id,
     required this.littenId,
@@ -17,6 +18,7 @@ class TextFile {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<AudioSyncMarker>? syncMarkers,
+    this.summary,
   })  : id = id ?? const Uuid().v4(),
         title = title ?? _generateTitleFromContent(content),
         createdAt = createdAt ?? DateTime.now(),
@@ -36,10 +38,14 @@ class TextFile {
   int get characterCount => content.length;
   int get wordCount => content.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
 
+  bool get hasSummary => summary != null && summary!.isNotEmpty;
+
   TextFile copyWith({
     String? title,
     String? content,
     List<AudioSyncMarker>? syncMarkers,
+    String? summary,
+    bool clearSummary = false,
   }) {
     return TextFile(
       id: id,
@@ -49,6 +55,7 @@ class TextFile {
       createdAt: createdAt,
       updatedAt: DateTime.now(),
       syncMarkers: syncMarkers ?? this.syncMarkers,
+      summary: clearSummary ? null : (summary ?? this.summary),
     );
   }
 
@@ -61,6 +68,7 @@ class TextFile {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'syncMarkers': syncMarkers.map((marker) => marker.toJson()).toList(),
+      if (summary != null) 'summary': summary,
     };
   }
 
@@ -75,6 +83,7 @@ class TextFile {
       syncMarkers: (json['syncMarkers'] as List?)
           ?.map((marker) => AudioSyncMarker.fromJson(marker))
           .toList() ?? [],
+      summary: json['summary'] as String?,
     );
   }
 }
