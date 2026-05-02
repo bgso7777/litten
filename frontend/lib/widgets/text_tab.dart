@@ -16,6 +16,7 @@ import '../models/audio_file.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/audio_service.dart';
+import '../services/api_service.dart';
 
 class TextTab extends StatefulWidget {
   final bool autoCreate;
@@ -64,6 +65,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   // 음성 메모 모드 (autoStartSTT로 진입 시 true — 1/3 전사 + 2/3 요약 레이아웃)
   bool _isSttMode = false;
   String _sttSummary = ''; // 요약 영역에 표시할 텍스트
+  bool _isSummarizing = false; // 요약 진행 중
+  Timer? _summaryTimer; // 10분마다 자동 요약 타이머
+  static const _summaryInterval = Duration(minutes: 10);
 
   @override
   void initState() {
@@ -312,6 +316,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     _autoSaveTimer = null;
     _partialUpdateDebounce?.cancel();
     _partialUpdateDebounce = null;
+    _summaryTimer?.cancel();
+    _summaryTimer = null;
     debugPrint('⏰ dispose: 자동 저장 타이머 정리');
 
     try {
@@ -906,6 +912,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     debugPrint('✅ 음성 인식 시작');
 
+    // STT 모드: 10분마다 자동 요약 타이머 시작
+    if (_isSttMode) {
+      _summaryTimer?.cancel();
+      _summaryTimer = Timer.periodic(_summaryInterval, (_) {
+        debugPrint('⏰ [SttMode] 10분 자동 요약 타이머 실행');
+        _autoSummarizeStt();
+      });
+      debugPrint('⏰ [SttMode] 자동 요약 타이머 시작 (${_summaryInterval.inMinutes}분 간격)');
+    }
+
     await _speechToText.listen(
       onResult: (result) {
         // ✅ 중복 입력 방지: STT 종료 후 들어오는 결과 무시
@@ -1210,6 +1226,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // ⭐ 자동 저장 타이머 정리
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
+
+    // STT 자동 요약 타이머 정리
+    _summaryTimer?.cancel();
+    _summaryTimer = null;
     debugPrint('⏰ STT 자동 저장 타이머 중지');
 
     // ⭐ HTML 에디터 다시 활성화 - 키보드 입력 가능하도록
@@ -2266,6 +2286,46 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ); // Container 닫기 (_buildEditorContainer)
   }
 
+  // STT 모드 자동 요약 (10분마다 호출)
+  Future<void> _autoSummarizeStt() async {
+    if (_isSummarizing || !mounted) return;
+
+    String content;
+    try {
+      content = await _htmlController.getText();
+    } catch (e) {
+      content = _currentTextFile?.content ?? '';
+    }
+
+    final plain = content.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (plain.isEmpty) {
+      debugPrint('ℹ️ [SttMode] 요약할 전사 내용 없음 - 스킵');
+      return;
+    }
+
+    debugPrint('✨ [SttMode] 자동 요약 시작 - 전사 길이: ${plain.length}');
+    setState(() => _isSummarizing = true);
+
+    try {
+      final apiService = ApiService();
+      final summary = await apiService.summarizeText(
+        text: content,
+        textLanguage: 'ko',
+        summaryLanguage: 'ko',
+        summaryRatio: 50,
+        fileId: _currentTextFile?.id,
+      );
+      debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
+      if (mounted) {
+        setState(() => _sttSummary = summary);
+      }
+    } catch (e) {
+      debugPrint('❌ [SttMode] 자동 요약 실패: $e');
+    } finally {
+      if (mounted) setState(() => _isSummarizing = false);
+    }
+  }
+
   // STT 요약 영역 위젯
   Widget _buildSttSummaryArea() {
     final color = Theme.of(context).primaryColor;
@@ -2301,18 +2361,29 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ),
           // 요약 내용
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: _sttSummary.isEmpty
-                  ? Text(
-                      '전사가 완료된 후 요약 내용이 여기에 표시됩니다.',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
-                    )
-                  : Text(
-                      _sttSummary,
-                      style: const TextStyle(fontSize: 13, height: 1.6),
+            child: _isSummarizing
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: color, strokeWidth: 2),
+                        const SizedBox(height: 8),
+                        Text('요약 중...', style: TextStyle(fontSize: 12, color: color)),
+                      ],
                     ),
-            ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: _sttSummary.isEmpty
+                        ? Text(
+                            '녹음 시작 후 10분마다 자동으로 요약됩니다.',
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
+                          )
+                        : Text(
+                            _sttSummary,
+                            style: const TextStyle(fontSize: 13, height: 1.6),
+                          ),
+                  ),
           ),
         ],
       ),
