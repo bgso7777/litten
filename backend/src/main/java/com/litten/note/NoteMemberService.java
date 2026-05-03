@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.litten.Constants;
+import com.litten.common.security.SecurityUtils;
 import com.litten.common.config.Config;
 import com.litten.common.dynamic.BeanUtil;
 import com.litten.common.dynamic.ConstantsDynamic;
@@ -38,6 +39,68 @@ public class NoteMemberService extends CustomHttpService {
     public Map<String, Object> putProcessCustomCRUD(Object requestObject) throws Exception {
         Map<String, Object> result = new HashMap<>();
         result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+
+        return result;
+    }
+
+    public Map<String, Object> getMyInfo(String memberId) throws Exception {
+        log.debug("[NoteMemberService] getMyInfo 진입 - memberId: {}", memberId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(memberId, "signup");
+
+        if (noteMember == null) {
+            log.warn("[NoteMemberService] getMyInfo - 회원 없음: {}", memberId);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "회원을 찾을 수 없습니다.");
+        } else {
+            log.info("[NoteMemberService] getMyInfo - 성공: {}, plan: {}", memberId, noteMember.getSubscriptionPlan());
+            result.put(Constants.TAG_MEMBER_ID, noteMember.getId());
+            result.put(Constants.TAG_SUBSCRIPTION_PLAN, noteMember.getSubscriptionPlan());
+            result.put(Constants.TAG_PLAN_EXPIRED_AT, noteMember.getPlanExpiredAt());
+        }
+
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> updatePlan(JsonNode requestBody, String memberId) throws Exception {
+        log.debug("[NoteMemberService] updatePlan 진입 - memberId: {}", memberId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        String plan = requestBody.get(Constants.TAG_SUBSCRIPTION_PLAN).asText();
+        log.info("[NoteMemberService] updatePlan - memberId: {}, plan: {}", memberId, plan);
+
+        if (!plan.equals(Constants.SUBSCRIPTION_PLAN_FREE)
+                && !plan.equals(Constants.SUBSCRIPTION_PLAN_STANDARD)
+                && !plan.equals(Constants.SUBSCRIPTION_PLAN_PREMIUM)) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "유효하지 않은 플랜: " + plan);
+            return result;
+        }
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(memberId, "signup");
+
+        if (noteMember == null) {
+            log.warn("[NoteMemberService] updatePlan - 회원 없음: {}", memberId);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "회원을 찾을 수 없습니다.");
+        } else {
+            noteMember.setSubscriptionPlan(plan);
+            if (requestBody.has(Constants.TAG_PLAN_EXPIRED_AT) && !requestBody.get(Constants.TAG_PLAN_EXPIRED_AT).isNull()) {
+                noteMember.setPlanExpiredAt(LocalDateTime.parse(requestBody.get(Constants.TAG_PLAN_EXPIRED_AT).asText()));
+            }
+            noteMember.setUpdateDateTime(LocalDateTime.now());
+            noteMemberRepository.save(noteMember);
+            log.info("[NoteMemberService] updatePlan - 플랜 변경 완료: {} -> {}", memberId, plan);
+            result.put(Constants.TAG_SUBSCRIPTION_PLAN, noteMember.getSubscriptionPlan());
+        }
 
         return result;
     }

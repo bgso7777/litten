@@ -103,12 +103,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 // 광고 배너 영역 - 최상위 배치
                 Builder(
                   builder: (context) {
-                    debugPrint('🎯 [MainTabScreen] Builder 진입 - isPremiumUser: ${appState.isPremiumUser}');
-                    if (!appState.isPremiumUser) {
+                    debugPrint('🎯 [MainTabScreen] Builder 진입 - isPremiumUser: ${appState.isPremiumUser}, adsEnabled: ${appState.adsEnabled}');
+                    if (appState.adsEnabled && !appState.isPremiumUser) {
                       debugPrint('✅ [MainTabScreen] AdBanner 위젯 생성');
                       return const AdBanner();
                     } else {
-                      debugPrint('✅ [MainTabScreen] 유료 사용자 - 광고 영역 제거 (공간 확장)');
+                      debugPrint('✅ [MainTabScreen] 광고 숨김 (adsEnabled: ${appState.adsEnabled}, isPremiumUser: ${appState.isPremiumUser})');
                       return const SizedBox.shrink();
                     }
                   },

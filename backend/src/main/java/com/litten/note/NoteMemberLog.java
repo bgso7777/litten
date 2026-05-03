@@ -31,10 +31,10 @@ public class NoteMemberLog extends NoteMemberCommon implements Serializable {
     @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY)
     @Column(name="sequence_log", columnDefinition="BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '회원sequence'")
-    private Integer sequenceLog;
+    private Long sequenceLog;
 
-    @Column(name="sequence", columnDefinition="BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '회원sequence'")
-    private Integer sequence;
+    @Column(name="sequence", columnDefinition="BIGINT(20) NULL COMMENT '회원sequence'")
+    private Long sequence;
 
     @Column(name="id", columnDefinition="VARCHAR(128) NULL DEFAULT NULL COMMENT '계정 id' COLLATE 'utf8mb4_unicode_ci'")
     private String id;

@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'audio_file.dart' show SyncStatus;
 
 class TextFile {
   final String id;
@@ -9,6 +10,9 @@ class TextFile {
   final DateTime updatedAt;
   final List<AudioSyncMarker> syncMarkers;
   final String? summary;
+  final String? cloudId;
+  final DateTime? cloudUpdatedAt;
+  final SyncStatus syncStatus;
 
   TextFile({
     String? id,
@@ -19,6 +23,9 @@ class TextFile {
     DateTime? updatedAt,
     List<AudioSyncMarker>? syncMarkers,
     this.summary,
+    this.cloudId,
+    this.cloudUpdatedAt,
+    this.syncStatus = SyncStatus.none,
   })  : id = id ?? const Uuid().v4(),
         title = title ?? _generateTitleFromContent(content),
         createdAt = createdAt ?? DateTime.now(),
@@ -46,6 +53,9 @@ class TextFile {
     List<AudioSyncMarker>? syncMarkers,
     String? summary,
     bool clearSummary = false,
+    String? cloudId,
+    DateTime? cloudUpdatedAt,
+    SyncStatus? syncStatus,
   }) {
     return TextFile(
       id: id,
@@ -56,6 +66,9 @@ class TextFile {
       updatedAt: DateTime.now(),
       syncMarkers: syncMarkers ?? this.syncMarkers,
       summary: clearSummary ? null : (summary ?? this.summary),
+      cloudId: cloudId ?? this.cloudId,
+      cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -69,6 +82,9 @@ class TextFile {
       'updatedAt': updatedAt.toIso8601String(),
       'syncMarkers': syncMarkers.map((marker) => marker.toJson()).toList(),
       if (summary != null) 'summary': summary,
+      'cloudId': cloudId,
+      'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
+      'syncStatus': syncStatus.name,
     };
   }
 
@@ -84,6 +100,12 @@ class TextFile {
           ?.map((marker) => AudioSyncMarker.fromJson(marker))
           .toList() ?? [],
       summary: json['summary'] as String?,
+      cloudId: json['cloudId'] as String?,
+      cloudUpdatedAt: json['cloudUpdatedAt'] != null ? DateTime.parse(json['cloudUpdatedAt']) : null,
+      syncStatus: SyncStatus.values.firstWhere(
+        (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
+        orElse: () => SyncStatus.none,
+      ),
     );
   }
 }

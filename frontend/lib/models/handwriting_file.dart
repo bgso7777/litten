@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'audio_file.dart' show SyncStatus;
 
 class HandwritingFile {
   final String id;
@@ -13,7 +14,10 @@ class HandwritingFile {
   final DateTime updatedAt;
   final HandwritingType type; // PDF에서 변환된 것인지, 직접 그린 것인지
   final double? aspectRatio; // 이미지의 가로세로 비율 (width / height)
-  
+  final String? cloudId;
+  final DateTime? cloudUpdatedAt;
+  final SyncStatus syncStatus;
+
   HandwritingFile({
     String? id,
     required this.littenId,
@@ -27,6 +31,9 @@ class HandwritingFile {
     DateTime? updatedAt,
     HandwritingType? type,
     this.aspectRatio,
+    this.cloudId,
+    this.cloudUpdatedAt,
+    this.syncStatus = SyncStatus.none,
   })  : id = id ?? const Uuid().v4(),
         title = title ?? _generateTitleFromPath(imagePath),
         pageImagePaths = pageImagePaths ?? [imagePath],
@@ -83,6 +90,9 @@ class HandwritingFile {
     int? currentPageIndex,
     HandwritingType? type,
     double? aspectRatio,
+    String? cloudId,
+    DateTime? cloudUpdatedAt,
+    SyncStatus? syncStatus,
   }) {
     return HandwritingFile(
       id: id,
@@ -97,6 +107,9 @@ class HandwritingFile {
       updatedAt: DateTime.now(),
       type: type ?? this.type,
       aspectRatio: aspectRatio ?? this.aspectRatio,
+      cloudId: cloudId ?? this.cloudId,
+      cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -114,6 +127,9 @@ class HandwritingFile {
       'updatedAt': updatedAt.toIso8601String(),
       'type': type.toString(),
       'aspectRatio': aspectRatio,
+      'cloudId': cloudId,
+      'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
+      'syncStatus': syncStatus.name,
     };
   }
 
@@ -136,6 +152,12 @@ class HandwritingFile {
         orElse: () => HandwritingType.drawing,
       ),
       aspectRatio: json['aspectRatio']?.toDouble(),
+      cloudId: json['cloudId'] as String?,
+      cloudUpdatedAt: json['cloudUpdatedAt'] != null ? DateTime.parse(json['cloudUpdatedAt']) : null,
+      syncStatus: SyncStatus.values.firstWhere(
+        (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
+        orElse: () => SyncStatus.none,
+      ),
     );
   }
 }

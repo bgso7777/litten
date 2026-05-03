@@ -164,6 +164,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: appState.dockingEnabled,
                 onChanged: (v) => appState.setDockingEnabled(v),
               ),
+              _buildSettingsSwitchItem(
+                icon: Icons.campaign_outlined,
+                title: '광고 표시',
+                subtitle: appState.isPremiumUser ? '유료 플랜 - 광고 없음' : '무료 플랜에서 광고 표시',
+                iconColor: appState.isPremiumUser ? Colors.grey : Theme.of(context).primaryColor,
+                value: appState.adsEnabled && !appState.isPremiumUser,
+                onChanged: appState.isPremiumUser ? (_) {} : (v) => appState.setAdsEnabled(v),
+              ),
               _buildSettingsItem(
                 icon: Icons.tab,
                 title: '노트탭 보기',
@@ -208,66 +216,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ]),
             AppSpacing.verticalSpaceL,
 
-            // 계정 섹션
+            // 계정 섹션 - 항상 표시, 프리미엄이 아닐 때 비활성화
             _buildSettingsSection(l10n?.account ?? '계정', [
-              _buildSettingsItem(
-                icon: Icons.person,
-                title: l10n?.userStatus ?? '사용자 상태',
-                subtitle: appState.isLoggedIn
-                    ? '${appState.currentUser?.email ?? ''} (${l10n?.loggedIn ?? '로그인'})'
-                    : _registeredEmail != null
-                    ? '$_registeredEmail (${l10n?.loggedOut ?? '로그아웃'})'
-                    : l10n?.loggedOut ?? '로그아웃',
-                iconColor: Theme.of(context).primaryColor,
-                onTap: null,
-              ),
-              // 로그인 상태일 때
-              if (appState.isLoggedIn) ...[
+              if (appState.subscriptionType != SubscriptionType.premium)
+                // 비프리미엄: 잠금 안내 항목만 표시
+                _buildSettingsItemDisabled(
+                  icon: Icons.lock_outline,
+                  title: l10n?.account ?? '계정',
+                  subtitle: '프리미엄 플랜에서 사용 가능합니다',
+                ),
+              if (appState.subscriptionType == SubscriptionType.premium) ...[
                 _buildSettingsItem(
-                  icon: Icons.lock_reset,
-                  title: l10n?.changePassword ?? '비밀번호 변경',
-                  subtitle: l10n?.changePasswordSubtitle ?? '계정 비밀번호를 변경합니다',
+                  icon: Icons.person,
+                  title: l10n?.userStatus ?? '사용자 상태',
+                  subtitle: appState.isLoggedIn
+                      ? '${appState.currentUser?.email ?? ''} (${l10n?.loggedIn ?? '로그인'})'
+                      : l10n?.loggedOut ?? '로그아웃',
                   iconColor: Theme.of(context).primaryColor,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ChangePasswordScreen(),
-                      ),
-                    );
-                  },
+                  onTap: null,
                 ),
-                _buildSettingsItem(
-                  icon: Icons.logout,
-                  title: l10n?.logout ?? '로그아웃',
-                  subtitle: l10n?.loginToAccount ?? '현재 계정에서 로그아웃합니다',
-                  iconColor: Theme.of(context).primaryColor,
-                  onTap: () => _showLogoutDialog(context, appState),
-                ),
-                _buildSettingsItem(
-                  icon: Icons.person_remove,
-                  title: l10n?.deleteAccount ?? '회원탈퇴',
-                  subtitle: l10n?.deleteAccountSubtitle ?? '계정을 영구적으로 삭제합니다',
-                  iconColor: Colors.red,
-                  onTap: () => _showDeleteAccountDialog(context, appState),
-                ),
-              ],
-              // 로그아웃 상태일 때
-              if (!appState.isLoggedIn) ...[
-                _buildSettingsItem(
-                  icon: Icons.login,
-                  title: l10n?.login ?? '로그인',
-                  subtitle: l10n?.loginToAccount ?? '계정에 로그인합니다',
-                  iconColor: Theme.of(context).primaryColor,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
-                      ),
-                    );
-                  },
-                ),
+                // 로그인 상태일 때
+                if (appState.isLoggedIn) ...[
+                  _buildSettingsItem(
+                    icon: Icons.lock_reset,
+                    title: l10n?.changePassword ?? '비밀번호 변경',
+                    subtitle: l10n?.changePasswordSubtitle ?? '계정 비밀번호를 변경합니다',
+                    iconColor: Theme.of(context).primaryColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChangePasswordScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingsItem(
+                    icon: Icons.logout,
+                    title: l10n?.logout ?? '로그아웃',
+                    subtitle: l10n?.loginToAccount ?? '현재 계정에서 로그아웃합니다',
+                    iconColor: Theme.of(context).primaryColor,
+                    onTap: () => _showLogoutDialog(context, appState),
+                  ),
+                  _buildSettingsItem(
+                    icon: Icons.person_remove,
+                    title: l10n?.deleteAccount ?? '회원탈퇴',
+                    subtitle: l10n?.deleteAccountSubtitle ?? '계정을 영구적으로 삭제합니다',
+                    iconColor: Colors.red,
+                    onTap: () => _showDeleteAccountDialog(context, appState),
+                  ),
+                ],
+                // 미로그인 상태일 때 (프리미엄인데 로그인 안 된 경우)
+                if (!appState.isLoggedIn)
+                  _buildSettingsItem(
+                    icon: Icons.login,
+                    title: l10n?.login ?? '로그인',
+                    subtitle: '클라우드 동기화를 위해 로그인하세요',
+                    iconColor: Theme.of(context).primaryColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ]),
 
@@ -407,6 +421,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? const Icon(Icons.arrow_forward_ios, size: 16)
           : null,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildSettingsItemDisabled({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.grey.shade400, size: 20),
+      ),
+      title: Row(
+        children: [
+          Text(title, style: AppTextStyles.bodyText2.copyWith(color: Colors.grey.shade400)),
+          if (subtitle != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                subtitle,
+                style: AppTextStyles.caption.copyWith(color: Colors.grey.shade400),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -610,11 +657,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               appState,
               SubscriptionType.premium,
               l10n?.planPremium ?? '프리미엄',
-              appState.isLoggedIn
-                ? (l10n?.planPremiumDescription ?? '\$9.99/월 - 클라우드 동기화')
-                : (l10n?.planPremiumDescriptionLoginRequired ?? '\$9.99/월 - 클라우드 동기화 (로그인 필요)'),
+              l10n?.planPremiumDescription ?? '\$9.99/월 - 클라우드 동기화',
               l10n,
-              isDisabled: !appState.isLoggedIn,
             ),
           ],
         ),
@@ -642,6 +686,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: isDisabled
           ? null
           : () {
+              // 프리미엄 → 하위 플랜 다운그레이드 + 로그인 중: 강제 로그아웃 필요
+              if (type != SubscriptionType.premium &&
+                  appState.subscriptionType == SubscriptionType.premium &&
+                  appState.isLoggedIn) {
+                Navigator.of(context).pop();
+                _showDowngradeFromPremiumDialog(context, appState, type, title, l10n);
+                return;
+              }
+              // 프리미엄 선택 + 미로그인: 플랜만 변경하고 안내 다이얼로그 표시
+              if (type == SubscriptionType.premium && !appState.isLoggedIn) {
+                appState.changeSubscriptionType(type);
+                Navigator.of(context).pop();
+                debugPrint('[SettingsScreen] 프리미엄 선택 - 클라우드 서비스 안내 표시');
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.cloud_outlined, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('클라우드 동기화'),
+                      ],
+                    ),
+                    content: const Text(
+                      '프리미엄 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
               appState.changeSubscriptionType(type);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1143,6 +1223,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: const Text('Select', style: TextStyle(fontSize: 12)),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showDowngradeFromPremiumDialog(
+    BuildContext context,
+    AppStateProvider appState,
+    SubscriptionType newType,
+    String planTitle,
+    AppLocalizations? l10n,
+  ) {
+    debugPrint('[SettingsScreen] 다운그레이드 확인 다이얼로그 - 목표 플랜: $newType');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('플랜 변경'),
+          ],
+        ),
+        content: Text(
+          '프리미엄 플랜에서 $planTitle 플랜으로 변경하면 클라우드 동기화가 중단되고 자동으로 로그아웃됩니다.\n\n계속하시겠습니까?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n?.cancel ?? '취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              navigator.pop();
+              debugPrint('[SettingsScreen] 다운그레이드 실행: $newType, 강제 로그아웃');
+              await appState.changeSubscriptionType(newType);
+              await appState.authService.signOut();
+              scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Text('$planTitle 플랜으로 변경되었습니다. 로그아웃되었습니다.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('변경 및 로그아웃'),
+          ),
         ],
       ),
     );

@@ -6,11 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
+import '../models/audio_file.dart';
 import 'litten_service.dart';
 
 class FileStorageService {
   static const String _textFilesKey = 'text_files';
   static const String _handwritingFilesKey = 'handwriting_files';
+  static const String _audioFilesKey = 'audio_files';
   
   static FileStorageService? _instance;
   static FileStorageService get instance => _instance ??= FileStorageService._();
@@ -298,15 +300,44 @@ class FileStorageService {
     }
   }
 
+  /// 오디오 파일 메타데이터를 SharedPreferences에서 로드
+  Future<List<AudioFile>> loadAudioFiles(String littenId) async {
+    try {
+      debugPrint('[FileStorageService] 오디오 파일 메타데이터 로드 - littenId: $littenId');
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('${_audioFilesKey}_$littenId');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((e) => AudioFile.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[FileStorageService] 오디오 파일 메타데이터 로드 실패: $e');
+      return [];
+    }
+  }
+
+  /// 오디오 파일 메타데이터를 SharedPreferences에 저장
+  Future<bool> saveAudioFiles(String littenId, List<AudioFile> audioFiles) async {
+    try {
+      debugPrint('[FileStorageService] 오디오 파일 메타데이터 저장 - littenId: $littenId, 파일 수: ${audioFiles.length}');
+      final prefs = await SharedPreferences.getInstance();
+      final json = jsonEncode(audioFiles.map((f) => f.toJson()).toList());
+      return await prefs.setString('${_audioFilesKey}_$littenId', json);
+    } catch (e) {
+      debugPrint('[FileStorageService] 오디오 파일 메타데이터 저장 실패: $e');
+      return false;
+    }
+  }
+
   /// 특정 리튼의 모든 파일 삭제
   Future<bool> deleteAllFilesForLitten(String littenId) async {
     try {
       print('디버그: 리튼 파일 전체 삭제 시작 - littenId: $littenId');
-      
+
       // SharedPreferences에서 삭제
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('${_textFilesKey}_$littenId');
       await prefs.remove('${_handwritingFilesKey}_$littenId');
+      await prefs.remove('${_audioFilesKey}_$littenId');
       
       // 파일 시스템에서 디렉토리 삭제
       final directory = await getApplicationDocumentsDirectory();

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/audio_file.dart';
 import '../models/litten.dart';
+import 'file_storage_service.dart';
 
 class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   static final AudioService _instance = AudioService._internal();
@@ -247,6 +248,12 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('[AudioService] 녹음 시간: ${audioFile.duration} (실제 측정값)');
         debugPrint('[AudioService] 파일 크기: ${fileSize / 1024}KB');
 
+        // 메타데이터 저장 (syncStatus 등 유지용)
+        final stored = await FileStorageService.instance.loadAudioFiles(litten.id);
+        stored.removeWhere((f) => f.filePath == audioFile.filePath);
+        stored.add(audioFile);
+        await FileStorageService.instance.saveAudioFiles(litten.id, stored);
+
         _isRecording = false;
         _recordingDuration = Duration.zero;
         _recordingStartTime = null;
@@ -333,14 +340,18 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
     _stateSaveTimer = null;
   }
 
-  /// 리튼의 모든 오디오 파일 가져오기
+  /// 리튼의 모든 오디오 파일 가져오기 (메타데이터와 병합)
   Future<List<AudioFile>> getAudioFiles(Litten litten) async {
     debugPrint('[AudioService] getAudioFiles 진입 - littenId: ${litten.id}');
-    
+
     try {
       final directory = await getApplicationDocumentsDirectory();
       final audioDir = Directory('${directory.path}/littens/${litten.id}/audio');
-      
+
+      // 저장된 메타데이터 로드 (cloudId, syncStatus 등 유지)
+      final storedFiles = await FileStorageService.instance.loadAudioFiles(litten.id);
+      final storedByPath = <String, AudioFile>{for (final f in storedFiles) f.filePath: f};
+
       if (!await audioDir.exists()) {
         debugPrint('[AudioService] 오디오 디렉토리가 존재하지 않습니다.');
         return [];
@@ -353,23 +364,30 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         if (file is File && file.path.endsWith('.m4a')) {
           final stat = await file.stat();
           final fileName = file.path.split('/').last.replaceAll('.m4a', '');
-          
-          final audioFile = AudioFile(
+          // 저장된 메타데이터가 있으면 사용 (syncStatus 등 보존), 없으면 새로 생성
+          final stored = storedByPath[file.path];
+          final audioFile = stored ?? AudioFile(
             id: stat.modified.millisecondsSinceEpoch.toString(),
             littenId: litten.id,
             fileName: fileName,
             filePath: file.path,
-            duration: Duration.zero, // 실제 재생 시 계산
+            duration: Duration.zero,
             createdAt: stat.modified,
           );
-          
           audioFiles.add(audioFile);
         }
       }
 
+      // 메타데이터에서 실제 파일이 없는 항목 제거 후 저장
+      final existingPaths = audioFiles.map((f) => f.filePath).toSet();
+      final cleanedStored = storedFiles.where((f) => existingPaths.contains(f.filePath)).toList();
+      if (cleanedStored.length != storedFiles.length) {
+        await FileStorageService.instance.saveAudioFiles(litten.id, cleanedStored);
+      }
+
       // 생성일 순으로 정렬
       audioFiles.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      
+
       debugPrint('[AudioService] 발견된 오디오 파일 수: ${audioFiles.length}');
       return audioFiles;
     } catch (e) {

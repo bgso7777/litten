@@ -12,6 +12,9 @@ enum AuthStatus {
   loading,         // 로딩 중
 }
 
+/// 구독 플랜 열거형
+enum SubscriptionPlan { free, standard, premium }
+
 /// 사용자 모델
 class User {
   final String id;
@@ -19,6 +22,7 @@ class User {
   final String? displayName;
   final String? photoUrl;
   final DateTime createdAt;
+  final SubscriptionPlan subscriptionPlan;
 
   User({
     required this.id,
@@ -26,7 +30,22 @@ class User {
     this.displayName,
     this.photoUrl,
     required this.createdAt,
+    this.subscriptionPlan = SubscriptionPlan.free,
   });
+
+  User copyWith({SubscriptionPlan? subscriptionPlan}) {
+    return User(
+      id: id,
+      email: email,
+      displayName: displayName,
+      photoUrl: photoUrl,
+      createdAt: createdAt,
+      subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+    );
+  }
+
+  bool get isPremium => subscriptionPlan == SubscriptionPlan.premium;
+  bool get isStandardOrAbove => subscriptionPlan == SubscriptionPlan.standard || subscriptionPlan == SubscriptionPlan.premium;
 
   Map<String, dynamic> toJson() {
     return {
@@ -35,6 +54,7 @@ class User {
       'displayName': displayName,
       'photoUrl': photoUrl,
       'createdAt': createdAt.toIso8601String(),
+      'subscriptionPlan': subscriptionPlan.name,
     };
   }
 
@@ -45,6 +65,10 @@ class User {
       displayName: json['displayName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      subscriptionPlan: SubscriptionPlan.values.firstWhere(
+        (p) => p.name == (json['subscriptionPlan'] as String? ?? 'free'),
+        orElse: () => SubscriptionPlan.free,
+      ),
     );
   }
 }
@@ -147,6 +171,7 @@ class AuthServiceImpl extends AuthService {
   static const String _keyTokenExpiredDate = 'token_expired_date';
   static const String _keyDeviceUuid = 'device_uuid';
   static const String _keyRegisteredEmail = 'registered_email'; // 최초 회원가입한 이메일
+  static const String _keySubscriptionPlan = 'subscription_type';
 
   @override
   AuthStatus get authStatus => _authStatus;
@@ -212,13 +237,19 @@ class AuthServiceImpl extends AuthService {
 
       if (token != null && email != null && userId != null) {
         _token = token;
+        final planStr = prefs.getString(_keySubscriptionPlan) ?? 'free';
+        final plan = SubscriptionPlan.values.firstWhere(
+          (p) => p.name == planStr,
+          orElse: () => SubscriptionPlan.free,
+        );
         _currentUser = User(
           id: userId,
           email: email,
           createdAt: DateTime.now(),
+          subscriptionPlan: plan,
         );
         _authStatus = AuthStatus.authenticated;
-        debugPrint('🔐 AuthService: 로그인 상태 - $email');
+        debugPrint('🔐 AuthService: 로그인 상태 - $email, plan: $planStr');
       } else {
         _authStatus = AuthStatus.unauthenticated;
         debugPrint('🔐 AuthService: 비로그인 상태');
@@ -325,10 +356,13 @@ class AuthServiceImpl extends AuthService {
         tokenExpiredDate: tokenExpiredDate,
       );
 
+      // 서버에서 구독 플랜 조회 후 저장
+      await _fetchAndSaveSubscriptionPlan(token: token);
+
       notifyListeners();
       debugPrint('🔐 AuthService: 로그인 성공 - $email');
 
-      return user;
+      return _currentUser!;
     } catch (e) {
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
@@ -580,13 +614,42 @@ class AuthServiceImpl extends AuthService {
     }
   }
 
+  /// 서버에서 구독 플랜 조회 후 로컬 저장 및 User 객체 업데이트
+  Future<void> _fetchAndSaveSubscriptionPlan({required String token}) async {
+    try {
+      debugPrint('🔄 AuthService: 서버에서 구독 플랜 조회 시작');
+      final planStr = await _apiService.getSubscriptionPlan(token: token);
+      final plan = SubscriptionPlan.values.firstWhere(
+        (p) => p.name == planStr,
+        orElse: () => SubscriptionPlan.free,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keySubscriptionPlan, planStr);
+      _currentUser = _currentUser?.copyWith(subscriptionPlan: plan);
+      debugPrint('✅ AuthService: 구독 플랜 저장 완료 - $planStr');
+    } catch (e) {
+      debugPrint('⚠️ AuthService: 구독 플랜 조회 실패 (free 유지) - $e');
+    }
+  }
+
+  /// 로컬 구독 플랜 업데이트 (메모리 + SharedPreferences, 서버 API 없이)
+  Future<void> updateLocalSubscriptionPlan(SubscriptionPlan plan) async {
+    debugPrint('🔐 AuthService: 로컬 구독 플랜 업데이트 - ${plan.name}');
+    _currentUser = _currentUser?.copyWith(subscriptionPlan: plan);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySubscriptionPlan, plan.name);
+    notifyListeners();
+    debugPrint('✅ AuthService: 로컬 구독 플랜 업데이트 완료 - ${plan.name}');
+  }
+
   /// 무료 플랜으로 전환
   Future<void> _resetToFreePlan() async {
     try {
       debugPrint('🔄 AuthService: 무료 플랜으로 전환 시작');
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('subscription_type', 'free');
+      await prefs.setString(_keySubscriptionPlan, 'free');
+      _currentUser = _currentUser?.copyWith(subscriptionPlan: SubscriptionPlan.free);
 
       debugPrint('✅ AuthService: 무료 플랜 전환 완료');
     } catch (e) {

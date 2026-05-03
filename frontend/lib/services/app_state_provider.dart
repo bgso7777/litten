@@ -12,6 +12,7 @@ import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
+import '../services/sync_service.dart';
 
 class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final LittenService _littenService = LittenService();
@@ -20,8 +21,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final AuthServiceImpl _authService = AuthServiceImpl();
   final AudioService _audioService = AudioService();
 
+  // 로그인/플랜 전환 감지를 위한 이전 상태
+  AuthStatus _previousAuthStatus = AuthStatus.unauthenticated;
+  bool _previousIsPremium = false;
+
   // 생성자: AuthService 리스너 등록 및 앱 생명주기 관찰자 등록
   AppStateProvider() {
+    // SyncService에 AuthService 주입 (동기화 완료 시 UI 갱신 콜백 포함)
+    SyncService.instance.init(_authService, onSyncStatusChanged: notifyFileListChanged);
+
     // AuthService의 상태 변경을 감지하여 UI 업데이트
     _authService.addListener(_onAuthStateChanged);
 
@@ -87,6 +95,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 도킹 사용 여부 (기본: false)
   bool _dockingEnabled = false;
 
+  // ⭐ 광고 표시 여부 (기본: false - 나중에 활성화 가능)
+  bool _adsEnabled = false;
+
   // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
     'all': 'topLeft',
@@ -134,6 +145,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get noteTabVisibility => _noteTabVisibility;
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
+  bool get adsEnabled => _adsEnabled;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -266,11 +278,49 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _isInitialized = true;
     notifyListeners();
+
+    // 앱 시작 동기화 (비동기 fire-and-forget)
+    SyncService.instance.syncOnAppStart();
   }
 
   // 인증 상태 변경 핸들러
   void _onAuthStateChanged() {
-    debugPrint('[AppStateProvider] 인증 상태 변경: ${_authService.authStatus}');
+    final newStatus = _authService.authStatus;
+    final currentIsPremium = _authService.currentUser?.isPremium ?? false;
+
+    if (_isInitialized) {
+      // 로그아웃 → 로그인 전환 시 구독 플랜 동기화 + 동기화 시작
+      if (_previousAuthStatus != AuthStatus.authenticated &&
+          newStatus == AuthStatus.authenticated) {
+        final serverPlan = _authService.currentUser?.subscriptionPlan ?? SubscriptionPlan.free;
+        final serverType = _planToSubscriptionType(serverPlan);
+        // 서버 플랜이 더 높을 때만 업데이트
+        // (로그인 전에 로컬에서 선택한 플랜이 더 높으면 유지)
+        if (_subscriptionTypeLevel(serverType) > _subscriptionTypeLevel(_subscriptionType)) {
+          _subscriptionType = serverType;
+          _saveSubscriptionType(_subscriptionType);
+          debugPrint('[AppStateProvider] 로그인 시 서버 플랜으로 업그레이드: $_subscriptionType');
+        } else {
+          debugPrint('[AppStateProvider] 로그인 시 로컬 플랜 유지: $_subscriptionType (서버: $serverType)');
+          // AuthService에도 로컬 플랜 동기화
+          _authService.updateLocalSubscriptionPlan(_subscriptionTypeToPlan(_subscriptionType));
+        }
+        SyncService.instance.syncOnLogin();
+      }
+      // 비프리미엄 → 프리미엄 업그레이드 시 일괄 업로드
+      else if (newStatus == AuthStatus.authenticated &&
+          !_previousIsPremium &&
+          currentIsPremium) {
+        _subscriptionType = SubscriptionType.premium;
+        _saveSubscriptionType(_subscriptionType);
+        debugPrint('[AppStateProvider] 프리미엄 업그레이드 감지 - syncOnLogin 호출');
+        SyncService.instance.syncOnLogin();
+      }
+    }
+
+    _previousAuthStatus = newStatus;
+    _previousIsPremium = currentIsPremium;
+    debugPrint('[AppStateProvider] 인증 상태 변경: $newStatus, isPremium: $currentIsPremium');
     notifyListeners();
   }
 
@@ -295,10 +345,17 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _saveThemeType(_themeType);
     }
 
-    // 구독 상태 로드 (테스트: 무조건 무료로 설정)
-    _subscriptionType = SubscriptionType.free;
-    await prefs.setInt('subscription_type', 0); // SharedPreferences도 초기화
-    debugPrint('💰 [AppStateProvider] 구독 상태 강제 초기화: _subscriptionType=$_subscriptionType, isPremiumUser=${_subscriptionType != SubscriptionType.free}');
+    // 구독 상태 로드 (string 포맷 우선, int 레거시 폴백)
+    final planStr = prefs.getString('subscription_type');
+    if (planStr != null) {
+      _subscriptionType = _planNameToType(planStr);
+    } else {
+      final subscriptionIndex = prefs.getInt('subscription_type') ?? 0;
+      _subscriptionType = SubscriptionType.values[subscriptionIndex.clamp(0, SubscriptionType.values.length - 1)];
+      // int 포맷을 string 포맷으로 마이그레이션
+      await prefs.setString('subscription_type', _subscriptionType.name);
+    }
+    debugPrint('💰 [AppStateProvider] 구독 상태 복원: $_subscriptionType');
 
     // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';
@@ -329,6 +386,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _dockingEnabled = prefs.getBool('docking_enabled') ?? false;
     debugPrint('✅ [AppStateProvider] 도킹 사용 여부 복원: $_dockingEnabled');
+
+    _adsEnabled = prefs.getBool('ads_enabled') ?? false;
+    debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled');
   }
 
   String _getSystemLanguage() {
@@ -490,7 +550,45 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> changeSubscriptionType(SubscriptionType subscriptionType) async {
     _subscriptionType = subscriptionType;
     await _saveSubscriptionType(subscriptionType);
+    // AuthService.currentUser 동기화 (SyncService._canSync 체크용)
+    if (_authService.authStatus == AuthStatus.authenticated) {
+      final plan = _subscriptionTypeToPlan(subscriptionType);
+      await _authService.updateLocalSubscriptionPlan(plan);
+    }
     notifyListeners();
+  }
+
+  SubscriptionType _planToSubscriptionType(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free: return SubscriptionType.free;
+      case SubscriptionPlan.standard: return SubscriptionType.standard;
+      case SubscriptionPlan.premium: return SubscriptionType.premium;
+    }
+  }
+
+  SubscriptionPlan _subscriptionTypeToPlan(SubscriptionType type) {
+    switch (type) {
+      case SubscriptionType.free: return SubscriptionPlan.free;
+      case SubscriptionType.standard: return SubscriptionPlan.standard;
+      case SubscriptionType.premium: return SubscriptionPlan.premium;
+    }
+  }
+
+  SubscriptionType _planNameToType(String planName) {
+    switch (planName) {
+      case 'standard': return SubscriptionType.standard;
+      case 'premium': return SubscriptionType.premium;
+      default: return SubscriptionType.free;
+    }
+  }
+
+  // free=0, standard=1, premium=2 — 플랜 높낮이 비교용
+  int _subscriptionTypeLevel(SubscriptionType type) {
+    switch (type) {
+      case SubscriptionType.standard: return 1;
+      case SubscriptionType.premium: return 2;
+      default: return 0;
+    }
   }
 
   // 탭 변경
@@ -859,7 +957,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _saveSubscriptionType(SubscriptionType subscriptionType) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('subscription_type', subscriptionType.index);
+    // AuthService와 동일한 string 포맷으로 저장 (key 충돌 방지)
+    await prefs.setString('subscription_type', subscriptionType.name);
   }
 
   // 현지화된 기본 리튼 생성
@@ -1189,6 +1288,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('docking_enabled', enabled);
     debugPrint('💾 [AppStateProvider] 도킹 사용 여부 저장: $_dockingEnabled');
+    notifyListeners();
+  }
+
+  Future<void> setAdsEnabled(bool enabled) async {
+    if (_adsEnabled == enabled) return;
+    _adsEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ads_enabled', enabled);
+    debugPrint('💾 [AppStateProvider] 광고 표시 여부 저장: $_adsEnabled');
     notifyListeners();
   }
 
@@ -1675,11 +1783,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 알림 서비스가 멈췄을 수 있으므로 확인 후 재시작
         // Child 리튼 생성은 타임아웃 설정으로 블로킹되지 않음
         _ensureNotificationServiceRunning();
-        
+
         // 추가 안전장치: 1초 후 다시 한 번 확인
         Future.delayed(const Duration(seconds: 1), () {
           _ensureNotificationServiceRunning();
         });
+
+        // 포그라운드 전환 시 동기화 (5분 이상 백그라운드였을 때만 실행)
+        SyncService.instance.syncOnForeground();
         break;
       case AppLifecycleState.inactive:
         // 앱이 비활성 상태 (예: 전화 수신, 알림 센터 열기)
@@ -1693,6 +1804,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           littenId: _selectedLitten?.id,
         );
         _notificationService.onAppPaused();
+        // 백그라운드 진입 시각 기록 (포그라운드 전환 시 경과 시간 계산용)
+        SyncService.instance.recordBackgroundTime();
         break;
       case AppLifecycleState.detached:
         // 앱이 종료됨

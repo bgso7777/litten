@@ -52,4 +52,10 @@ public class NoteMemberCommon extends BaseEntity implements Serializable {
     @Column(name="state", columnDefinition="VARCHAR(64) NULL DEFAULT NULL COMMENT '상태' ")
     private String state;
 
+    @Column(name="subscription_plan", columnDefinition="VARCHAR(20) NOT NULL DEFAULT 'free' COMMENT '구독 플랜 (free/standard/premium)'")
+    private String subscriptionPlan = "free";
+
+    @Column(name="plan_expired_at", columnDefinition="TIMESTAMP NULL DEFAULT NULL COMMENT '플랜 만료일시'")
+    private LocalDateTime planExpiredAt;
+
 }

@@ -217,6 +217,12 @@ public class SecurityConfiguration {
 
         // litten
         .requestMatchers("/note/v1/summary/**").permitAll()
+        // 파일 동기화 API (인증 필요)
+        .requestMatchers("/note/v1/files/**").authenticated()
+        // 회원 인증 필요 API
+        .requestMatchers("/note/v1/members/me").authenticated()
+        .requestMatchers("/note/v1/members/plan").authenticated()
+        // 공개 API
         .requestMatchers("/note/v1/members/**").permitAll()
         .requestMatchers("/note/v1/members/install/**").permitAll()
         .requestMatchers("/note/v1/members/signup/**").permitAll()

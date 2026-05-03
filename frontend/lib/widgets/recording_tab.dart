@@ -8,6 +8,7 @@ import '../services/litten_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/audio_file.dart';
+import '../services/sync_service.dart';
 
 class RecordingTab extends StatefulWidget {
   final bool autoStart;
@@ -101,6 +102,16 @@ class _RecordingTabState extends State<RecordingTab> {
           // 파일 카운트 업데이트
           await appState.updateFileCount();
           print('[RecordingTab] 파일 카운트 업데이트 완료');
+
+          // 클라우드 동기화
+          SyncService.instance.uploadFile(
+            littenId: audioFile.littenId,
+            localId: audioFile.id,
+            fileType: 'audio',
+            fileName: audioFile.fileName,
+            filePath: audioFile.filePath,
+            localUpdatedAt: audioFile.updatedAt,
+          );
 
           print('[RecordingTab] 파일 목록 새로고침 완료, mounted: $mounted');
 
@@ -257,6 +268,30 @@ class _RecordingTabState extends State<RecordingTab> {
 
     if (newSpeed != null) {
       await _audioService.setPlaybackSpeed(newSpeed);
+    }
+  }
+
+  Widget _buildCloudSyncIcon(SyncStatus status, bool isPremium) {
+    if (!isPremium) return const SizedBox.shrink();
+    switch (status) {
+      case SyncStatus.synced:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_done, color: Colors.blue, size: 18),
+        );
+      case SyncStatus.pending:
+      case SyncStatus.syncing:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_upload, color: Colors.orange, size: 18),
+        );
+      case SyncStatus.error:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_off, color: Colors.red, size: 18),
+        );
+      case SyncStatus.none:
+        return const SizedBox.shrink();
     }
   }
 
@@ -543,6 +578,10 @@ class _RecordingTabState extends State<RecordingTab> {
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        _buildCloudSyncIcon(
+                                          audioFile.syncStatus,
+                                          appState.isPremiumPlusUser,
+                                        ),
                                         if (isCurrentPlaying &&
                                             _audioService.isPlaying)
                                           IconButton(

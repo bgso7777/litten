@@ -16,7 +16,9 @@ import '../models/audio_file.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/audio_service.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
 
 class TextTab extends StatefulWidget {
@@ -724,6 +726,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
       print('디버그: 텍스트 파일 삭제 완료 - ${file.displayTitle}');
 
+      // 클라우드 동기화 (cloudId가 있을 때만)
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'text',
+        );
+      }
+
       // 파일 카운트 업데이트
       await appState.updateFileCount();
 
@@ -778,6 +790,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               );
               await appState.updateFileCount();
               debugPrint('✅ 녹음 파일 저장 완료');
+              SyncService.instance.uploadFile(
+                littenId: audioFile.littenId,
+                localId: audioFile.id,
+                fileType: 'audio',
+                fileName: audioFile.fileName,
+                filePath: audioFile.filePath,
+                localUpdatedAt: audioFile.updatedAt,
+              );
             }
           }
         } catch (e) {
@@ -816,6 +836,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               );
               await appState.updateFileCount();
               debugPrint('✅ 녹음 파일 저장 완료');
+              SyncService.instance.uploadFile(
+                littenId: audioFile.littenId,
+                localId: audioFile.id,
+                fileType: 'audio',
+                fileName: audioFile.fileName,
+                filePath: audioFile.filePath,
+                localUpdatedAt: audioFile.updatedAt,
+              );
             }
           }
         }
@@ -1433,6 +1461,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
         debugPrint('✅ STT 녹음 파일이 리튼에 저장됨');
 
+        // 클라우드 동기화
+        SyncService.instance.uploadFile(
+          littenId: audioFile.littenId,
+          localId: audioFile.id,
+          fileType: 'audio',
+          fileName: audioFile.fileName,
+          filePath: audioFile.filePath,
+          localUpdatedAt: audioFile.updatedAt,
+        );
+
         // ⚠️ refreshLittens() 호출하지 않음 - notifyListeners()가 화면 rebuild를 일으켜 편집 모드가 종료됨
         // 녹음 파일은 녹음 탭에서 확인 가능
 
@@ -1543,6 +1581,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
         debugPrint('✅ 텍스트 파일 저장 완료 - 총 ${_textFiles.length}개 파일');
 
+        // 클라우드 동기화 (STT 자동 저장 제외, 실패해도 앱 흐름에 영향 없음)
+        if (selectedLitten != null && !_isListening) {
+          final htmlFilePath = '${(await getApplicationDocumentsDirectory()).path}/littens/${selectedLitten.id}/text/${updatedFile.id}.html';
+          if (existingIndex >= 0 && updatedFile.cloudId != null) {
+            SyncService.instance.updateFile(
+              littenId: updatedFile.littenId,
+              localId: updatedFile.id,
+              cloudId: updatedFile.cloudId!,
+              fileType: 'text',
+              filePath: htmlFilePath,
+              localUpdatedAt: updatedFile.updatedAt,
+            );
+          } else {
+            SyncService.instance.uploadFile(
+              littenId: updatedFile.littenId,
+              localId: updatedFile.id,
+              fileType: 'text',
+              fileName: '${updatedFile.id}.html',
+              filePath: htmlFilePath,
+              localUpdatedAt: updatedFile.updatedAt,
+            );
+          }
+        }
+
         // STT 중 자동 저장 시에는 스낵바 표시 안 함 (방해 방지)
         if (mounted && !_isListening) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1562,6 +1624,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       } finally {
         _isSaving = false;
       }
+  }
+
+  Widget _buildCloudSyncIcon(SyncStatus status, bool isPremium) {
+    if (!isPremium) return const SizedBox.shrink();
+    switch (status) {
+      case SyncStatus.synced:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_done, color: Colors.blue, size: 18),
+        );
+      case SyncStatus.pending:
+      case SyncStatus.syncing:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_upload, color: Colors.orange, size: 18),
+        );
+      case SyncStatus.error:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_off, color: Colors.red, size: 18),
+        );
+      case SyncStatus.none:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildTextFileItem(TextFile file) {
@@ -1616,6 +1702,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildCloudSyncIcon(
+              file.syncStatus,
+              Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser,
+            ),
             IconButton(
               icon: Icon(
                 Icons.edit_outlined,

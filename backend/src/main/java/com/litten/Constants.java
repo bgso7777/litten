@@ -358,4 +358,11 @@ public class Constants {
     public static final String TAG_IS_ALLOWD = "isAllowd";
     public static final String TAG_SAFE_PHONE_NUMBER = "safePhoneNumber";
     public static final String TAG_SEQUENCE = "sequence";
+
+    // 구독 플랜
+    public static final String SUBSCRIPTION_PLAN_FREE = "free";
+    public static final String SUBSCRIPTION_PLAN_STANDARD = "standard";
+    public static final String SUBSCRIPTION_PLAN_PREMIUM = "premium";
+    public static final String TAG_SUBSCRIPTION_PLAN = "subscriptionPlan";
+    public static final String TAG_PLAN_EXPIRED_AT = "planExpiredAt";
 }

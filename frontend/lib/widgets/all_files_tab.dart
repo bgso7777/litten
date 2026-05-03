@@ -6,6 +6,7 @@ import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
+import '../services/sync_service.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../models/audio_file.dart';
@@ -199,13 +200,23 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
     if (_isRecording) {
       _recordingTimer?.cancel();
-      await _audioService.stopRecording(litten);
+      final audioFile = await _audioService.stopRecording(litten);
       if (mounted) {
         setState(() {
           _isRecording = false;
           _recordingDuration = Duration.zero;
         });
         _loadFiles(appState);
+      }
+      if (audioFile != null) {
+        SyncService.instance.uploadFile(
+          littenId: audioFile.littenId,
+          localId: audioFile.id,
+          fileType: 'audio',
+          fileName: audioFile.fileName,
+          filePath: audioFile.filePath,
+          localUpdatedAt: audioFile.updatedAt,
+        );
       }
     } else {
       final success = await _audioService.startRecording(litten);
@@ -328,6 +339,35 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  // ── 클라우드 동기화 상태 아이콘 (trailing용, 툴팁 포함) ──
+  Widget _buildSyncIcon(SyncStatus status, {DateTime? cloudUpdatedAt, DateTime? updatedAt}) {
+    final isPremium = Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser;
+    if (!isPremium || status == SyncStatus.none) return const SizedBox.shrink();
+
+    final timeStr = (cloudUpdatedAt ?? updatedAt)?.toString().substring(0, 16) ?? '';
+    Widget icon;
+    switch (status) {
+      case SyncStatus.synced:
+        icon = const Icon(Icons.cloud_done, size: 16, color: Colors.blue);
+        break;
+      case SyncStatus.pending:
+        icon = Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.orange.shade400);
+        break;
+      case SyncStatus.syncing:
+        icon = const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5));
+        break;
+      case SyncStatus.error:
+        icon = const Icon(Icons.cloud_off, size: 16, color: Colors.red);
+        break;
+      case SyncStatus.none:
+        return const SizedBox.shrink();
+    }
+    return Tooltip(
+      message: timeStr,
+      child: SizedBox(width: 16, height: 16, child: Center(child: icon)),
+    );
+  }
+
   // ── 텍스트 카드 ──
   Widget _buildTextCard(TextFile file) {
     final color = Theme.of(context).primaryColor;
@@ -360,33 +400,29 @@ class _AllFilesTabState extends State<AllFilesTab> {
             child: Text('${file.characterCount}자',
                 style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(file.updatedAt.toString().substring(0, 16),
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          ),
         ]),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
           IconButton(
             icon: Icon(
               Icons.auto_awesome,
               color: file.hasSummary ? color : Colors.grey.shade400,
-              size: 20,
+              size: 16,
             ),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             tooltip: file.hasSummary ? '요약 보기' : '요약 없음',
             onPressed: () => _showSummaryDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.edit_outlined, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showRenameTextDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.delete_outline, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
           ),
@@ -420,34 +456,30 @@ class _AllFilesTabState extends State<AllFilesTab> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Row(children: [
-          if (file.isMultiPage) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text('${file.totalPages}페이지',
-                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
-            ),
-            const SizedBox(width: 6),
-          ],
-          Expanded(
-            child: Text(file.updatedAt.toString().substring(0, 16),
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          ),
-        ]),
+        subtitle: file.isMultiPage
+            ? Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('${file.totalPages}페이지',
+                      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+                ),
+              ])
+            : null,
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.edit_outlined, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showRenameHandwritingDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.delete_outline, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
           ),
@@ -487,11 +519,6 @@ class _AllFilesTabState extends State<AllFilesTab> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2),
-            Text(
-              '생성: ${file.createdAt.month}/${file.createdAt.day} ${file.createdAt.hour}:${file.createdAt.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
             if (isCurrentPlaying) ...[
               const SizedBox(height: 4),
               SliderTheme(
@@ -525,15 +552,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
           ],
         ),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
           IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.edit_outlined, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showRenameAudioDialog(file),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 20),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.delete_outline, color: color, size: 16),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.zero,
             onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
           ),
@@ -731,6 +759,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
       await storage.saveTextFiles(file.littenId, updated);
       final littenService = LittenService();
       await littenService.removeTextFileFromLitten(file.littenId, file.id);
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'text',
+        );
+      }
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await appState.updateFileCount();
       await _loadFiles(appState);
@@ -787,6 +823,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
       await storage.saveHandwritingFiles(file.littenId, updated);
       final littenService = LittenService();
       await littenService.removeHandwritingFileFromLitten(file.littenId, file.id);
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'handwriting',
+        );
+      }
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await appState.updateFileCount();
       await _loadFiles(appState);

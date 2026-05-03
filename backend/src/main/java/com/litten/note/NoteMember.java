@@ -14,9 +14,8 @@ import java.io.Serializable;
 @NoArgsConstructor
 public class NoteMember extends NoteMemberCommon implements Serializable {
 
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
-    @Column(name="sequence", columnDefinition="BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '회원sequence'")
-    private Integer sequence;
+    @Column(name="sequence", columnDefinition="BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '회원sequence'", insertable=false, updatable=false)
+    private Long sequence;
 
     @Id
     @Column(name="id", columnDefinition="VARCHAR(128) NULL DEFAULT NULL COMMENT '계정 id' COLLATE 'utf8mb4_unicode_ci'")

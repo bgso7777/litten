@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/foundation.dart';
 
 /// API 서비스
@@ -19,6 +22,9 @@ class ApiService {
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
   static const String _membersEndpoint = '/litten/note/v1/members';
   static const String _summaryEndpoint = '/litten/note/v1/summary';
+  static const String _myInfoEndpoint = '/litten/note/v1/members/me';
+  static const String _planEndpoint = '/litten/note/v1/members/plan';
+  static const String _filesEndpoint = '/litten/note/v1/files';
 
   /// HTTP 헤더 생성
   Map<String, String> _getHeaders({String? token}) {
@@ -488,6 +494,201 @@ class ApiService {
 
     debugPrint('[ApiService] _buildMockSummary - pointCount: $pointCount, lang: $lang');
     return points.join('\n');
+  }
+
+  /// 내 구독 플랜 조회
+  /// GET /litten/note/v1/members/me
+  /// Response: {"result": 1, "subscriptionPlan": "free|standard|premium"}
+  Future<String> getSubscriptionPlan({required String token}) async {
+    debugPrint('[ApiService] getSubscriptionPlan 진입');
+
+    try {
+      final url = Uri.parse('$baseUrl$_myInfoEndpoint');
+      final response = await http
+          .get(url, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint('[ApiService] getSubscriptionPlan - status: ${response.statusCode}, body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) {
+          final plan = data['subscriptionPlan'] as String? ?? 'free';
+          debugPrint('[ApiService] getSubscriptionPlan - plan: $plan');
+          return plan;
+        }
+      }
+      return 'free';
+    } catch (e) {
+      debugPrint('[ApiService] getSubscriptionPlan - 오류 (free 반환): $e');
+      return 'free';
+    }
+  }
+
+  /// 구독 플랜 변경
+  /// PUT /litten/note/v1/members/plan
+  /// {"subscriptionPlan": "premium", "planExpiredAt": "2027-05-03T00:00:00"}
+  Future<bool> updateSubscriptionPlan({
+    required String plan,
+    required String token,
+    String? planExpiredAt,
+  }) async {
+    debugPrint('[ApiService] updateSubscriptionPlan 진입 - plan: $plan');
+
+    try {
+      final url = Uri.parse('$baseUrl$_planEndpoint');
+      final body = jsonEncode({
+        'subscriptionPlan': plan,
+        if (planExpiredAt != null) 'planExpiredAt': planExpiredAt,
+      });
+
+      final response = await http
+          .put(url, headers: _getHeaders(token: token), body: body)
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint('[ApiService] updateSubscriptionPlan - status: ${response.statusCode}, body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] updateSubscriptionPlan - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 클라우드 파일 메타데이터 목록 조회
+  Future<List<Map<String, dynamic>>> getCloudFiles({required String token, String? since}) async {
+    debugPrint('[ApiService] getCloudFiles 진입 - since: $since');
+    try {
+      final uri = since != null
+          ? Uri.parse('$baseUrl$_filesEndpoint?since=${Uri.encodeComponent(since)}')
+          : Uri.parse('$baseUrl$_filesEndpoint');
+      final response = await http.get(uri, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 30));
+      debugPrint('[ApiService] getCloudFiles - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) {
+          return List<Map<String, dynamic>>.from(data['files'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getCloudFiles - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 파일 업로드
+  Future<Map<String, dynamic>?> uploadFile({
+    required String token,
+    required String littenId,
+    required String localId,
+    required String fileType,
+    required String fileName,
+    required String localUpdatedAt,
+    required File file,
+    required String contentType,
+  }) async {
+    debugPrint('[ApiService] uploadFile 진입 - localId: $localId, fileType: $fileType');
+    try {
+      final uri = Uri.parse('$baseUrl$_filesEndpoint');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(_getHeaders(token: token))
+        ..fields['littenId'] = littenId
+        ..fields['localId'] = localId
+        ..fields['fileType'] = fileType
+        ..fields['fileName'] = fileName
+        ..fields['localUpdatedAt'] = localUpdatedAt
+        ..files.add(await http.MultipartFile.fromPath('file', file.path, contentType: _parseMediaType(contentType)));
+
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamed);
+      debugPrint('[ApiService] uploadFile - status: ${response.statusCode}, body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) return data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] uploadFile - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 파일 수정 업로드
+  Future<Map<String, dynamic>?> updateFile({
+    required String token,
+    required String cloudId,
+    required String localUpdatedAt,
+    required File file,
+    required String contentType,
+  }) async {
+    debugPrint('[ApiService] updateFile 진입 - cloudId: $cloudId');
+    try {
+      final uri = Uri.parse('$baseUrl$_filesEndpoint/$cloudId');
+      final request = http.MultipartRequest('PUT', uri)
+        ..headers.addAll(_getHeaders(token: token))
+        ..fields['localUpdatedAt'] = localUpdatedAt
+        ..files.add(await http.MultipartFile.fromPath('file', file.path, contentType: _parseMediaType(contentType)));
+
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamed);
+      debugPrint('[ApiService] updateFile - status: ${response.statusCode}, body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) return data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] updateFile - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 파일 삭제
+  Future<bool> deleteCloudFile({required String token, required String cloudId}) async {
+    debugPrint('[ApiService] deleteCloudFile 진입 - cloudId: $cloudId');
+    try {
+      final uri = Uri.parse('$baseUrl$_filesEndpoint/$cloudId');
+      final response = await http.delete(uri, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 10));
+      debugPrint('[ApiService] deleteCloudFile - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] deleteCloudFile - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 파일 다운로드
+  Future<Uint8List?> downloadFile({required String token, required String cloudId}) async {
+    debugPrint('[ApiService] downloadFile 진입 - cloudId: $cloudId');
+    try {
+      final uri = Uri.parse('$baseUrl$_filesEndpoint/$cloudId/download');
+      final response = await http.get(uri, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 60));
+      debugPrint('[ApiService] downloadFile - status: ${response.statusCode}, size: ${response.bodyBytes.length}');
+      if (response.statusCode == 200) return response.bodyBytes;
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] downloadFile - 오류: $e');
+      return null;
+    }
+  }
+
+  http_parser.MediaType _parseMediaType(String contentType) {
+    try {
+      return http_parser.MediaType.parse(contentType);
+    } catch (_) {
+      return http_parser.MediaType('application', 'octet-stream');
+    }
   }
 
   /// UUID로 계정 조회

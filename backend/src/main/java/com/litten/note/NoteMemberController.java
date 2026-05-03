@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.litten.common.dynamic.ConstantsDynamic;
 import com.litten.common.dynamic.ControllerDynamicServiceBridge;
+import com.litten.common.security.SecurityUtils;
 import com.litten.common.util.Crypto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -251,6 +252,52 @@ public class NoteMemberController {
 //        }
 //        return ResponseEntity.ok(result);
 //    }
+
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @GetMapping("/note/v1/members/me")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getMyInfo() {
+        log.debug("[NoteMemberController] GET /note/v1/members/me 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        log.info("[NoteMemberController] getMyInfo - memberId: {}", memberId);
+
+        if (memberId == null) {
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put(com.litten.Constants.TAG_RESULT, com.litten.Constants.RESULT_NOT_FOUND);
+            result.put(com.litten.Constants.TAG_RESULT_MESSAGE, "인증 정보가 없습니다.");
+            return ResponseEntity.ok(result);
+        }
+
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "get";
+        String serviceMethodName = "getMyInfo";
+        Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PutMapping("/note/v1/members/plan")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updatePlan(@RequestBody JsonNode requestBody) {
+        log.debug("[NoteMemberController] PUT /note/v1/members/plan 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        log.info("[NoteMemberController] updatePlan - memberId: {}, body: {}", memberId, requestBody);
+
+        if (memberId == null) {
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put(com.litten.Constants.TAG_RESULT, com.litten.Constants.RESULT_NOT_FOUND);
+            result.put(com.litten.Constants.TAG_RESULT_MESSAGE, "인증 정보가 없습니다.");
+            return ResponseEntity.ok(result);
+        }
+
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "put";
+        String serviceMethodName = "updatePlan";
+        Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, requestBody, memberId);
+        return ResponseEntity.ok(result);
+    }
 
     @DeleteMapping("/note/v1/members/{id}")
     @ResponseBody

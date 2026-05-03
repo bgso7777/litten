@@ -16,9 +16,11 @@ import '../services/app_state_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/handwriting_file.dart';
+import '../models/audio_file.dart' show SyncStatus;
 import '../models/litten.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
+import '../services/sync_service.dart';
 
 enum HandwritingInitialAction { none, loadPdf, createCanvas }
 
@@ -2526,6 +2528,30 @@ class _HandwritingTabState extends State<HandwritingTab>
     );
   }
 
+  Widget _buildCloudSyncIcon(SyncStatus status, bool isPremium) {
+    if (!isPremium) return const SizedBox.shrink();
+    switch (status) {
+      case SyncStatus.synced:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_done, color: Colors.blue, size: 18),
+        );
+      case SyncStatus.pending:
+      case SyncStatus.syncing:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_upload, color: Colors.orange, size: 18),
+        );
+      case SyncStatus.error:
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.cloud_off, color: Colors.red, size: 18),
+        );
+      case SyncStatus.none:
+        return const SizedBox.shrink();
+    }
+  }
+
   Widget _buildHandwritingFileItem(HandwritingFile file) {
     // UI 렌더링 시 파일 상태 로그
     print('🎨 UI 렌더링: ${file.displayTitle} - totalPages=${file.totalPages}, isMultiPage=${file.isMultiPage}');
@@ -2586,6 +2612,10 @@ class _HandwritingTabState extends State<HandwritingTab>
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildCloudSyncIcon(
+              file.syncStatus,
+              Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser,
+            ),
             IconButton(
               icon: Icon(
                 Icons.edit_outlined,
@@ -3388,6 +3418,12 @@ class _HandwritingTabState extends State<HandwritingTab>
       '${directory.path}/littens/${_currentHandwritingFile!.littenId}/handwriting',
     );
 
+    // 디렉토리가 없으면 생성
+    if (!await littenDir.exists()) {
+      await littenDir.create(recursive: true);
+      print('DEBUG: 모바일 - 필기 디렉토리 생성됨: ${littenDir.path}');
+    }
+
     String fileName;
     if (_currentHandwritingFile!.isMultiPage &&
         _currentHandwritingFile!.pageImagePaths.isNotEmpty) {
@@ -3737,6 +3773,16 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       print('디버그: 필기 파일 삭제 완료 - ${file.displayTitle}');
 
+      // 클라우드 동기화 (cloudId가 있을 때만)
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'handwriting',
+        );
+      }
+
       // 파일 카운트 업데이트
       await appState.updateFileCount();
 
@@ -3830,6 +3876,37 @@ class _HandwritingTabState extends State<HandwritingTab>
         print(
           '디버그: 필기 파일 저장 완료 - $fileTitle ${_currentHandwritingFile!.pageInfo}',
         );
+
+        // 클라우드 동기화
+        if (selectedLitten != null) {
+          // 캔버스 파일(단일 페이지)은 drawing 파일 경로를 사용, 다중 페이지(PDF)는 imagePath 사용
+          final String pngPath;
+          if (!updatedFile.isMultiPage && updatedFile.type == HandwritingType.drawing) {
+            final appDir = await getApplicationDocumentsDirectory();
+            pngPath = '${appDir.path}/littens/${updatedFile.littenId}/handwriting/${updatedFile.id}_drawing.png';
+          } else {
+            pngPath = updatedFile.imagePath;
+          }
+          if (existingIndex >= 0 && updatedFile.cloudId != null) {
+            SyncService.instance.updateFile(
+              littenId: updatedFile.littenId,
+              localId: updatedFile.id,
+              cloudId: updatedFile.cloudId!,
+              fileType: 'handwriting',
+              filePath: pngPath,
+              localUpdatedAt: updatedFile.updatedAt,
+            );
+          } else {
+            SyncService.instance.uploadFile(
+              littenId: updatedFile.littenId,
+              localId: updatedFile.id,
+              fileType: 'handwriting',
+              fileName: '${updatedFile.id}_drawing.png',
+              filePath: pngPath,
+              localUpdatedAt: updatedFile.updatedAt,
+            );
+          }
+        }
 
         // 저장 완료 알림을 위한 간단한 피드백 (선택사항)
         ScaffoldMessenger.of(context).showSnackBar(
