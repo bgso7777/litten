@@ -147,6 +147,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               // 탭 변경 시 현재 재생 상태 확인 및 유지
               _logCurrentPlaybackState();
 
+              // 노트탭(index 0) 진입 시 클라우드 동기화
+              if (index == 0 && appState.selectedTabIndex != 0) {
+                debugPrint('📂 [MainTabScreen] 노트탭 진입 - 클라우드 동기화 트리거');
+                appState.syncNoteTab();
+              }
+
               // 캘린더탭(index 1) 터치 시 처리
               if (index == 1) {
                 debugPrint('📍 [MainTabScreen] 캘린더 탭 터치 - 이번 달로 이동');

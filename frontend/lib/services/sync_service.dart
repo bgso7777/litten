@@ -107,6 +107,126 @@ class SyncService {
     });
   }
 
+  // ④ 노트탭 진입 시: 마지막 동기화 이후 클라우드 변경분 비교 + 로컬 미동기화 파일 업로드
+  Future<void> syncOnNoteTab(List<String> littenIds) async {
+    debugPrint('[SyncService] syncOnNoteTab 진입 - ${littenIds.length}개 리튼');
+    if (!_canSync) {
+      debugPrint('[SyncService] syncOnNoteTab - 프리미엄 아님 또는 미로그인, 스킵');
+      return;
+    }
+    final token = await _loadToken();
+    if (token == null) return;
+
+    try {
+      final lastSync = await _getLastSyncTime();
+
+      if (lastSync != null) {
+        // 마지막 동기화 이후 클라우드 변경분 가져오기
+        final changedFiles = await _api.getCloudFiles(token: token, since: lastSync.toIso8601String());
+        debugPrint('[SyncService] syncOnNoteTab - 클라우드 변경 파일: ${changedFiles.length}개');
+
+        for (final cloudMeta in changedFiles) {
+          final littenId = cloudMeta['littenId'] as String;
+          if (!littenIds.contains(littenId)) continue;
+
+          final localId = cloudMeta['localId'] as String;
+          final fileType = cloudMeta['fileType'] as String;
+          final cloudId = cloudMeta['cloudId'].toString();
+          final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
+
+          final localFile = await _findLocalFile(littenId, localId, fileType);
+
+          if (localFile == null) {
+            // 로컬에 없음 → 클라우드에서 다운로드
+            await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+          } else {
+            final localUpdatedAt = _getFileUpdatedAt(localFile);
+            if (cloudUpdatedAt.isAfter(localUpdatedAt)) {
+              // 클라우드가 더 최신 → 다운로드
+              await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+            } else if (localUpdatedAt.isAfter(cloudUpdatedAt)) {
+              // 로컬이 더 최신 → 업로드
+              await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
+            }
+          }
+        }
+      } else {
+        // 동기화 기록 없음 → 전체 양방향 동기화
+        await _bidirectionalSync(token);
+      }
+
+      // 미동기화 로컬 파일 업로드
+      for (final littenId in littenIds) {
+        await _uploadUnsyncedFilesForLitten(token, littenId);
+      }
+
+      // 오프라인 큐 재시도
+      await processOfflineQueue();
+
+      await _saveLastSyncTime(DateTime.now());
+      debugPrint('[SyncService] syncOnNoteTab 완료');
+    } catch (e) {
+      debugPrint('[SyncService] syncOnNoteTab 오류: $e');
+    }
+  }
+
+  // 로컬 전체 미동기화 파일 일괄 업로드 (첫 프리미엄 전환 또는 로그인 시)
+  Future<void> uploadAllLocalFiles(List<String> littenIds) async {
+    debugPrint('[SyncService] uploadAllLocalFiles 시작 - ${littenIds.length}개 리튼');
+    if (!_canSync) return;
+    final token = await _loadToken();
+    if (token == null) return;
+
+    for (final littenId in littenIds) {
+      await _uploadUnsyncedFilesForLitten(token, littenId);
+    }
+    debugPrint('[SyncService] uploadAllLocalFiles 완료');
+  }
+
+  Future<void> _uploadUnsyncedFilesForLitten(String token, String littenId) async {
+    debugPrint('[SyncService] _uploadUnsyncedFilesForLitten - littenId: $littenId');
+    final appDir = await getApplicationDocumentsDirectory();
+
+    // 텍스트 파일
+    final textFiles = await _fileStorage.loadTextFiles(littenId);
+    for (final file in textFiles) {
+      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
+        final filePath = '${appDir.path}/littens/$littenId/text/${file.id}.html';
+        if (await File(filePath).exists()) {
+          await uploadFile(
+            littenId: littenId, localId: file.id, fileType: 'text',
+            fileName: '${file.id}.html', filePath: filePath, localUpdatedAt: file.updatedAt,
+          );
+        }
+      }
+    }
+
+    // 필기 파일
+    final hwFiles = await _fileStorage.loadHandwritingFiles(littenId);
+    for (final file in hwFiles) {
+      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
+        final filePath = file.isMultiPage
+            ? file.imagePath
+            : '${appDir.path}/littens/$littenId/handwriting/${file.id}_drawing.png';
+        await uploadFile(
+          littenId: littenId, localId: file.id, fileType: 'handwriting',
+          fileName: '${file.id}_drawing.png', filePath: filePath, localUpdatedAt: file.updatedAt,
+        );
+      }
+    }
+
+    // 오디오 파일
+    final audioFiles = await _fileStorage.loadAudioFiles(littenId);
+    for (final file in audioFiles) {
+      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
+        await uploadFile(
+          littenId: littenId, localId: file.id, fileType: 'audio',
+          fileName: '${file.fileName}.m4a', filePath: file.filePath, localUpdatedAt: file.updatedAt,
+        );
+      }
+    }
+  }
+
   // 파일 이벤트: 생성
   Future<void> uploadFile({
     required String littenId,
@@ -349,12 +469,17 @@ class SyncService {
 
   Future<void> _uploadLocalFile(String token, String littenId, String localId,
       String cloudId, String fileType, dynamic localFile) async {
-    final filePath = _getFilePath(localFile);
+    final filePath = await _getFilePath(localFile, littenId);
     if (filePath == null) return;
+    final file = File(filePath);
+    if (!await file.exists()) {
+      debugPrint('[SyncService] _uploadLocalFile - 파일 없음: $filePath');
+      return;
+    }
     final result = await _api.updateFile(
       token: token, cloudId: cloudId,
       localUpdatedAt: _getFileUpdatedAt(localFile).toIso8601String(),
-      file: File(filePath), contentType: _getContentType(fileType),
+      file: file, contentType: _getContentType(fileType),
     );
     if (result != null) {
       await _updateLocalSyncStatus(littenId, localId, fileType, cloudId, SyncStatus.synced);
@@ -382,7 +507,11 @@ class SyncService {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  String? _getFilePath(dynamic file) {
+  Future<String?> _getFilePath(dynamic file, String littenId) async {
+    if (file is TextFile) {
+      final appDir = await getApplicationDocumentsDirectory();
+      return '${appDir.path}/littens/$littenId/text/${file.id}.html';
+    }
     if (file is HandwritingFile) return file.imagePath;
     if (file is AudioFile) return file.filePath;
     return null;
@@ -391,7 +520,7 @@ class SyncService {
   Future<String?> _saveDownloadedFile(String littenId, String localId, String fileType, Uint8List bytes) async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
-      final dir = Directory('${appDir.path}/litten/$littenId/$fileType');
+      final dir = Directory('${appDir.path}/littens/$littenId/$fileType');
       await dir.create(recursive: true);
       final file = File('${dir.path}/$localId${_getFileExtension(fileType)}');
       await file.writeAsBytes(bytes);
@@ -409,25 +538,67 @@ class SyncService {
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
-        await _fileStorage.saveTextFiles(littenId, files);
-        _onSyncStatusChanged?.call();
+      } else {
+        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        final content = await File(localPath).readAsString().catchError((_) => '');
+        files.add(TextFile(
+          id: localId,
+          littenId: littenId,
+          content: content,
+          cloudId: cloudId,
+          cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced,
+          createdAt: cloudUpdatedAt,
+          updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 텍스트 신규 파일 생성 - localId: $localId');
       }
+      await _fileStorage.saveTextFiles(littenId, files);
+      _onSyncStatusChanged?.call();
     } else if (fileType == 'handwriting') {
       final files = await _fileStorage.loadHandwritingFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
-        await _fileStorage.saveHandwritingFiles(littenId, files);
-        _onSyncStatusChanged?.call();
+      } else {
+        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        files.add(HandwritingFile(
+          id: localId,
+          littenId: littenId,
+          imagePath: localPath,
+          cloudId: cloudId,
+          cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced,
+          createdAt: cloudUpdatedAt,
+          updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 필기 신규 파일 생성 - localId: $localId');
       }
+      await _fileStorage.saveHandwritingFiles(littenId, files);
+      _onSyncStatusChanged?.call();
     } else if (fileType == 'audio') {
       final files = await _fileStorage.loadAudioFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
-        await _fileStorage.saveAudioFiles(littenId, files);
-        _onSyncStatusChanged?.call();
+      } else {
+        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        final fileName = localPath.split('/').last.replaceAll('.m4a', '');
+        files.add(AudioFile(
+          id: localId,
+          littenId: littenId,
+          fileName: fileName,
+          filePath: localPath,
+          cloudId: cloudId,
+          cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced,
+          createdAt: cloudUpdatedAt,
+          updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 오디오 신규 파일 생성 - localId: $localId');
       }
+      await _fileStorage.saveAudioFiles(littenId, files);
+      _onSyncStatusChanged?.call();
     }
   }
 
@@ -471,7 +642,7 @@ class SyncService {
   String _getFileExtension(String fileType) {
     switch (fileType) {
       case 'audio': return '.m4a';
-      case 'text': return '.txt';
+      case 'text': return '.html';
       case 'handwriting': return '.png';
       default: return '.bin';
     }

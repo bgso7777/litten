@@ -281,6 +281,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     // 앱 시작 동기화 (비동기 fire-and-forget)
     SyncService.instance.syncOnAppStart();
+    // 미동기화 로컬 파일 일괄 업로드 (프리미엄 여부는 내부에서 판단)
+    final startLittenIds = _littens.map((l) => l.id).toList();
+    SyncService.instance.uploadAllLocalFiles(startLittenIds);
   }
 
   // 인증 상태 변경 핸들러
@@ -306,6 +309,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           _authService.updateLocalSubscriptionPlan(_subscriptionTypeToPlan(_subscriptionType));
         }
         SyncService.instance.syncOnLogin();
+        // 로그인 시 미동기화 로컬 파일 일괄 업로드
+        final littenIds = _littens.map((l) => l.id).toList();
+        SyncService.instance.uploadAllLocalFiles(littenIds);
       }
       // 비프리미엄 → 프리미엄 업그레이드 시 일괄 업로드
       else if (newStatus == AuthStatus.authenticated &&
@@ -313,8 +319,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           currentIsPremium) {
         _subscriptionType = SubscriptionType.premium;
         _saveSubscriptionType(_subscriptionType);
-        debugPrint('[AppStateProvider] 프리미엄 업그레이드 감지 - syncOnLogin 호출');
+        debugPrint('[AppStateProvider] 프리미엄 업그레이드 감지 - 로컬 파일 일괄 업로드');
         SyncService.instance.syncOnLogin();
+        final littenIds = _littens.map((l) => l.id).toList();
+        SyncService.instance.uploadAllLocalFiles(littenIds);
       }
     }
 
@@ -595,6 +603,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   void changeTab(int index) {
     _selectedTabIndex = index;
     notifyListeners();
+  }
+
+  // 노트탭 진입 시 클라우드 동기화 (로컬 ↔ 클라우드 최신 파일 비교 적용)
+  void syncNoteTab() {
+    final littenIds = _littens.map((l) => l.id).toList();
+    debugPrint('[AppStateProvider] syncNoteTab - ${littenIds.length}개 리튼 동기화');
+    SyncService.instance.syncOnNoteTab(littenIds);
   }
 
   // WritingScreen 내부 탭 설정 (파일 타입에 따라)
