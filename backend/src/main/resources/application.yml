@@ -154,6 +154,15 @@ jwt:
 
 cs-center-company-seq: 651
 
+ai:
+  provider: openai  # openai 또는 claude 로 전환
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:}
+    model: gpt-4o-mini
+    max-tokens: 1024
+
 claude:
   api:
     key: ${CLAUDE_API_KEY:}

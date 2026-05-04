@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -14,55 +13,38 @@ import org.springframework.web.client.RestTemplate;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor
-public class SummaryService {
+public class OpenAiSummaryService {
 
-    // ai.provider: openai(기본) 또는 claude
-    @Value("${ai.provider:openai}")
-    private String aiProvider;
+    private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-    private final OpenAiSummaryService openAiSummaryService;
-
-    // ── Claude 전용 필드 (ai.provider=claude 일 때 사용) ──────────────
-    private static final String CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-    private static final String ANTHROPIC_VERSION = "2023-06-01";
-
-    @Value("${claude.api.key:}")
+    @Value("${openai.api.key:}")
     private String apiKey;
 
-    @Value("${claude.api.model:claude-haiku-4-5-20251001}")
+    @Value("${openai.api.model:gpt-4o-mini}")
     private String model;
 
-    @Value("${claude.api.max-tokens:1024}")
+    @Value("${openai.api.max-tokens:1024}")
     private int maxTokens;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SummaryResponseVo summarize(SummaryRequestVo request) {
-        log.debug("[SummaryService] summarize() 진입 - provider: {}, fileId: {}", aiProvider, request.getFileId());
-
-        if ("openai".equalsIgnoreCase(aiProvider)) {
-            log.info("[SummaryService] OpenAI로 요약 위임");
-            return openAiSummaryService.summarize(request);
-        }
-
-        // provider=claude (기본 유지)
-        log.info("[SummaryService] Claude로 요약 처리");
+        log.debug("[OpenAiSummaryService] summarize() 진입 - fileId: {}", request.getFileId());
 
         if (apiKey == null || apiKey.isBlank()) {
-            log.error("[SummaryService] Claude API 키가 설정되지 않음");
-            return SummaryResponseVo.fail("Claude API 키가 설정되지 않았습니다. 서버 환경변수 CLAUDE_API_KEY를 확인하세요.");
+            log.error("[OpenAiSummaryService] OpenAI API 키가 설정되지 않음");
+            return SummaryResponseVo.fail("OpenAI API 키가 설정되지 않았습니다. 서버 환경변수 OPENAI_API_KEY를 확인하세요.");
         }
 
         String plainText = stripHtml(request.getText());
         if (plainText.isBlank()) {
-            log.info("[SummaryService] 요약할 텍스트 없음");
+            log.info("[OpenAiSummaryService] 요약할 텍스트 없음");
             return SummaryResponseVo.fail("요약할 텍스트가 없습니다.");
         }
 
         int ratio = normalizeRatio(request.getSummaryRatio());
-        log.info("[SummaryService] 요약 요청 - 텍스트 길이: {}, 입력언어: {}, 요약언어: {}, 비율: {}",
+        log.info("[OpenAiSummaryService] 요약 요청 - 텍스트 길이: {}, 입력언어: {}, 요약언어: {}, 비율: {}",
                 plainText.length(), request.getTextLanguage(), request.getSummaryLanguage(), ratio);
 
         try {
@@ -71,48 +53,46 @@ public class SummaryService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-api-key", apiKey);
-            headers.set("anthropic-version", ANTHROPIC_VERSION);
+            headers.setBearerAuth(apiKey);
 
             HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
 
-            log.debug("[SummaryService] Claude API 호출 시작 - model: {}", model);
+            log.debug("[OpenAiSummaryService] OpenAI API 호출 시작 - model: {}", model);
             ResponseEntity<String> response = restTemplate.exchange(
-                    CLAUDE_API_URL, HttpMethod.POST, entity, String.class);
+                    OPENAI_API_URL, HttpMethod.POST, entity, String.class);
 
-            log.info("[SummaryService] Claude API 응답 - status: {}", response.getStatusCode());
+            log.info("[OpenAiSummaryService] OpenAI API 응답 - status: {}", response.getStatusCode());
 
             String summary = extractSummary(response.getBody());
-            log.info("[SummaryService] 요약 완료 - 요약 길이: {}", summary.length());
+            log.info("[OpenAiSummaryService] 요약 완료 - 요약 길이: {}", summary.length());
             return SummaryResponseVo.ok(summary);
 
         } catch (HttpClientErrorException e) {
-            log.error("[SummaryService] Claude API 클라이언트 오류 - status: {}, body: {}",
+            log.error("[OpenAiSummaryService] OpenAI API 클라이언트 오류 - status: {}, body: {}",
                     e.getStatusCode(), e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                return SummaryResponseVo.fail("API 키가 유효하지 않습니다.");
+                return SummaryResponseVo.fail("OpenAI API 키가 유효하지 않습니다.");
             } else if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                return SummaryResponseVo.fail("API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.");
+                return SummaryResponseVo.fail("OpenAI API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.");
             }
-            return SummaryResponseVo.fail("API 오류: " + e.getStatusCode());
+            return SummaryResponseVo.fail("OpenAI API 오류: " + e.getStatusCode());
         } catch (Exception e) {
-            log.error("[SummaryService] 요약 처리 중 오류 발생", e);
+            log.error("[OpenAiSummaryService] 요약 처리 중 오류 발생", e);
             return SummaryResponseVo.fail("요약 처리 중 오류가 발생했습니다.");
         }
     }
 
-    // ratio 10~90 → 포인트 수 1~9개, 길이 지침 매핑
     private int normalizeRatio(int ratio) {
-        if (ratio < 10) return 50; // 기본값
+        if (ratio < 10) return 20;
         int clamped = Math.max(10, Math.min(90, ratio));
-        return (clamped / 10) * 10; // 10단위 정규화
+        return (clamped / 10) * 10;
     }
 
     private String buildPrompt(String text, String textLanguage, String summaryLanguage, int ratio) {
         String inputLang = (textLanguage == null || textLanguage.isBlank()) ? "ko" : textLanguage;
         String outputLang = (summaryLanguage == null || summaryLanguage.isBlank()) ? "ko" : summaryLanguage;
 
-        int points = ratio / 10; // 10→1개, 50→5개, 90→9개
+        int points = ratio / 10;
         String detailLevel = ratio <= 20 ? "매우 간략하게 핵심만"
                            : ratio <= 40 ? "간결하게"
                            : ratio <= 60 ? "적당한 수준으로"
@@ -148,11 +128,11 @@ public class SummaryService {
 
     private String extractSummary(String responseBody) throws Exception {
         JsonNode root = objectMapper.readTree(responseBody);
-        JsonNode content = root.path("content");
-        if (content.isArray() && content.size() > 0) {
-            return content.get(0).path("text").asText();
+        JsonNode choices = root.path("choices");
+        if (choices.isArray() && choices.size() > 0) {
+            return choices.get(0).path("message").path("content").asText();
         }
-        throw new RuntimeException("Claude API 응답에서 텍스트를 찾을 수 없음: " + responseBody);
+        throw new RuntimeException("OpenAI API 응답에서 텍스트를 찾을 수 없음: " + responseBody);
     }
 
     private String stripHtml(String html) {

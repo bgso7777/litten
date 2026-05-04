@@ -352,6 +352,8 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       // 저장된 메타데이터 로드 (cloudId, syncStatus 등 유지)
       final storedFiles = await FileStorageService.instance.loadAudioFiles(litten.id);
       final storedByPath = <String, AudioFile>{for (final f in storedFiles) f.filePath: f};
+      // 경로 불일치 대비 파일명 기반 폴백 (Android 심볼릭 링크 등)
+      final storedByName = <String, AudioFile>{for (final f in storedFiles) f.fileName: f};
 
       if (!await audioDir.exists()) {
         debugPrint('[AudioService] 오디오 디렉토리가 존재하지 않습니다.');
@@ -365,23 +367,25 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         if (file is File && file.path.endsWith('.m4a')) {
           final stat = await file.stat();
           final fileName = file.path.split('/').last.replaceAll('.m4a', '');
-          // 저장된 메타데이터가 있으면 사용 (syncStatus 등 보존), 없으면 새로 생성
-          final stored = storedByPath[file.path];
-          final audioFile = stored ?? AudioFile(
-            id: stat.modified.millisecondsSinceEpoch.toString(),
-            littenId: litten.id,
-            fileName: fileName,
-            filePath: file.path,
-            duration: Duration.zero,
-            createdAt: stat.modified,
-          );
+          // 경로로 먼저 조회, 경로 불일치 시 파일명으로 폴백 (isFromSTT 등 메타데이터 보존)
+          final stored = storedByPath[file.path] ?? storedByName[fileName];
+          final audioFile = stored != null
+              ? stored.copyWith(filePath: file.path)  // 경로 정규화
+              : AudioFile(
+                  id: stat.modified.millisecondsSinceEpoch.toString(),
+                  littenId: litten.id,
+                  fileName: fileName,
+                  filePath: file.path,
+                  duration: Duration.zero,
+                  createdAt: stat.modified,
+                );
           audioFiles.add(audioFile);
         }
       }
 
       // 메타데이터에서 실제 파일이 없는 항목 제거 후 저장
-      final existingPaths = audioFiles.map((f) => f.filePath).toSet();
-      final cleanedStored = storedFiles.where((f) => existingPaths.contains(f.filePath)).toList();
+      final existingNames = audioFiles.map((f) => f.fileName).toSet();
+      final cleanedStored = storedFiles.where((f) => existingNames.contains(f.fileName)).toList();
       if (cleanedStored.length != storedFiles.length) {
         await FileStorageService.instance.saveAudioFiles(litten.id, cleanedStored);
       }

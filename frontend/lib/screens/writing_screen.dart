@@ -10,6 +10,7 @@ import '../widgets/text_tab.dart';
 import '../widgets/handwriting_tab.dart';
 import '../widgets/browser_tab.dart';
 import '../widgets/all_files_tab.dart';
+import '../widgets/common/summary_reminder_chip.dart';
 import '../services/audio_service.dart';
 
 class WritingScreen extends StatefulWidget {
@@ -198,7 +199,17 @@ class _WritingScreenState extends State<WritingScreen> with AutomaticKeepAliveCl
           },
         );
 
-        return draggableTabLayout;
+        return Column(
+          children: [
+            SummaryReminderChip(
+              onTap: () {
+                // TODO: 리마인드 상세 화면으로 이동
+                debugPrint('[WritingScreen] 요약 리마인드 칩 탭');
+              },
+            ),
+            Expanded(child: draggableTabLayout),
+          ],
+        );
       },
     );
   }

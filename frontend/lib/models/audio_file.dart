@@ -48,6 +48,7 @@ class AudioFile {
 
   AudioFile copyWith({
     String? fileName,
+    String? filePath,
     Duration? duration,
     int? fileSize,
     String? cloudId,
@@ -59,7 +60,7 @@ class AudioFile {
       id: id,
       littenId: littenId,
       fileName: fileName ?? this.fileName,
-      filePath: filePath,
+      filePath: filePath ?? this.filePath,
       duration: duration ?? this.duration,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
