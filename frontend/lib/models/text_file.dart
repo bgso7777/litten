@@ -13,6 +13,7 @@ class TextFile {
   final String? cloudId;
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
+  final bool isFromSTT;
 
   TextFile({
     String? id,
@@ -26,6 +27,7 @@ class TextFile {
     this.cloudId,
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
+    this.isFromSTT = false,
   })  : id = id ?? const Uuid().v4(),
         title = title ?? _generateTitleFromContent(content),
         createdAt = createdAt ?? DateTime.now(),
@@ -56,6 +58,7 @@ class TextFile {
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
+    bool? isFromSTT,
   }) {
     return TextFile(
       id: id,
@@ -69,6 +72,7 @@ class TextFile {
       cloudId: cloudId ?? this.cloudId,
       cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
+      isFromSTT: isFromSTT ?? this.isFromSTT,
     );
   }
 
@@ -85,6 +89,7 @@ class TextFile {
       'cloudId': cloudId,
       'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
       'syncStatus': syncStatus.name,
+      'isFromSTT': isFromSTT,
     };
   }
 
@@ -106,6 +111,7 @@ class TextFile {
         (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
         orElse: () => SyncStatus.none,
       ),
+      isFromSTT: json['isFromSTT'] as bool? ?? false,
     );
   }
 }

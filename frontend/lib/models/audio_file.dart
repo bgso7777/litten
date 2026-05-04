@@ -14,6 +14,7 @@ class AudioFile {
   final String? cloudId;
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
+  final bool isFromSTT; // 음성메모(STT 동시 녹음)로 생성된 파일 여부
 
   AudioFile({
     String? id,
@@ -27,6 +28,7 @@ class AudioFile {
     this.cloudId,
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
+    this.isFromSTT = false,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -51,6 +53,7 @@ class AudioFile {
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
+    bool? isFromSTT,
   }) {
     return AudioFile(
       id: id,
@@ -64,6 +67,7 @@ class AudioFile {
       cloudId: cloudId ?? this.cloudId,
       cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
+      isFromSTT: isFromSTT ?? this.isFromSTT,
     );
   }
 
@@ -80,6 +84,7 @@ class AudioFile {
       'cloudId': cloudId,
       'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
       'syncStatus': syncStatus.name,
+      'isFromSTT': isFromSTT,
     };
   }
 
@@ -99,6 +104,7 @@ class AudioFile {
         (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
         orElse: () => SyncStatus.none,
       ),
+      isFromSTT: json['isFromSTT'] as bool? ?? false,
     );
   }
 }

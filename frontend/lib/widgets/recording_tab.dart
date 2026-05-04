@@ -445,24 +445,47 @@ class _RecordingTabState extends State<RecordingTab> {
 
                                 return Card(
                                   margin: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 4),
+                                      horizontal: 10, vertical: 8),
                                   child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: isCurrentPlaying &&
-                                              _audioService.isPlaying
-                                          ? Colors.blue
-                                          : Theme.of(context)
-                                              .primaryColor
-                                              .withValues(alpha: 0.1),
-                                      child: Icon(
-                                        isCurrentPlaying &&
-                                                _audioService.isPlaying
-                                            ? Icons.pause
-                                            : Icons.play_arrow,
-                                        color: isCurrentPlaying &&
-                                                _audioService.isPlaying
-                                            ? Colors.white
-                                            : Theme.of(context).primaryColor,
+                                    leading: SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: Stack(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: isCurrentPlaying &&
+                                                    _audioService.isPlaying
+                                                ? Colors.blue
+                                                : Theme.of(context)
+                                                    .primaryColor
+                                                    .withValues(alpha: 0.1),
+                                            child: Icon(
+                                              isCurrentPlaying &&
+                                                      _audioService.isPlaying
+                                                  ? Icons.pause
+                                                  : Icons.mic,
+                                              color: isCurrentPlaying &&
+                                                      _audioService.isPlaying
+                                                  ? Colors.white
+                                                  : Theme.of(context).primaryColor,
+                                            ),
+                                          ),
+                                          if (audioFile.isFromSTT)
+                                            Positioned(
+                                              right: 0,
+                                              bottom: 0,
+                                              child: Container(
+                                                width: 17,
+                                                height: 17,
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).primaryColor,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 1.5),
+                                                ),
+                                                child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                     title: Column(

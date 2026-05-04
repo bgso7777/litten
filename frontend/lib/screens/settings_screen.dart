@@ -156,13 +156,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showStartScreenDialog(context, appState),
               ),
-              _buildSettingsSwitchItem(
+              _buildSettingsItem(
                 icon: Icons.view_quilt,
-                title: '도킹',
-                subtitle: '노트 화면 하단 영역 표시',
+                title: '영역 보기',
+                subtitle: _getVisibleAreasText(appState.visibleAreas),
                 iconColor: Theme.of(context).primaryColor,
-                value: appState.dockingEnabled,
-                onChanged: (v) => appState.setDockingEnabled(v),
+                onTap: () => _showVisibleAreasDialog(context, appState),
               ),
               _buildSettingsSwitchItem(
                 icon: Icons.campaign_outlined,
@@ -827,6 +826,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _getVisibleAreasText(Set<String> areas) {
+    final labels = <String>[];
+    if (areas.contains('topRight')) labels.add('우상단');
+    if (areas.contains('bottomLeft')) labels.add('좌하단');
+    if (areas.contains('bottomRight')) labels.add('우하단');
+    if (labels.isEmpty) return '좌상단만 표시';
+    return '좌상단 + ${labels.join(', ')}';
+  }
+
+  void _showVisibleAreasDialog(BuildContext context, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (context) => _VisibleAreasDialog(appState: appState),
     );
   }
 
@@ -1518,6 +1533,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+// ───────────────────────────── 영역 보기 설정 다이얼로그 ─────────────────────────────
+
+class _VisibleAreasDialog extends StatefulWidget {
+  final AppStateProvider appState;
+  const _VisibleAreasDialog({required this.appState});
+
+  @override
+  State<_VisibleAreasDialog> createState() => _VisibleAreasDialogState();
+}
+
+class _VisibleAreasDialogState extends State<_VisibleAreasDialog> {
+  late Set<String> _selected;
+
+  static const _areas = [
+    {'id': 'topRight',    'label': '우상단', 'icon': Icons.north_east},
+    {'id': 'bottomLeft',  'label': '좌하단', 'icon': Icons.south_west},
+    {'id': 'bottomRight', 'label': '우하단', 'icon': Icons.south_east},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.appState.visibleAreas);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).primaryColor;
+    return AlertDialog(
+      title: const Text('영역 보기'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 좌상단 — 항상 활성 (고정)
+          ListTile(
+            dense: true,
+            leading: Icon(Icons.north_west, size: 20, color: themeColor),
+            title: const Text('좌상단'),
+            subtitle: const Text('전체탭 고정', style: TextStyle(fontSize: 11)),
+            trailing: Icon(Icons.lock, color: themeColor, size: 18),
+          ),
+          const Divider(height: 1),
+          ..._areas.map((area) {
+            final id = area['id'] as String;
+            final label = area['label'] as String;
+            final icon = area['icon'] as IconData;
+            final isChecked = _selected.contains(id);
+            return CheckboxListTile(
+              dense: true,
+              secondary: Icon(icon, size: 20, color: isChecked ? themeColor : Colors.grey),
+              title: Text(label),
+              value: isChecked,
+              activeColor: themeColor,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) {
+                    _selected.add(id);
+                  } else {
+                    _selected.remove(id);
+                  }
+                });
+              },
+            );
+          }),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.appState.setVisibleAreas(_selected);
+            Navigator.of(context).pop();
+          },
+          child: const Text('확인'),
+        ),
+      ],
+    );
+  }
+}
+
 // ───────────────────────────── 노트탭 보기 설정 다이얼로그 ─────────────────────────────
 
 class _NoteTabVisibilityDialog extends StatefulWidget {
@@ -1532,10 +1630,10 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
   late Set<String> _selected;
 
   static const _tabs = [
-    {'id': 'text', 'label': '텍스트탭', 'icon': Icons.keyboard},
-    {'id': 'handwriting', 'label': '필기탭', 'icon': Icons.draw},
-    {'id': 'audio', 'label': '녹음탭', 'icon': Icons.mic},
-    {'id': 'browser', 'label': '검색탭', 'icon': Icons.public},
+    {'id': 'text', 'label': '메모', 'icon': Icons.keyboard},
+    {'id': 'handwriting', 'label': '필기', 'icon': Icons.draw},
+    {'id': 'audio', 'label': '녹음', 'icon': Icons.mic},
+    {'id': 'browser', 'label': '검색', 'icon': Icons.public},
   ];
 
   @override
@@ -1552,11 +1650,11 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 전체탭은 항상 활성 (고정)
+          // 전체는 항상 활성 (고정)
           ListTile(
             dense: true,
             leading: Icon(Icons.apps, size: 20, color: themeColor),
-            title: const Text('전체탭'),
+            title: const Text('전체'),
             trailing: Icon(Icons.check_circle, color: themeColor, size: 20),
           ),
           const Divider(height: 1),

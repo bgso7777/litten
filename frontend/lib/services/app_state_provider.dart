@@ -93,8 +93,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
 
-  // ⭐ 도킹 사용 여부 (기본: false)
+  // ⭐ 도킹 사용 여부 (기본: false) — deprecated, visibleAreas로 대체
   bool _dockingEnabled = false;
+
+  // ⭐ 영역 보기 설정 — 보이는 쿼드런트 집합 (topLeft는 항상 포함)
+  Set<String> _visibleAreas = {'topLeft'};
 
   // ⭐ 광고 표시 여부 (기본: false - 나중에 활성화 가능)
   bool _adsEnabled = false;
@@ -146,6 +149,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get noteTabVisibility => _noteTabVisibility;
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
+  Set<String> get visibleAreas => _visibleAreas;
   bool get adsEnabled => _adsEnabled;
 
   // 알림 서비스 관련 Getters
@@ -365,12 +369,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint('✅ [AppStateProvider] 저장된 쓰기 탭 위치 복원: $_currentWritingTabId');
 
     // ⭐ 각 탭의 위치 복원 (all, text, handwriting, audio, browser)
+    final savedTabPositionAll = prefs.getString('tab_position_all');
     _writingTabPositions = {
-      'all': prefs.getString('tab_position_all') ?? 'topLeft',
-      'text': prefs.getString('tab_position_text') ?? 'topLeft',
+      'all':         savedTabPositionAll ?? 'topLeft',
+      'text':        prefs.getString('tab_position_text') ?? 'topLeft',
       'handwriting': prefs.getString('tab_position_handwriting') ?? 'topLeft',
-      'audio': prefs.getString('tab_position_audio') ?? 'topLeft',
-      'browser': prefs.getString('tab_position_browser') ?? 'topLeft',
+      'audio':       prefs.getString('tab_position_audio') ?? 'topLeft',
+      'browser':     prefs.getString('tab_position_browser') ?? 'topLeft',
     };
     debugPrint('✅ [AppStateProvider] 저장된 탭 위치들 복원: $_writingTabPositions');
 
@@ -389,6 +394,51 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _dockingEnabled = prefs.getBool('docking_enabled') ?? false;
     debugPrint('✅ [AppStateProvider] 도킹 사용 여부 복원: $_dockingEnabled');
+
+    // 영역 보기 복원
+    final savedAreas = prefs.getStringList('visible_areas');
+    final isFirstLaunch = savedAreas == null && savedVisibility == null && savedTabPositionAll == null;
+
+    if (isFirstLaunch) {
+      // 최초 설치 — 디바이스 타입에 따른 기본값 적용
+      final isTablet = _detectIsTablet();
+      debugPrint('📱 [AppStateProvider] 최초 설치 감지 — 디바이스: ${isTablet ? "패드" : "폰"}');
+
+      if (isTablet) {
+        // 패드 기본값: 4분할 + 전체탭 활성화 + 각 영역에 탭 배치
+        _visibleAreas    = {'topLeft', 'topRight', 'bottomLeft', 'bottomRight'};
+        _noteTabVisibility = {'all', 'text', 'handwriting', 'audio', 'browser'};
+        _writingTabPositions = {
+          'all':         'topLeft',
+          'handwriting': 'topRight',
+          'text':        'bottomLeft',
+          'audio':       'bottomRight',
+          'browser':     'bottomRight',
+        };
+      } else {
+        // 폰 기본값: 좌상단만 + 전체탭만
+        _visibleAreas      = {'topLeft'};
+        _noteTabVisibility = {'all'};
+        _writingTabPositions = {
+          'all': 'topLeft', 'text': 'topLeft',
+          'handwriting': 'topLeft', 'audio': 'topLeft', 'browser': 'topLeft',
+        };
+      }
+
+      // SharedPreferences에 기본값 저장
+      await prefs.setStringList('visible_areas', _visibleAreas.toList());
+      await prefs.setStringList('note_tab_visibility', _noteTabVisibility.toList());
+      for (final entry in _writingTabPositions.entries) {
+        await prefs.setString('tab_position_${entry.key}', entry.value);
+      }
+      debugPrint('💾 [AppStateProvider] 디바이스 기본값 저장 완료: visibleAreas=$_visibleAreas');
+    } else if (savedAreas != null) {
+      _visibleAreas = {'topLeft', ...savedAreas};
+    } else {
+      // 기존 사용자 마이그레이션 (docking_enabled → visibleAreas)
+      _visibleAreas = _dockingEnabled ? {'topLeft', 'bottomLeft'} : {'topLeft'};
+    }
+    debugPrint('✅ [AppStateProvider] 영역 보기 복원: $_visibleAreas');
 
     _adsEnabled = prefs.getBool('ads_enabled') ?? false;
     debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled');
@@ -1299,6 +1349,43 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setBool('docking_enabled', enabled);
     debugPrint('💾 [AppStateProvider] 도킹 사용 여부 저장: $_dockingEnabled');
     notifyListeners();
+  }
+
+  /// 영역 보기 설정 — topLeft는 항상 포함, 숨겨진 영역의 탭은 topLeft로 이동
+  Future<void> setVisibleAreas(Set<String> areas) async {
+    final newAreas = {'topLeft', ...areas};
+    final removedAreas = _visibleAreas.difference(newAreas);
+
+    // 숨겨진 영역에 있던 탭을 topLeft로 이동
+    if (removedAreas.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      for (final tabId in _writingTabPositions.keys.toList()) {
+        if (removedAreas.contains(_writingTabPositions[tabId])) {
+          _writingTabPositions[tabId] = 'topLeft';
+          await prefs.setString('tab_position_$tabId', 'topLeft');
+          debugPrint('[AppStateProvider] $tabId 탭을 topLeft로 이동 (영역 비활성화)');
+        }
+      }
+    }
+
+    _visibleAreas = newAreas;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('visible_areas', _visibleAreas.toList());
+    debugPrint('💾 [AppStateProvider] 영역 보기 저장: $_visibleAreas');
+    notifyListeners();
+  }
+
+  /// 디바이스가 태블릿인지 감지 (shortestSide >= 600dp 기준)
+  bool _detectIsTablet() {
+    try {
+      final view = WidgetsBinding.instance.platformDispatcher.views.first;
+      final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
+      debugPrint('📐 [AppStateProvider] shortestSide: $shortestSide');
+      return shortestSide >= 600;
+    } catch (e) {
+      debugPrint('⚠️ [AppStateProvider] 디바이스 타입 감지 실패: $e');
+      return false;
+    }
   }
 
   Future<void> setAdsEnabled(bool enabled) async {

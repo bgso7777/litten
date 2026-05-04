@@ -105,7 +105,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           _sttSettings = widget.sttSettings ?? const SttMemoSettings();
         });
         debugPrint('🎤 STT 설정 - 전사언어: ${_sttSettings.textLanguage}, 요약언어: ${_sttSettings.summaryLanguage}, 비율: ${_sttSettings.summaryRatio}, 주기: ${_sttSettings.summaryIntervalMinutes}분');
-        _createNewTextFile();
+        _createNewTextFile(isFromSTT: true);
         // STT 시작을 위해 1초 대기 (파일 생성 완료 대기)
         Future.delayed(const Duration(milliseconds: 1000), () {
           if (mounted && _currentTextFile != null) {
@@ -526,7 +526,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     );
   }
 
-  void _createNewTextFile() async {
+  void _createNewTextFile({bool isFromSTT = false}) async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
 
@@ -541,6 +541,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         littenId: selectedLitten.id,
         title: defaultTitle,
         content: '',
+        isFromSTT: isFromSTT,
       );
 
       print('디버그: 새로운 텍스트 파일 생성 - $defaultTitle');
@@ -1454,7 +1455,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       }
 
       // 녹음 중지 및 파일 생성 (await 이후엔 위젯이 dispose됐을 수 있음)
-      final audioFile = await _audioService.stopRecording(selectedLitten);
+      final audioFile = await _audioService.stopRecording(selectedLitten, isFromSTT: true);
 
       if (mounted) {
         setState(() { _isRecordingWithSTT = false; });
@@ -1667,14 +1668,37 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   }
 
   Widget _buildTextFileItem(TextFile file) {
+    final isFromSTT = file.isFromSTT;
+    final color = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(
-            context,
-          ).primaryColor.withValues(alpha: 0.1),
-          child: Icon(Icons.keyboard, color: Theme.of(context).primaryColor),
+        leading: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.1),
+                child: Icon(Icons.notes, color: color),
+              ),
+              if (isFromSTT)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
         ),
         title: Text(
           file.title.isNotEmpty
@@ -1759,43 +1783,35 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // 1. STT 마이크/정지 버튼 (맨 앞)
-            Consumer<AppStateProvider>(
-              builder: (context, appState, child) {
-                // ⭐ STT 또는 녹음 중일 때 정지 아이콘 표시
-                final isActive = _isListening || _audioService.isRecording;
-                // ⭐ autoStartSTT로 진입했을 때만 활성화
-                final isEnabled = widget.autoStartSTT;
-                return InkWell(
-                  onTap: isEnabled ? _toggleSpeechToText : null,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isEnabled ? Colors.grey.shade600 : Colors.grey.shade300,
-                        width: 1.5,
+            // 1. STT 마이크/정지 버튼 (음성메모 모드에서만 표시)
+            if (_isSttMode)
+              Consumer<AppStateProvider>(
+                builder: (context, appState, child) {
+                  final isActive = _isListening || _audioService.isRecording;
+                  return InkWell(
+                    onTap: _toggleSpeechToText,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.grey.shade600,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Icon(
+                        isActive ? Icons.stop : Icons.mic_none,
+                        color: Colors.grey.shade700,
+                        size: 20,
                       ),
                     ),
-                    child: Icon(
-                      isActive ? Icons.stop : Icons.mic_none,
-                      color: isEnabled ? Colors.grey.shade700 : Colors.grey.shade300,
-                      size: 20,
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 4),
-            // 구분선
-            Container(
-              width: 1,
-              height: 24,
-              color: Colors.grey.shade400,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-            ),
+                  );
+                },
+              ),
+            // 서식 버튼들 (일반 메모 모드에서만 표시)
+            if (!_isSttMode) ...[
             // 2. 굵게 (Bold)
             _buildToolbarButton(
               icon: Icons.format_bold,
@@ -2005,6 +2021,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               onPressed: () => _execCommand('insertHorizontalRule'),
               tooltip: '가로선',
             ),
+            ], // end if (!_isSttMode)
           ],
         ),
       ),

@@ -182,8 +182,8 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 듣기(녹음) 중지 및 파일 저장
-  Future<AudioFile?> stopRecording(Litten litten) async {
-    debugPrint('[AudioService] stopRecording 진입 - littenId: ${litten.id}');
+  Future<AudioFile?> stopRecording(Litten litten, {bool isFromSTT = false}) async {
+    debugPrint('[AudioService] stopRecording 진입 - littenId: ${litten.id}, isFromSTT: $isFromSTT');
     
     if (!_isRecording) {
       debugPrint('[AudioService] 녹음 중이 아닙니다.');
@@ -241,6 +241,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
           filePath: path,
           duration: actualDuration,
           createdAt: DateTime.now(),
+          isFromSTT: isFromSTT,
         );
 
         debugPrint('[AudioService] 오디오 파일 저장됨: ${audioFile.fileName}');

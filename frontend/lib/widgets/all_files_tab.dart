@@ -371,16 +371,40 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // ── 텍스트 카드 ──
   Widget _buildTextCard(TextFile file) {
     final color = Theme.of(context).primaryColor;
+    final isFromSTT = file.isFromSTT;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: ListTile(
         dense: true,
         visualDensity: const VisualDensity(vertical: -1),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: color.withValues(alpha: 0.1),
-          child: Icon(Icons.keyboard, color: color, size: 18),
+        leading: SizedBox(
+          width: 32,
+          height: 32,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: color.withValues(alpha: 0.1),
+                child: Icon(Icons.notes, color: color, size: 18),
+              ),
+              if (isFromSTT)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
         ),
         title: Text(
           file.title.isNotEmpty
@@ -436,7 +460,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildHandwritingCard(HandwritingFile file) {
     final color = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: ListTile(
         dense: true,
         visualDensity: const VisualDensity(vertical: -1),
@@ -496,18 +520,41 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isPlaying = isCurrentPlaying && _audioService.isPlaying;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: ListTile(
         dense: true,
         visualDensity: const VisualDensity(vertical: -1),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
-          child: Icon(
-            isPlaying ? Icons.pause : Icons.play_arrow,
-            color: isPlaying ? Colors.white : color,
-            size: 18,
+        leading: SizedBox(
+          width: 32,
+          height: 32,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
+                child: Icon(
+                  isPlaying ? Icons.pause : Icons.mic,
+                  color: isPlaying ? Colors.white : color,
+                  size: 18,
+                ),
+              ),
+              if (file.isFromSTT)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                  ),
+                ),
+            ],
           ),
         ),
         title: Column(
@@ -1130,10 +1177,10 @@ class AllFilesTabButton extends StatelessWidget {
           Text(displayTitle, overflow: TextOverflow.ellipsis),
           const SizedBox(width: 6),
         ],
-        _iconCount(Icons.keyboard, textCount),
-        const SizedBox(width: 6),
+        _iconCount(Icons.notes, textCount),
+        const SizedBox(width: 8),
         _iconCount(Icons.draw, handwritingCount),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         _iconCount(Icons.mic, audioCount),
       ],
     );
@@ -1143,9 +1190,9 @@ class AllFilesTabButton extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon), // IconTheme에서 자동으로 색상과 크기를 상속받음
-        const SizedBox(width: 2),
-        Text(count.toString()), // DefaultTextStyle에서 자동으로 색상과 굵기를 상속받음
+        Icon(icon),
+        const SizedBox(width: 5),
+        Text(count.toString()),
       ],
     );
   }
