@@ -1143,6 +1143,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             setTimeout(function() {
               try {
                 editable.scrollTop = editable.scrollHeight;
+                window.scrollTo(0, document.body.scrollHeight);
+                document.documentElement.scrollTop = document.documentElement.scrollHeight;
               } catch(e) {
                 console.log('span 스크롤 에러:', e);
               }
@@ -1189,6 +1191,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               selection.removeAllRanges();
               selection.addRange(range);
             }
+
+            // ⭐ 자동 스크롤
+            setTimeout(function() {
+              try {
+                var editable = document.querySelector('.note-editable');
+                if (editable) editable.scrollTop = editable.scrollHeight;
+                window.scrollTo(0, document.body.scrollHeight);
+                document.documentElement.scrollTop = document.documentElement.scrollHeight;
+              } catch(e) {}
+            }, 50);
 
             return 'converted: ' + text;
           }
@@ -1347,18 +1359,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     await _saveCurrentTextFile();
     debugPrint('✅ STT 종료 후 텍스트 자동 저장 완료');
 
-    // 📋 STT 모드: 최종 요약 생성 후 파일 끝에 추가
-    if (_isSttMode) {
-      debugPrint('📋 [SttMode] STT 종료 - 요약 파일 추가 시작');
-      if (_sttSummary.isEmpty) {
-        debugPrint('📋 [SttMode] 요약 없음 - 최종 요약 1회 생성');
-        await _autoSummarizeStt();
-      }
-      if (_sttSummary.isNotEmpty) {
-        await _appendSummaryToFile();
-      } else {
-        debugPrint('ℹ️ [SttMode] 전사 내용이 없어 요약 건너뜀');
-      }
+    // 📋 STT 모드: 타이머로 이미 생성된 요약만 파일에 추가 (수동 정지 시 신규 요약 생성 안함)
+    if (_isSttMode && _sttSummary.isNotEmpty) {
+      debugPrint('📋 [SttMode] STT 종료 - 기존 요약 파일에 추가');
+      await _appendSummaryToFile();
+    } else if (_isSttMode) {
+      debugPrint('ℹ️ [SttMode] STT 종료 - 요약 없음, 건너뜀');
     }
   }
 
@@ -1697,6 +1703,22 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                     child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
                   ),
                 ),
+              // 요약 아이콘 (STT 요약이 있을 때)
+              if (file.hasSummary)
+                Positioned(
+                  left: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 15,
+                    height: 15,
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade600,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.auto_awesome, size: 8, color: Colors.white),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1771,45 +1793,20 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// 커스텀 툴바 빌드 (STT 버튼 + 서식 버튼들)
   Widget _buildCustomToolbar() {
+    // STT 모드: 2줄 툴바
+    if (_isSttMode) return _buildSttToolbar();
+
+    // 일반 메모 모드: 서식 툴바
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // 1. STT 마이크/정지 버튼 (음성메모 모드에서만 표시)
-            if (_isSttMode)
-              Consumer<AppStateProvider>(
-                builder: (context, appState, child) {
-                  final isActive = _isListening || _audioService.isRecording;
-                  return InkWell(
-                    onTap: _toggleSpeechToText,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.grey.shade600,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Icon(
-                        isActive ? Icons.stop : Icons.mic_none,
-                        color: Colors.grey.shade700,
-                        size: 20,
-                      ),
-                    ),
-                  );
-                },
-              ),
             // 서식 버튼들 (일반 메모 모드에서만 표시)
             if (!_isSttMode) ...[
             // 2. 굵게 (Bold)
@@ -2027,6 +2024,87 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       ),
     );
   }
+
+  /// STT 전용 2줄 툴바
+  Widget _buildSttToolbar() {
+    const kLangs = [
+      ('ko', '한국어'), ('en', 'English'), ('zh', '中文'), ('ja', '日本語'),
+      ('hi', 'हिन्दी'), ('es', 'Español'), ('fr', 'Français'), ('ar', 'العربية'),
+      ('bn', 'বাংলা'), ('ru', 'Русский'), ('pt', 'Português'), ('ur', 'اردو'),
+      ('id', 'Bahasa Indonesia'), ('de', 'Deutsch'), ('sw', 'Kiswahili'),
+      ('mr', 'मराठी'), ('te', 'తెలుగు'), ('tr', 'Türkçe'), ('ta', 'தமிழ்'),
+      ('fa', 'فارسی'), ('uk', 'Українська'), ('it', 'Italiano'), ('tl', 'Filipino'),
+      ('pl', 'Polski'), ('ps', 'پښتو'), ('ms', 'Bahasa Melayu'), ('ro', 'Română'),
+      ('nl', 'Nederlands'), ('ha', 'Hausa'), ('th', 'ไทย'),
+    ];
+    final color = Theme.of(context).primaryColor;
+    final bgColor = color.withValues(alpha: 0.1);
+    final dropStyle = TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500);
+
+    Widget langDropdown(String value, ValueChanged<String?> onChanged) =>
+        DropdownButton<String>(
+          value: value,
+          isDense: true,
+          underline: const SizedBox(),
+          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+          style: dropStyle,
+          dropdownColor: Theme.of(context).cardColor,
+          items: kLangs.map((l) => DropdownMenuItem(
+            value: l.$1,
+            child: Text('${l.$2}(${l.$1})', overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: color)),
+          )).toList(),
+          onChanged: onChanged,
+        );
+
+    return Container(
+      width: double.infinity,
+      color: bgColor,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          // STT 시작/중지 버튼
+          Consumer<AppStateProvider>(
+            builder: (context, appState, child) {
+              final isActive = _isListening || _audioService.isRecording;
+              return InkWell(
+                onTap: _toggleSpeechToText,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color, width: 1.5),
+                  ),
+                  child: Icon(
+                    isActive ? Icons.stop : Icons.mic_none,
+                    color: color,
+                    size: 20,
+                  ),
+                ),
+              );
+            },
+          ),
+          Container(width: 1, height: 20, color: color.withValues(alpha: 0.4),
+            margin: const EdgeInsets.symmetric(horizontal: 8)),
+          // 전사 언어 (변경 시 요약언어 동기화)
+          langDropdown(_sttSettings.textLanguage, (v) {
+            if (v != null) _onSttSettingChanged(textLanguage: v, summaryLanguage: v);
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// STT 툴바 구분선 (| 스타일)
+  Widget _sttSeparator() => Container(
+    width: 1,
+    height: 20,
+    color: Colors.grey.shade400,
+    margin: const EdgeInsets.symmetric(horizontal: 5),
+  );
 
   /// 툴바 버튼 위젯 빌드
   Widget _buildToolbarButton({
@@ -2473,6 +2551,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
       if (mounted) {
         setState(() => _sttSummary = summary);
+        // TextFile.summary 업데이트 → 파일 목록 요약 아이콘 활성화
+        if (_currentTextFile != null) {
+          _currentTextFile = _currentTextFile!.copyWith(summary: summary);
+          await _saveCurrentTextFile();
+          debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료');
+        }
       }
     } catch (e) {
       debugPrint('❌ [SttMode] 자동 요약 실패: $e');
@@ -2555,21 +2639,6 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   Widget _buildSttSummaryArea() {
     final color = Theme.of(context).primaryColor;
-    const kLangs = [
-      ('ko', '한국어'), ('en', 'English'), ('zh', '中文'), ('ja', '日本語'),
-      ('hi', 'हिन्दी'), ('es', 'Español'), ('fr', 'Français'), ('ar', 'العربية'),
-      ('bn', 'বাংলা'), ('ru', 'Русский'), ('pt', 'Português'), ('ur', 'اردو'),
-      ('id', 'Bahasa Indonesia'), ('de', 'Deutsch'), ('sw', 'Kiswahili'),
-      ('mr', 'मराठी'), ('te', 'తెలుగు'), ('tr', 'Türkçe'), ('ta', 'தமிழ்'),
-      ('fa', 'فارسی'), ('uk', 'Українська'), ('it', 'Italiano'), ('tl', 'Filipino'),
-      ('pl', 'Polski'), ('ps', 'پښتو'), ('ms', 'Bahasa Melayu'), ('ro', 'Română'),
-      ('nl', 'Nederlands'), ('ha', 'Hausa'), ('th', 'ไทย'),
-    ];
-    const kRatios = [10, 20, 30, 40, 50, 60, 70, 80, 90];
-    const kIntervals = [(1, '1분'), (3, '3분'), (5, '5분'), (10, '10분'), (0, '안함')];
-
-    // 공통 드롭다운 스타일
-    TextStyle dropStyle() => TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500);
 
     return Container(
       width: double.infinity,
@@ -2582,8 +2651,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더: 타이틀 + 4개 드롭다운
+          // 헤더: 타이틀 + 드롭다운 (우측 끝까지 배경 확장)
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
@@ -2594,92 +2664,68 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
+                // 좌측: AI 요약 레이블
                 Icon(Icons.auto_awesome, size: 13, color: color),
                 const SizedBox(width: 4),
                 Text('AI 요약',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                const Spacer(),
+                // 우측: 드롭다운들
+                // 요약언어
+                DropdownButton<String>(
+                  value: _sttSettings.summaryLanguage,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  dropdownColor: Theme.of(context).cardColor,
+                  items: const [
+                    ('ko', '한국어'), ('en', 'English'), ('zh', '中文'), ('ja', '日本語'),
+                    ('hi', 'हिन्दी'), ('es', 'Español'), ('fr', 'Français'), ('ar', 'العربية'),
+                    ('bn', 'বাংলা'), ('ru', 'Русский'), ('pt', 'Português'), ('ur', 'اردو'),
+                    ('id', 'Bahasa Indonesia'), ('de', 'Deutsch'), ('sw', 'Kiswahili'),
+                    ('mr', 'मराठी'), ('te', 'తెలుగు'), ('tr', 'Türkçe'), ('ta', 'தமிழ்'),
+                    ('fa', 'فارسی'), ('uk', 'Українська'), ('it', 'Italiano'), ('tl', 'Filipino'),
+                    ('pl', 'Polski'), ('ps', 'پښتو'), ('ms', 'Bahasa Melayu'), ('ro', 'Română'),
+                    ('nl', 'Nederlands'), ('ha', 'Hausa'), ('th', 'ไทย'),
+                  ].map((l) => DropdownMenuItem(
+                    value: l.$1,
+                    child: Text('${l.$2}(${l.$1})', overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: color)),
+                  )).toList(),
+                  onChanged: (v) => _onSttSettingChanged(summaryLanguage: v),
+                ),
                 const SizedBox(width: 4),
-                // 4개 드롭다운 균등 배분
-                Expanded(
-                  child: Row(
-                    children: [
-                      // 언어
-                      Flexible(
-                        flex: 3,
-                        child: DropdownButton<String>(
-                          value: _sttSettings.textLanguage,
-                          isDense: true, isExpanded: true,
-                          underline: const SizedBox(),
-                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                          style: dropStyle(),
-                          dropdownColor: Theme.of(context).cardColor,
-                          items: kLangs.map((l) => DropdownMenuItem(
-                            value: l.$1,
-                            child: Text('${l.$2}(${l.$1})',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: color)),
-                          )).toList(),
-                          onChanged: (v) => _onSttSettingChanged(textLanguage: v),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // 요약언어
-                      Flexible(
-                        flex: 3,
-                        child: DropdownButton<String>(
-                          value: _sttSettings.summaryLanguage,
-                          isDense: true, isExpanded: true,
-                          underline: const SizedBox(),
-                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                          style: dropStyle(),
-                          dropdownColor: Theme.of(context).cardColor,
-                          items: kLangs.map((l) => DropdownMenuItem(
-                            value: l.$1,
-                            child: Text('${l.$2}(${l.$1})',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: color)),
-                          )).toList(),
-                          onChanged: (v) => _onSttSettingChanged(summaryLanguage: v),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // 비율
-                      Flexible(
-                        flex: 2,
-                        child: DropdownButton<int>(
-                          value: _sttSettings.summaryRatio,
-                          isDense: true, isExpanded: true,
-                          underline: const SizedBox(),
-                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                          style: dropStyle(),
-                          dropdownColor: Theme.of(context).cardColor,
-                          items: kRatios.map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text('$r%', style: TextStyle(fontSize: 12, color: color)),
-                          )).toList(),
-                          onChanged: (v) => _onSttSettingChanged(summaryRatio: v),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // 주기
-                      Flexible(
-                        flex: 2,
-                        child: DropdownButton<int>(
-                          value: _sttSettings.summaryIntervalMinutes,
-                          isDense: true, isExpanded: true,
-                          underline: const SizedBox(),
-                          icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                          style: dropStyle(),
-                          dropdownColor: Theme.of(context).cardColor,
-                          items: kIntervals.map((opt) => DropdownMenuItem(
-                            value: opt.$1,
-                            child: Text(opt.$2, style: TextStyle(fontSize: 12, color: color)),
-                          )).toList(),
-                          onChanged: (v) => _onSttSettingChanged(summaryIntervalMinutes: v),
-                        ),
-                      ),
-                    ],
-                  ),
+                // 요약시간
+                DropdownButton<int>(
+                  value: _sttSettings.summaryIntervalMinutes,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  dropdownColor: Theme.of(context).cardColor,
+                  items: const [(1, '1분'), (3, '3분'), (5, '5분'), (10, '10분'), (0, '안함')]
+                      .map((opt) => DropdownMenuItem(
+                        value: opt.$1,
+                        child: Text(opt.$2, style: TextStyle(fontSize: 11, color: color)),
+                      )).toList(),
+                  onChanged: (v) => _onSttSettingChanged(summaryIntervalMinutes: v),
+                ),
+                const SizedBox(width: 4),
+                // 요약률
+                DropdownButton<int>(
+                  value: _sttSettings.summaryRatio,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  dropdownColor: Theme.of(context).cardColor,
+                  items: const [10, 20, 30, 40, 50, 60, 70, 80, 90]
+                      .map((r) => DropdownMenuItem(
+                        value: r,
+                        child: Text('$r%', style: TextStyle(fontSize: 11, color: color)),
+                      )).toList(),
+                  onChanged: (v) => _onSttSettingChanged(summaryRatio: v),
                 ),
               ],
             ),

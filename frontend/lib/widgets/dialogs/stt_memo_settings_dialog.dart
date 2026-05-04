@@ -51,7 +51,7 @@ class SttMemoSettings {
   const SttMemoSettings({
     this.textLanguage = 'ko',
     this.summaryLanguage = 'ko',
-    this.summaryRatio = 50,
+    this.summaryRatio = 20,
     this.summaryIntervalMinutes = 3,
   });
 

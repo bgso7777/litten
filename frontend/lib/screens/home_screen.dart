@@ -2027,7 +2027,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             ),
             child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -2035,7 +2035,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.bold,
                     ),
@@ -2046,13 +2046,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 Text(
                   timeLabel,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_up, size: 16, color: Theme.of(context).primaryColor),
+                Icon(Icons.keyboard_arrow_up, size: 24, color: Theme.of(context).primaryColor),
               ],
             ),
           ),         // Container
