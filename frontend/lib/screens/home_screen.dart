@@ -1919,7 +1919,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
               ),
             ),
-            // 일정 목록 스크롤 유도 힌트 칩 (메인 메뉴에 가깝게)
+            // 일정 목록 스크롤 유도 힌트 칩
             _buildScheduleHintChip(appState),
           ],
         ),

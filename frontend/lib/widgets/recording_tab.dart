@@ -23,6 +23,7 @@ class _RecordingTabState extends State<RecordingTab> {
   final AudioService _audioService = AudioService();
   List<AudioFile> _audioFiles = [];
   String? _lastActiveTabId; // 마지막으로 알고 있던 활성 탭 ID
+  int? _lastAudioCount; // actualAudioCount 변화 감지 → 자동 새로고침
 
   @override
   void initState() {
@@ -388,6 +389,15 @@ class _RecordingTabState extends State<RecordingTab> {
         } else if (appState.currentWritingTabId != 'audio') {
           _lastActiveTabId = appState.currentWritingTabId;
         }
+
+        // STT 녹음 저장 후 배지 반영을 위해 오디오 카운트 변화 시 자동 새로고침
+        if (_lastAudioCount != null && appState.actualAudioCount != _lastAudioCount) {
+          debugPrint('[RecordingTab] 오디오 파일 수 변경 감지 (${_lastAudioCount} → ${appState.actualAudioCount}) - 자동 새로고침');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _loadAudioFiles();
+          });
+        }
+        _lastAudioCount = appState.actualAudioCount;
 
         if (appState.selectedLitten == null) {
           return EmptyState(

@@ -1139,16 +1139,17 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               selection.addRange(range);
             }
 
-            // ⭐ 자동 스크롤: 항상 맨 아래로
+            // ⭐ 자동 스크롤: span이 항상 화면에 보이도록
             setTimeout(function() {
               try {
-                editable.scrollTop = editable.scrollHeight;
-                window.scrollTo(0, document.body.scrollHeight);
-                document.documentElement.scrollTop = document.documentElement.scrollHeight;
+                // 1. span.scrollIntoView — 가장 신뢰성 높은 방법
+                span.scrollIntoView({behavior: 'instant', block: 'nearest', inline: 'nearest'});
+                // 2. editable 내부 스크롤 보조
+                editable.scrollTop = editable.scrollHeight + 9999;
               } catch(e) {
                 console.log('span 스크롤 에러:', e);
               }
-            }, 50);
+            }, 30);
           }
 
           return 'success';
@@ -1192,15 +1193,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               selection.addRange(range);
             }
 
-            // ⭐ 자동 스크롤
+            // ⭐ 자동 스크롤: 텍스트노드 뒤를 보여주도록
             setTimeout(function() {
               try {
+                textNode.parentElement.scrollIntoView({behavior: 'instant', block: 'nearest'});
                 var editable = document.querySelector('.note-editable');
-                if (editable) editable.scrollTop = editable.scrollHeight;
-                window.scrollTo(0, document.body.scrollHeight);
-                document.documentElement.scrollTop = document.documentElement.scrollHeight;
+                if (editable) editable.scrollTop = editable.scrollHeight + 9999;
               } catch(e) {}
-            }, 50);
+            }, 30);
 
             return 'converted: ' + text;
           }
@@ -2400,7 +2400,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                               setTimeout(function() {
                                 // CSS 주입
                                 var style = document.createElement('style');
-                                style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; }';
+                                style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; } .note-editable { overflow-y: auto !important; scroll-behavior: auto !important; }';
                                 document.head.appendChild(style);
 
                                 // 커서 위치로 스크롤하는 함수

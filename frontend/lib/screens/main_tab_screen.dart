@@ -224,7 +224,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           // 캘린더 탭(index 1)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 1
               ? Transform.translate(
-                  offset: const Offset(0, -12),
+                  offset: const Offset(0, -48),
                   child: FloatingActionButton(
                     onPressed: () {
                       // HomeScreen의 _showCreateLittenDialog 호출
