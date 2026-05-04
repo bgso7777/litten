@@ -64,22 +64,18 @@ class SyncService {
     }
   }
 
-  // ② 앱 시작 시 변경분만 동기화
+  // ② 앱 시작 시 전체 양방향 동기화 (누락된 클라우드 파일 포함)
   Future<void> syncOnAppStart() async {
     debugPrint('[SyncService] syncOnAppStart 진입');
-    if (!_canSync) return;
+    if (!_canSync) {
+      debugPrint('[SyncService] syncOnAppStart - 프리미엄 아님 또는 미로그인, 스킵');
+      return;
+    }
     final token = await _loadToken();
     if (token == null) return;
 
-    final lastSync = await _getLastSyncTime();
-    if (lastSync == null) {
-      debugPrint('[SyncService] syncOnAppStart - 최초, 전체 동기화');
-      await syncOnLogin();
-      return;
-    }
-
     try {
-      await _incrementalSync(token, lastSync);
+      await _bidirectionalSync(token);
       await _saveLastSyncTime(DateTime.now());
       debugPrint('[SyncService] syncOnAppStart 완료');
     } catch (e) {
@@ -98,7 +94,19 @@ class SyncService {
       return;
     }
     debugPrint('[SyncService] syncOnForeground - 백그라운드 ${backgroundDuration.inMinutes}분, 동기화');
-    await syncOnAppStart();
+    final token = await _loadToken();
+    if (token == null) return;
+    try {
+      final lastSync = await _getLastSyncTime();
+      if (lastSync != null) {
+        await _incrementalSync(token, lastSync);
+      } else {
+        await _bidirectionalSync(token);
+      }
+      await _saveLastSyncTime(DateTime.now());
+    } catch (e) {
+      debugPrint('[SyncService] syncOnForeground 오류: $e');
+    }
   }
 
   void recordBackgroundTime() {
@@ -133,17 +141,18 @@ class SyncService {
           final fileType = cloudMeta['fileType'] as String;
           final cloudId = cloudMeta['cloudId'].toString();
           final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
+          final cloudFileName = cloudMeta['fileName'] as String? ?? '';
 
           final localFile = await _findLocalFile(littenId, localId, fileType);
 
           if (localFile == null) {
             // 로컬에 없음 → 클라우드에서 다운로드
-            await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+            await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
           } else {
             final localUpdatedAt = _getFileUpdatedAt(localFile);
             if (cloudUpdatedAt.isAfter(localUpdatedAt)) {
               // 클라우드가 더 최신 → 다운로드
-              await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+              await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
             } else if (localUpdatedAt.isAfter(cloudUpdatedAt)) {
               // 로컬이 더 최신 → 업로드
               await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
@@ -180,6 +189,8 @@ class SyncService {
     for (final littenId in littenIds) {
       await _uploadUnsyncedFilesForLitten(token, littenId);
     }
+    // 업로드 완료 후 lastSync 갱신 (이후 syncOnNoteTab에서 중복 조회 방지)
+    await _saveLastSyncTime(DateTime.now());
     debugPrint('[SyncService] uploadAllLocalFiles 완료');
   }
 
@@ -190,12 +201,22 @@ class SyncService {
     // 텍스트 파일
     final textFiles = await _fileStorage.loadTextFiles(littenId);
     for (final file in textFiles) {
-      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
-        final filePath = '${appDir.path}/littens/$littenId/text/${file.id}.html';
+      final filePath = '${appDir.path}/littens/$littenId/text/${file.id}.html';
+      if (file.cloudId == null) {
+        // 신규: 클라우드에 없는 파일 업로드
         if (await File(filePath).exists()) {
           await uploadFile(
             littenId: littenId, localId: file.id, fileType: 'text',
             fileName: '${file.id}.html', filePath: filePath, localUpdatedAt: file.updatedAt,
+          );
+        }
+      } else if (_isModifiedLocally(file.updatedAt, file.cloudUpdatedAt)) {
+        // 수정: 로컬이 클라우드보다 최신이면 업데이트
+        debugPrint('[SyncService] 텍스트 수정 감지 - localId: ${file.id}');
+        if (await File(filePath).exists()) {
+          await updateFile(
+            littenId: littenId, localId: file.id, cloudId: file.cloudId!,
+            fileType: 'text', filePath: filePath, localUpdatedAt: file.updatedAt,
           );
         }
       }
@@ -204,27 +225,43 @@ class SyncService {
     // 필기 파일
     final hwFiles = await _fileStorage.loadHandwritingFiles(littenId);
     for (final file in hwFiles) {
-      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
-        final filePath = file.isMultiPage
-            ? file.imagePath
-            : '${appDir.path}/littens/$littenId/handwriting/${file.id}_drawing.png';
+      final filePath = file.isMultiPage
+          ? file.imagePath
+          : '${appDir.path}/littens/$littenId/handwriting/${file.id}_drawing.png';
+      if (file.cloudId == null) {
+        // 신규: 클라우드에 없는 파일 업로드
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'handwriting',
-          fileName: '${file.id}_drawing.png', filePath: filePath, localUpdatedAt: file.updatedAt,
+          fileName: '${file.displayTitle}_drawing.png', filePath: filePath, localUpdatedAt: file.updatedAt,
         );
+      } else if (_isModifiedLocally(file.updatedAt, file.cloudUpdatedAt)) {
+        // 수정: 로컬이 클라우드보다 최신이면 업데이트
+        debugPrint('[SyncService] 필기 수정 감지 - localId: ${file.id}');
+        if (await File(filePath).exists()) {
+          await updateFile(
+            littenId: littenId, localId: file.id, cloudId: file.cloudId!,
+            fileType: 'handwriting', filePath: filePath, localUpdatedAt: file.updatedAt,
+          );
+        }
       }
     }
 
-    // 오디오 파일
+    // 오디오 파일 (오디오는 수정 없이 생성/삭제만)
     final audioFiles = await _fileStorage.loadAudioFiles(littenId);
     for (final file in audioFiles) {
-      if (file.syncStatus == SyncStatus.none || file.cloudId == null) {
+      if (file.cloudId == null) {
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'audio',
           fileName: '${file.fileName}.m4a', filePath: file.filePath, localUpdatedAt: file.updatedAt,
         );
       }
     }
+  }
+
+  // 로컬 파일이 클라우드보다 수정됐는지 판단 (2초 여유 허용)
+  bool _isModifiedLocally(DateTime localUpdatedAt, DateTime? cloudUpdatedAt) {
+    if (cloudUpdatedAt == null) return false;
+    return localUpdatedAt.isAfter(cloudUpdatedAt.add(const Duration(seconds: 2)));
   }
 
   // 파일 이벤트: 생성
@@ -328,21 +365,41 @@ class SyncService {
     required String littenId, required String localId,
     required String cloudId, required String fileType,
   }) async {
-    debugPrint('[SyncService] deleteFile - cloudId: $cloudId');
-    if (!_canSync) return;
+    debugPrint('[SyncService] deleteFile 진입 - cloudId: $cloudId, fileType: $fileType');
+
+    if (!_canSync) {
+      // 비프리미엄/미로그인이어도 나중에 처리할 수 있도록 큐에 보관
+      debugPrint('[SyncService] deleteFile - _canSync=false, 오프라인 큐에 보관');
+      await _addToOfflineQueue({
+        'action': 'delete', 'littenId': littenId, 'localId': localId,
+        'cloudId': cloudId, 'fileType': fileType
+      });
+      return;
+    }
+
     final token = await _loadToken();
-    if (token == null) return;
+    if (token == null) {
+      debugPrint('[SyncService] deleteFile - 토큰 없음, 오프라인 큐에 보관');
+      await _addToOfflineQueue({
+        'action': 'delete', 'littenId': littenId, 'localId': localId,
+        'cloudId': cloudId, 'fileType': fileType
+      });
+      return;
+    }
 
     try {
       final success = await _api.deleteCloudFile(token: token, cloudId: cloudId);
-      if (!success) {
+      if (success) {
+        debugPrint('[SyncService] deleteFile 성공 - cloudId: $cloudId');
+      } else {
+        debugPrint('[SyncService] deleteFile 실패 (result≠1) - cloudId: $cloudId, 오프라인 큐 추가');
         await _addToOfflineQueue({
           'action': 'delete', 'littenId': littenId, 'localId': localId,
           'cloudId': cloudId, 'fileType': fileType
         });
       }
     } catch (e) {
-      debugPrint('[SyncService] deleteFile 오류: $e');
+      debugPrint('[SyncService] deleteFile 오류: $e, 오프라인 큐 추가');
       await _addToOfflineQueue({
         'action': 'delete', 'littenId': littenId, 'localId': localId,
         'cloudId': cloudId, 'fileType': fileType
@@ -406,6 +463,9 @@ class SyncService {
   // 양방향 전체 동기화
   Future<void> _bidirectionalSync(String token) async {
     debugPrint('[SyncService] _bidirectionalSync 시작');
+    // 오프라인 큐 먼저 처리: 보류 중인 삭제가 클라우드에 반영된 후 파일 목록을 조회해야
+    // 삭제된 파일이 다시 다운로드되는 현상을 방지
+    await processOfflineQueue();
     final cloudFiles = await _api.getCloudFiles(token: token);
     debugPrint('[SyncService] 클라우드 파일 ${cloudFiles.length}개');
 
@@ -415,16 +475,18 @@ class SyncService {
       final fileType = cloudMeta['fileType'] as String;
       final cloudId = cloudMeta['cloudId'].toString();
       final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
+      final cloudFileName = cloudMeta['fileName'] as String? ?? '';
 
       final localFile = await _findLocalFile(littenId, localId, fileType);
 
       if (localFile == null) {
-        // 클라우드에만 존재 → lazy 다운로드 마킹
-        debugPrint('[SyncService] 클라우드 전용 파일 (lazy): $localId');
+        // 클라우드에만 존재 → 다운로드
+        debugPrint('[SyncService] 클라우드 전용 파일 다운로드: $localId ($fileType) fileName=$cloudFileName');
+        await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
       } else {
         final localUpdatedAt = _getFileUpdatedAt(localFile);
         if (cloudUpdatedAt.isAfter(localUpdatedAt)) {
-          await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+          await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
         } else if (localUpdatedAt.isAfter(cloudUpdatedAt)) {
           await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
         }
@@ -444,24 +506,25 @@ class SyncService {
       final fileType = cloudMeta['fileType'] as String;
       final cloudId = cloudMeta['cloudId'].toString();
       final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
+      final cloudFileName = cloudMeta['fileName'] as String? ?? '';
 
       final localFile = await _findLocalFile(littenId, localId, fileType);
       if (localFile == null || cloudUpdatedAt.isAfter(_getFileUpdatedAt(localFile))) {
-        await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt);
+        await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
       }
     }
     await processOfflineQueue();
   }
 
   Future<void> _downloadAndApply(String token, String cloudId, String littenId,
-      String localId, String fileType, DateTime cloudUpdatedAt) async {
+      String localId, String fileType, DateTime cloudUpdatedAt, [String cloudFileName = '']) async {
     try {
       final bytes = await _api.downloadFile(token: token, cloudId: cloudId);
       if (bytes == null) return;
       final localPath = await _saveDownloadedFile(littenId, localId, fileType, bytes);
       if (localPath == null) return;
-      await _updateLocalFileFromDownload(littenId, localId, fileType, cloudId, localPath, cloudUpdatedAt);
-      debugPrint('[SyncService] 다운로드 완료 - localId: $localId');
+      await _updateLocalFileFromDownload(littenId, localId, fileType, cloudId, localPath, cloudUpdatedAt, cloudFileName);
+      debugPrint('[SyncService] 다운로드 완료 - localId: $localId, fileName: $cloudFileName');
     } catch (e) {
       debugPrint('[SyncService] _downloadAndApply 오류: $e');
     }
@@ -532,14 +595,14 @@ class SyncService {
   }
 
   Future<void> _updateLocalFileFromDownload(String littenId, String localId, String fileType,
-      String cloudId, String localPath, DateTime cloudUpdatedAt) async {
+      String cloudId, String localPath, DateTime cloudUpdatedAt, [String cloudFileName = '']) async {
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
       } else {
-        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        // 클라우드에만 있던 신규 파일 → 메타데이터 생성 (title은 HTML content에서 재생성)
         final content = await File(localPath).readAsString().catchError((_) => '');
         files.add(TextFile(
           id: localId,
@@ -556,15 +619,19 @@ class SyncService {
       await _fileStorage.saveTextFiles(littenId, files);
       _onSyncStatusChanged?.call();
     } else if (fileType == 'handwriting') {
+      // 클라우드 fileName에서 표시 제목 추출
+      final displayTitle = _extractHandwritingTitle(cloudFileName, cloudUpdatedAt);
       final files = await _fileStorage.loadHandwritingFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
       } else {
-        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        // 클라우드에만 있던 신규 파일 → 중복 이름 방지 후 메타데이터 생성
+        final uniqueTitle = _uniqueName(displayTitle, files.map((f) => f.title).toSet());
         files.add(HandwritingFile(
           id: localId,
           littenId: littenId,
+          title: uniqueTitle,
           imagePath: localPath,
           cloudId: cloudId,
           cloudUpdatedAt: cloudUpdatedAt,
@@ -572,22 +639,24 @@ class SyncService {
           createdAt: cloudUpdatedAt,
           updatedAt: cloudUpdatedAt,
         ));
-        debugPrint('[SyncService] 필기 신규 파일 생성 - localId: $localId');
+        debugPrint('[SyncService] 필기 신규 파일 생성 - localId: $localId, title: $uniqueTitle');
       }
       await _fileStorage.saveHandwritingFiles(littenId, files);
       _onSyncStatusChanged?.call();
     } else if (fileType == 'audio') {
+      // 클라우드 fileName에서 표시 이름 추출: "원본이름.m4a" → "원본이름"
+      final displayName = _extractAudioDisplayName(cloudFileName, cloudUpdatedAt);
       final files = await _fileStorage.loadAudioFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
       } else {
-        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
-        final fileName = localPath.split('/').last.replaceAll('.m4a', '');
+        // 클라우드에만 있던 신규 파일 → 중복 이름 방지 후 메타데이터 생성
+        final uniqueName = _uniqueName(displayName, files.map((f) => f.fileName).toSet());
         files.add(AudioFile(
           id: localId,
           littenId: littenId,
-          fileName: fileName,
+          fileName: uniqueName,
           filePath: localPath,
           cloudId: cloudId,
           cloudUpdatedAt: cloudUpdatedAt,
@@ -595,7 +664,7 @@ class SyncService {
           createdAt: cloudUpdatedAt,
           updatedAt: cloudUpdatedAt,
         ));
-        debugPrint('[SyncService] 오디오 신규 파일 생성 - localId: $localId');
+        debugPrint('[SyncService] 오디오 신규 파일 생성 - localId: $localId, displayName: $uniqueName');
       }
       await _fileStorage.saveAudioFiles(littenId, files);
       _onSyncStatusChanged?.call();
@@ -690,5 +759,55 @@ class SyncService {
   Future<void> _saveOfflineQueue(List<Map<String, dynamic>> queue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyOfflineQueue, jsonEncode(queue));
+  }
+
+  // UUID 패턴 감지: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  static final _uuidRegExp = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    caseSensitive: false,
+  );
+
+  // 이름 중복 방지: "이름" → "이름 (2)" → "이름 (3)"
+  String _uniqueName(String name, Set<String> existingNames) {
+    if (!existingNames.contains(name)) return name;
+    int suffix = 2;
+    while (existingNames.contains('$name ($suffix)')) {
+      suffix++;
+    }
+    return '$name ($suffix)';
+  }
+
+  // 날짜 기반 기본 파일명 생성 (앱 규칙: YYMMDDHHmmss)
+  String _dateBasedName(String prefix, DateTime dt) {
+    final y = dt.year.toString().substring(2);
+    final mo = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    final s = dt.second.toString().padLeft(2, '0');
+    return '$prefix $y$mo$d$h$mi$s';
+  }
+
+  // 필기 파일 표시 제목 추출
+  // - 신규 업로드: "제목_drawing.png" → "제목"
+  // - 구버전 업로드: "UUID_drawing.png" → UUID → 날짜 기반 대체
+  String _extractHandwritingTitle(String cloudFileName, DateTime cloudUpdatedAt) {
+    if (cloudFileName.isEmpty) return _dateBasedName('필기', cloudUpdatedAt);
+    final name = cloudFileName
+        .replaceAll(RegExp(r'\.(png|jpg|jpeg)$', caseSensitive: false), '')
+        .replaceAll('_drawing', '');
+    // UUID면 날짜 기반 제목으로 대체
+    if (_uuidRegExp.hasMatch(name)) return _dateBasedName('필기', cloudUpdatedAt);
+    return name;
+  }
+
+  // 오디오 파일 표시 이름 추출
+  // - "원본이름.m4a" → "원본이름"
+  // - UUID 기반이면 날짜 기반 대체
+  String _extractAudioDisplayName(String cloudFileName, DateTime cloudUpdatedAt) {
+    if (cloudFileName.isEmpty) return _dateBasedName('녹음', cloudUpdatedAt);
+    final name = cloudFileName.replaceAll(RegExp(r'\.m4a$', caseSensitive: false), '');
+    if (_uuidRegExp.hasMatch(name)) return _dateBasedName('녹음', cloudUpdatedAt);
+    return name;
   }
 }

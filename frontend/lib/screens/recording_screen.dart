@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../services/litten_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/audio_file.dart';
@@ -129,6 +130,15 @@ class _RecordingScreenState extends State<RecordingScreen> {
     if (confirm == true) {
       final success = await _audioService.deleteAudioFile(audioFile);
       if (mounted && success) {
+        // 클라우드 동기화 (cloudId가 있을 때만)
+        if (audioFile.cloudId != null) {
+          SyncService.instance.deleteFile(
+            littenId: audioFile.littenId,
+            localId: audioFile.id,
+            cloudId: audioFile.cloudId!,
+            fileType: 'audio',
+          );
+        }
         await _loadAudioFiles(); // 목록 새로고침
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

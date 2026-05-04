@@ -42,6 +42,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Locale _locale = const Locale('en');
   AppThemeType _themeType = AppThemeType.natureGreen;
   bool _isInitialized = false;
+  bool _isInitializing = false; // 중복 초기화 방지
   bool _isFirstLaunch = true;
   
   // 리튼 관리 상태
@@ -217,7 +218,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 앱 초기화
   Future<void> initializeApp() async {
-    if (_isInitialized) return;
+    if (_isInitialized || _isInitializing) return;
+    _isInitializing = true;
 
     await _loadSettings();
     // 기본 리튼은 온보딩 완료 후에만 생성
@@ -241,7 +243,6 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     // 인증 상태 확인
     await _authService.checkAuthStatus();
-    _authService.addListener(_onAuthStateChanged);
 
     // 앱 아이콘 배지 서비스 초기화
     _appIconBadgeService.initialize();
@@ -277,6 +278,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _isInitialized = true;
+    _isInitializing = false;
     notifyListeners();
 
     // 앱 시작 동기화 (비동기 fire-and-forget)
@@ -353,17 +355,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _saveThemeType(_themeType);
     }
 
-    // 구독 상태 로드 (string 포맷 우선, int 레거시 폴백)
-    final planStr = prefs.getString('subscription_type');
-    if (planStr != null) {
-      _subscriptionType = _planNameToType(planStr);
-    } else {
-      final subscriptionIndex = prefs.getInt('subscription_type') ?? 0;
-      _subscriptionType = SubscriptionType.values[subscriptionIndex.clamp(0, SubscriptionType.values.length - 1)];
-      // int 포맷을 string 포맷으로 마이그레이션
-      await prefs.setString('subscription_type', _subscriptionType.name);
-    }
-    debugPrint('💰 [AppStateProvider] 구독 상태 복원: $_subscriptionType');
+    // TODO: 개발 중 — 구독 플랜 강제 프리미엄 (출시 전 제거)
+    _subscriptionType = SubscriptionType.premium;
+    await prefs.setString('subscription_type', _subscriptionType.name);
+    debugPrint('💰 [AppStateProvider] 개발 모드 — 구독 상태 강제 프리미엄: $_subscriptionType');
 
     // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';

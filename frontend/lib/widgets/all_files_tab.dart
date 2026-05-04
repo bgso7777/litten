@@ -877,6 +877,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Future<void> _deleteAudioFile(AudioFile file) async {
     try {
       await _audioService.deleteAudioFile(file);
+      // 클라우드 동기화 (cloudId가 있을 때만)
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'audio',
+        );
+      }
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await appState.updateFileCount();
       await _loadFiles(appState);

@@ -64,6 +64,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   // 오디오 녹음 관련 (STT와 동시 실행)
   final AudioService _audioService = AudioService();
   bool _isRecordingWithSTT = false;
+  bool _isStoppingRecording = false; // _stopRecordingWithSTT 진행 중 플래그 (dispose 충돌 방지)
   bool _lastSTTActiveState = false;
 
   // 에디터 초기화 상태 추적
@@ -321,8 +322,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     // 녹음 진행 중이면 중지
     if (_isRecordingWithSTT) {
-      debugPrint('⚠️ dispose: 녹음 진행 중 - 강제 중지');
-      _audioService.cancelRecording();
+      if (_isStoppingRecording) {
+        // _stopRecordingWithSTT()가 이미 실행 중 — cancelRecording() 건너뜀 (파일 보존)
+        debugPrint('ℹ️ dispose: _stopRecordingWithSTT 진행 중이므로 cancelRecording 생략');
+      } else {
+        debugPrint('⚠️ dispose: 녹음 진행 중 - 강제 중지');
+        _audioService.cancelRecording();
+      }
       _isRecordingWithSTT = false;
     }
 
@@ -1429,31 +1435,37 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   /// STT와 함께 시작한 녹음 중지 및 파일 저장
   Future<void> _stopRecordingWithSTT() async {
+    _isStoppingRecording = true;
     try {
       debugPrint('🛑 STT 녹음 중지 시도...');
 
+      // context 사용은 await 이전 (동기 구간)에서만 수행
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final selectedLitten = appState.selectedLitten;
 
       if (selectedLitten == null) {
         debugPrint('⚠️ 리튼이 선택되지 않음');
-        setState(() {
+        if (mounted) {
+          setState(() { _isRecordingWithSTT = false; });
+        } else {
           _isRecordingWithSTT = false;
-        });
+        }
         return;
       }
 
-      // 녹음 중지 및 파일 생성
+      // 녹음 중지 및 파일 생성 (await 이후엔 위젯이 dispose됐을 수 있음)
       final audioFile = await _audioService.stopRecording(selectedLitten);
 
-      setState(() {
+      if (mounted) {
+        setState(() { _isRecordingWithSTT = false; });
+      } else {
         _isRecordingWithSTT = false;
-      });
+      }
 
       if (audioFile != null) {
         debugPrint('✅ STT 녹음 파일 생성됨: ${audioFile.fileName}');
 
-        // 리튼에 오디오 파일 추가
+        // 리튼에 오디오 파일 추가 (context 불필요 — 파일 시스템 작업)
         await LittenService().addAudioFileToLitten(
           selectedLitten.id,
           audioFile.id,
@@ -1461,7 +1473,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
         debugPrint('✅ STT 녹음 파일이 리튼에 저장됨');
 
-        // 클라우드 동기화
+        // 클라우드 동기화 (context 불필요)
         SyncService.instance.uploadFile(
           littenId: audioFile.littenId,
           localId: audioFile.id,
@@ -1474,7 +1486,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         // ⚠️ refreshLittens() 호출하지 않음 - notifyListeners()가 화면 rebuild를 일으켜 편집 모드가 종료됨
         // 녹음 파일은 녹음 탭에서 확인 가능
 
-        // 사용자에게 알림
+        // 사용자에게 알림 (mounted 확인 후에만)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1489,9 +1501,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('❌ STT 녹음 중지 오류: $e');
-      setState(() {
+      if (mounted) {
+        setState(() { _isRecordingWithSTT = false; });
+      } else {
         _isRecordingWithSTT = false;
-      });
+      }
+    } finally {
+      _isStoppingRecording = false;
     }
   }
 

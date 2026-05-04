@@ -182,7 +182,17 @@ public class CloudFileService {
         cloudFile.setUpdateDateTime(LocalDateTime.now());
         cloudFileRepository.save(cloudFile);
 
-        log.info("[CloudFileService] 파일 소프트 삭제 완료 - cloudId: {}", cloudId);
+        // 실제 파일도 디스크에서 삭제
+        if (cloudFile.getFilePath() != null) {
+            try {
+                localStorageService.delete(cloudFile.getFilePath());
+            } catch (Exception e) {
+                log.warn("[CloudFileService] 물리 파일 삭제 실패 (DB 삭제는 완료) - cloudId: {}, path: {}, error: {}",
+                        cloudId, cloudFile.getFilePath(), e.getMessage());
+            }
+        }
+
+        log.info("[CloudFileService] 파일 삭제 완료 - cloudId: {}", cloudId);
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
         result.put("cloudId", cloudId);
         return result;

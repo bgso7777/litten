@@ -224,6 +224,16 @@ class _RecordingTabState extends State<RecordingTab> {
     if (confirm == true) {
       final success = await _audioService.deleteAudioFile(audioFile);
       if (mounted && success) {
+        // 클라우드 동기화 (cloudId가 있을 때만)
+        if (audioFile.cloudId != null) {
+          SyncService.instance.deleteFile(
+            littenId: audioFile.littenId,
+            localId: audioFile.id,
+            cloudId: audioFile.cloudId!,
+            fileType: 'audio',
+          );
+        }
+
         // 파일 카운트 업데이트
         final appState = Provider.of<AppStateProvider>(context, listen: false);
         await appState.updateFileCount();

@@ -237,11 +237,9 @@ class AuthServiceImpl extends AuthService {
 
       if (token != null && email != null && userId != null) {
         _token = token;
-        final planStr = prefs.getString(_keySubscriptionPlan) ?? 'free';
-        final plan = SubscriptionPlan.values.firstWhere(
-          (p) => p.name == planStr,
-          orElse: () => SubscriptionPlan.free,
-        );
+        // TODO: 개발 중 — 구독 플랜 강제 프리미엄 (출시 전 제거)
+        const planStr = 'premium';
+        final plan = SubscriptionPlan.premium;
         _currentUser = User(
           id: userId,
           email: email,
