@@ -74,7 +74,7 @@ class _RemindPanelState extends State<RemindPanel> {
         return Container(
           margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.blue.shade200, width: 2),
           ),
@@ -201,18 +201,14 @@ class _RemindPanelState extends State<RemindPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isOpen ? Colors.blue.shade100 : Colors.blue.shade50,
+          color: isOpen ? Colors.blue.shade50 : Colors.white,
           border: Border(
             top: BorderSide(color: Colors.blue.shade200, width: 0.5),
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              target.fileType == RemindFileType.audio ? Icons.mic : Icons.text_snippet_outlined,
-              size: 18,
-              color: Colors.blue.shade700,
-            ),
+            Icon(Icons.auto_awesome, size: 16, color: Colors.blue.shade500),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

@@ -36,7 +36,7 @@ class _WritingScreenState extends State<WritingScreen>
   late AnimationController _panelController;
   late Tween<double> _panelTween;
   late Animation<double> _panelAnim;
-  static const double _kTabBarMinHeight = 46.0;
+  static const double _kTabBarMinHeight = 64.0;
 
   double get _halfHeight => _totalHeight * 0.5;
   double get _fullHeight => _totalHeight - _kTabBarMinHeight;
