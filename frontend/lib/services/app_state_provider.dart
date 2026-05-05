@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
+import '../models/remind_item.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
 import '../services/background_notification_service.dart';
@@ -66,6 +67,102 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 선택된 날짜의 알림 목록
   List<dynamic> _selectedDateNotifications = [];
   List<dynamic> get selectedDateNotifications => _selectedDateNotifications;
+
+  // ⭐ 리마인드 상태
+  List<RemindItem> _remindItems = [];
+  String? _selectedRemindFileId;
+
+  List<RemindItem> get remindItems => _remindItems;
+  String? get selectedRemindFileId => _selectedRemindFileId;
+
+  List<RemindItem> remindItemsForFile(String fileId) =>
+      _remindItems.where((i) => i.fileId == fileId).toList();
+
+  List<RemindTarget> get remindTargets {
+    final Map<String, List<RemindItem>> grouped = {};
+    for (final item in _remindItems) {
+      grouped.putIfAbsent(item.fileId, () => []).add(item);
+    }
+    return grouped.entries.map((e) {
+      final first = e.value.first;
+      return RemindTarget(
+        fileId: first.fileId,
+        fileType: first.fileType,
+        fileName: first.fileName,
+        items: e.value,
+      );
+    }).toList();
+  }
+
+  void setSelectedRemindFileId(String? fileId) {
+    _selectedRemindFileId = fileId;
+    notifyListeners();
+  }
+
+  void addRemindItem(RemindItem item) {
+    debugPrint('[AppStateProvider] addRemindItem: ${item.title}');
+    _remindItems.add(item);
+    if (_selectedRemindFileId == null) _selectedRemindFileId = item.fileId;
+    _saveRemindItems();
+    notifyListeners();
+  }
+
+  void toggleRemindDone(String itemId) {
+    final index = _remindItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+    debugPrint('[AppStateProvider] toggleRemindDone: $itemId');
+    _remindItems[index] = _remindItems[index].copyWith(isDone: !_remindItems[index].isDone);
+    _saveRemindItems();
+    notifyListeners();
+  }
+
+  void deleteRemindItem(String itemId) {
+    debugPrint('[AppStateProvider] deleteRemindItem: $itemId');
+    _remindItems.removeWhere((i) => i.id == itemId);
+    _saveRemindItems();
+    notifyListeners();
+  }
+
+  Future<void> _saveRemindItems() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = jsonEncode(_remindItems.map((i) => i.toJson()).toList());
+      await prefs.setString('remind_items', json);
+      debugPrint('[AppStateProvider] 리마인드 항목 저장 완료: ${_remindItems.length}개');
+    } catch (e) {
+      debugPrint('[AppStateProvider] 리마인드 항목 저장 실패: $e');
+    }
+  }
+
+  Future<void> _loadRemindItems() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('remind_items');
+      if (json != null && json.isNotEmpty) {
+        final list = jsonDecode(json) as List;
+        _remindItems = list.map((e) => RemindItem.fromJson(e as Map<String, dynamic>)).toList();
+        debugPrint('[AppStateProvider] 리마인드 항목 로드 완료: ${_remindItems.length}개');
+      } else {
+        _remindItems = _sampleRemindItems();
+        debugPrint('[AppStateProvider] 샘플 리마인드 항목 주입: ${_remindItems.length}개');
+      }
+    } catch (e) {
+      debugPrint('[AppStateProvider] 리마인드 항목 로드 실패: $e');
+    }
+  }
+
+  List<RemindItem> _sampleRemindItems() {
+    final now = DateTime.now();
+    const file1Id = 'sample-file-1';
+    const file2Id = 'sample-file-2';
+    return [
+      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-1', createdAt: now.subtract(const Duration(minutes: 3))),
+      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-2', content: '내용~~~~~~~~~~~~\n내용~~~~~~~~~~~~', createdAt: now.subtract(const Duration(minutes: 2))),
+      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-3', createdAt: now.subtract(const Duration(minutes: 1))),
+      RemindItem(fileId: file2Id, fileType: RemindFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-1', createdAt: now.subtract(const Duration(seconds: 30))),
+      RemindItem(fileId: file2Id, fileType: RemindFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-2', createdAt: now),
+    ];
+  }
 
   // 선택된 날짜의 알림 설정
   void setSelectedDateNotifications(List<dynamic> notifications) {
@@ -226,6 +323,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _isInitializing = true;
 
     await _loadSettings();
+    await _loadRemindItems();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
 
