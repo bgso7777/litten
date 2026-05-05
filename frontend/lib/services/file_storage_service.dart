@@ -308,7 +308,12 @@ class FileStorageService {
       final json = prefs.getString('${_audioFilesKey}_$littenId');
       if (json == null) return [];
       final list = jsonDecode(json) as List;
-      return list.map((e) => AudioFile.fromJson(e)).toList();
+      final audioFiles = list.map((e) => AudioFile.fromJson(e)).toList();
+      debugPrint('[FileStorageService] ⭐ 로드된 오디오 파일 수: ${audioFiles.length}');
+      for (final af in audioFiles) {
+        debugPrint('[FileStorageService] ⭐   - ${af.fileName}: isFromSTT=${af.isFromSTT}');
+      }
+      return audioFiles;
     } catch (e) {
       debugPrint('[FileStorageService] 오디오 파일 메타데이터 로드 실패: $e');
       return [];
@@ -319,6 +324,9 @@ class FileStorageService {
   Future<bool> saveAudioFiles(String littenId, List<AudioFile> audioFiles) async {
     try {
       debugPrint('[FileStorageService] 오디오 파일 메타데이터 저장 - littenId: $littenId, 파일 수: ${audioFiles.length}');
+      for (final af in audioFiles) {
+        debugPrint('[FileStorageService] ⭐   - ${af.fileName}: isFromSTT=${af.isFromSTT}');
+      }
       final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(audioFiles.map((f) => f.toJson()).toList());
       return await prefs.setString('${_audioFilesKey}_$littenId', json);

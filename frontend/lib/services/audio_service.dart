@@ -248,12 +248,15 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('[AudioService] 파일 경로: ${audioFile.filePath}');
         debugPrint('[AudioService] 녹음 시간: ${audioFile.duration} (실제 측정값)');
         debugPrint('[AudioService] 파일 크기: ${fileSize / 1024}KB');
+        debugPrint('[AudioService] ⭐ isFromSTT: ${audioFile.isFromSTT}');
 
         // 메타데이터 저장 (syncStatus 등 유지용)
         final stored = await FileStorageService.instance.loadAudioFiles(litten.id);
         stored.removeWhere((f) => f.filePath == audioFile.filePath);
         stored.add(audioFile);
+        debugPrint('[AudioService] ⭐ 저장 전 audioFile.isFromSTT: ${audioFile.isFromSTT}');
         await FileStorageService.instance.saveAudioFiles(litten.id, stored);
+        debugPrint('[AudioService] ⭐ 저장 완료');
 
         _isRecording = false;
         _recordingDuration = Duration.zero;

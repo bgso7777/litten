@@ -449,6 +449,7 @@ class _RecordingTabState extends State<RecordingTab> {
                               itemCount: _audioFiles.length,
                               itemBuilder: (context, index) {
                                 final audioFile = _audioFiles[index];
+                                debugPrint('🎵 [RecordingTab] 오디오 파일: ${audioFile.fileName}, isFromSTT: ${audioFile.isFromSTT}');
                                 final isCurrentPlaying =
                                     _audioService.currentPlayingFile?.id ==
                                     audioFile.id;

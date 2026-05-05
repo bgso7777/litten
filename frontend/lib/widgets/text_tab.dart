@@ -1087,10 +1087,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     );
   }
 
-  /// 중간 결과를 임시 span에 업데이트 (150ms 디바운스 — JS 큐 누적 방지)
+  /// 중간 결과를 임시 span에 업데이트 (300ms 디바운스 — 깜빡임 방지)
   void _updatePartialSpan(String text) {
     _partialUpdateDebounce?.cancel();
-    _partialUpdateDebounce = Timer(const Duration(milliseconds: 150), () {
+    _partialUpdateDebounce = Timer(const Duration(milliseconds: 300), () {
       _executePartialSpanUpdate(text);
     });
   }
@@ -1109,27 +1109,26 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           var summernote = \$('#summernote-2');
           if (!summernote.length) return 'editor_not_found';
 
-          summernote.summernote('focus');
-
-          // 기존 임시 span이 있으면 제거
-          var existingSpan = document.getElementById('stt-partial-text');
-          if (existingSpan) {
-            existingSpan.remove();
-          }
-
-          // 새 임시 span 삽입
-          var span = document.createElement('span');
-          span.id = 'stt-partial-text';
-          span.style.color = '#999';
-          span.style.fontStyle = 'italic';
-          span.textContent = '$escapedText';
-
-          // ⭐ 항상 에디터의 맨 끝에 삽입 (커서 위치 무시)
           var editable = summernote.next('.note-editor').find('.note-editable')[0];
-          if (editable) {
+          if (!editable) return 'editable_not_found';
+
+          // 기존 임시 span 찾기
+          var existingSpan = document.getElementById('stt-partial-text');
+
+          if (existingSpan) {
+            // ⭐ 기존 span이 있으면 내용만 업데이트 (제거하지 않음 - 깜빡임 방지)
+            existingSpan.textContent = '$escapedText';
+          } else {
+            // 새 임시 span 생성 및 삽입
+            var span = document.createElement('span');
+            span.id = 'stt-partial-text';
+            span.style.color = '#999';
+            span.style.fontStyle = 'italic';
+            span.textContent = '$escapedText';
+
             editable.appendChild(span);
 
-            // ⭐ 커서를 span 뒤(= 문서 맨 끝)로 이동
+            // 커서를 span 뒤로 이동
             var selection = window.getSelection();
             if (selection) {
               var range = document.createRange();
@@ -1138,18 +1137,18 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               selection.removeAllRanges();
               selection.addRange(range);
             }
+          }
 
-            // ⭐ 자동 스크롤: span이 항상 화면에 보이도록
-            setTimeout(function() {
-              try {
-                // 1. span.scrollIntoView — 가장 신뢰성 높은 방법
-                span.scrollIntoView({behavior: 'instant', block: 'nearest', inline: 'nearest'});
-                // 2. editable 내부 스크롤 보조
-                editable.scrollTop = editable.scrollHeight + 9999;
-              } catch(e) {
-                console.log('span 스크롤 에러:', e);
-              }
-            }, 30);
+          // ⭐ 스크롤은 부드럽게, 필요할 때만
+          var span = document.getElementById('stt-partial-text');
+          if (span) {
+            var rect = span.getBoundingClientRect();
+            var editableRect = editable.getBoundingClientRect();
+
+            // span이 화면 밖에 있을 때만 스크롤
+            if (rect.bottom > editableRect.bottom || rect.top < editableRect.top) {
+              editable.scrollTop = editable.scrollHeight;
+            }
           }
 
           return 'success';
@@ -2530,6 +2529,22 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       content = _currentTextFile?.content ?? '';
     }
 
+    // ⭐ 요약 부분 제거: <!-- SUMMARY_START -->부터 <!-- SUMMARY_END -->까지 제거
+    final summaryStartIndex = content.indexOf('<!-- SUMMARY_START -->');
+    final summaryEndIndex = content.indexOf('<!-- SUMMARY_END -->');
+
+    if (summaryStartIndex != -1 && summaryEndIndex != -1) {
+      // 요약 시작 전 부분 + 요약 끝 후 부분
+      final beforeSummary = content.substring(0, summaryStartIndex);
+      final afterSummary = content.substring(summaryEndIndex + '<!-- SUMMARY_END -->'.length);
+      content = beforeSummary + afterSummary;
+      debugPrint('ℹ️ [SttMode] 이전 요약 제거 - 전사 내용만 추출');
+    } else if (summaryStartIndex != -1) {
+      // SUMMARY_START만 있는 경우 (SUMMARY_END 없음)
+      content = content.substring(0, summaryStartIndex);
+      debugPrint('⚠️ [SttMode] 요약 끝 마커 없음 - 시작 마커 이전까지만 추출');
+    }
+
     final plain = content.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (plain.isEmpty) {
       debugPrint('ℹ️ [SttMode] 요약할 전사 내용 없음 - 스킵');
@@ -2569,7 +2584,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   String _summaryToHtml(String summary) {
     final lines = summary.split('\n');
     final buf = StringBuffer();
-    buf.write('<hr/><p><strong>📋 AI 요약</strong></p>');
+    // ⭐ 요약 시작 마커 추가
+    buf.write('<!-- SUMMARY_START --><hr/><p><strong>📋 AI 요약</strong></p>');
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
@@ -2579,6 +2595,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         buf.write('<p>$trimmed</p>');
       }
     }
+    // ⭐ 요약 끝 마커 추가
+    buf.write('<!-- SUMMARY_END -->');
     return buf.toString();
   }
 

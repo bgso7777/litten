@@ -51,7 +51,7 @@ class SttMemoSettings {
   const SttMemoSettings({
     this.textLanguage = 'ko',
     this.summaryLanguage = 'ko',
-    this.summaryRatio = 20,
+    this.summaryRatio = 10,
     this.summaryIntervalMinutes = 3,
   });
 
@@ -69,7 +69,7 @@ class SttMemoSettingsDialog extends StatefulWidget {
 class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
   String _textLanguage = 'ko';
   String _summaryLanguage = 'ko';
-  int _summaryRatio = 50;
+  int _summaryRatio = 10;
   int _summaryIntervalMinutes = 3;
 
   String get _ratioLabel {
