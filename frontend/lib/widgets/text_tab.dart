@@ -1358,13 +1358,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     await _saveCurrentTextFile();
     debugPrint('✅ STT 종료 후 텍스트 자동 저장 완료');
 
-    // 📋 STT 모드: 타이머로 이미 생성된 요약만 파일에 추가 (수동 정지 시 신규 요약 생성 안함)
-    if (_isSttMode && _sttSummary.isNotEmpty) {
-      debugPrint('📋 [SttMode] STT 종료 - 기존 요약 파일에 추가');
-      await _appendSummaryToFile();
-    } else if (_isSttMode) {
-      debugPrint('ℹ️ [SttMode] STT 종료 - 요약 없음, 건너뜀');
-    }
+    // 📋 STT 모드: 요약은 자동 요약 시점마다 이미 삽입되었으므로 여기서는 아무것도 하지 않음
+    debugPrint('ℹ️ [SttMode] STT 종료 - 요약은 자동 요약 시점에 이미 삽입됨');
   }
 
   /// 임시 span을 최종 텍스트로 교체 (STT 종료 시 사용)
@@ -2566,11 +2561,22 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
       if (mounted) {
         setState(() => _sttSummary = summary);
-        // TextFile.summary 업데이트 → 파일 목록 요약 아이콘 활성화
+        // TextFile.summary 업데이트 + 이전 요약을 이력에 추가
         if (_currentTextFile != null) {
-          _currentTextFile = _currentTextFile!.copyWith(summary: summary);
+          final newHistory = List<String>.from(_currentTextFile!.summaryHistory);
+          // 이전 요약이 있으면 이력에 추가 (최신순)
+          if (_currentTextFile!.summary != null && _currentTextFile!.summary!.isNotEmpty) {
+            newHistory.insert(0, _currentTextFile!.summary!);
+          }
+          _currentTextFile = _currentTextFile!.copyWith(
+            summary: summary,
+            summaryHistory: newHistory,
+          );
           await _saveCurrentTextFile();
-          debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료');
+          debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료 (이력: ${newHistory.length}개)');
+
+          // ⭐ 자동 요약 시점에 즉시 에디터에 삽입
+          await _insertSummaryAtCurrentPosition(summary);
         }
       }
     } catch (e) {
@@ -2600,30 +2606,67 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     return buf.toString();
   }
 
-  // STT 종료 시 요약 내용을 파일 끝에 추가하고 저장
-  Future<void> _appendSummaryToFile() async {
-    if (_sttSummary.isEmpty || _currentTextFile == null) return;
-    debugPrint('📋 [SttMode] 요약 파일 추가 시작 - 길이: ${_sttSummary.length}');
+  // STT 자동 요약 시 현재 커서 위치에 요약 삽입
+  // 자동 요약 시점에 현재 커서 위치에 요약 삽입
+  Future<void> _insertSummaryAtCurrentPosition(String summary) async {
+    if (summary.isEmpty || _currentTextFile == null) return;
+    debugPrint('📋 [SttMode] 요약 삽입 시작 - 길이: ${summary.length}');
 
     try {
-      String currentHtml;
-      try {
-        currentHtml = await _htmlController.getText();
-      } catch (e) {
-        currentHtml = _currentTextFile?.content ?? '';
-      }
+      final summaryHtml = _summaryToHtml(summary);
 
-      final summaryHtml = _summaryToHtml(_sttSummary);
-      final newHtml = currentHtml + summaryHtml;
+      // JavaScript로 현재 커서 위치에 요약 삽입
+      final jsCode = '''
+        (function() {
+          try {
+            var summernote = \$('#summernote-2');
+            if (!summernote.length) return 'editor_not_found';
 
-      _htmlController.setText(newHtml);
-      debugPrint('📋 [SttMode] 에디터에 요약 삽입 완료');
+            var editable = summernote.next('.note-editor').find('.note-editable')[0];
+            if (!editable) return 'editable_not_found';
+
+            // 요약 HTML 삽입 (현재 커서 위치)
+            var summaryHtml = `${summaryHtml.replaceAll('`', '\\`').replaceAll(r'$', r'\$')}`;
+
+            var selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              var range = selection.getRangeAt(0);
+              range.collapse(false); // 커서를 끝으로 이동
+
+              var tempDiv = document.createElement('div');
+              tempDiv.innerHTML = summaryHtml;
+
+              while (tempDiv.firstChild) {
+                range.insertNode(tempDiv.lastChild);
+              }
+
+              // 삽입 후 커서를 요약 끝으로 이동
+              range.setStartAfter(range.endContainer);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else {
+              // 커서가 없으면 끝에 추가
+              editable.innerHTML += summaryHtml;
+            }
+
+            return 'success';
+          } catch(e) {
+            return 'error: ' + e.message;
+          }
+        })();
+      ''';
+
+      final result = await _htmlController.editorController?.evaluateJavascript(
+        source: jsCode,
+      );
+      debugPrint('📋 [SttMode] 요약 삽입 결과: $result');
 
       await Future.delayed(const Duration(milliseconds: 300));
       await _saveCurrentTextFile();
-      debugPrint('✅ [SttMode] 요약 포함 저장 완료');
+      debugPrint('✅ [SttMode] 요약 삽입 및 저장 완료');
     } catch (e) {
-      debugPrint('❌ [SttMode] 요약 파일 추가 실패: $e');
+      debugPrint('❌ [SttMode] 요약 삽입 실패: $e');
     }
   }
 

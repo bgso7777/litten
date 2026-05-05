@@ -10,6 +10,7 @@ class TextFile {
   final DateTime updatedAt;
   final List<AudioSyncMarker> syncMarkers;
   final String? summary;
+  final List<String> summaryHistory; // 과거 요약 이력 (최신순)
   final String? cloudId;
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
@@ -24,6 +25,7 @@ class TextFile {
     DateTime? updatedAt,
     List<AudioSyncMarker>? syncMarkers,
     this.summary,
+    List<String>? summaryHistory,
     this.cloudId,
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
@@ -32,7 +34,8 @@ class TextFile {
         title = title ?? _generateTitleFromContent(content),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
-        syncMarkers = syncMarkers ?? [];
+        syncMarkers = syncMarkers ?? [],
+        summaryHistory = summaryHistory ?? [];
 
   static String _generateTitleFromContent(String content) {
     if (content.isEmpty) return '새 텍스트';
@@ -55,6 +58,7 @@ class TextFile {
     List<AudioSyncMarker>? syncMarkers,
     String? summary,
     bool clearSummary = false,
+    List<String>? summaryHistory,
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
@@ -69,6 +73,7 @@ class TextFile {
       updatedAt: DateTime.now(),
       syncMarkers: syncMarkers ?? this.syncMarkers,
       summary: clearSummary ? null : (summary ?? this.summary),
+      summaryHistory: summaryHistory ?? this.summaryHistory,
       cloudId: cloudId ?? this.cloudId,
       cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -86,6 +91,7 @@ class TextFile {
       'updatedAt': updatedAt.toIso8601String(),
       'syncMarkers': syncMarkers.map((marker) => marker.toJson()).toList(),
       if (summary != null) 'summary': summary,
+      'summaryHistory': summaryHistory,
       'cloudId': cloudId,
       'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
       'syncStatus': syncStatus.name,
@@ -105,6 +111,9 @@ class TextFile {
           ?.map((marker) => AudioSyncMarker.fromJson(marker))
           .toList() ?? [],
       summary: json['summary'] as String?,
+      summaryHistory: (json['summaryHistory'] as List?)
+          ?.map((e) => e as String)
+          .toList() ?? [],
       cloudId: json['cloudId'] as String?,
       cloudUpdatedAt: json['cloudUpdatedAt'] != null ? DateTime.parse(json['cloudUpdatedAt']) : null,
       syncStatus: SyncStatus.values.firstWhere(

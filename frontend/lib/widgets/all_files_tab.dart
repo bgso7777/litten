@@ -1011,9 +1011,9 @@ class _BottomFabRowState extends State<_BottomFabRow> {
       children: [
         if (_isExpanded) ...[
           Align(
-            alignment: Alignment.bottomCenter,
+            alignment: Alignment.bottomRight,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(right: 16, bottom: 8),
               child: IntrinsicWidth(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
