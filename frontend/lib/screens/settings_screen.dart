@@ -1630,7 +1630,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
   late Set<String> _selected;
 
   static const _tabs = [
-    {'id': 'text', 'label': '메모', 'icon': Icons.keyboard},
+    {'id': 'text', 'label': '메모', 'icon': Icons.notes},
     {'id': 'handwriting', 'label': '필기', 'icon': Icons.draw},
     {'id': 'audio', 'label': '녹음', 'icon': Icons.mic},
     {'id': 'browser', 'label': '검색', 'icon': Icons.public},

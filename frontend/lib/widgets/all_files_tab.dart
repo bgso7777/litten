@@ -1013,7 +1013,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
           Align(
             alignment: Alignment.centerRight,
             child: Padding(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 8),
               child: IntrinsicWidth(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1090,6 +1090,7 @@ class _SpeedDialItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        const SizedBox(width: 8), // 좌측 여백 추가
         Expanded(
           child: Material(
             color: color.withValues(alpha: 0.12),

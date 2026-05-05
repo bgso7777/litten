@@ -73,14 +73,34 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
   int _summaryIntervalMinutes = 3;
 
   String get _ratioLabel {
-    if (_summaryRatio <= 20) return '매우 간략';
-    if (_summaryRatio <= 40) return '간략';
-    if (_summaryRatio <= 60) return '보통';
-    if (_summaryRatio <= 80) return '상세';
-    return '매우 상세';
+    return switch (_summaryRatio) {
+      10 => '핵심만',
+      20 => '핵심 흐름',
+      30 => '전개 흐름',
+      40 => '전체 흐름',
+      50 => '흐름+내용',
+      60 => '전개 과정',
+      70 => '전체+결론',
+      80 => '세부+Q&A',
+      90 => '완전 상세',
+      _ => '흐름+내용',
+    };
   }
 
-  int get _pointCount => _summaryRatio ~/ 10;
+  String get _ratioDescription {
+    return switch (_summaryRatio) {
+      10 => '가장 핵심적인 주제만',
+      20 => '주요 주제 간략하게',
+      30 => '주요 주제 요약',
+      40 => '주제+세부 내용',
+      50 => '주제+내용+의견',
+      60 => '주제+논의 과정',
+      70 => '모든 주제+논의',
+      80 => '모든 내용 상세',
+      90 => '거의 모든 내용',
+      _ => '주제+내용+의견',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +163,7 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '$_ratioLabel · $_pointCount개 포인트',
+                    '$_ratioLabel · $_ratioDescription',
                     style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
                   ),
                 ),

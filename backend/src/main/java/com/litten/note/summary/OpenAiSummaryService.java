@@ -92,13 +92,6 @@ public class OpenAiSummaryService {
         String inputLang = (textLanguage == null || textLanguage.isBlank()) ? "ko" : textLanguage;
         String outputLang = (summaryLanguage == null || summaryLanguage.isBlank()) ? "ko" : summaryLanguage;
 
-        int points = ratio / 10;
-        String detailLevel = ratio <= 20 ? "매우 간략하게 핵심만"
-                           : ratio <= 40 ? "간결하게"
-                           : ratio <= 60 ? "적당한 수준으로"
-                           : ratio <= 80 ? "상세하게"
-                           :               "매우 상세하게 빠짐없이";
-
         String inputLangInstruction = "ko".equals(inputLang)
                 ? "아래 텍스트는 한국어로 작성되었습니다."
                 : "The following text is written in " + inputLang + ".";
@@ -107,9 +100,23 @@ public class OpenAiSummaryService {
                 ? "요약은 반드시 한국어로 작성해주세요."
                 : "Please write the summary in " + outputLang + ".";
 
+        // 비율별 요약 지침 (강의/회의 흐름 파악용)
+        String summaryInstruction = switch (ratio) {
+            case 10 -> "가장 핵심적인 주제만 간단히 요약해주세요. 전체 흐름 중 가장 중요한 내용만 목록화하여 작성해주세요.";
+            case 20 -> "주요 주제 간략하게 요약해주세요. 강의/회의의 핵심 흐름을 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 30 -> "주요 주제를 요약해주세요. 강의/회의의 전개 흐름과 핵심 내용을 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 40 -> "주요 주제와 세부 내용을 포함하여 요약해주세요. 강의/회의의 전체 흐름과 중요 포인트를 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 50 -> "주요 주제, 세부 내용, 논의된 의견을 균형있게 요약해주세요. 강의/회의의 흐름과 핵심 내용을 충분히 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 60 -> "주요 주제, 세부 내용, 논의 과정을 상세히 요약해주세요. 강의/회의의 전개 과정과 주요 논점을 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 70 -> "모든 주제와 세부 논의 내용을 상세히 요약해주세요. 강의/회의의 전체 흐름, 주요 논점, 결론을 파악할 수 있도록 목록화하여 작성해주세요.";
+            case 80 -> "모든 내용을 매우 상세히 요약해주세요. 강의/회의의 세부 흐름, 모든 논점, 의견, 질의응답까지 포함하여 목록화하여 작성해주세요.";
+            case 90 -> "거의 모든 내용을 빠짐없이 요약해주세요. 강의/회의의 전체 흐름, 모든 논의 과정, 세부 의견, 결론까지 상세히 목록화하여 작성해주세요.";
+            default -> "STT로 전사된 내용으로 단어나 맥락이 맞지 않을 수 있습니다. 주요 주제, 세부 내용, 논의된 의견을 균형있게 요약해주세요. 강의/회의의 흐름과 핵심 내용을 충분히 파악할 수 있도록 목록화하여 작성해주세요.";
+        };
+
         return inputLangInstruction + "\n"
                 + outputLangInstruction + "\n\n"
-                + detailLevel + " " + points + "개의 포인트로 요약해주세요. 각 포인트는 한 줄로 작성해주세요.\n\n"
+                + summaryInstruction + "\n\n"
                 + "텍스트:\n" + text;
     }
 

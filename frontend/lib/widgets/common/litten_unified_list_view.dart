@@ -207,7 +207,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             Text('$littenCount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: themeColor)),
             const SizedBox(width: 8),
             const Spacer(),
-            _buildFileCountBadge(Icons.keyboard, textCount, themeColor),
+            _buildFileCountBadge(Icons.notes, textCount, themeColor),
             const SizedBox(width: 4),
             _buildFileCountBadge(Icons.draw, handwritingCount, themeColor),
             const SizedBox(width: 4),
@@ -245,7 +245,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final String headerTitle;
     switch (filterType) {
       case 'text':
-        headerIcon = Icons.keyboard;
+        headerIcon = Icons.notes;
         headerTitle = '텍스트 파일';
         break;
       case 'handwriting':
@@ -713,7 +713,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                       ],
                     ),
                   ),
-                  _buildFileCountBadge(Icons.keyboard, textCount, badgeColor),
+                  _buildFileCountBadge(Icons.notes, textCount, badgeColor),
                   const SizedBox(width: 4),
                   _buildFileCountBadge(Icons.draw, handwritingCount, badgeColor),
                   const SizedBox(width: 4),
@@ -784,7 +784,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
       displayTime = createdAt;
     } else if (fileType == 'text') {
       final textFile = fileData['file'] as TextFile;
-      icon = Icons.keyboard;
+      icon = Icons.notes;
       title = textFile.displayTitle;
       displayTime = textFile.updatedAt;
     } else {

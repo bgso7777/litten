@@ -2361,7 +2361,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                 shouldEnsureVisible: true,
                                 adjustHeightForKeyboard: true,
                                 darkMode: false,
-                                autoAdjustHeight: false,
+                                autoAdjustHeight: true, // 자동 높이 조정 활성화
                                 spellCheck: false,
                               ),
                               htmlToolbarOptions: const HtmlToolbarOptions(
@@ -2371,7 +2371,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                 toolbarItemHeight: 0, // 높이를 0으로 설정하여 숨김
                                 defaultToolbarButtons: [], // 기본 버튼 없음
                               ),
-                              otherOptions: const OtherOptions(height: 350),
+                              otherOptions: OtherOptions(height: constraints.maxHeight), // 할당된 공간에 맞춤
                               callbacks: Callbacks(
                                 onInit: () {
                                   debugPrint('📝 [TextTab] HTML 에디터 초기화 완료');
@@ -2400,7 +2400,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                               setTimeout(function() {
                                 // CSS 주입
                                 var style = document.createElement('style');
-                                style.innerHTML = 'body { margin: 0 !important; padding: 8px !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; } .note-editable { overflow-y: auto !important; scroll-behavior: auto !important; }';
+                                style.innerHTML = 'body { margin: 0 !important; padding: 4px 8px !important; height: 100% !important; overflow-y: auto !important; } p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; } div { margin: 0 !important; padding: 0 !important; } br { margin: 0 !important; padding: 0 !important; } * { margin-top: 0 !important; margin-bottom: 0 !important; } .note-editable { height: 100% !important; overflow-y: auto !important; scroll-behavior: smooth !important; padding-top: 0 !important; }';
                                 document.head.appendChild(style);
 
                                 // 커서 위치로 스크롤하는 함수

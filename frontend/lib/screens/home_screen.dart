@@ -168,6 +168,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     });
   }
 
+  /// 앱 라이프사이클 변화 감지 (WidgetsBindingObserver)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('🔄 [HomeScreen] 앱 라이프사이클 변화: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아올 때 알림 날짜 캐시 갱신
+      debugPrint('▶️ [HomeScreen] 앱 재개 - 알림 뱃지 갱신');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadNotificationDates();
+        }
+      });
+    }
+  }
+
   /// 알림 상태 변화 시 캘린더 뱃지 캐시 갱신
   void _onNotificationChanged() {
     if (mounted) _loadNotificationDates();
