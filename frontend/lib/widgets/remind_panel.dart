@@ -73,57 +73,14 @@ class _RemindPanelState extends State<RemindPanel> {
 
         return Container(
           margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.shade200, width: 2),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Column(
-              children: [
-                _buildDragHandle(),
-                Expanded(
-                  child: targets.isEmpty
-                      ? _buildEmpty()
-                      : _buildList(context, targets, appState),
-                ),
-              ],
-            ),
-          ),
+          child: targets.isEmpty
+              ? _buildEmpty()
+              : _buildList(context, targets, appState),
         );
       },
-    );
-  }
-
-  // ── 드래그 핸들 ───────────────────────────────────────────────────────────
-
-  Widget _buildDragHandle() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragUpdate: (d) => widget.onDragUpdate?.call(d.delta.dy),
-      onVerticalDragEnd: (d) => widget.onDragEnd?.call(d.velocity.pixelsPerSecond.dy),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade100,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(10),
-            topRight: Radius.circular(10),
-          ),
-        ),
-        child: Center(
-          child: Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.blue.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -201,7 +158,7 @@ class _RemindPanelState extends State<RemindPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isOpen ? Colors.blue.shade50 : Colors.white,
+          color: Colors.white,
           border: Border(
             top: BorderSide(color: Colors.blue.shade200, width: 0.5),
           ),
@@ -213,10 +170,10 @@ class _RemindPanelState extends State<RemindPanel> {
             Expanded(
               child: Text(
                 target.fileName,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade900,
+                  color: Colors.black,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -224,7 +181,7 @@ class _RemindPanelState extends State<RemindPanel> {
             // 완료/전체 카운트
             Text(
               '$pending/$total',
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade500),
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
             const SizedBox(width: 6),
             Container(
@@ -264,7 +221,7 @@ class _RemindPanelState extends State<RemindPanel> {
       child: Container(
         padding: const EdgeInsets.only(left: 36, right: 14, top: 9, bottom: 9),
         decoration: BoxDecoration(
-          color: item.isDone ? Colors.grey.shade50 : Colors.white,
+          color: Colors.white,
           border: Border(
             top: BorderSide(color: Colors.blue.shade100, width: 0.5),
           ),
@@ -296,7 +253,7 @@ class _RemindPanelState extends State<RemindPanel> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: item.isDone ? Colors.grey.shade400 : Colors.blue.shade900,
+                      color: item.isDone ? Colors.grey.shade400 : Colors.black,
                       decoration: item.isDone ? TextDecoration.lineThrough : null,
                     ),
                   ),
@@ -304,11 +261,11 @@ class _RemindPanelState extends State<RemindPanel> {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.schedule, size: 11, color: Colors.blue.shade400),
+                        Icon(Icons.schedule, size: 11, color: Colors.grey.shade600),
                         const SizedBox(width: 3),
                         Text(
                           DateFormat('M/d HH:mm').format(item.remindAt!),
-                          style: TextStyle(fontSize: 11, color: Colors.blue.shade400),
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                         ),
                       ],
                     ),
@@ -332,12 +289,11 @@ class _RemindPanelState extends State<RemindPanel> {
 
   Widget _buildContentRow(BuildContext context, RemindItem item, AppStateProvider appState) {
     return Container(
-      padding: const EdgeInsets.only(left: 66, right: 14, top: 6, bottom: 10),
+      padding: const EdgeInsets.only(left: 0, right: 14, top: 6, bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50.withValues(alpha: 0.6),
+        color: Colors.white,
         border: Border(
-          top: BorderSide(color: Colors.blue.shade100, width: 0.5),
-          left: BorderSide(color: Colors.blue.shade300, width: 2.5),
+          top: BorderSide(color: Colors.grey.shade200, width: 0.5),
         ),
       ),
       child: Column(
@@ -346,9 +302,9 @@ class _RemindPanelState extends State<RemindPanel> {
           if (item.content.isNotEmpty)
             Text(
               item.content,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
-                color: Colors.blue.shade900.withValues(alpha: 0.8),
+                color: Colors.black87,
                 height: 1.6,
               ),
             ),
@@ -357,17 +313,17 @@ class _RemindPanelState extends State<RemindPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.blue.shade100,
+                color: Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.schedule, size: 13, color: Colors.blue.shade700),
+                  Icon(Icons.schedule, size: 13, color: Colors.grey.shade700),
                   const SizedBox(width: 5),
                   Text(
                     DateFormat('yyyy년 M월 d일 HH:mm').format(item.remindAt!),
-                    style: TextStyle(fontSize: 12, color: Colors.blue.shade800, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
