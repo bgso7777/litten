@@ -340,9 +340,69 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   // ── 클라우드 동기화 상태 아이콘 (trailing용, 툴팁 포함) ──
+  // 24x24 통일 동기화 아이콘 (모든 상태에 아이콘 표시)
+  Widget _buildSyncIconUnified(SyncStatus status, {DateTime? cloudUpdatedAt, DateTime? updatedAt}) {
+    final timeStr = (cloudUpdatedAt ?? updatedAt)?.toString().substring(0, 16) ?? '';
+    final primaryColor = Theme.of(context).primaryColor;
+    Widget icon;
+    String tooltipText = timeStr;
+    switch (status) {
+      case SyncStatus.synced:
+        icon = Icon(Icons.cloud_done, size: 16, color: primaryColor);
+        break;
+      case SyncStatus.pending:
+        icon = Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.orange.shade400);
+        break;
+      case SyncStatus.syncing:
+        icon = const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5));
+        break;
+      case SyncStatus.error:
+        icon = const Icon(Icons.cloud_off, size: 16, color: Colors.red);
+        break;
+      case SyncStatus.none:
+        // 동기화 안 됨 - 회색 cloud_off 아이콘
+        icon = Icon(Icons.cloud_off_outlined, size: 16, color: Colors.grey.shade400);
+        tooltipText = '동기화 안 됨';
+        break;
+    }
+    return Tooltip(
+      message: tooltipText,
+      child: SizedBox(width: 24, height: 24, child: Center(child: icon)),
+    );
+  }
+
+  // 통일된 24x24 아이콘 버튼 (placeholder는 icon: null)
+  Widget _iconBtn({
+    IconData? icon,
+    Color? color,
+    VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    if (icon == null) {
+      return const SizedBox(width: 24, height: 24);
+    }
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Tooltip(
+            message: tooltip ?? '',
+            child: Icon(icon, color: color, size: 16),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSyncIcon(SyncStatus status, {DateTime? cloudUpdatedAt, DateTime? updatedAt}) {
     final isPremium = Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser;
-    if (!isPremium || status == SyncStatus.none) return const SizedBox.shrink();
+    if (!isPremium || status == SyncStatus.none) {
+      return const SizedBox(width: 16, height: 16);
+    }
 
     final timeStr = (cloudUpdatedAt ?? updatedAt)?.toString().substring(0, 16) ?? '';
     final primaryColor = Theme.of(context).primaryColor;
@@ -361,7 +421,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         icon = const Icon(Icons.cloud_off, size: 16, color: Colors.red);
         break;
       case SyncStatus.none:
-        return const SizedBox.shrink();
+        return const SizedBox(width: 16, height: 16);
     }
     return Tooltip(
       message: timeStr,
@@ -375,84 +435,107 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isFromSTT = file.isFromSTT;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: ListTile(
-        dense: true,
-        visualDensity: const VisualDensity(vertical: -1),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: SizedBox(
-          width: 32,
-          height: 32,
-          child: Stack(
+      child: InkWell(
+        onTap: () => _openEditorView(_EditorType.text, textFile: file),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: color.withValues(alpha: 0.1),
-                child: Icon(Icons.notes, color: color, size: 18),
-              ),
-              if (isFromSTT)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 17,
-                    height: 17,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+              // Leading 아이콘
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: color.withValues(alpha: 0.1),
+                      child: Icon(Icons.notes, color: color, size: 18),
                     ),
-                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
-                  ),
+                    if (isFromSTT)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 17,
+                          height: 17,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              // 제목 영역 (60%)
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      file.title.isNotEmpty
+                          ? file.title
+                          : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text('${file.characterCount}자',
+                          style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+                    ),
+                  ],
+                ),
+              ),
+              // 아이콘 영역 (40%) - 5개 아이콘 균일 분배
+              Expanded(
+                flex: 2,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    _iconBtn(
+                      icon: Icons.auto_awesome,
+                      color: file.hasSummary ? color : Colors.grey.shade400,
+                      tooltip: file.hasSummary ? '요약 보기' : '요약 없음',
+                      onPressed: () => _showSummaryDialog(file),
+                    ),
+                    _iconBtn(
+                      icon: Icons.share_outlined,
+                      color: color,
+                      tooltip: '공유',
+                      onPressed: () {},
+                    ),
+                    _iconBtn(
+                      icon: Icons.edit_outlined,
+                      color: color,
+                      onPressed: () => _showRenameTextDialog(file),
+                    ),
+                    _iconBtn(
+                      icon: Icons.delete_outline,
+                      color: color,
+                      onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-        title: Text(
-          file.title.isNotEmpty
-              ? file.title
-              : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text('${file.characterCount}자',
-                style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
-          ),
-        ]),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
-          IconButton(
-            icon: Icon(
-              Icons.auto_awesome,
-              color: file.hasSummary ? color : Colors.grey.shade400,
-              size: 16,
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            tooltip: file.hasSummary ? '요약 보기' : '요약 없음',
-            onPressed: () => _showSummaryDialog(file),
-          ),
-          IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showRenameTextDialog(file),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
-          ),
-        ]),
-        onTap: () => _openEditorView(_EditorType.text, textFile: file),
       ),
     );
   }
@@ -462,54 +545,88 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final color = Theme.of(context).primaryColor;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: ListTile(
-        dense: true,
-        visualDensity: const VisualDensity(vertical: -1),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: color.withValues(alpha: 0.1),
-          child: Icon(
-            file.type == HandwritingType.pdfConvert ? Icons.picture_as_pdf : Icons.draw,
-            color: color,
-            size: 18,
-          ),
-        ),
-        title: Text(
-          file.displayTitle,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: file.isMultiPage
-            ? Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('${file.totalPages}페이지',
-                      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
-                ),
-              ])
-            : null,
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
-          IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showRenameHandwritingDialog(file),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
-          ),
-        ]),
+      child: InkWell(
         onTap: () => _openEditorView(_EditorType.handwriting, handwritingFile: file),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Leading 아이콘
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: color.withValues(alpha: 0.1),
+                child: Icon(
+                  file.type == HandwritingType.pdfConvert ? Icons.picture_as_pdf : Icons.draw,
+                  color: color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 제목 영역 (60%)
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      file.displayTitle,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (file.isMultiPage) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('${file.totalPages}페이지',
+                            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // 아이콘 영역 (40%) - 5개 아이콘 균일 분배
+              Expanded(
+                flex: 2,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    _iconBtn(
+                      icon: Icons.auto_awesome,
+                      color: Colors.grey.shade400,
+                      tooltip: '요약 미지원',
+                      onPressed: () {},
+                    ),
+                    _iconBtn(
+                      icon: Icons.share_outlined,
+                      color: color,
+                      tooltip: '공유',
+                      onPressed: () {},
+                    ),
+                    _iconBtn(
+                      icon: Icons.edit_outlined,
+                      color: color,
+                      onPressed: () => _showRenameHandwritingDialog(file),
+                    ),
+                    _iconBtn(
+                      icon: Icons.delete_outline,
+                      color: color,
+                      onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -522,99 +639,129 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: ListTile(
-        dense: true,
-        visualDensity: const VisualDensity(vertical: -1),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: SizedBox(
-          width: 32,
-          height: 32,
-          child: Stack(
+      child: InkWell(
+        onTap: () => _playAudio(file),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
-                child: Icon(
-                  isPlaying ? Icons.pause : Icons.mic,
-                  color: isPlaying ? Colors.white : color,
-                  size: 18,
-                ),
-              ),
-              if (file.isFromSTT)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 17,
-                    height: 17,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              file.fileName,
-              style: TextStyle(fontSize: 13, fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (isCurrentPlaying) ...[
-              const SizedBox(height: 4),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 2.0,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-                ),
-                child: Slider(
-                  value: _audioService.totalDuration.inMilliseconds > 0
-                      ? _audioService.playbackDuration.inMilliseconds.toDouble()
-                      : 0.0,
-                  min: 0.0,
-                  max: _audioService.totalDuration.inMilliseconds.toDouble(),
-                  onChanged: (v) => _audioService.seekAudio(Duration(milliseconds: v.toInt())),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Leading 아이콘
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: Stack(
                   children: [
-                    Text(_formatDuration(_audioService.playbackDuration),
-                        style: const TextStyle(fontSize: 11, color: Colors.blue)),
-                    Text(_formatDuration(_audioService.totalDuration),
-                        style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: isPlaying ? Colors.blue : color.withValues(alpha: 0.1),
+                      child: Icon(
+                        isPlaying ? Icons.pause : Icons.mic,
+                        color: isPlaying ? Colors.white : color,
+                        size: 18,
+                      ),
+                    ),
+                    if (file.isFromSTT)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 17,
+                          height: 17,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 제목 영역 (60%)
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      file.fileName,
+                      style: TextStyle(fontSize: 13, fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isCurrentPlaying) ...[
+                      const SizedBox(height: 4),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2.0,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                        ),
+                        child: Slider(
+                          value: _audioService.totalDuration.inMilliseconds > 0
+                              ? _audioService.playbackDuration.inMilliseconds.toDouble()
+                              : 0.0,
+                          min: 0.0,
+                          max: _audioService.totalDuration.inMilliseconds.toDouble(),
+                          onChanged: (v) => _audioService.seekAudio(Duration(milliseconds: v.toInt())),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_formatDuration(_audioService.playbackDuration),
+                                style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                            Text(_formatDuration(_audioService.totalDuration),
+                                style: const TextStyle(fontSize: 11, color: Colors.blue)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // 아이콘 영역 (40%) - 5개 아이콘 균일 분배
+              Expanded(
+                flex: 2,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    _iconBtn(
+                      icon: Icons.auto_awesome,
+                      color: Colors.grey.shade400,
+                      tooltip: '요약 미지원',
+                      onPressed: () {},
+                    ),
+                    _iconBtn(
+                      icon: Icons.share_outlined,
+                      color: color,
+                      tooltip: '공유',
+                      onPressed: () {},
+                    ),
+                    _iconBtn(
+                      icon: Icons.edit_outlined,
+                      color: color,
+                      onPressed: () => _showRenameAudioDialog(file),
+                    ),
+                    _iconBtn(
+                      icon: Icons.delete_outline,
+                      color: color,
+                      onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
+                    ),
                   ],
                 ),
               ),
             ],
-          ],
+          ),
         ),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          _buildSyncIcon(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
-          IconButton(
-            icon: Icon(Icons.edit_outlined, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showRenameAudioDialog(file),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: color, size: 16),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: EdgeInsets.zero,
-            onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
-          ),
-        ]),
-        onTap: () => _playAudio(file),
       ),
     );
   }
