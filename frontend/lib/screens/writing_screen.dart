@@ -163,9 +163,31 @@ class _WritingScreenState extends State<WritingScreen>
     else if (_panelState == _PanelState.half) { _snapTo(0, _PanelState.closed); }
   }
 
+  // 4단계 토글: closed → half → full → half → closed
+  // 방향 추적용: 마지막으로 확장 중이었는지 축소 중이었는지
+  bool _panelExpanding = true;
+
   void _togglePanel() {
-    if (_panelState == _PanelState.closed) { _snapTo(_halfHeight, _PanelState.half); }
-    else { _snapTo(0, _PanelState.closed); }
+    switch (_panelState) {
+      case _PanelState.closed:
+        // 닫힘 → 50%
+        _snapTo(_halfHeight, _PanelState.half);
+        _panelExpanding = true;
+        break;
+      case _PanelState.half:
+        // 50% → 확장 중이면 full, 축소 중이면 closed
+        if (_panelExpanding) {
+          _snapTo(_fullHeight, _PanelState.full);
+        } else {
+          _snapTo(0, _PanelState.closed);
+        }
+        break;
+      case _PanelState.full:
+        // 100% → 50% (축소 시작)
+        _snapTo(_halfHeight, _PanelState.half);
+        _panelExpanding = false;
+        break;
+    }
   }
 
   void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {

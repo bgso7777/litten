@@ -505,10 +505,16 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final totalHeight = constraints.maxHeight;
+          // 칩 위젯 높이를 제외한 영역 (캘린더 + 일정 목록)
+          // 칩 높이는 약 38px (vertical padding 6 + text 약 26)
+          const double chipHeight = 38.0;
+          final totalHeight = constraints.maxHeight - chipHeight;
           final halfHeight = totalHeight / 2;
 
-          return Listener(
+          return Column(
+            children: [
+              Expanded(
+                child: Listener(
             behavior: HitTestBehavior.translucent,
             onPointerDown: (event) {
               _pointerDownY = event.position.dy;
@@ -578,35 +584,79 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  top: _scheduleListVisible ? halfHeight : totalHeight,
+                  top: _scheduleListVisible ? halfHeight : totalHeight + 20,
                   left: 0,
                   right: 0,
                   height: halfHeight,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (!_scheduleListVisible) return false;
-                      // BouncingScrollPhysics 바운스 감지 (보조 수단)
-                      if (notification is ScrollUpdateNotification &&
-                          notification.metrics.pixels < 0) {
-                        setState(() { _scheduleListVisible = false; });
-                        return true;
-                      }
-                      if (notification is OverscrollNotification &&
-                          notification.overscroll < -5) {
-                        setState(() { _scheduleListVisible = false; });
-                        return true;
-                      }
-                      return false;
-                    },
-                    child: LittenUnifiedListView(
-                      key: const PageStorageKey<String>('home_screen_scroll'),
-                      scrollController: _scrollController,
-                      onListExpand: null, // ⭐ 자동 일정 선택 제거됨
-                    ),
+                  child: Column(
+                    children: [
+                      // 드래그 핸들 (영역만 20% 축소, 가운데 바는 유지)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragEnd: (d) {
+                          final velocityY = d.velocity.pixelsPerSecond.dy;
+                          if (velocityY > 300) {
+                            setState(() { _scheduleListVisible = false; });
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(10),
+                              topRight: Radius.circular(10),
+                            ),
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 일정 목록
+                      Expanded(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (!_scheduleListVisible) return false;
+                            // BouncingScrollPhysics 바운스 감지 (보조 수단)
+                            if (notification is ScrollUpdateNotification &&
+                                notification.metrics.pixels < 0) {
+                              setState(() { _scheduleListVisible = false; });
+                              return true;
+                            }
+                            if (notification is OverscrollNotification &&
+                                notification.overscroll < -5) {
+                              setState(() { _scheduleListVisible = false; });
+                              return true;
+                            }
+                            return false;
+                          },
+                          child: LittenUnifiedListView(
+                            key: const PageStorageKey<String>('home_screen_scroll'),
+                            scrollController: _scrollController,
+                            padding: const EdgeInsets.only(left: 0, right: 0, top: 8, bottom: 80),
+                            onListExpand: null, // ⭐ 자동 일정 선택 제거됨
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
+                ),
+              ),
+              ),
+              // 화면 하단에 항상 고정되는 칩 위젯 (리마인더 칩처럼)
+              _buildScheduleHintChip(appState),
+            ],
           );
         },
       ),
@@ -1936,8 +1986,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 },
               ),
             ),
-            // 일정 목록 스크롤 유도 힌트 칩
-            _buildScheduleHintChip(appState),
           ],
         ),
       ),
@@ -2025,58 +2073,54 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
     final String? title = hint.nearestTitle;
 
-    return IgnorePointer(
-      ignoring: _scheduleListVisible,
-      child: AnimatedOpacity(
-        opacity: _scheduleListVisible ? 0.0 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        child: GestureDetector(
-          onTap: () {
-            debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 펼침');
-            setState(() { _scheduleListVisible = true; });
-            // ⭐ 자동 일정 선택 제거됨
-          },
-          child: CustomPaint(
-            painter: _ConcaveChipPainter(
-              fillColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-              borderColor: Theme.of(context).primaryColor.withValues(alpha: 0.25),
-              backgroundColor: Theme.of(context).cardColor,
-            ),
-            child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (title != null) ...[
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(width: 6),
-                ],
+    return GestureDetector(
+      onTap: () {
+        debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 토글 (현재: $_scheduleListVisible)');
+        setState(() { _scheduleListVisible = !_scheduleListVisible; });
+      },
+      child: CustomPaint(
+        painter: _ConcaveChipPainter(
+          fillColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+          borderColor: Theme.of(context).primaryColor.withValues(alpha: 0.25),
+          backgroundColor: Theme.of(context).cardColor,
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (title != null) ...[
                 Text(
-                  timeLabel,
+                  title,
                   style: TextStyle(
                     fontSize: 13,
                     color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.bold,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_up, size: 24, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
               ],
-            ),
-          ),         // Container
-          ),         // CustomPaint
-        ),           // GestureDetector
-      ),             // AnimatedOpacity
-    );               // IgnorePointer
+              Text(
+                timeLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                _scheduleListVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                size: 22,
+                color: Theme.of(context).primaryColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // 캘린더 SliverAppBar 빌드
@@ -2590,12 +2634,7 @@ class _ConcaveChipPainter extends CustomPainter {
     final bgPaint = Paint()..color = backgroundColor..style = PaintingStyle.fill;
     canvas.drawPath(_buildLeftCornerPath(size), bgPaint);
     canvas.drawPath(_buildRightCornerPath(size), bgPaint);
-    // 3. 칩 테두리 (코너 포함)
-    canvas.drawPath(_buildChipPath(size), Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0,
-    );
+    // 테두리(stroke) 그리지 않음 - 칩 위쪽 얇은 선 제거
   }
 
   @override

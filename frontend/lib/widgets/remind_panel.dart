@@ -72,15 +72,54 @@ class _RemindPanelState extends State<RemindPanel> {
         final targets = _sortedTargets(appState.remindTargets);
 
         return Container(
-          margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          margin: const EdgeInsets.fromLTRB(0, 4, 0, 8),
           decoration: const BoxDecoration(
             color: Colors.white,
           ),
-          child: targets.isEmpty
-              ? _buildEmpty()
-              : _buildList(context, targets, appState),
+          child: Column(
+            children: [
+              _buildDragHandle(),
+              Expanded(
+                child: targets.isEmpty
+                    ? _buildEmpty()
+                    : _buildList(context, targets, appState),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  // ── 드래그 핸들 ───────────────────────────────────────────────────────────
+
+  Widget _buildDragHandle() {
+    final primaryColor = Theme.of(context).primaryColor;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (d) => widget.onDragUpdate?.call(d.delta.dy),
+      onVerticalDragEnd: (d) => widget.onDragEnd?.call(d.velocity.pixelsPerSecond.dy),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: primaryColor.withValues(alpha: 0.1),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(10),
+            topRight: Radius.circular(10),
+          ),
+        ),
+        child: Center(
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
