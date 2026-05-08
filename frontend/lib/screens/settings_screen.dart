@@ -316,6 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSettingsSection(String title, List<Widget> children) {
+    final primaryColor = Theme.of(context).primaryColor;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
@@ -325,7 +326,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: primaryColor.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -333,7 +334,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             child: Text(
               title,
-              style: AppTextStyles.label.copyWith(color: Colors.grey.shade700),
+              style: AppTextStyles.label.copyWith(
+                color: primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           ...children,

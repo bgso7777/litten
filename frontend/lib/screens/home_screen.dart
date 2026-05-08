@@ -590,7 +590,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   height: halfHeight,
                   child: Column(
                     children: [
-                      // 드래그 핸들 (영역만 20% 축소, 가운데 바는 유지)
+                      // 드래그 핸들 (영역 30% 축소, 가운데 바는 유지)
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onVerticalDragEnd: (d) {
@@ -601,7 +601,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                         },
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           decoration: BoxDecoration(
                             color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                             borderRadius: const BorderRadius.only(
@@ -642,7 +642,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           child: LittenUnifiedListView(
                             key: const PageStorageKey<String>('home_screen_scroll'),
                             scrollController: _scrollController,
-                            padding: const EdgeInsets.only(left: 0, right: 0, top: 8, bottom: 80),
+                            padding: const EdgeInsets.only(left: 0, right: 0, top: 0, bottom: 80),
                             onListExpand: null, // ⭐ 자동 일정 선택 제거됨
                           ),
                         ),
