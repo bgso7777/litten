@@ -224,7 +224,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           // 캘린더 탭(index 1)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 1
               ? Container(
-                  margin: const EdgeInsets.only(bottom: 38),
+                  margin: const EdgeInsets.only(bottom: 48),
                   child: FloatingActionButton(
                     onPressed: () {
                       debugPrint('🎯 [FAB] 일정 추가 버튼 클릭됨');

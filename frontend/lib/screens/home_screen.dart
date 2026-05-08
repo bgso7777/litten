@@ -2634,7 +2634,12 @@ class _ConcaveChipPainter extends CustomPainter {
     final bgPaint = Paint()..color = backgroundColor..style = PaintingStyle.fill;
     canvas.drawPath(_buildLeftCornerPath(size), bgPaint);
     canvas.drawPath(_buildRightCornerPath(size), bgPaint);
-    // 테두리(stroke) 그리지 않음 - 칩 위쪽 얇은 선 제거
+    // 3. 칩 테두리 (리마인더 칩과 동일하게 stroke 그림)
+    canvas.drawPath(_buildChipPath(size), Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0,
+    );
   }
 
   @override
