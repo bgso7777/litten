@@ -223,12 +223,15 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           ),
           // 캘린더 탭(index 1)일 때만 FloatingActionButton 표시
           floatingActionButton: appState.selectedTabIndex == 1
-              ? Transform.translate(
-                  offset: const Offset(0, -48),
+              ? Container(
+                  margin: const EdgeInsets.only(bottom: 38),
                   child: FloatingActionButton(
                     onPressed: () {
+                      debugPrint('🎯 [FAB] 일정 추가 버튼 클릭됨');
+                      debugPrint('🎯 [FAB] _homeScreenKey.currentState: ${_homeScreenKey.currentState}');
                       // HomeScreen의 _showCreateLittenDialog 호출
                       _homeScreenKey.currentState?.showCreateLittenDialog();
+                      debugPrint('🎯 [FAB] showCreateLittenDialog 호출 완료');
                     },
                     tooltip: l10n?.createLitten ?? '리튼 생성',
                     backgroundColor: Theme.of(context).primaryColor,
