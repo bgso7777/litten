@@ -280,6 +280,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 선택된 날짜의 리튼들
   List<Litten> get littensForSelectedDate {
     return _littens.where((litten) {
+      // undefined 리튼은 항상 포함 (날짜와 무관하게 표시)
+      if (litten.title == 'undefined') return true;
+
       final littenDate = DateTime(
         litten.createdAt.year,
         litten.createdAt.month,

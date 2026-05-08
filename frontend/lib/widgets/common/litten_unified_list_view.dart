@@ -663,7 +663,7 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange, duration: const Duration(seconds: 3)));
             }
           },
-          onLongPress: () => _showEditLittenDialog(litten.id),
+          onLongPress: isUndefinedLitten ? null : () => _showEditLittenDialog(litten.id),
           child: Builder(builder: (context) {
             final isSelected = appState.selectedLitten?.id == litten.id;
             // undefined 선택 시 통계바 스타일(연한 배경 + 일반 색상), 일반 선택은 primary 배경 + 흰색
