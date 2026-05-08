@@ -345,10 +345,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (!isPremium || status == SyncStatus.none) return const SizedBox.shrink();
 
     final timeStr = (cloudUpdatedAt ?? updatedAt)?.toString().substring(0, 16) ?? '';
+    final primaryColor = Theme.of(context).primaryColor;
     Widget icon;
     switch (status) {
       case SyncStatus.synced:
-        icon = const Icon(Icons.cloud_done, size: 16, color: Colors.blue);
+        icon = Icon(Icons.cloud_done, size: 16, color: primaryColor);
         break;
       case SyncStatus.pending:
         icon = Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.orange.shade400);
@@ -1005,7 +1006,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
-    final recordColor = widget.isRecording ? Colors.red : color;
+    final recordColor = color;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1093,10 +1094,15 @@ class _SpeedDialItem extends StatelessWidget {
         const SizedBox(width: 8), // 좌측 여백 추가
         Expanded(
           child: Material(
-            color: color.withValues(alpha: 0.12),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            elevation: 0,
-            child: Padding(
+            elevation: 2,
+            shadowColor: color.withValues(alpha: 0.3),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Text(
                 label,

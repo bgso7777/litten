@@ -191,6 +191,7 @@ class _RemindPanelState extends State<RemindPanel> {
     final isOpen = _openTargets.contains(target.fileId);
     final pending = target.items.where((i) => !i.isDone).length;
     final total = target.items.length;
+    final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () => _toggleTarget(target.fileId),
@@ -199,12 +200,12 @@ class _RemindPanelState extends State<RemindPanel> {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
-            top: BorderSide(color: Colors.blue.shade200, width: 0.5),
+            top: BorderSide(color: primaryColor.withValues(alpha: 0.2), width: 0.5),
           ),
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 16, color: Colors.blue.shade500),
+            Icon(Icons.auto_awesome, size: 16, color: primaryColor),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -226,7 +227,7 @@ class _RemindPanelState extends State<RemindPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: pending > 0 ? Colors.blue.shade600 : Colors.grey.shade400,
+                color: pending > 0 ? primaryColor : Colors.grey.shade400,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -238,7 +239,7 @@ class _RemindPanelState extends State<RemindPanel> {
             Icon(
               isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
               size: 20,
-              color: Colors.blue.shade400,
+              color: primaryColor.withValues(alpha: 0.8),
             ),
           ],
         ),
@@ -250,6 +251,7 @@ class _RemindPanelState extends State<RemindPanel> {
 
   Widget _buildItemRow(BuildContext context, RemindItem item, AppStateProvider appState) {
     final isOpen = _openItems.contains(item.id);
+    final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () {
@@ -262,7 +264,7 @@ class _RemindPanelState extends State<RemindPanel> {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
-            top: BorderSide(color: Colors.blue.shade100, width: 0.5),
+            top: BorderSide(color: primaryColor.withValues(alpha: 0.1), width: 0.5),
           ),
         ),
         child: Row(
@@ -279,7 +281,7 @@ class _RemindPanelState extends State<RemindPanel> {
                 child: Icon(
                   item.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
                   size: 20,
-                  color: item.isDone ? Colors.grey.shade400 : Colors.blue.shade600,
+                  color: item.isDone ? Colors.grey.shade400 : primaryColor,
                 ),
               ),
             ),
@@ -316,7 +318,7 @@ class _RemindPanelState extends State<RemindPanel> {
               Icon(
                 isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
                 size: 16,
-                color: Colors.blue.shade300,
+                color: primaryColor.withValues(alpha: 0.6),
               ),
           ],
         ),
@@ -376,17 +378,18 @@ class _RemindPanelState extends State<RemindPanel> {
   // ── 빈 상태 ───────────────────────────────────────────────────────────────
 
   Widget _buildEmpty() {
+    final primaryColor = Theme.of(context).primaryColor;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open_outlined, size: 36, color: Colors.blue.shade200),
+            Icon(Icons.folder_open_outlined, size: 36, color: primaryColor.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
             Text(
               '요약에서 리마인드를\n추출하면 여기 표시됩니다',
-              style: TextStyle(fontSize: 13, color: Colors.blue.shade300),
+              style: TextStyle(fontSize: 13, color: primaryColor.withValues(alpha: 0.6)),
               textAlign: TextAlign.center,
             ),
           ],

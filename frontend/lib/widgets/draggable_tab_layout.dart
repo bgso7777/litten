@@ -450,18 +450,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+              ? Theme.of(context).primaryColor.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isActive
-                ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
                 : Colors.transparent,
             width: 1,
           ),
           boxShadow: isActive ? [
             BoxShadow(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
