@@ -1,6 +1,57 @@
 import 'package:uuid/uuid.dart';
 import 'audio_file.dart' show SyncStatus;
 
+class SummaryRecord {
+  final String summary;
+  final DateTime createdAt;
+  final int level;
+  final String summaryLanguage;
+  final String textLanguage;
+
+  const SummaryRecord({
+    required this.summary,
+    required this.createdAt,
+    required this.level,
+    required this.summaryLanguage,
+    required this.textLanguage,
+  });
+
+  String get label {
+    final d = createdAt;
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'summary': summary,
+        'createdAt': createdAt.toIso8601String(),
+        'level': level,
+        'summaryLanguage': summaryLanguage,
+        'textLanguage': textLanguage,
+      };
+
+  factory SummaryRecord.fromJson(dynamic json) {
+    // 하위 호환: 기존 String 타입이면 변환
+    if (json is String) {
+      return SummaryRecord(
+        summary: json,
+        createdAt: DateTime(2000),
+        level: 3,
+        summaryLanguage: 'ko',
+        textLanguage: 'ko',
+      );
+    }
+    final map = json as Map<String, dynamic>;
+    return SummaryRecord(
+      summary: map['summary'] as String,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      level: map['level'] as int? ?? 3,
+      summaryLanguage: map['summaryLanguage'] as String? ?? 'ko',
+      textLanguage: map['textLanguage'] as String? ?? 'ko',
+    );
+  }
+}
+
 class TextFile {
   final String id;
   final String littenId;
@@ -10,7 +61,7 @@ class TextFile {
   final DateTime updatedAt;
   final List<AudioSyncMarker> syncMarkers;
   final String? summary;
-  final List<String> summaryHistory; // 과거 요약 이력 (최신순)
+  final List<SummaryRecord> summaryHistory; // 요약 이력 (최신순)
   final String? cloudId;
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
@@ -25,7 +76,7 @@ class TextFile {
     DateTime? updatedAt,
     List<AudioSyncMarker>? syncMarkers,
     this.summary,
-    List<String>? summaryHistory,
+    List<SummaryRecord>? summaryHistory,
     this.cloudId,
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
@@ -58,7 +109,7 @@ class TextFile {
     List<AudioSyncMarker>? syncMarkers,
     String? summary,
     bool clearSummary = false,
-    List<String>? summaryHistory,
+    List<SummaryRecord>? summaryHistory,
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
@@ -112,7 +163,7 @@ class TextFile {
           .toList() ?? [],
       summary: json['summary'] as String?,
       summaryHistory: (json['summaryHistory'] as List?)
-          ?.map((e) => e as String)
+          ?.map((e) => SummaryRecord.fromJson(e))
           .toList() ?? [],
       cloudId: json['cloudId'] as String?,
       cloudUpdatedAt: json['cloudUpdatedAt'] != null ? DateTime.parse(json['cloudUpdatedAt']) : null,

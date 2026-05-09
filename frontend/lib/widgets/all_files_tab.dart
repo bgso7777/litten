@@ -857,9 +857,20 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
       debugPrint('✨ [AllFilesTab] appendedContent 길이: ${appendedContent.length}');
 
+      // 새 요약을 이력 맨 앞에 추가
+      final newRecord = SummaryRecord(
+        summary: result.summary,
+        createdAt: DateTime.now(),
+        level: result.summaryLevel,
+        summaryLanguage: result.summaryLanguage,
+        textLanguage: result.textLanguage,
+      );
+      final newHistory = [newRecord, ...file.summaryHistory];
+
       final updatedFile = file.copyWith(
         content: appendedContent,
         summary: result.summary,
+        summaryHistory: newHistory,
       );
 
       // 스토리지 저장

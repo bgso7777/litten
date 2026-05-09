@@ -44,6 +44,8 @@ const _kLanguages = [
   ('th', 'ไทย'),
 ];
 
+const _kLevelNames = {1: '한줄', 2: '간단', 3: '일반', 4: '상세', 5: '전체'};
+
 class SummaryDialog extends StatefulWidget {
   final TextFile file;
 
@@ -60,6 +62,18 @@ class _SummaryDialogState extends State<SummaryDialog> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // 이력 선택 (null = 이력 없음 또는 미선택)
+  SummaryRecord? _selectedHistory;
+
+  @override
+  void initState() {
+    super.initState();
+    // 가장 최근 이력이 있으면 기본 선택
+    if (widget.file.summaryHistory.isNotEmpty) {
+      _selectedHistory = widget.file.summaryHistory.first;
+    }
+  }
+
   String get _levelDescription => switch (_summaryLevel) {
     1 => '핵심 주제와 결론만 · 약 10% · 임원/리더 빠른 확인용',
     2 => '주요 기능과 핵심 논의 · 약 25% · 팀 공유용',
@@ -72,6 +86,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
+    final history = widget.file.summaryHistory;
 
     return AlertDialog(
       title: Row(children: [
@@ -92,31 +107,14 @@ class _SummaryDialogState extends State<SummaryDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 기존 요약 표시
-              if (widget.file.hasSummary) ...[
-                Container(
-                  width: double.maxFinite,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Icon(Icons.auto_awesome, size: 13, color: color),
-                        const SizedBox(width: 4),
-                        Text('기존 요약',
-                            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-                      ]),
-                      const SizedBox(height: 6),
-                      Text(widget.file.summary!,
-                          style: const TextStyle(fontSize: 12, height: 1.5)),
-                    ],
-                  ),
-                ),
+              // ── 요약 이력 ──────────────────────────────
+              if (history.isNotEmpty) ...[
+                _buildLabel('요약 이력'),
+                const SizedBox(height: 6),
+                _buildHistoryDropdown(history, color),
+                const SizedBox(height: 8),
+                if (_selectedHistory != null)
+                  _buildHistorySummaryBox(_selectedHistory!, color),
                 const SizedBox(height: 16),
                 Divider(color: Colors.grey.shade300),
                 const SizedBox(height: 8),
@@ -124,7 +122,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // 대상 언어
+              // ── 대상 언어 ─────────────────────────────
               _buildLabel('대상 언어'),
               const SizedBox(height: 6),
               _buildDropdown(
@@ -133,7 +131,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
               ),
               const SizedBox(height: 14),
 
-              // 요약 언어
+              // ── 요약 언어 ─────────────────────────────
               _buildLabel('요약 언어'),
               const SizedBox(height: 6),
               _buildDropdown(
@@ -142,7 +140,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
               ),
               const SizedBox(height: 14),
 
-              // 요약 수준
+              // ── 요약 수준 ─────────────────────────────
               _buildLabel('요약 수준'),
               const SizedBox(height: 6),
               _buildLevelDropdown(),
@@ -160,7 +158,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
                 ),
               ),
 
-              // 에러 메시지
+              // ── 에러 ──────────────────────────────────
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -176,7 +174,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
                 ),
               ],
 
-              // 로딩
+              // ── 로딩 ──────────────────────────────────
               if (_isLoading) ...[
                 const SizedBox(height: 16),
                 Center(
@@ -202,9 +200,70 @@ class _SummaryDialogState extends State<SummaryDialog> {
         ElevatedButton.icon(
           onPressed: _isLoading ? null : _onSummarize,
           icon: const Icon(Icons.auto_awesome, size: 16),
-          label: Text(widget.file.hasSummary ? '다시 요약' : '요약하기'),
+          label: Text(history.isNotEmpty ? '다시 요약' : '요약하기'),
         ),
       ],
+    );
+  }
+
+  Widget _buildHistoryDropdown(List<SummaryRecord> history, Color color) {
+    return DropdownButtonFormField<SummaryRecord>(
+      value: _selectedHistory,
+      isDense: true,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color),
+        ),
+      ),
+      items: history.map((rec) {
+        final levelName = _kLevelNames[rec.level] ?? '일반';
+        return DropdownMenuItem<SummaryRecord>(
+          value: rec,
+          child: Text(
+            '${rec.label}  Lv.${ rec.level} $levelName',
+            style: const TextStyle(fontSize: 13),
+          ),
+        );
+      }).toList(),
+      onChanged: (v) => setState(() => _selectedHistory = v),
+    );
+  }
+
+  Widget _buildHistorySummaryBox(SummaryRecord rec, Color color) {
+    return Container(
+      width: double.maxFinite,
+      constraints: const BoxConstraints(maxHeight: 200),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            Icon(Icons.auto_awesome, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(rec.label,
+                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 6),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Text(rec.summary,
+                  style: const TextStyle(fontSize: 12, height: 1.5)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

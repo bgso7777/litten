@@ -67,7 +67,10 @@ public class SummaryService {
 
         try {
             String prompt = buildPrompt(plainText, request.getTextLanguage(), request.getSummaryLanguage(), level);
-            String requestBody = buildRequestBody(prompt);
+            int computedMaxTokens = computeMaxTokens(plainText, level);
+            log.info("[SummaryService] max_tokens 계산 - 텍스트길이: {}, 수준: {}, tokens: {}",
+                    plainText.length(), level, computedMaxTokens);
+            String requestBody = buildRequestBody(prompt, computedMaxTokens);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -309,10 +312,24 @@ public class SummaryService {
         return sb.toString();
     }
 
-    private String buildRequestBody(String prompt) throws Exception {
+    private int computeMaxTokens(String text, int level) {
+        int estimatedInputTokens = text.length() * 2 / 3;
+        double ratio = switch (level) {
+            case 1 -> 0.15;
+            case 2 -> 0.30;
+            case 3 -> 0.55;
+            case 4 -> 0.80;
+            case 5 -> 1.00;
+            default -> 0.55;
+        };
+        int needed = (int)(estimatedInputTokens * ratio) + 800;
+        return Math.min(maxTokens, Math.max(512, needed));
+    }
+
+    private String buildRequestBody(String prompt, int computedMaxTokens) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("model", model);
-        root.put("max_tokens", maxTokens);
+        root.put("max_tokens", computedMaxTokens);
 
         ArrayNode messages = root.putArray("messages");
         ObjectNode message = messages.addObject();

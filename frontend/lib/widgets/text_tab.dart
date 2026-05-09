@@ -2563,11 +2563,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         setState(() => _sttSummary = summary);
         // TextFile.summary 업데이트 + 이전 요약을 이력에 추가
         if (_currentTextFile != null) {
-          final newHistory = List<String>.from(_currentTextFile!.summaryHistory);
-          // 이전 요약이 있으면 이력에 추가 (최신순)
-          if (_currentTextFile!.summary != null && _currentTextFile!.summary!.isNotEmpty) {
-            newHistory.insert(0, _currentTextFile!.summary!);
-          }
+          // 새 요약을 SummaryRecord로 이력에 추가 (최신순)
+          final newRecord = SummaryRecord(
+            summary: summary,
+            createdAt: DateTime.now(),
+            level: _sttSettings.summaryLevel,
+            summaryLanguage: _sttSettings.summaryLanguage,
+            textLanguage: _sttSettings.textLanguage,
+          );
+          final newHistory = [newRecord, ..._currentTextFile!.summaryHistory];
           _currentTextFile = _currentTextFile!.copyWith(
             summary: summary,
             summaryHistory: newHistory,
