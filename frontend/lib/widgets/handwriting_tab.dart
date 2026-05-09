@@ -28,7 +28,16 @@ class HandwritingTab extends StatefulWidget {
   final HandwritingInitialAction initialAction;
   final VoidCallback? onClose;
   final HandwritingFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
-  const HandwritingTab({super.key, this.initialAction = HandwritingInitialAction.none, this.onClose, this.initialFile});
+  final String? initialPdfPath; // ⭐ 전체탭에서 파일 선택 후 전달받는 PDF 경로
+  final String? initialPdfFileName; // ⭐ PDF 파일명
+  const HandwritingTab({
+    super.key,
+    this.initialAction = HandwritingInitialAction.none,
+    this.onClose,
+    this.initialFile,
+    this.initialPdfPath,
+    this.initialPdfFileName,
+  });
 
   @override
   State<HandwritingTab> createState() => _HandwritingTabState();
@@ -145,6 +154,13 @@ class _HandwritingTabState extends State<HandwritingTab>
         if (!mounted) return;
         debugPrint('📂 initialFile 감지됨 - 파일 자동 열기: ${widget.initialFile!.displayTitle}');
         _editHandwritingFile(widget.initialFile!);
+      });
+    } else if (widget.initialPdfPath != null) {
+      // ⭐ 전체탭에서 파일 선택 후 전달받은 경우 - 파일 선택 없이 바로 변환
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        debugPrint('📂 initialPdfPath 감지됨 - 파일 선택 없이 변환 시작: ${widget.initialPdfPath}');
+        _loadPdfFileFromPath(widget.initialPdfPath!, widget.initialPdfFileName ?? 'document.pdf');
       });
     } else if (widget.initialAction != HandwritingInitialAction.none) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -955,8 +971,11 @@ class _HandwritingTabState extends State<HandwritingTab>
 
         // ✅ AppStateProvider 참조를 미리 저장 (async 작업 전에)
         appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
-        appStateProvider.setTargetWritingTab('handwriting');
-        print('🎯 다이얼로그 표시 후 필기 탭으로 전환 완료');
+        // 임베드 모드(전체탭)에서는 탭 전환하지 않음
+        if (widget.onClose == null) {
+          appStateProvider.setTargetWritingTab('handwriting');
+          print('🎯 다이얼로그 표시 후 필기 탭으로 전환 완료');
+        }
         print('✅ AppStateProvider 참조 저장 완료 - 나중에 UI 갱신에 사용');
       }
 
@@ -1114,10 +1133,12 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     // 성공 메시지 표시 및 필기 탭 유지
     if (mounted) {
-      // 필기 탭 유지
-      final appState = Provider.of<AppStateProvider>(context, listen: false);
-      appState.setTargetWritingTab('handwriting');
-      print('DEBUG: PDF 변환 완료 - 필기 탭 유지 설정');
+      // 임베드 모드(전체탭)에서는 탭 전환하지 않음
+      if (widget.onClose == null) {
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        appState.setTargetWritingTab('handwriting');
+        print('DEBUG: PDF 변환 완료 - 필기 탭 유지 설정');
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3155,6 +3176,37 @@ class _HandwritingTabState extends State<HandwritingTab>
     await _loadPdfFile();
     // flutter_pdfview를 사용하므로 PDF 뷰어로만 표시됩니다.
     // PDF를 필기 배경으로 사용하려면 별도의 PDF to Image 변환이 필요합니다.
+  }
+
+  // ⭐ 전체탭에서 파일 선택 후 경로를 받아 파일 선택 없이 바로 변환 시작
+  Future<void> _loadPdfFileFromPath(String pdfPath, String fileName) async {
+    if (!mounted) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) {
+      debugPrint('❌ [HandwritingTab] _loadPdfFileFromPath: 리튼이 선택되지 않음');
+      return;
+    }
+
+    AppStateProvider? appStateProvider;
+    if (mounted) {
+      setState(() {
+        _isConverting = true;
+        _convertedPages = 0;
+        _totalPagesToConvert = 0;
+        _conversionStatus = 'PDF 변환 준비 중...';
+      });
+      _showConversionProgressDialog();
+      appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
+    }
+
+    await _convertPdfToPngAndAddToHandwriting(
+      pdfPath,
+      fileName,
+      selectedLitten,
+      appStateProvider,
+    );
   }
 
   void _editHandwritingFile(HandwritingFile file) async {

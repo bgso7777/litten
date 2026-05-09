@@ -82,6 +82,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   bool _isSummarizing = false; // 요약 진행 중
   Timer? _summaryTimer; // 자동 요약 타이머
   SttMemoSettings _sttSettings = const SttMemoSettings(); // 음성 메모 설정 (기본값)
+  final StringBuffer _sttRawContent = StringBuffer(); // 마지막 요약 이후 순수 STT 전사 텍스트
 
   @override
   void initState() {
@@ -814,7 +815,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         }
       }
     } else {
-      // 인식 시작
+      // 인식 시작 - 새 세션이므로 순수 STT 버퍼 초기화
+      _sttRawContent.clear();
       await _startListening();
     }
   }
@@ -1013,6 +1015,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           if (_lastPartialText.isNotEmpty) {
             _confirmedLength += _lastPartialText.length;
             debugPrint('💾 최종 확정 길이: $_confirmedLength (추가: ${_lastPartialText.length})');
+            // 순수 STT 전사 내용 누적 (요약 전송용)
+            if (_sttRawContent.isNotEmpty) _sttRawContent.write(' ');
+            _sttRawContent.write(_lastPartialText);
           }
 
           // 다음 인식을 위해 초기화
@@ -1297,6 +1302,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     _summaryTimer?.cancel();
     _summaryTimer = null;
     debugPrint('⏰ STT 자동 저장 타이머 중지');
+
+    // 종료 시 요약 모드: 녹음 중지 시 자동 요약 실행
+    if (_isSttMode && _sttSettings.summaryIntervalMinutes == -1) {
+      debugPrint('⏹️ [SttMode] 종료 시 요약 실행');
+      _autoSummarizeStt();
+    }
 
     // ⭐ HTML 에디터 다시 활성화 - 키보드 입력 가능하도록
     try {
@@ -2519,30 +2530,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   Future<void> _autoSummarizeStt() async {
     if (_isSummarizing || !mounted) return;
 
-    String content;
-    try {
-      content = await _htmlController.getText();
-    } catch (e) {
-      content = _currentTextFile?.content ?? '';
-    }
-
-    // ⭐ 요약 부분 제거: <!-- SUMMARY_START -->부터 <!-- SUMMARY_END -->까지 제거
-    final summaryStartIndex = content.indexOf('<!-- SUMMARY_START -->');
-    final summaryEndIndex = content.indexOf('<!-- SUMMARY_END -->');
-
-    if (summaryStartIndex != -1 && summaryEndIndex != -1) {
-      // 요약 시작 전 부분 + 요약 끝 후 부분
-      final beforeSummary = content.substring(0, summaryStartIndex);
-      final afterSummary = content.substring(summaryEndIndex + '<!-- SUMMARY_END -->'.length);
-      content = beforeSummary + afterSummary;
-      debugPrint('ℹ️ [SttMode] 이전 요약 제거 - 전사 내용만 추출');
-    } else if (summaryStartIndex != -1) {
-      // SUMMARY_START만 있는 경우 (SUMMARY_END 없음)
-      content = content.substring(0, summaryStartIndex);
-      debugPrint('⚠️ [SttMode] 요약 끝 마커 없음 - 시작 마커 이전까지만 추출');
-    }
-
-    final plain = content.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    // 순수 STT 전사 내용 사용 (이전 요약 내용 제외)
+    final plain = _sttRawContent.toString().trim();
     if (plain.isEmpty) {
       debugPrint('ℹ️ [SttMode] 요약할 전사 내용 없음 - 스킵');
       return;
@@ -2554,7 +2543,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     try {
       final apiService = ApiService();
       final summary = await apiService.summarizeText(
-        text: content,
+        text: plain,
         textLanguage: _sttSettings.textLanguage,
         summaryLanguage: _sttSettings.summaryLanguage,
         summaryLevel: _sttSettings.summaryLevel,
@@ -2563,6 +2552,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
       if (mounted) {
         setState(() => _sttSummary = summary);
+        // 요약 성공 - 다음 주기를 위해 전사 버퍼 초기화
+        _sttRawContent.clear();
+        debugPrint('🗑️ [SttMode] 전사 버퍼 초기화 (다음 주기 준비)');
         // TextFile.summary 업데이트 + 이전 요약을 이력에 추가
         if (_currentTextFile != null) {
           // 새 요약을 SummaryRecord로 이력에 추가 (최신순)
@@ -2787,7 +2779,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
                   style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
-                  items: const [(1, '1분'), (3, '3분'), (5, '5분'), (10, '10분'), (0, '안함')]
+                  items: const [(3, '3분'), (5, '5분'), (10, '10분'), (30, '30분'), (-1, '종료'), (0, '안함')]
                       .map((opt) => DropdownMenuItem(
                         value: opt.$1,
                         child: Text(opt.$2, style: TextStyle(fontSize: 11, color: color)),
@@ -2832,7 +2824,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                         ? Text(
                             _sttSettings.summaryIntervalMinutes > 0
                                 ? '녹음 시작 후 ${_sttSettings.summaryIntervalMinutes}분마다 자동으로 요약됩니다.'
-                                : '자동 요약이 비활성화되어 있습니다.',
+                                : _sttSettings.summaryIntervalMinutes == -1
+                                    ? '녹음 종료 시 자동으로 요약됩니다.'
+                                    : '자동 요약이 비활성화되어 있습니다.',
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
                           )
                         : Text(

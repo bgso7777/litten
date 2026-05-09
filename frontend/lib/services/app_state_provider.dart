@@ -199,8 +199,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         _remindItems = list.map((e) => RemindItem.fromJson(e as Map<String, dynamic>)).toList();
         debugPrint('[AppStateProvider] 리마인드 항목 로드 완료: ${_remindItems.length}개');
       } else {
-        _remindItems = _sampleRemindItems();
-        debugPrint('[AppStateProvider] 샘플 리마인드 항목 주입: ${_remindItems.length}개');
+        _remindItems = [];
+        debugPrint('[AppStateProvider] 리마인드 항목 없음 - 빈 목록으로 시작');
       }
     } catch (e) {
       debugPrint('[AppStateProvider] 리마인드 항목 로드 실패: $e');

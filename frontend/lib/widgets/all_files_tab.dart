@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../services/file_storage_service.dart';
@@ -51,6 +52,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
   bool _autoCreate = false;
   TextFile? _selectedTextFile; // ⭐ 선택된 텍스트 파일
   HandwritingFile? _selectedHandwritingFile; // ⭐ 선택된 필기 파일
+  String? _initialPdfPath; // ⭐ PDF 파일 경로 (파일 선택 후 전달)
+  String? _initialPdfFileName; // ⭐ PDF 파일명
 
   // 인라인 녹음 / 재생 상태
   final AudioService _audioService = AudioService();
@@ -170,6 +173,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
     TextFile? textFile,
     HandwritingFile? handwritingFile,
     SttMemoSettings? sttSettings,
+    String? initialPdfPath,
+    String? initialPdfFileName,
   }) {
     setState(() {
       _openEditor = type;
@@ -179,11 +184,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _selectedTextFile = textFile;
       _selectedHandwritingFile = handwritingFile;
       _sttMemoSettings = sttSettings;
+      _initialPdfPath = initialPdfPath;
+      _initialPdfFileName = initialPdfFileName;
     });
   }
 
   void _closeEditor() {
-    setState(() => _openEditor = null);
+    setState(() {
+      _openEditor = null;
+      _initialPdfPath = null;
+      _initialPdfFileName = null;
+    });
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     _loadFiles(appState);
   }
@@ -270,7 +281,29 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     child: _BottomFabRow(
                       onText: () => _openEditorView(_EditorType.text, autoCreate: true),
                       onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-                      onPdf: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.loadPdf),
+                      onPdf: () async {
+                        final appState = Provider.of<AppStateProvider>(context, listen: false);
+                        if (appState.selectedLitten == null) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
+                            );
+                          }
+                          return;
+                        }
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf'],
+                          withData: false,
+                        );
+                        if (result == null || result.files.single.path == null) return;
+                        if (!mounted) return;
+                        _openEditorView(
+                          _EditorType.handwriting,
+                          initialPdfPath: result.files.single.path!,
+                          initialPdfFileName: result.files.single.name,
+                        );
+                      },
                       onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                       onAudio: _toggleRecording,
                       isRecording: _isRecording,
@@ -299,10 +332,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
         );
       case _EditorType.handwriting:
         return HandwritingTab(
-          key: ValueKey(_selectedHandwritingFile?.id ?? _handwritingAction),
+          key: ValueKey(_selectedHandwritingFile?.id ?? _initialPdfPath ?? _handwritingAction),
           initialAction: _handwritingAction,
           onClose: _closeEditor,
-          initialFile: _selectedHandwritingFile, // ⭐ 선택된 파일 전달
+          initialFile: _selectedHandwritingFile,
+          initialPdfPath: _initialPdfPath,
+          initialPdfFileName: _initialPdfFileName,
         );
     }
   }

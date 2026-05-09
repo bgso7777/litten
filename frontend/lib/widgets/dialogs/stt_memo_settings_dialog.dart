@@ -33,12 +33,13 @@ const _kLanguages = [
   ('th', 'ไทย'),
 ];
 
-// 요약 주기 옵션
+// 요약 주기 옵션 (-1 = 종료 시, 0 = 안함)
 const _kIntervalOptions = [
-  (1, '1분'),
   (3, '3분'),
   (5, '5분'),
   (10, '10분'),
+  (30, '30분'),
+  (-1, '종료'),
   (0, '안함'),
 ];
 
@@ -46,13 +47,13 @@ class SttMemoSettings {
   final String textLanguage;
   final String summaryLanguage;
   final int summaryLevel;
-  final int summaryIntervalMinutes; // 0 = 안함
+  final int summaryIntervalMinutes; // -1 = 종료 시, 0 = 안함
 
   const SttMemoSettings({
     this.textLanguage = 'ko',
     this.summaryLanguage = 'ko',
     this.summaryLevel = 3,
-    this.summaryIntervalMinutes = 3,
+    this.summaryIntervalMinutes = -1,
   });
 
   Duration? get summaryInterval =>
@@ -70,7 +71,7 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
   String _textLanguage = 'ko';
   String _summaryLanguage = 'ko';
   int _summaryLevel = 3;
-  int _summaryIntervalMinutes = 3;
+  int _summaryIntervalMinutes = -1;
 
   String get _levelDescription => switch (_summaryLevel) {
     1 => '핵심 주제와 결론만 · 약 10%',

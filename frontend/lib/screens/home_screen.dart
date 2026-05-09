@@ -1995,13 +1995,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   // 일정 힌트 데이터 계산
   // secondsUntilToday: 오늘 다음 일정까지 남은 초 (null = 오늘 예정 일정 없음)
   // daysUntilNext: 미래 가장 가까운 일정까지 남은 일수 (-1 = 없음)
+  // secondsUntilFutureEvent: 미래 가장 가까운 일정까지 남은 초 (daysUntilNext==1일 때 시간 표시용)
   // nearestTitle: 가장 임박한 일정의 제목
-  ({int? secondsUntilToday, int daysUntilNext, String? nearestTitle}) _getScheduleHint(List<Litten> littens, String languageCode) {
+  ({int? secondsUntilToday, int daysUntilNext, int? secondsUntilFutureEvent, String? nearestTitle}) _getScheduleHint(List<Litten> littens, String languageCode) {
     // 선택된 언어의 타임존 기준 현재 시각
     final now = nowForLanguage(languageCode);
     final todayOnly = DateTime(now.year, now.month, now.day);
     int? nearestTodaySeconds;
     int nearestDays = -1;
+    int? nearestFutureSeconds;
     String? nearestTitle;
 
     for (final litten in littens) {
@@ -2041,11 +2043,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         final diff = start.difference(todayOnly).inDays;
         if (nearestDays == -1 || diff < nearestDays) {
           nearestDays = diff;
+          // 실제 일정 시작 시각까지 남은 초 계산 (시간 표시용)
+          final futureScheduleStart = tz.TZDateTime(
+            getTimezoneForLanguage(languageCode),
+            start.year, start.month, start.day,
+            litten.schedule!.startTime.hour,
+            litten.schedule!.startTime.minute,
+          );
+          nearestFutureSeconds = futureScheduleStart.difference(now).inSeconds;
           if (nearestTodaySeconds == null) nearestTitle = litten.title;
         }
       }
     }
-    return (secondsUntilToday: nearestTodaySeconds, daysUntilNext: nearestDays, nearestTitle: nearestTitle);
+    return (secondsUntilToday: nearestTodaySeconds, daysUntilNext: nearestDays, secondsUntilFutureEvent: nearestFutureSeconds, nearestTitle: nearestTitle);
   }
 
   // 일정 목록 스크롤 유도 힌트 칩 위젯
@@ -2066,6 +2076,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         final remaining = minutes % 60;
         timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
       }
+    } else if (hint.daysUntilNext > 0 && hint.secondsUntilFutureEvent != null) {
+      final totalSec = hint.secondsUntilFutureEvent!;
+      final totalMin = totalSec ~/ 60;
+      final hours = totalMin ~/ 60;
+      final remaining = totalMin % 60;
+      timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
     } else if (hint.daysUntilNext > 0) {
       timeLabel = '${hint.daysUntilNext}일 후 일정 있음';
     } else {
