@@ -49,7 +49,7 @@ class SummaryReminderChip extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.auto_awesome, size: 15, color: color),
+                  Icon(Icons.lightbulb_outline, size: 15, color: color),
                   const SizedBox(width: 6),
                   Text(
                     label,

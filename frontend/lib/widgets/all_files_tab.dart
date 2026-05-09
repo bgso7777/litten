@@ -892,13 +892,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await _loadFiles(appState);
 
-      // 리마인드 추출 및 저장
+      // 리마인드 추출 및 저장 (요약 단위로 그룹화)
       final remindItems = RemindParser.parse(
         summaryText: result.summary,
         fileId: file.id,
         fileName: file.displayTitle,
         littenId: file.littenId,
         fileType: RemindFileType.text,
+        summaryLevel: result.summaryLevel,
       );
       if (remindItems.isNotEmpty) {
         appState.addRemindItems(remindItems);

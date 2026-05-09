@@ -126,22 +126,26 @@ class _RemindPanelState extends State<RemindPanel> {
   // ── 아코디언 리스트 ────────────────────────────────────────────────────────
 
   Widget _buildList(BuildContext context, List<RemindTarget> targets, AppStateProvider appState) {
-    final scrollContent = SingleChildScrollView(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        children: [
-          for (final target in targets) ...[
-            _buildTargetRow(context, target),
-            if (_openTargets.contains(target.fileId))
-              for (final item in _sortedItems(target.items)) ...[
-                _buildItemRow(context, item, appState),
-                if (_openItems.contains(item.id))
-                  _buildContentRow(context, item, appState),
-              ],
+    // SelectionArea: 자식 위젯의 모든 Text를 선택/복사 가능하게 함
+    // (GestureDetector의 onTap과 충돌하지 않음 — long-press로 선택 시작)
+    final scrollContent = SelectionArea(
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            for (final target in targets) ...[
+              _buildTargetRow(context, target),
+              if (_openTargets.contains(target.summaryGroupId ?? 'file:${target.fileId}'))
+                for (final item in _sortedItems(target.items)) ...[
+                  _buildItemRow(context, item, appState),
+                  if (_openItems.contains(item.id))
+                    _buildContentRow(context, item, appState),
+                ],
+            ],
+            const SizedBox(height: 8),
           ],
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
 
@@ -188,13 +192,20 @@ class _RemindPanelState extends State<RemindPanel> {
   // ── Level 1: 파일 행 ──────────────────────────────────────────────────────
 
   Widget _buildTargetRow(BuildContext context, RemindTarget target) {
-    final isOpen = _openTargets.contains(target.fileId);
+    // 요약 그룹별 고유 키 (groupId 우선, 없으면 fileId)
+    final groupKey = target.summaryGroupId ?? 'file:${target.fileId}';
+    final isOpen = _openTargets.contains(groupKey);
     final pending = target.items.where((i) => !i.isDone).length;
     final total = target.items.length;
     final primaryColor = Theme.of(context).primaryColor;
 
+    final contentType = target.contentType;
+    final levelLabel = target.summaryLevel != null
+        ? _kLevelLabels[target.summaryLevel!] ?? 'Lv.${target.summaryLevel}'
+        : null;
+
     return GestureDetector(
-      onTap: () => _toggleTarget(target.fileId),
+      onTap: () => _toggleTarget(groupKey),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
@@ -205,8 +216,9 @@ class _RemindPanelState extends State<RemindPanel> {
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 16, color: primaryColor),
+            Icon(Icons.lightbulb_outline, size: 16, color: primaryColor),
             const SizedBox(width: 10),
+            // 제목만
             Expanded(
               child: Text(
                 target.fileName,
@@ -218,20 +230,34 @@ class _RemindPanelState extends State<RemindPanel> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // 완료/전체 카운트
-            Text(
-              '$pending/$total',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
+            // 요약 보기 아이콘 (요약 수준 칩 앞)
+            if (target.summaryText != null && target.summaryText!.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => _showSummaryDialog(context, target),
+                child: Icon(Icons.auto_awesome, size: 16, color: primaryColor),
+              ),
+            ],
+            // 요약 수준 칩
+            if (levelLabel != null) ...[
+              const SizedBox(width: 6),
+              _buildSmallChip(levelLabel, primaryColor),
+            ],
+            // 콘텐츠 유형 칩
+            if (contentType != null && contentType.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              _buildSmallChip(contentType, primaryColor),
+            ],
             const SizedBox(width: 6),
+            // 완료/전체 카운트 (예: "4/4개")
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: pending > 0 ? primaryColor : Colors.grey.shade400,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${target.items.length}개',
+                '$pending/$total',
                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ),
@@ -243,6 +269,118 @@ class _RemindPanelState extends State<RemindPanel> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSmallChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  static const Map<int, String> _kLevelLabels = {
+    1: '한줄',
+    2: '간단',
+    3: '일반',
+    4: '상세',
+    5: '전체',
+  };
+
+  // 요약 내용 팝업 표시 (리마인드 섹션은 제외하고 본문만)
+  void _showSummaryDialog(BuildContext context, RemindTarget target) {
+    final color = Theme.of(context).primaryColor;
+    final levelLabel = target.summaryLevel != null
+        ? _kLevelLabels[target.summaryLevel!] ?? 'Lv.${target.summaryLevel}'
+        : '';
+    final contentType = target.contentType ?? '';
+    final firstCreated = target.items.isNotEmpty ? target.items.first.createdAt : null;
+    final dateLabel = firstCreated != null
+        ? '${firstCreated.year}.${firstCreated.month.toString().padLeft(2, '0')}.${firstCreated.day.toString().padLeft(2, '0')} '
+            '${firstCreated.hour.toString().padLeft(2, '0')}:${firstCreated.minute.toString().padLeft(2, '0')}'
+        : '';
+
+    // ⭐ 리마인드 섹션 제거 (본문 요약만 표시)
+    final fullText = target.summaryText ?? '';
+    const reminderMarker = '─── 📌 리마인드 ───';
+    final reminderIdx = fullText.indexOf(reminderMarker);
+    final summaryOnly = reminderIdx != -1
+        ? fullText.substring(0, reminderIdx).trim()
+        : fullText;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.auto_awesome, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              target.fileName,
+              style: const TextStyle(fontSize: 15),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ]),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Container(
+              width: double.maxFinite,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color.withValues(alpha: 0.2)),
+              ),
+              child: SelectableText.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '📅 $dateLabel',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                    ),
+                    if (levelLabel.isNotEmpty || contentType.isNotEmpty)
+                      TextSpan(
+                        text: '   [$levelLabel${levelLabel.isNotEmpty && contentType.isNotEmpty ? '/' : ''}$contentType]\n\n',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                          height: 1.5,
+                        ),
+                      )
+                    else
+                      const TextSpan(text: '\n\n'),
+                    TextSpan(
+                      text: summaryOnly,
+                      style: const TextStyle(fontSize: 12, height: 1.5, color: Colors.black),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('닫기'),
+          ),
+        ],
       ),
     );
   }
@@ -329,8 +467,9 @@ class _RemindPanelState extends State<RemindPanel> {
   // ── Level 3: 내용 행 ──────────────────────────────────────────────────────
 
   Widget _buildContentRow(BuildContext context, RemindItem item, AppStateProvider appState) {
+    // Level 2 padding(36) + 체크아이콘(20) + 우측 padding(10) = 66 (체크 아이콘 안쪽으로 들여쓰기)
     return Container(
-      padding: const EdgeInsets.only(left: 0, right: 14, top: 6, bottom: 10),
+      padding: const EdgeInsets.only(left: 66, right: 14, top: 6, bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(

@@ -117,33 +117,49 @@ class _SummaryDialogState extends State<SummaryDialog> {
                   _buildHistorySummaryBox(_selectedHistory!, color),
                 const SizedBox(height: 16),
                 Divider(color: Colors.grey.shade300),
-                const SizedBox(height: 8),
-                Text('다시 요약', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                 const SizedBox(height: 12),
               ],
 
-              // ── 대상 언어 ─────────────────────────────
-              _buildLabel('대상 언어'),
-              const SizedBox(height: 6),
-              _buildDropdown(
-                value: _textLanguage,
-                onChanged: (v) => setState(() => _textLanguage = v!),
+              // ── 대상 언어 (라벨 + 드롭다운 한 라인) ─────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(width: 80, child: _buildLabel('대상 언어')),
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _textLanguage,
+                      onChanged: (v) => setState(() => _textLanguage = v!),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
 
-              // ── 요약 언어 ─────────────────────────────
-              _buildLabel('요약 언어'),
-              const SizedBox(height: 6),
-              _buildDropdown(
-                value: _summaryLanguage,
-                onChanged: (v) => setState(() => _summaryLanguage = v!),
+              // ── 요약 언어 (라벨 + 드롭다운 한 라인) ─────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(width: 80, child: _buildLabel('요약 언어')),
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _summaryLanguage,
+                      onChanged: (v) => setState(() => _summaryLanguage = v!),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
 
-              // ── 요약 수준 ─────────────────────────────
-              _buildLabel('요약 수준'),
-              const SizedBox(height: 6),
-              _buildLevelDropdown(),
+              // ── 요약 수준 (라벨 + 드롭다운 한 라인) ─────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(width: 80, child: _buildLabel('요약 수준')),
+                  Expanded(
+                    child: _buildLevelDropdown(),
+                  ),
+                ],
+              ),
               const SizedBox(height: 6),
               Container(
                 width: double.maxFinite,
@@ -210,6 +226,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
     return DropdownButtonFormField<SummaryRecord>(
       value: _selectedHistory,
       isDense: true,
+      isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
@@ -236,33 +253,42 @@ class _SummaryDialogState extends State<SummaryDialog> {
   }
 
   Widget _buildHistorySummaryBox(SummaryRecord rec, Color color) {
+    // ⭐ 리마인드 섹션 제거 (본문 요약만 표시)
+    const reminderMarker = '─── 📌 리마인드 ───';
+    final reminderIdx = rec.summary.indexOf(reminderMarker);
+    final summaryOnly = reminderIdx != -1
+        ? rec.summary.substring(0, reminderIdx).trim()
+        : rec.summary;
+
     return Container(
       width: double.maxFinite,
-      constraints: const BoxConstraints(maxHeight: 200),
+      constraints: const BoxConstraints(maxHeight: 240),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(children: [
-            Icon(Icons.auto_awesome, size: 13, color: color),
-            const SizedBox(width: 4),
-            Text(rec.label,
-                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 6),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Text(rec.summary,
-                  style: const TextStyle(fontSize: 12, height: 1.5)),
-            ),
+      child: SingleChildScrollView(
+        child: SelectableText.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '📅 ${rec.label}\n\n',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                ),
+              ),
+              TextSpan(
+                text: summaryOnly,
+                style: const TextStyle(fontSize: 12, height: 1.5, color: Colors.black),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -280,6 +306,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
     return DropdownButtonFormField<String>(
       value: value,
       isDense: true,
+      isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
@@ -307,6 +334,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
     return DropdownButtonFormField<int>(
       value: _summaryLevel,
       isDense: true,
+      isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
@@ -328,6 +356,25 @@ class _SummaryDialogState extends State<SummaryDialog> {
     );
   }
 
+  /// 자동 요약 마커(<!-- SUMMARY_START --> ... <!-- SUMMARY_END -->) 사이의
+  /// 모든 요약 블록을 제거하고 순수한 전사/입력 내용만 반환
+  String _stripAutoSummaryBlocks(String content) {
+    // 정규식: 모든 SUMMARY_START ~ SUMMARY_END 쌍을 제거 (multiline, dotall)
+    final regex = RegExp(
+      r'<!--\s*SUMMARY_START\s*-->.*?<!--\s*SUMMARY_END\s*-->',
+      multiLine: true,
+      dotAll: true,
+    );
+    String cleaned = content.replaceAll(regex, '');
+
+    // SUMMARY_START 마커만 있고 END가 없는 경우(비정상 종료) — START 이후 모두 제거
+    final orphanStart = cleaned.indexOf('<!-- SUMMARY_START -->');
+    if (orphanStart != -1) {
+      cleaned = cleaned.substring(0, orphanStart);
+    }
+    return cleaned;
+  }
+
   Future<void> _onSummarize() async {
     debugPrint('✨ [SummaryDialog] 요약 시작 - textLang: $_textLanguage, summaryLang: $_summaryLanguage, level: $_summaryLevel');
     setState(() {
@@ -336,9 +383,13 @@ class _SummaryDialogState extends State<SummaryDialog> {
     });
 
     try {
+      // ⭐ 이전에 삽입된 자동 요약 블록을 모두 제거하고 순수 전사 내용만 전송
+      final pureContent = _stripAutoSummaryBlocks(widget.file.content);
+      debugPrint('✨ [SummaryDialog] 원본 길이: ${widget.file.content.length}, 요약 제거 후: ${pureContent.length}');
+
       final apiService = ApiService();
       final summary = await apiService.summarizeText(
-        text: widget.file.content,
+        text: pureContent,
         textLanguage: _textLanguage,
         summaryLanguage: _summaryLanguage,
         summaryLevel: _summaryLevel,

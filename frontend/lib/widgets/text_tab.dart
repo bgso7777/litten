@@ -2581,7 +2581,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           await _saveCurrentTextFile();
           debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료 (이력: ${newHistory.length}개)');
 
-          // 리마인드 추출 및 저장
+          // 리마인드 추출 및 저장 (요약 단위로 그룹화)
           final file = _currentTextFile!;
           final remindItems = RemindParser.parse(
             summaryText: summary,
@@ -2589,6 +2589,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             fileName: file.displayTitle,
             littenId: file.littenId,
             fileType: RemindFileType.text,
+            summaryLevel: _sttSettings.summaryLevel,
           );
           if (remindItems.isNotEmpty && mounted) {
             final appState = Provider.of<AppStateProvider>(context, listen: false);

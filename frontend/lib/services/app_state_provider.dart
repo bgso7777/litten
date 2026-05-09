@@ -79,19 +79,41 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _remindItems.where((i) => i.fileId == fileId).toList();
 
   List<RemindTarget> get remindTargets {
+    // ⭐ 요약 그룹별로 묶음 (summaryGroupId가 없는 기존 데이터는 fileId로 폴백)
     final Map<String, List<RemindItem>> grouped = {};
     for (final item in _remindItems) {
-      grouped.putIfAbsent(item.fileId, () => []).add(item);
+      final groupKey = item.summaryGroupId ?? 'file:${item.fileId}';
+      grouped.putIfAbsent(groupKey, () => []).add(item);
     }
-    return grouped.entries.map((e) {
+    final targets = grouped.entries.map((e) {
       final first = e.value.first;
+      // 그룹 내 어느 항목에든 summaryText가 있으면 그것을 사용 (첫 항목에만 저장됨)
+      String? summaryText;
+      for (final item in e.value) {
+        if (item.summaryText != null && item.summaryText!.isNotEmpty) {
+          summaryText = item.summaryText;
+          break;
+        }
+      }
+      debugPrint('[AppStateProvider] remindTarget - groupId: ${first.summaryGroupId}, summaryText length: ${summaryText?.length ?? 0}, items: ${e.value.length}');
       return RemindTarget(
         fileId: first.fileId,
         fileType: first.fileType,
         fileName: first.fileName,
         items: e.value,
+        summaryGroupId: first.summaryGroupId,
+        summaryLevel: first.summaryLevel,
+        contentType: first.contentType,
+        summaryText: summaryText,
       );
     }).toList();
+    // 최신 그룹이 위로 오도록 (각 그룹 첫 항목의 createdAt 기준 내림차순)
+    targets.sort((a, b) {
+      final aTime = a.items.isNotEmpty ? a.items.first.createdAt : DateTime(0);
+      final bTime = b.items.isNotEmpty ? b.items.first.createdAt : DateTime(0);
+      return bTime.compareTo(aTime);
+    });
+    return targets;
   }
 
   void setSelectedRemindFileId(String? fileId) {

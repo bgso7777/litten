@@ -448,7 +448,7 @@ class ApiService {
 
       final response = await http
           .post(url, headers: _getHeaders(), body: body)
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 300)); // 5분 (Lv.5 거의 전체 요약 시 긴 출력 대비)
 
       debugPrint('[ApiService] summarizeText - Response status: ${response.statusCode}');
 
