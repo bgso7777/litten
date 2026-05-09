@@ -1446,6 +1446,10 @@ class _HandwritingTabState extends State<HandwritingTab>
             ),
           );
           print('DEBUG: 성공 메시지 표시 완료');
+          // 임베드 모드(전체탭)에서는 변환 완료 후 전체 목록으로 돌아감
+          if (widget.onClose != null) {
+            widget.onClose!();
+          }
         }
       } else {
         if (mounted) {

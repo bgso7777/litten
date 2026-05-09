@@ -2531,7 +2531,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     if (_isSummarizing || !mounted) return;
 
     // 순수 STT 전사 내용 사용 (이전 요약 내용 제외)
-    final plain = _sttRawContent.toString().trim();
+    String plain = _sttRawContent.toString().trim();
+    // 방어적 처리: [AI 요약] 이후 내용은 무조건 제거 (이전 요약이 버퍼에 남아있는 경우)
+    final aiSummaryIdx = plain.indexOf('[AI 요약]');
+    if (aiSummaryIdx != -1) {
+      debugPrint('⚠️ [SttMode] 버퍼에 [AI 요약] 발견 - 이후 내용 제거 (${plain.length - aiSummaryIdx}자)');
+      plain = plain.substring(0, aiSummaryIdx).trim();
+    }
     if (plain.isEmpty) {
       debugPrint('ℹ️ [SttMode] 요약할 전사 내용 없음 - 스킵');
       return;

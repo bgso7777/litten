@@ -359,7 +359,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
   /// 자동 요약 마커(<!-- SUMMARY_START --> ... <!-- SUMMARY_END -->) 사이의
   /// 모든 요약 블록을 제거하고 순수한 전사/입력 내용만 반환
   String _stripAutoSummaryBlocks(String content) {
-    // 정규식: 모든 SUMMARY_START ~ SUMMARY_END 쌍을 제거 (multiline, dotall)
+    // 1단계: HTML 주석 마커 기반 제거 (에디터가 주석을 보존한 경우)
     final regex = RegExp(
       r'<!--\s*SUMMARY_START\s*-->.*?<!--\s*SUMMARY_END\s*-->',
       multiLine: true,
@@ -372,6 +372,30 @@ class _SummaryDialogState extends State<SummaryDialog> {
     if (orphanStart != -1) {
       cleaned = cleaned.substring(0, orphanStart);
     }
+
+    // 2단계: 에디터가 HTML 주석을 제거한 경우 대비 — <hr> + 📋 AI 요약 패턴으로 제거
+    // _summaryToHtml()이 삽입하는 패턴: <hr/><p><strong>📋 AI 요약</strong></p>
+    final hrSummaryPattern = RegExp(
+      r'<hr\s*/?>\s*<p[^>]*>\s*<strong[^>]*>📋\s*AI\s*요약</strong>',
+      dotAll: true,
+    );
+    final hrMatch = hrSummaryPattern.firstMatch(cleaned);
+    if (hrMatch != null) {
+      debugPrint('✨ [SummaryDialog] <hr>+📋AI요약 패턴 발견 - 이후 제거 (offset: ${hrMatch.start})');
+      cleaned = cleaned.substring(0, hrMatch.start);
+    }
+
+    // 3단계: 최종 방어 — [AI 요약] 텍스트 자체가 포함된 경우 이후 모두 제거
+    final aiIdx = cleaned.indexOf('[AI 요약]');
+    if (aiIdx != -1) {
+      // [AI 요약]을 포함하는 <p> 태그의 시작 위치로 거슬러 올라가 자름
+      final beforeAi = cleaned.substring(0, aiIdx);
+      final lastTagStart = beforeAi.lastIndexOf('<');
+      final cutPoint = lastTagStart != -1 ? lastTagStart : aiIdx;
+      debugPrint('✨ [SummaryDialog] [AI 요약] 텍스트 발견 - 이후 제거 (offset: $cutPoint)');
+      cleaned = cleaned.substring(0, cutPoint);
+    }
+
     return cleaned;
   }
 
