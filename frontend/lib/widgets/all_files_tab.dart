@@ -373,6 +373,50 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  // 통일된 24x24 ⋮ 메뉴 (수정/삭제)
+  Widget _moreMenuBtn({
+    required Color color,
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: PopupMenuButton<String>(
+        padding: EdgeInsets.zero,
+        iconSize: 16,
+        icon: Icon(Icons.more_vert, color: color, size: 16),
+        tooltip: '메뉴',
+        onSelected: (value) {
+          if (value == 'edit') onEdit();
+          else if (value == 'delete') onDelete();
+        },
+        itemBuilder: (ctx) => const [
+          PopupMenuItem(
+            value: 'edit',
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('수정'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                SizedBox(width: 8),
+                Text('삭제', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 통일된 24x24 아이콘 버튼 (placeholder는 icon: null)
   Widget _iconBtn({
     IconData? icon,
@@ -522,15 +566,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       tooltip: '공유',
                       onPressed: () {},
                     ),
-                    _iconBtn(
-                      icon: Icons.edit_outlined,
+                    _moreMenuBtn(
                       color: color,
-                      onPressed: () => _showRenameTextDialog(file),
-                    ),
-                    _iconBtn(
-                      icon: Icons.delete_outline,
-                      color: color,
-                      onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
+                      onEdit: () => _showRenameTextDialog(file),
+                      onDelete: () => _showDeleteDialog(file.displayTitle, () => _deleteTextFile(file)),
                     ),
                   ],
                 ),
@@ -613,15 +652,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       tooltip: '공유',
                       onPressed: () {},
                     ),
-                    _iconBtn(
-                      icon: Icons.edit_outlined,
+                    _moreMenuBtn(
                       color: color,
-                      onPressed: () => _showRenameHandwritingDialog(file),
-                    ),
-                    _iconBtn(
-                      icon: Icons.delete_outline,
-                      color: color,
-                      onPressed: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
+                      onEdit: () => _showRenameHandwritingDialog(file),
+                      onDelete: () => _showDeleteDialog(file.displayTitle, () => _deleteHandwritingFile(file)),
                     ),
                   ],
                 ),
@@ -748,15 +782,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       tooltip: '공유',
                       onPressed: () {},
                     ),
-                    _iconBtn(
-                      icon: Icons.edit_outlined,
+                    _moreMenuBtn(
                       color: color,
-                      onPressed: () => _showRenameAudioDialog(file),
-                    ),
-                    _iconBtn(
-                      icon: Icons.delete_outline,
-                      color: color,
-                      onPressed: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
+                      onEdit: () => _showRenameAudioDialog(file),
+                      onDelete: () => _showDeleteDialog(file.fileName, () => _deleteAudioFile(file)),
                     ),
                   ],
                 ),

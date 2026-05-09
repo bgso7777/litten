@@ -156,6 +156,29 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 단일 리마인드 항목 수정
+  void updateRemindItem(RemindItem updated) {
+    final index = _remindItems.indexWhere((i) => i.id == updated.id);
+    if (index == -1) return;
+    debugPrint('[AppStateProvider] updateRemindItem: ${updated.id} - ${updated.title}');
+    _remindItems[index] = updated;
+    _saveRemindItems();
+    notifyListeners();
+  }
+
+  /// 그룹 전체 삭제 (요약 그룹 단위)
+  void deleteRemindGroup({String? summaryGroupId, String? fileId}) {
+    debugPrint('[AppStateProvider] deleteRemindGroup - groupId: $summaryGroupId, fileId: $fileId');
+    if (summaryGroupId != null) {
+      _remindItems.removeWhere((i) => i.summaryGroupId == summaryGroupId);
+    } else if (fileId != null) {
+      // 폴백: groupId 없는 항목들을 fileId로 삭제
+      _remindItems.removeWhere((i) => i.summaryGroupId == null && i.fileId == fileId);
+    }
+    _saveRemindItems();
+    notifyListeners();
+  }
+
   Future<void> _saveRemindItems() async {
     try {
       final prefs = await SharedPreferences.getInstance();

@@ -223,19 +223,22 @@ class _RemindPanelState extends State<RemindPanel> {
               child: Text(
                 target.fileName,
                 style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  fontWeight: FontWeight.normal,
                   color: Colors.black,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // 요약 보기 아이콘 (요약 수준 칩 앞)
+            // 요약 보기 아이콘 (요약 수준 칩 앞) — 24x24 영역
             if (target.summaryText != null && target.summaryText!.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () => _showSummaryDialog(context, target),
-                child: Icon(Icons.auto_awesome, size: 16, color: primaryColor),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: GestureDetector(
+                  onTap: () => _showSummaryDialog(context, target),
+                  child: Icon(Icons.auto_awesome, size: 16, color: primaryColor),
+                ),
               ),
             ],
             // 요약 수준 칩
@@ -261,14 +264,139 @@ class _RemindPanelState extends State<RemindPanel> {
                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
-              size: 20,
-              color: primaryColor.withValues(alpha: 0.8),
+            const SizedBox(width: 4),
+            // 펼침 화살표 (24x24 영역, 16px 아이콘)
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Icon(
+                isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                size: 16,
+                color: primaryColor.withValues(alpha: 0.8),
+              ),
+            ),
+            // ⋮ 메뉴 (수정 / 삭제) — 파일리스트와 동일 사이즈
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: Icon(Icons.more_vert, size: 16, color: primaryColor.withValues(alpha: 0.7)),
+                tooltip: '그룹 메뉴',
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditGroupDialog(context, target);
+                  } else if (value == 'delete') {
+                    _confirmDeleteGroup(context, target);
+                  }
+                },
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('이름 수정'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('그룹 삭제', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditGroupDialog(BuildContext context, RemindTarget target) {
+    final controller = TextEditingController(text: target.fileName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('그룹 이름 수정'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '그룹 이름',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isEmpty) return;
+              final appState = Provider.of<AppStateProvider>(context, listen: false);
+              for (final item in target.items) {
+                final updated = RemindItem(
+                  id: item.id,
+                  fileId: item.fileId,
+                  fileType: item.fileType,
+                  fileName: newName,
+                  littenId: item.littenId,
+                  title: item.title,
+                  remindAt: item.remindAt,
+                  content: item.content,
+                  isDone: item.isDone,
+                  createdAt: item.createdAt,
+                  summaryGroupId: item.summaryGroupId,
+                  summaryLevel: item.summaryLevel,
+                  contentType: item.contentType,
+                  summaryText: item.summaryText,
+                );
+                appState.updateRemindItem(updated);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteGroup(BuildContext context, RemindTarget target) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('리마인드 그룹 삭제'),
+        content: Text('"${target.fileName}"의 리마인드 ${target.items.length}개를 모두 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final appState = Provider.of<AppStateProvider>(context, listen: false);
+              appState.deleteRemindGroup(
+                summaryGroupId: target.summaryGroupId,
+                fileId: target.fileId,
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
       ),
     );
   }
@@ -453,11 +581,187 @@ class _RemindPanelState extends State<RemindPanel> {
               ),
             ),
             if (item.content.isNotEmpty || item.remindAt != null)
-              Icon(
-                isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
-                size: 16,
-                color: primaryColor.withValues(alpha: 0.6),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Icon(
+                  isOpen ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                  size: 16,
+                  color: primaryColor.withValues(alpha: 0.6),
+                ),
               ),
+            // ⋮ 메뉴 (항목 수정/삭제) — 폭 축소
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: Icon(Icons.more_vert, size: 16, color: primaryColor.withValues(alpha: 0.6)),
+                tooltip: '항목 메뉴',
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditItemDialog(context, item, appState);
+                  } else if (value == 'delete') {
+                    _confirmDeleteItem(context, item, appState);
+                  }
+                },
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('수정'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('삭제', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteItem(BuildContext context, RemindItem item, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('리마인드 항목 삭제'),
+        content: Text('"${item.title}"을(를) 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              appState.deleteRemindItem(item.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditItemDialog(BuildContext context, RemindItem item, AppStateProvider appState) {
+    final titleController = TextEditingController(text: item.title);
+    final contentController = TextEditingController(text: item.content);
+    DateTime? remindAt = item.remindAt;
+    final color = Theme.of(context).primaryColor;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: const Text('리마인드 수정'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: '제목',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '내용',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 알림 시간
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 18, color: color),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        remindAt != null
+                            ? '${remindAt!.year}-${remindAt!.month.toString().padLeft(2, '0')}-${remindAt!.day.toString().padLeft(2, '0')} ${remindAt!.hour.toString().padLeft(2, '0')}:${remindAt!.minute.toString().padLeft(2, '0')}'
+                            : '알림 시간 없음',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final pickedDate = await showDatePicker(
+                          context: ctx,
+                          initialDate: remindAt ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (pickedDate == null) return;
+                        if (!ctx.mounted) return;
+                        final pickedTime = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay.fromDateTime(remindAt ?? DateTime.now()),
+                        );
+                        if (pickedTime == null) return;
+                        setStateDialog(() {
+                          remindAt = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+                        });
+                      },
+                      child: const Text('변경'),
+                    ),
+                    if (remindAt != null)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => setStateDialog(() => remindAt = null),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final updated = item.copyWith(
+                  title: titleController.text.trim(),
+                  content: contentController.text.trim(),
+                  remindAt: remindAt,
+                  clearRemindAt: remindAt == null,
+                );
+                appState.updateRemindItem(updated);
+                Navigator.pop(ctx);
+              },
+              child: const Text('저장'),
+            ),
           ],
         ),
       ),
