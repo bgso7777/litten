@@ -848,7 +848,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
           .join('');
 
       final separator = '<p>- - - - - - - - - - - - - - -</p>';
-      final header = '<p><strong>[AI 요약] ${result.summaryRatio}% | ${result.summaryLanguage}</strong></p>';
+      const levelNames = {1: '한줄 요약', 2: '간단 요약', 3: '일반 요약', 4: '상세 요약', 5: '거의 전체'};
+      final levelName = levelNames[result.summaryLevel] ?? '일반 요약';
+      final header = '<p><strong>[AI 요약] Lv.${result.summaryLevel} $levelName | ${result.summaryLanguage}</strong></p>';
 
       final base = file.content.isEmpty ? '<p><br></p>' : file.content;
       final appendedContent = '$base$separator$header$summaryHtml';

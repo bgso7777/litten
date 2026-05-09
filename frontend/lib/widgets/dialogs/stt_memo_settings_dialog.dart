@@ -45,13 +45,13 @@ const _kIntervalOptions = [
 class SttMemoSettings {
   final String textLanguage;
   final String summaryLanguage;
-  final int summaryRatio;
+  final int summaryLevel;
   final int summaryIntervalMinutes; // 0 = 안함
 
   const SttMemoSettings({
     this.textLanguage = 'ko',
     this.summaryLanguage = 'ko',
-    this.summaryRatio = 10,
+    this.summaryLevel = 3,
     this.summaryIntervalMinutes = 3,
   });
 
@@ -69,38 +69,17 @@ class SttMemoSettingsDialog extends StatefulWidget {
 class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
   String _textLanguage = 'ko';
   String _summaryLanguage = 'ko';
-  int _summaryRatio = 10;
+  int _summaryLevel = 3;
   int _summaryIntervalMinutes = 3;
 
-  String get _ratioLabel {
-    return switch (_summaryRatio) {
-      10 => '핵심만',
-      20 => '핵심 흐름',
-      30 => '전개 흐름',
-      40 => '전체 흐름',
-      50 => '흐름+내용',
-      60 => '전개 과정',
-      70 => '전체+결론',
-      80 => '세부+Q&A',
-      90 => '완전 상세',
-      _ => '흐름+내용',
-    };
-  }
-
-  String get _ratioDescription {
-    return switch (_summaryRatio) {
-      10 => '가장 핵심적인 주제만',
-      20 => '주요 주제 간략하게',
-      30 => '주요 주제 요약',
-      40 => '주제+세부 내용',
-      50 => '주제+내용+의견',
-      60 => '주제+논의 과정',
-      70 => '모든 주제+논의',
-      80 => '모든 내용 상세',
-      90 => '거의 모든 내용',
-      _ => '주제+내용+의견',
-    };
-  }
+  String get _levelDescription => switch (_summaryLevel) {
+    1 => '핵심 주제와 결론만 · 약 10%',
+    2 => '주요 기능과 핵심 논의 · 약 25%',
+    3 => '실무 흐름과 설계 의도 · 약 40~50%',
+    4 => '전체 논의 흐름 대부분 · 약 70%',
+    5 => '전체 맥락 최대한 유지 · 약 90%',
+    _ => '실무 흐름과 설계 의도 · 약 40~50%',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -137,35 +116,42 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
               ),
               const SizedBox(height: 14),
 
-              // 요약 비율
-              _buildLabel('요약 비율'),
-              const SizedBox(height: 4),
-              Row(children: [
-                Text('간략', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                Expanded(
-                  child: Slider(
-                    value: _summaryRatio.toDouble(),
-                    min: 10,
-                    max: 90,
-                    divisions: 8,
-                    activeColor: color,
-                    label: '$_summaryRatio%',
-                    onChanged: (v) => setState(() => _summaryRatio = v.round()),
+              // 요약 수준
+              _buildLabel('요약 수준'),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<int>(
+                value: _summaryLevel,
+                isDense: true,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: color),
                   ),
                 ),
-                Text('상세', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-              ]),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$_ratioLabel · $_ratioDescription',
-                    style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
-                  ),
+                items: const [(1, '한줄 요약'), (2, '간단 요약'), (3, '일반 요약'), (4, '상세 요약'), (5, '거의 전체')]
+                    .map((lv) => DropdownMenuItem<int>(
+                          value: lv.$1,
+                          child: Text('${lv.$1}. ${lv.$2}', style: const TextStyle(fontSize: 13)),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _summaryLevel = v!),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.maxFinite,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _levelDescription,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ),
               const SizedBox(height: 14),
@@ -208,7 +194,7 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
             SttMemoSettings(
               textLanguage: _textLanguage,
               summaryLanguage: _summaryLanguage,
-              summaryRatio: _summaryRatio,
+              summaryLevel: _summaryLevel,
               summaryIntervalMinutes: _summaryIntervalMinutes,
             ),
           ),

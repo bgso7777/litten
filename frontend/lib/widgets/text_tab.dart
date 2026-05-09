@@ -104,7 +104,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           _isSttMode = true;
           _sttSettings = widget.sttSettings ?? const SttMemoSettings();
         });
-        debugPrint('🎤 STT 설정 - 전사언어: ${_sttSettings.textLanguage}, 요약언어: ${_sttSettings.summaryLanguage}, 비율: ${_sttSettings.summaryRatio}, 주기: ${_sttSettings.summaryIntervalMinutes}분');
+        debugPrint('🎤 STT 설정 - 전사언어: ${_sttSettings.textLanguage}, 요약언어: ${_sttSettings.summaryLanguage}, 수준: Lv.${_sttSettings.summaryLevel}, 주기: ${_sttSettings.summaryIntervalMinutes}분');
         _createNewTextFile(isFromSTT: true);
         // STT 시작을 위해 1초 대기 (파일 생성 완료 대기)
         Future.delayed(const Duration(milliseconds: 1000), () {
@@ -2555,7 +2555,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         text: content,
         textLanguage: _sttSettings.textLanguage,
         summaryLanguage: _sttSettings.summaryLanguage,
-        summaryRatio: _sttSettings.summaryRatio,
+        summaryLevel: _sttSettings.summaryLevel,
         fileId: _currentTextFile?.id,
       );
       debugPrint('✨ [SttMode] 자동 요약 완료 - 길이: ${summary.length}');
@@ -2676,13 +2676,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   void _onSttSettingChanged({
     String? textLanguage,
     String? summaryLanguage,
-    int? summaryRatio,
+    int? summaryLevel,
     int? summaryIntervalMinutes,
   }) {
     final newSettings = SttMemoSettings(
       textLanguage: textLanguage ?? _sttSettings.textLanguage,
       summaryLanguage: summaryLanguage ?? _sttSettings.summaryLanguage,
-      summaryRatio: summaryRatio ?? _sttSettings.summaryRatio,
+      summaryLevel: summaryLevel ?? _sttSettings.summaryLevel,
       summaryIntervalMinutes: summaryIntervalMinutes ?? _sttSettings.summaryIntervalMinutes,
     );
     setState(() => _sttSettings = newSettings);
@@ -2773,20 +2773,20 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   onChanged: (v) => _onSttSettingChanged(summaryIntervalMinutes: v),
                 ),
                 const SizedBox(width: 4),
-                // 요약률
+                // 요약 수준
                 DropdownButton<int>(
-                  value: _sttSettings.summaryRatio,
+                  value: _sttSettings.summaryLevel,
                   isDense: true,
                   underline: const SizedBox(),
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
                   style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
-                  items: const [10, 20, 30, 40, 50, 60, 70, 80, 90]
-                      .map((r) => DropdownMenuItem(
-                        value: r,
-                        child: Text('$r%', style: TextStyle(fontSize: 11, color: color)),
+                  items: const [(1, '한줄'), (2, '간단'), (3, '일반'), (4, '상세'), (5, '전체')]
+                      .map((l) => DropdownMenuItem(
+                        value: l.$1,
+                        child: Text('Lv.${l.$1} ${l.$2}', style: TextStyle(fontSize: 11, color: color)),
                       )).toList(),
-                  onChanged: (v) => _onSttSettingChanged(summaryRatio: v),
+                  onChanged: (v) => _onSttSettingChanged(summaryLevel: v),
                 ),
               ],
             ),

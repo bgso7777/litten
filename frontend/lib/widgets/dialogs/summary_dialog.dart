@@ -3,6 +3,14 @@ import '../../services/api_service.dart';
 import '../../models/text_file.dart';
 
 // 앱 지원 30개 언어 목록 (code → 표시명)
+const _kLevels = [
+  (1, '한줄 요약'),
+  (2, '간단 요약'),
+  (3, '일반 요약'),
+  (4, '상세 요약'),
+  (5, '거의 전체'),
+];
+
 const _kLanguages = [
   ('ko', '한국어'),
   ('en', 'English'),
@@ -48,19 +56,18 @@ class SummaryDialog extends StatefulWidget {
 class _SummaryDialogState extends State<SummaryDialog> {
   String _textLanguage = 'ko';
   String _summaryLanguage = 'ko';
-  int _summaryRatio = 50;
+  int _summaryLevel = 3;
   bool _isLoading = false;
   String? _errorMessage;
 
-  String get _ratioLabel {
-    if (_summaryRatio <= 20) return '매우 간략';
-    if (_summaryRatio <= 40) return '간략';
-    if (_summaryRatio <= 60) return '보통';
-    if (_summaryRatio <= 80) return '상세';
-    return '매우 상세';
-  }
-
-  int get _pointCount => _summaryRatio ~/ 10;
+  String get _levelDescription => switch (_summaryLevel) {
+    1 => '핵심 주제와 결론만 · 약 10% · 임원/리더 빠른 확인용',
+    2 => '주요 기능과 핵심 논의 · 약 25% · 팀 공유용',
+    3 => '실무 흐름과 설계 의도 · 약 40~50% · 일반 회의록 공유',
+    4 => '전체 논의 흐름 대부분 · 약 70% · 상세 실무 검토용',
+    5 => '전체 맥락 최대한 유지 · 약 90% · 회의 복기 및 문서화',
+    _ => '실무 흐름과 설계 의도 · 약 40~50% · 일반 회의록 공유',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +124,8 @@ class _SummaryDialogState extends State<SummaryDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // 텍스트 언어
-              _buildLabel('텍스트 언어'),
+              // 대상 언어
+              _buildLabel('대상 언어'),
               const SizedBox(height: 6),
               _buildDropdown(
                 value: _textLanguage,
@@ -135,35 +142,21 @@ class _SummaryDialogState extends State<SummaryDialog> {
               ),
               const SizedBox(height: 14),
 
-              // 요약 비율
-              _buildLabel('요약 비율'),
-              const SizedBox(height: 4),
-              Row(children: [
-                Text('간략', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                Expanded(
-                  child: Slider(
-                    value: _summaryRatio.toDouble(),
-                    min: 10,
-                    max: 90,
-                    divisions: 8,
-                    activeColor: color,
-                    label: '$_summaryRatio%',
-                    onChanged: (v) => setState(() => _summaryRatio = v.round()),
-                  ),
+              // 요약 수준
+              _buildLabel('요약 수준'),
+              const SizedBox(height: 6),
+              _buildLevelDropdown(),
+              const SizedBox(height: 6),
+              Container(
+                width: double.maxFinite,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                Text('상세', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-              ]),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$_ratioLabel · $_pointCount개 포인트',
-                    style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
-                  ),
+                child: Text(
+                  _levelDescription,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.5),
                 ),
               ),
 
@@ -250,8 +243,34 @@ class _SummaryDialogState extends State<SummaryDialog> {
     );
   }
 
+  Widget _buildLevelDropdown() {
+    final color = Theme.of(context).primaryColor;
+    return DropdownButtonFormField<int>(
+      value: _summaryLevel,
+      isDense: true,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color),
+        ),
+      ),
+      items: _kLevels.map((lv) {
+        return DropdownMenuItem<int>(
+          value: lv.$1,
+          child: Text('${lv.$1}. ${lv.$2}', style: const TextStyle(fontSize: 13)),
+        );
+      }).toList(),
+      onChanged: (v) => setState(() => _summaryLevel = v!),
+    );
+  }
+
   Future<void> _onSummarize() async {
-    debugPrint('✨ [SummaryDialog] 요약 시작 - textLang: $_textLanguage, summaryLang: $_summaryLanguage, ratio: $_summaryRatio');
+    debugPrint('✨ [SummaryDialog] 요약 시작 - textLang: $_textLanguage, summaryLang: $_summaryLanguage, level: $_summaryLevel');
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -263,7 +282,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
         text: widget.file.content,
         textLanguage: _textLanguage,
         summaryLanguage: _summaryLanguage,
-        summaryRatio: _summaryRatio,
+        summaryLevel: _summaryLevel,
         fileId: widget.file.id,
       );
 
@@ -274,7 +293,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
           summary: summary,
           textLanguage: _textLanguage,
           summaryLanguage: _summaryLanguage,
-          summaryRatio: _summaryRatio,
+          summaryLevel: _summaryLevel,
         ));
       }
     } catch (e) {
@@ -293,12 +312,12 @@ class SummaryResult {
   final String summary;
   final String textLanguage;
   final String summaryLanguage;
-  final int summaryRatio;
+  final int summaryLevel;
 
   const SummaryResult({
     required this.summary,
     required this.textLanguage,
     required this.summaryLanguage,
-    required this.summaryRatio,
+    required this.summaryLevel,
   });
 }

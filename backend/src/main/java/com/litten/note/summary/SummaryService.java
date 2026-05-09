@@ -61,12 +61,12 @@ public class SummaryService {
             return SummaryResponseVo.fail("요약할 텍스트가 없습니다.");
         }
 
-        int ratio = normalizeRatio(request.getSummaryRatio());
-        log.info("[SummaryService] 요약 요청 - 텍스트 길이: {}, 입력언어: {}, 요약언어: {}, 비율: {}",
-                plainText.length(), request.getTextLanguage(), request.getSummaryLanguage(), ratio);
+        int level = normalizeLevel(request.getSummaryLevel());
+        log.info("[SummaryService] 요약 요청 - 텍스트 길이: {}, 입력언어: {}, 요약언어: {}, 수준: {}",
+                plainText.length(), request.getTextLanguage(), request.getSummaryLanguage(), level);
 
         try {
-            String prompt = buildPrompt(plainText, request.getTextLanguage(), request.getSummaryLanguage(), ratio);
+            String prompt = buildPrompt(plainText, request.getTextLanguage(), request.getSummaryLanguage(), level);
             String requestBody = buildRequestBody(prompt);
 
             HttpHeaders headers = new HttpHeaders();
@@ -101,43 +101,212 @@ public class SummaryService {
         }
     }
 
-    // ratio 10~90 → 포인트 수 1~9개, 길이 지침 매핑
-    private int normalizeRatio(int ratio) {
-        if (ratio < 10) return 50; // 기본값
-        int clamped = Math.max(10, Math.min(90, ratio));
-        return (clamped / 10) * 10; // 10단위 정규화
+    private int normalizeLevel(int level) {
+        if (level < 1 || level > 5) return 3; // 기본값: 일반 요약
+        return level;
     }
 
-    private String buildPrompt(String text, String textLanguage, String summaryLanguage, int ratio) {
-        String inputLang = (textLanguage == null || textLanguage.isBlank()) ? "ko" : textLanguage;
-        String outputLang = (summaryLanguage == null || summaryLanguage.isBlank()) ? "ko" : summaryLanguage;
+    private String buildPrompt(String text, String textLanguage, String summaryLanguage, int level) {
+        String sourceLang = (textLanguage == null || textLanguage.isBlank()) ? "ko" : textLanguage;
+        String outputLang = (summaryLanguage == null || summaryLanguage.isBlank()) ? sourceLang : summaryLanguage;
 
-        String inputLangInstruction = "ko".equals(inputLang)
-                ? "아래 텍스트는 한국어로 작성되었습니다."
-                : "The following text is written in " + inputLang + ".";
+        StringBuilder sb = new StringBuilder();
 
-        String outputLangInstruction = "ko".equals(outputLang)
-                ? "요약은 반드시 한국어로 작성해주세요."
-                : "Please write the summary in " + outputLang + ".";
+        sb.append("다음 콘텐츠를 요약해줘.\n\n");
+        sb.append("요약 수준: ").append(level).append("\n");
+        sb.append("대상 언어: ").append(sourceLang).append("\n");
+        sb.append("요약 언어: ").append(outputLang).append("\n");
+        sb.append("콘텐츠 내용: ").append(text).append("\n\n");
 
-        // 비율별 요약 지침 (강의/회의 흐름 파악용)
-        String summaryInstruction = switch (ratio) {
-            case 10 -> "가장 핵심적인 주제만 간단히 요약해주세요. 전체 흐름 중 가장 중요한 내용만 목록화하여 작성해주세요.";
-            case 20 -> "주요 주제 간략하게 요약해주세요. 강의/회의의 핵심 흐름을 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 30 -> "주요 주제를 요약해주세요. 강의/회의의 전개 흐름과 핵심 내용을 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 40 -> "주요 주제와 세부 내용을 포함하여 요약해주세요. 강의/회의의 전체 흐름과 중요 포인트를 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 50 -> "주요 주제, 세부 내용, 논의된 의견을 균형있게 요약해주세요. 강의/회의의 흐름과 핵심 내용을 충분히 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 60 -> "주요 주제, 세부 내용, 논의 과정을 상세히 요약해주세요. 강의/회의의 전개 과정과 주요 논점을 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 70 -> "모든 주제와 세부 논의 내용을 상세히 요약해주세요. 강의/회의의 전체 흐름, 주요 논점, 결론을 파악할 수 있도록 목록화하여 작성해주세요.";
-            case 80 -> "모든 내용을 매우 상세히 요약해주세요. 강의/회의의 세부 흐름, 모든 논점, 의견, 질의응답까지 포함하여 목록화하여 작성해주세요.";
-            case 90 -> "거의 모든 내용을 빠짐없이 요약해주세요. 강의/회의의 전체 흐름, 모든 논의 과정, 세부 의견, 결론까지 상세히 목록화하여 작성해주세요.";
-            default -> "STT로 전사된 내용으로 단어나 맥락이 맞지 않을 수 있습니다. 주요 주제, 세부 내용, 논의된 의견을 균형있게 요약해주세요. 강의/회의의 흐름과 핵심 내용을 충분히 파악할 수 있도록 목록화하여 작성해주세요.";
-        };
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[콘텐츠 유형 자동 판별]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("※ 콘텐츠 유형은 사용자가 지정하지 않는다.\n");
+        sb.append("   원문을 분석해 가장 가까운 유형을 스스로 판별한 뒤,\n");
+        sb.append("   해당 유형에 맞는 관점·구조·용어로 요약을 생성한다.\n\n");
+        sb.append("1. 판별 단서\n");
+        sb.append("   - 다중 화자 + 의사결정·합의 흐름 → 회의\n");
+        sb.append("   - 단일 화자 + 학습 목표·개념 설명·예시·과제 → 강의 / 동영상강의\n");
+        sb.append("   - 단일 화자 + 주장·근거·결론 + 청중 대상 → 발표\n");
+        sb.append("   - 진행자 + 게스트의 Q&A 구조 → 인터뷰\n");
+        sb.append("   - 2인 이상 자유 대담 + 화제 전환 → 팟캐스트\n");
+        sb.append("   - 영상 화자의 권유·추천·정보 전달 톤 → 유튜브\n");
+        sb.append("   - 위에 해당하지 않거나 혼합형 → 기타\n\n");
+        sb.append("2. 판별이 애매한 경우\n");
+        sb.append("   - 가장 가까운 유형 1개를 선택하되, 판별 결과를 출력 첫 줄에 표기한다.\n");
+        sb.append("   - 형식: 콘텐츠 유형: [판별값] (자동 감지)\n\n");
+        sb.append("3. 판별 결과는 다음에 영향을 준다.\n");
+        sb.append("   - 요약 본문의 관점과 강조점\n");
+        sb.append("   - 출력 형식의 섹션 명칭\n");
+        sb.append("   - 리마인드 추출 기준과 유형 라벨\n\n");
 
-        return inputLangInstruction + "\n"
-                + outputLangInstruction + "\n\n"
-                + summaryInstruction + "\n\n"
-                + "텍스트:\n" + text;
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[콘텐츠 유형별 처리 관점]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 회의 — 누가, 무엇을, 언제까지 / 결정·담당자·후속 액션\n");
+        sb.append("2. 강의 / 동영상강의 — 무엇을 배우고 적용하는가 / 핵심 개념·정의·예시\n");
+        sb.append("3. 발표 — 발표자의 핵심 메시지 / 주장·근거·데이터·결론\n");
+        sb.append("4. 유튜브 — 시청자가 알아야 할 정보 / 주장·실천 포인트\n");
+        sb.append("5. 인터뷰 — Q&A에서의 인사이트 / 인터뷰이의 발언·관점\n");
+        sb.append("6. 팟캐스트 — 어떤 결론에 이르렀는가 / 핵심 논점·일화\n");
+        sb.append("7. 기타 — 콘텐츠 성격 파악 후 가장 가까운 유형 적용\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[언어 처리 규칙]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 대상 언어는 원문 기준이며, STT 보정·문맥 해석은 대상 언어 기준으로 수행한다.\n");
+        sb.append("2. 모든 출력은 요약 언어로 작성한다.\n");
+        sb.append("3. 대상 언어 ≠ 요약 언어인 경우\n");
+        sb.append("   - 자연스러운 의역을 적용한다.\n");
+        sb.append("   - 다음 항목은 원문 유지 또는 병기한다.\n");
+        sb.append("     · 고유명사, 기능명, 시스템명, API명, 약어, 도서·강의 제목\n");
+        sb.append("   - 병기 형식: 요약어(원문) — 예: \"결제 모듈(Payment Module)\"\n");
+        sb.append("4. 요약 언어 미지정 시 대상 언어와 동일하게 처리한다.\n");
+        sb.append("5. 코드, SQL, 명령어, 로그, 수식은 원문 그대로 유지한다.\n");
+        sb.append("6. 날짜·시간은 요약 언어 관례를 따른다.\n");
+        sb.append("   - 한국어: 2025년 12월 5일 (금)\n");
+        sb.append("   - 영어: Dec 5, 2025 (Fri)\n");
+        sb.append("   - 일본어: 2025年12月5日(金)\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[요약 수준]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 한줄 요약    (VERY_SHORT, 약 10%) — 핵심 주제·결론만, 빠른 확인용\n");
+        sb.append("2. 간단 요약    (SHORT, 약 25%) — 주요 포인트·구조 유지, 공유용\n");
+        sb.append("3. 일반 요약    (MEDIUM, 약 40~50%) — 흐름과 의도 포함, 일반 공유 수준\n");
+        sb.append("4. 상세 요약    (LONG, 약 70%) — 흐름 대부분 유지, 상세 검토용\n");
+        sb.append("5. 전체 정제본  (FULL, 약 90%) — STT 오류만 제거, 복기 및 문서화용\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[STT 보정 규칙]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. STT 오인식으로 보이는 단어, 조사, 띄어쓰기는 대상 언어 문맥상 자연스럽게 보정한다.\n");
+        sb.append("2. 단순 단어 오인식보다 전체 흐름과 의도를 우선해 해석한다.\n");
+        sb.append("3. 반복 발화, 추임새, 끊긴 문장, 의미 없는 표현은 제거한다.\n");
+        sb.append("4. 잘못 인식된 전문 용어/제품명/기능명/인명은 문맥상 자연스럽게 보정한다.\n");
+        sb.append("5. 고유명사, 기능명, 개념어는 가능한 한 원문 그대로 유지한다.\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[작성 규칙]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 기계적 압축이 아닌, 사람이 이해하기 쉬운 형태로 재구성한다.\n");
+        sb.append("2. 추상적 표현 대신 실제 내용·사례·동작 흐름 중심으로 설명한다.\n");
+        sb.append("3. 중요한 의도, 맥락, 배경은 최대한 유지한다.\n");
+        sb.append("4. 원문에 없는 사실, 수치, 발언은 추가·추측하지 않는다.\n");
+        sb.append("   - 의미 파악 불가 구간은 [불명확]으로 표시한다.\n");
+        sb.append("5. 화자/발표자 정보는 원문에 있을 때만 유지한다.\n");
+        sb.append("6. 개인정보(연락처, 주민번호 등)는 마스킹 처리한다.\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[요약과 리마인드의 구분]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 요약 본문 — 서술형, \"다뤄진 내용\", 과거·현재 시점, 읽고 이해\n");
+        sb.append("2. 리마인드 — 체크리스트형, \"앞으로 챙길 것\", 미래 시점, 등록·추적\n");
+        sb.append("3. 본문 항목은 망라적, 리마인드는 선별적이며 같은 항목이 양쪽에 들어갈 수 있다.\n");
+        sb.append("4. 리마인드 섹션 앞에는 구분선과 강조 표기를 둔다.\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[리마인드 3단 계층 구조]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("※ 리마인드는 다음 3단 계층으로 구성한다.\n\n");
+        sb.append("[1단: 항목 (Group)]\n");
+        sb.append("   - 의미: 리마인드를 묶는 큰 카테고리\n");
+        sb.append("   - 작성 기준: 콘텐츠 내 주제·영역 단위로 그룹핑\n");
+        sb.append("     · 회의: 안건별 (예: \"결제 모듈 설계\", \"운영 이슈\")\n");
+        sb.append("     · 강의: 챕터·단원별 (예: \"정규화\", \"트랜잭션\")\n");
+        sb.append("     · 발표: 주장 단위 (예: \"시간 관리 원칙\", \"실행 전략\")\n");
+        sb.append("     · 유튜브/팟캐스트: 화제 단위\n");
+        sb.append("     · 인터뷰: 질문 주제 단위\n");
+        sb.append("   - 형식: 짧은 명사구 (5~15자 권장)\n");
+        sb.append("   - 일반적으로 항목은 2~5개 사이가 적절하다.\n");
+        sb.append("     억지로 그룹을 나누지 말고, 단일 그룹이 자연스러우면 1개도 가능하다.\n\n");
+        sb.append("[2단: 세부항목 (Item)]\n");
+        sb.append("   - 의미: 항목 내의 개별 리마인드 한 줄\n");
+        sb.append("   - 형식: [유형] 내용 / 담당자(또는 관련자) / 기한\n");
+        sb.append("   - 유형: 일정 | 액션 | 핵심개념 | 적용포인트 | 학습할것 | 외부대기 | 리스크 | 기타\n");
+        sb.append("   - 담당자/기한이 원문에 없으면 \"미정\" 또는 \"-\"로 표시한다.\n");
+        sb.append("   - 추측해서 만들어내지 않는다.\n\n");
+        sb.append("[3단: 내용 (Detail)]\n");
+        sb.append("   - 의미: 세부항목의 부가 설명·맥락·근거\n");
+        sb.append("   - 작성 기준\n");
+        sb.append("     · 왜 중요한지, 어떤 맥락에서 나왔는지\n");
+        sb.append("     · 어떻게 실행/기억해야 하는지\n");
+        sb.append("     · 관련 예시, 수치, 인용 발언\n");
+        sb.append("   - 1~3줄 권장. 한 줄로 충분하면 한 줄만.\n");
+        sb.append("   - 부가 설명이 불필요한 단순 일정·약속은 3단을 생략할 수 있다.\n\n");
+        sb.append("[출력 포맷]\n");
+        sb.append("   📂 [1단 항목명]\n");
+        sb.append("      ▸ [유형] 세부항목 내용 / 담당자 / 기한\n");
+        sb.append("        └ 부가 설명 줄 1\n");
+        sb.append("        └ 부가 설명 줄 2\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[리마인드 추출 규칙]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("1. 다음에 해당하는 내용을 리마인드로 추출한다.\n");
+        sb.append("   - 명시적 일정 / 기한\n");
+        sb.append("   - 약속·확약 사항\n");
+        sb.append("   - 반드시 기억해야 할 핵심 개념·공식·정의\n");
+        sb.append("   - 실행·적용을 권장하는 포인트\n");
+        sb.append("   - 추가 학습·확인이 필요한 항목\n");
+        sb.append("   - 외부 의존 항목\n");
+        sb.append("   - 리스크·주의사항\n");
+        sb.append("   - \"꼭 기억하세요/중요합니다\" 수준의 강조 발언\n\n");
+        sb.append("2. 추출 후 1단 항목으로 그룹핑한다.\n");
+        sb.append("3. 각 그룹 내 세부항목은 중요도 순으로 정렬한다.\n");
+        sb.append("   - 기한 임박 → 외부 의존 → 리스크 → 핵심개념·적용포인트 → 일반 액션·학습 항목\n");
+        sb.append("4. 그룹 간 정렬도 동일 기준을 적용한다.\n");
+        sb.append("5. 콘텐츠에 리마인드성 내용이 없으면 \"없음\"으로 표시한다.\n");
+        sb.append("6. 출력 마지막에 전체 세부항목 총 개수를 표기한다.\n");
+        sb.append("   - 형식: \"리마인드 총 N개\"\n");
+        sb.append("7. 요약 언어가 다른 경우 유형 라벨도 요약 언어로 표기한다.\n");
+        sb.append("   - 영어: [Schedule] | [Action] | [KeyConcept] | [Application] | [ToStudy] | [Waiting] | [Risk] | [Other]\n");
+        sb.append("   - 일본어: [日程] | [アクション] | [重要概念] | [適用ポイント] | [学習事項] | [外部待ち] | [リスク] | [その他]\n\n");
+
+        sb.append("────────────────────────────────────────\n");
+        sb.append("[출력 형식]\n");
+        sb.append("────────────────────────────────────────\n");
+        sb.append("※ 출력 첫 줄에 자동 판별된 콘텐츠 유형 표기.\n");
+        sb.append("※ 모든 섹션 제목은 요약 언어로.\n");
+        sb.append("※ 리마인드 섹션은 3단 계층 구조로 출력하고, 마지막에 총 개수 표기.\n\n");
+
+        sb.append("■ 수준 1 (한줄 요약)\n");
+        sb.append("   콘텐츠 유형: [판별값] (자동 감지)\n");
+        sb.append("   - 한줄 결론\n\n");
+        sb.append("   ─── 📌 리마인드 ───\n");
+        sb.append("   📂 [그룹명]\n");
+        sb.append("      ▸ [유형] 세부항목 / 담당자 / 기한\n");
+        sb.append("        └ (필요 시 부가 설명)\n");
+        sb.append("   리마인드 총 N개\n\n");
+
+        sb.append("■ 수준 2 (간단 요약)\n");
+        sb.append("   콘텐츠 유형: [판별값] (자동 감지)\n");
+        sb.append("   - 전체 목적 / 주제\n");
+        sb.append("   - 핵심 내용\n");
+        sb.append("   - 결론 / 핵심 메시지\n");
+        sb.append("   - 한줄 결론\n\n");
+        sb.append("   ─── 📌 리마인드 ───\n");
+        sb.append("   📂 [그룹명]\n");
+        sb.append("      ▸ [유형] 세부항목 / 담당자 / 기한\n");
+        sb.append("        └ (부가 설명)\n");
+        sb.append("   리마인드 총 N개\n\n");
+
+        sb.append("■ 수준 3~5 (일반 / 상세 / 전체 정제본)\n");
+        sb.append("   콘텐츠 유형: [판별값] (자동 감지)\n");
+        sb.append("   - 전체 목적 / 주제\n");
+        sb.append("   - 주요 내용\n");
+        sb.append("   - 핵심 개념·구조·주장\n");
+        sb.append("   - 쟁점 / 이슈 / Q&A\n");
+        sb.append("   - 결정 사항 / 결론 / 핵심 메시지\n");
+        sb.append("   - 후속 액션 / 적용 방법 / 다음 학습\n");
+        sb.append("   - 한줄 결론\n\n");
+        sb.append("   ─── 📌 리마인드 ───\n");
+        sb.append("   📂 [그룹명]\n");
+        sb.append("      ▸ [유형] 세부항목 / 담당자 / 기한\n");
+        sb.append("        └ (부가 설명)\n");
+        sb.append("   리마인드 총 N개\n");
+
+        return sb.toString();
     }
 
     private String buildRequestBody(String prompt) throws Exception {

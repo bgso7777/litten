@@ -424,14 +424,14 @@ class ApiService {
     required String text,
     required String textLanguage,
     required String summaryLanguage,
-    required int summaryRatio,
+    required int summaryLevel,
     String? fileId,
   }) async {
-    debugPrint('[ApiService] summarizeText - fileId: $fileId, ratio: $summaryRatio, mock: $_useMock');
+    debugPrint('[ApiService] summarizeText - fileId: $fileId, level: $summaryLevel, mock: $_useMock');
 
     if (_useMock) {
       await Future.delayed(const Duration(milliseconds: 1200)); // 실제 API 느낌
-      return _buildMockSummary(text, summaryLanguage, summaryRatio);
+      return _buildMockSummary(text, summaryLanguage, summaryLevel);
     }
 
     try {
@@ -440,7 +440,7 @@ class ApiService {
         'text': text,
         'textLanguage': textLanguage,
         'summaryLanguage': summaryLanguage,
-        'summaryRatio': summaryRatio,
+        'summaryLevel': summaryLevel,
         'fileId': fileId,
       });
 
@@ -475,25 +475,23 @@ class ApiService {
     }
   }
 
-  String _buildMockSummary(String text, String lang, int ratio) {
-    final pointCount = ratio ~/ 10;
+  String _buildMockSummary(String text, String lang, int level) {
     final plain = text.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     final preview = plain.length > 40 ? plain.substring(0, 40) : plain;
+    final clampedLevel = level.clamp(1, 5);
+    const labels = ['', '한줄 요약', '간단 요약', '일반 요약', '상세 요약', '거의 전체'];
+    final labelStr = labels[clampedLevel];
 
-    final points = List.generate(pointCount, (i) => switch (i) {
-      0 => '• 이 문서의 핵심 주제: "$preview..."',
-      1 => '• 주요 내용이 체계적으로 정리되어 있습니다.',
-      2 => '• 중요한 세부 사항이 포함되어 있습니다.',
-      3 => '• 관련 맥락과 배경 정보가 서술되어 있습니다.',
-      4 => '• 결론 및 요약이 문서 후반부에 위치합니다.',
-      5 => '• 추가적인 참고 정보가 기술되어 있습니다.',
-      6 => '• 세부 예시와 설명이 포함되어 있습니다.',
-      7 => '• 관련 항목들이 상세히 나열되어 있습니다.',
-      _ => '• 전반적인 내용이 명확하게 기술되어 있습니다.',
-    });
+    final lines = switch (clampedLevel) {
+      1 => ['**전체 목적**: $preview... (핵심 요약)\n**한줄 결론**: 핵심 주제와 결론 중심으로 정리됨'],
+      2 => ['**전체 목적**: $preview...', '**주요 논의 내용**: 핵심 기능과 논의 포함', '**한줄 결론**: 주요 내용 중심으로 정리됨'],
+      3 => ['**전체 목적**: $preview...', '**주요 논의 내용**: 실무 흐름과 논의 포함', '**핵심 기능 및 구조**: 기능별 역할 정리', '**결정 사항**: 주요 결정사항 포함', '**한줄 결론**: 실무 흐름 중심으로 정리됨'],
+      4 => ['**전체 목적**: $preview...', '**주요 논의 내용**: 전체 논의 흐름 포함', '**핵심 기능 및 구조**: 구현 방향 포함', '**현재 이슈 및 고민사항**: 운영 고민 포함', '**결정 사항**: 의사결정 배경 포함', '**후속 액션**: 후속 작업 정리', '**한줄 결론**: 상세 실무 흐름 정리됨'],
+      _ => ['**전체 목적**: $preview...', '**주요 논의 내용**: 전체 맥락 최대한 유지', '**핵심 기능 및 구조**: 상세 구조 포함', '**현재 이슈 및 고민사항**: 모든 이슈 포함', '**결정 사항**: 전체 의사결정 포함', '**후속 액션**: 상세 후속 작업 정리', '**한줄 결론**: 정제된 회의록 수준으로 정리됨'],
+    };
 
-    debugPrint('[ApiService] _buildMockSummary - pointCount: $pointCount, lang: $lang');
-    return points.join('\n');
+    debugPrint('[ApiService] _buildMockSummary - level: $clampedLevel ($labelStr), lang: $lang');
+    return lines.join('\n\n');
   }
 
   /// 내 구독 플랜 조회
