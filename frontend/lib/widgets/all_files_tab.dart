@@ -14,6 +14,8 @@ import 'text_tab.dart';
 import 'handwriting_tab.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
+import '../models/remind_item.dart';
+import '../utils/remind_parser.dart';
 
 // ───────────────────────────── 파일 타입 통합 래퍼 ─────────────────────────────
 
@@ -890,13 +892,28 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await _loadFiles(appState);
 
+      // 리마인드 추출 및 저장
+      final remindItems = RemindParser.parse(
+        summaryText: result.summary,
+        fileId: file.id,
+        fileName: file.displayTitle,
+        littenId: file.littenId,
+        fileType: RemindFileType.text,
+      );
+      if (remindItems.isNotEmpty) {
+        appState.addRemindItems(remindItems);
+        debugPrint('✨ [AllFilesTab] 리마인드 ${remindItems.length}개 추가 완료');
+      }
+
       debugPrint('✨ [AllFilesTab] 요약 저장 완료');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('요약이 파일에 추가되었습니다.'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(remindItems.isNotEmpty
+                ? '요약이 추가되었습니다. 리마인드 ${remindItems.length}개 생성'
+                : '요약이 파일에 추가되었습니다.'),
+            duration: const Duration(seconds: 2),
           ),
         );
       }

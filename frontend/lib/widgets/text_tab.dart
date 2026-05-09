@@ -20,6 +20,8 @@ import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
 import '../services/sync_service.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
+import '../models/remind_item.dart';
+import '../utils/remind_parser.dart';
 
 class TextTab extends StatefulWidget {
   final bool autoCreate;
@@ -2578,6 +2580,21 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           );
           await _saveCurrentTextFile();
           debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료 (이력: ${newHistory.length}개)');
+
+          // 리마인드 추출 및 저장
+          final file = _currentTextFile!;
+          final remindItems = RemindParser.parse(
+            summaryText: summary,
+            fileId: file.id,
+            fileName: file.displayTitle,
+            littenId: file.littenId,
+            fileType: RemindFileType.text,
+          );
+          if (remindItems.isNotEmpty && mounted) {
+            final appState = Provider.of<AppStateProvider>(context, listen: false);
+            appState.addRemindItems(remindItems);
+            debugPrint('✨ [SttMode] 리마인드 ${remindItems.length}개 추가 완료');
+          }
 
           // ⭐ 자동 요약 시점에 즉시 에디터에 삽입
           await _insertSummaryAtCurrentPosition(summary);

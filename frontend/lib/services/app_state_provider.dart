@@ -107,6 +107,17 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  void addRemindItems(List<RemindItem> items) {
+    if (items.isEmpty) return;
+    debugPrint('[AppStateProvider] addRemindItems: ${items.length}개');
+    _remindItems.addAll(items);
+    if (_selectedRemindFileId == null && items.isNotEmpty) {
+      _selectedRemindFileId = items.first.fileId;
+    }
+    _saveRemindItems();
+    notifyListeners();
+  }
+
   void toggleRemindDone(String itemId) {
     final index = _remindItems.indexWhere((i) => i.id == itemId);
     if (index == -1) return;
