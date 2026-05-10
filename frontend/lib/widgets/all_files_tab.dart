@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../services/file_storage_service.dart';
@@ -240,7 +241,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         );
       }
     } else {
-      final success = await _audioService.startRecording(litten);
+      final success = await _audioService.startRecording(litten, undefinedPrefix: AppLocalizations.of(context)?.audioTab ?? '녹음');
       if (success && mounted) {
         setState(() {
           _isRecording = true;
@@ -381,13 +382,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
               color: Colors.grey[400],
             ),
             const SizedBox(height: 12),
-            Text(
-              widget.showOnlySTT
-                  ? '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.'
-                  : '파일이 없습니다.\n아래 버튼으로 추가하세요.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[500]),
-            ),
+            Builder(builder: (ctx) {
+              final l10n = AppLocalizations.of(ctx);
+              return Text(
+                widget.showOnlySTT
+                    ? (l10n?.noVoiceMemos ?? '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.')
+                    : (l10n?.noFilesPrompt ?? '파일이 없습니다.\n아래 버튼으로 추가하세요.'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[500]),
+              );
+            }),
           ],
         ),
       );
@@ -455,33 +459,36 @@ class _AllFilesTabState extends State<AllFilesTab> {
         padding: EdgeInsets.zero,
         iconSize: 16,
         icon: Icon(Icons.more_vert, color: color, size: 16),
-        tooltip: '메뉴',
+        tooltip: AppLocalizations.of(context)?.menuTooltip ?? '메뉴',
         onSelected: (value) {
           if (value == 'edit') onEdit();
           else if (value == 'delete') onDelete();
         },
-        itemBuilder: (ctx) => const [
-          PopupMenuItem(
-            value: 'edit',
-            child: Row(
-              children: [
-                Icon(Icons.edit_outlined, size: 18),
-                SizedBox(width: 8),
-                Text('수정'),
-              ],
+        itemBuilder: (ctx) {
+          final l10n = AppLocalizations.of(ctx);
+          return [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(l10n?.editLabel ?? '수정'),
+                ],
+              ),
             ),
-          ),
-          PopupMenuItem(
-            value: 'delete',
-            child: Row(
-              children: [
-                Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                SizedBox(width: 8),
-                Text('삭제', style: TextStyle(color: Colors.red)),
-              ],
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Text(l10n?.delete ?? '삭제', style: const TextStyle(color: Colors.red)),
+                ],
+              ),
             ),
-          ),
-        ],
+          ];
+        },
       ),
     );
   }
@@ -610,7 +617,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text('${file.characterCount}자',
+                      child: Text(
+                          AppLocalizations.of(context)?.characterCount(file.characterCount) ?? '${file.characterCount}자',
                           style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
                     ),
                   ],
@@ -626,13 +634,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: file.hasSummary ? color : Colors.grey.shade400,
-                      tooltip: file.hasSummary ? '요약 보기' : '요약 없음',
+                      tooltip: file.hasSummary
+                          ? (AppLocalizations.of(context)?.viewSummary ?? '요약 보기')
+                          : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
                       onPressed: () => _showSummaryDialog(file),
                     ),
                     _iconBtn(
                       icon: Icons.share_outlined,
                       color: color,
-                      tooltip: '공유',
+                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
                       onPressed: () {},
                     ),
                     _moreMenuBtn(
@@ -695,7 +705,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                           color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${file.totalPages}페이지',
+                        child: Text(
+                            AppLocalizations.of(context)?.pageCount(file.totalPages) ?? '${file.totalPages}페이지',
                             style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
                       ),
                     ],
@@ -712,13 +723,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: Colors.grey.shade400,
-                      tooltip: '요약 미지원',
+                      tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
                     _iconBtn(
                       icon: Icons.share_outlined,
                       color: color,
-                      tooltip: '공유',
+                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
                       onPressed: () {},
                     ),
                     _moreMenuBtn(
@@ -842,7 +853,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: Colors.grey.shade400,
-                      tooltip: '요약 미지원',
+                      tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
                     _iconBtn(
@@ -887,17 +898,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // ── 삭제 공통 다이얼로그 ──
   void _showDeleteDialog(String name, VoidCallback onConfirm) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('파일 삭제'),
-        content: Text('"$name"을(를) 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.'),
+        title: Text(l10n?.deleteFile ?? '파일 삭제'),
+        content: Text(l10n?.confirmDeleteFileMessage(name) ?? '"$name"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n?.cancel ?? '취소')),
           TextButton(
             onPressed: () { Navigator.pop(ctx); onConfirm(); },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
+            child: Text(l10n?.delete ?? '삭제'),
           ),
         ],
       ),
@@ -1007,11 +1019,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
       debugPrint('✨ [AllFilesTab] 요약 저장 완료');
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(remindItems.isNotEmpty
-                ? '요약이 추가되었습니다. 리마인드 ${remindItems.length}개 생성'
-                : '요약이 파일에 추가되었습니다.'),
+                ? (l10n?.summaryAddedWithRemind(remindItems.length) ?? '요약이 추가되었습니다. 리마인드 ${remindItems.length}개 생성')
+                : (l10n?.summaryAdded ?? '요약이 파일에 추가되었습니다.')),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1019,8 +1032,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
     } catch (e) {
       debugPrint('❌ [AllFilesTab] 요약 파일 저장 실패: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('요약 저장 실패: $e')),
+          SnackBar(content: Text(l10n?.summarySaveFailed(e.toString()) ?? '요약 저장 실패: $e')),
         );
       }
     }
@@ -1037,14 +1051,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // ── 텍스트 이름 변경 ──
   void _showRenameTextDialog(TextFile file) {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: file.title);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('이름 변경'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        title: Text(l10n?.rename ?? '이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: InputDecoration(hintText: l10n?.fileNameHint ?? '파일 이름')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n?.cancel ?? '취소')),
           TextButton(
             onPressed: () async {
               final newTitle = controller.text.trim();
@@ -1053,7 +1068,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 await _renameTextFile(file, newTitle);
               }
             },
-            child: const Text('확인'),
+            child: Text(l10n?.confirm ?? '확인'),
           ),
         ],
       ),
@@ -1101,14 +1116,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // ── 필기 이름 변경 ──
   void _showRenameHandwritingDialog(HandwritingFile file) {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: file.title);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('이름 변경'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        title: Text(l10n?.rename ?? '이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: InputDecoration(hintText: l10n?.fileNameHint ?? '파일 이름')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n?.cancel ?? '취소')),
           TextButton(
             onPressed: () async {
               final newTitle = controller.text.trim();
@@ -1117,7 +1133,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 await _renameHandwritingFile(file, newTitle);
               }
             },
-            child: const Text('확인'),
+            child: Text(l10n?.confirm ?? '확인'),
           ),
         ],
       ),
@@ -1165,14 +1181,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // ── 녹음 이름 변경 ──
   void _showRenameAudioDialog(AudioFile file) {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: file.fileName);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('이름 변경'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '파일 이름')),
+        title: Text(l10n?.rename ?? '이름 변경'),
+        content: TextField(controller: controller, autofocus: true, decoration: InputDecoration(hintText: l10n?.fileNameHint ?? '파일 이름')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n?.cancel ?? '취소')),
           TextButton(
             onPressed: () async {
               final newName = controller.text.trim();
@@ -1181,7 +1198,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 await _renameAudioFile(file, newName);
               }
             },
-            child: const Text('확인'),
+            child: Text(l10n?.confirm ?? '확인'),
           ),
         ],
       ),
@@ -1286,9 +1303,10 @@ class _BottomFabRowState extends State<_BottomFabRow> {
     final fabVis = appState.allTabFabVisibility;
 
     final dialItems = <Widget>[];
+    final l10n = AppLocalizations.of(context);
     if (fabVis.contains('canvas')) {
       dialItems.addAll([
-        _SpeedDialItem(label: '필기', icon: Icons.draw, color: color,
+        _SpeedDialItem(label: l10n?.handwritingTab ?? '필기', icon: Icons.draw, color: color,
             onTap: () => _handleAction(widget.onCanvas)),
         const SizedBox(height: 8),
       ]);
@@ -1302,7 +1320,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
     }
     if (fabVis.contains('text')) {
       dialItems.addAll([
-        _SpeedDialItem(label: '메모', icon: Icons.notes, color: color,
+        _SpeedDialItem(label: l10n?.memoLabel ?? '메모', icon: Icons.notes, color: color,
             onTap: () => _handleAction(widget.onText)),
         const SizedBox(height: 8),
       ]);
@@ -1311,8 +1329,8 @@ class _BottomFabRowState extends State<_BottomFabRow> {
       dialItems.addAll([
         _SpeedDialItem(
           label: widget.isRecording
-              ? '녹음중... ${_formatDuration(widget.recordingDuration)}'
-              : '녹음',
+              ? (l10n?.recordingStatus(_formatDuration(widget.recordingDuration)) ?? '녹음중... ${_formatDuration(widget.recordingDuration)}')
+              : (l10n?.audioTab ?? '녹음'),
           icon: widget.isRecording ? Icons.stop : Icons.mic,
           color: color,
           onTap: widget.onAudio,
@@ -1323,7 +1341,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
     if (fabVis.contains('stt')) {
       dialItems.addAll([
         _SpeedDialItem(
-          label: '음성 메모',
+          label: l10n?.voiceMemoLabel ?? '음성 메모',
           icon: Icons.record_voice_over,
           color: color,
           onTap: () => _handleAction(widget.onTextWithSTT),
@@ -1465,15 +1483,19 @@ class _FabBtn extends StatelessWidget {
 /// DraggableTabLayout 탭 버튼에 표시할 일정명 + 3개 아이콘 + 파일수 위젯
 class AllFilesTabButton extends StatelessWidget {
   final int textCount;
-  final int handwritingCount;
+  final int canvasCount;
+  final int pdfCount;
   final int audioCount;
+  final int sttMemoCount;
   final String? littenTitle;
 
   const AllFilesTabButton({
     super.key,
     required this.textCount,
-    required this.handwritingCount,
+    required this.canvasCount,
+    required this.pdfCount,
     required this.audioCount,
+    required this.sttMemoCount,
     this.littenTitle,
     bool isActive = false,
   });
@@ -1481,19 +1503,34 @@ class AllFilesTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayTitle = (littenTitle == null || littenTitle == 'undefined') ? '' : littenTitle!;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (displayTitle.isNotEmpty) ...[
-          Text(displayTitle, overflow: TextOverflow.ellipsis),
-          const SizedBox(width: 6),
-        ],
-        _iconCount(Icons.notes, textCount),
-        const SizedBox(width: 8),
-        _iconCount(Icons.draw, handwritingCount),
-        const SizedBox(width: 8),
-        _iconCount(Icons.mic, audioCount),
-      ],
+    return Consumer<AppStateProvider>(
+      builder: (context, appState, _) {
+        final fabVis = appState.allTabFabVisibility;
+
+        final visItems = <Widget>[];
+        void maybeAdd(String id, IconData icon, int count) {
+          if (fabVis.contains(id)) {
+            if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
+            visItems.add(_iconCount(icon, count));
+          }
+        }
+        maybeAdd('canvas', Icons.draw, canvasCount);
+        maybeAdd('pdf', Icons.picture_as_pdf, pdfCount);
+        maybeAdd('audio', Icons.mic, audioCount);
+        maybeAdd('text', Icons.notes, textCount);
+        maybeAdd('stt', Icons.record_voice_over, sttMemoCount);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (displayTitle.isNotEmpty) ...[
+              Text(displayTitle, overflow: TextOverflow.ellipsis),
+              if (visItems.isNotEmpty) const SizedBox(width: 6),
+            ],
+            ...visItems,
+          ],
+        );
+      },
     );
   }
 

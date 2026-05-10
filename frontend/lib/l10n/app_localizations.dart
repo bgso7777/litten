@@ -421,7 +421,7 @@ abstract class AppLocalizations {
   /// Maximum recording time value
   ///
   /// In en, this message translates to:
-  /// **'1 hour'**
+  /// **'Unlimited'**
   String get maxRecordingTimeValue;
 
   /// Standard audio quality
@@ -1827,6 +1827,618 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Login failed: {error}'**
   String loginFailed(String error);
+
+  /// Calendar bottom nav tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get calendarTab;
+
+  /// Note option in start screen dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get noteOption;
+
+  /// Reminder chip label when count is 0
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder'**
+  String get reminderLabel;
+
+  /// Reminder chip label with pending count
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder {count}'**
+  String reminderCount(int count);
+
+  /// Empty state for voice memo tab
+  ///
+  /// In en, this message translates to:
+  /// **'No voice memos.\nTap below to start.'**
+  String get noVoiceMemos;
+
+  /// Empty state for all files tab
+  ///
+  /// In en, this message translates to:
+  /// **'No files.\nTap below to add.'**
+  String get noFilesPrompt;
+
+  /// Sync status: not synced
+  ///
+  /// In en, this message translates to:
+  /// **'Not synced'**
+  String get notSynced;
+
+  /// Tooltip for more menu button
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menuTooltip;
+
+  /// Edit action in popup menu
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editLabel;
+
+  /// Tooltip for view summary button
+  ///
+  /// In en, this message translates to:
+  /// **'View Summary'**
+  String get viewSummary;
+
+  /// Tooltip when file has no summary
+  ///
+  /// In en, this message translates to:
+  /// **'No summary'**
+  String get noSummary;
+
+  /// Share action tooltip
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get share;
+
+  /// Character count badge on text file
+  ///
+  /// In en, this message translates to:
+  /// **'{count} chars'**
+  String characterCount(int count);
+
+  /// Page count badge on handwriting file
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pages'**
+  String pageCount(int count);
+
+  /// Tooltip when summary is not supported
+  ///
+  /// In en, this message translates to:
+  /// **'Summary unavailable'**
+  String get summaryUnsupported;
+
+  /// Memo FAB label
+  ///
+  /// In en, this message translates to:
+  /// **'Memo'**
+  String get memoLabel;
+
+  /// Recording in progress label with duration
+  ///
+  /// In en, this message translates to:
+  /// **'Recording... {time}'**
+  String recordingStatus(String time);
+
+  /// Voice memo FAB label
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Memo'**
+  String get voiceMemoLabel;
+
+  /// All files tab label in note tab visibility
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get allFilesLabel;
+
+  /// STT memo tab label in note tab visibility
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Memo'**
+  String get sttMemoLabel;
+
+  /// None option label (e.g. no FAB buttons selected)
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get noneLabel;
+
+  /// Settings item: visible areas
+  ///
+  /// In en, this message translates to:
+  /// **'Visible Areas'**
+  String get visibleAreas;
+
+  /// Settings item: note tab view
+  ///
+  /// In en, this message translates to:
+  /// **'Note Tab View'**
+  String get noteTabView;
+
+  /// Settings item: all tab FAB buttons
+  ///
+  /// In en, this message translates to:
+  /// **'All Tab Button'**
+  String get allTabFab;
+
+  /// Settings item: show ads toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Show Ads'**
+  String get showAds;
+
+  /// Show ads subtitle for paid users (ads off, toggleable)
+  ///
+  /// In en, this message translates to:
+  /// **'Paid plan - ads off by default'**
+  String get paidPlanNoAds;
+
+  /// Show ads subtitle for free users (locked)
+  ///
+  /// In en, this message translates to:
+  /// **'Show banner ad'**
+  String get freeShowAds;
+
+  /// Account section disabled subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Available in Standard & Premium plans'**
+  String get availableInPaidPlans;
+
+  /// Account login subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Login for cloud sync'**
+  String get loginForCloudSync;
+
+  /// Visible areas text when only top left is shown
+  ///
+  /// In en, this message translates to:
+  /// **'Top left only'**
+  String get topLeftOnly;
+
+  /// Visible areas text with additional areas
+  ///
+  /// In en, this message translates to:
+  /// **'Top left + {areas}'**
+  String topLeftWith(String areas);
+
+  /// Rename action label
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get rename;
+
+  /// File name input hint text
+  ///
+  /// In en, this message translates to:
+  /// **'File name'**
+  String get fileNameHint;
+
+  /// Remind panel empty state message
+  ///
+  /// In en, this message translates to:
+  /// **'Extract from summaries\nand they\'ll appear here'**
+  String get noRemindItems;
+
+  /// Cloud sync info dialog content after plan change
+  ///
+  /// In en, this message translates to:
+  /// **'Changed to {plan} plan.\n\nTo use cloud sync, please login at Settings > Account.'**
+  String cloudSyncPlanChanged(String plan);
+
+  /// Calendar chip label when no upcoming schedule
+  ///
+  /// In en, this message translates to:
+  /// **'View Schedule List'**
+  String get viewScheduleList;
+
+  /// Start date label in schedule picker
+  ///
+  /// In en, this message translates to:
+  /// **'Start Date'**
+  String get startDate;
+
+  /// End date label in schedule picker
+  ///
+  /// In en, this message translates to:
+  /// **'End Date'**
+  String get endDate;
+
+  /// Placeholder when end date is not selected
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected'**
+  String get notSelected;
+
+  /// Schedule duration in minutes only
+  ///
+  /// In en, this message translates to:
+  /// **'Total {minutes} min'**
+  String durationMinutes(int minutes);
+
+  /// Schedule duration in hours only
+  ///
+  /// In en, this message translates to:
+  /// **'Total {hours} hr'**
+  String durationHours(int hours);
+
+  /// Schedule duration in hours and minutes
+  ///
+  /// In en, this message translates to:
+  /// **'Total {hours} hr {minutes} min'**
+  String durationHoursMinutes(int hours, int minutes);
+
+  /// Weekday selection dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Select Days'**
+  String get selectWeekdays;
+
+  /// Short day name: Sunday
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get daySun;
+
+  /// Short day name: Monday
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get dayMon;
+
+  /// Short day name: Tuesday
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get dayTue;
+
+  /// Short day name: Wednesday
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get dayWed;
+
+  /// Short day name: Thursday
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get dayThu;
+
+  /// Short day name: Friday
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get dayFri;
+
+  /// Short day name: Saturday
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get daySat;
+
+  /// Dialog title for renaming a file
+  ///
+  /// In en, this message translates to:
+  /// **'Rename File'**
+  String get renameFile;
+
+  /// Label for file rename input field
+  ///
+  /// In en, this message translates to:
+  /// **'New file name'**
+  String get newFileName;
+
+  /// Hint text for file rename input field
+  ///
+  /// In en, this message translates to:
+  /// **'Enter file name'**
+  String get fileNameInputHint;
+
+  /// Delete file confirmation dialog content
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?\n\nThis action cannot be undone.'**
+  String confirmDeleteFileMessage(String name);
+
+  /// Snackbar after successful file rename with new name
+  ///
+  /// In en, this message translates to:
+  /// **'File renamed to \"{name}\".'**
+  String fileRenameSuccessName(String name);
+
+  /// Snackbar after successful file rename
+  ///
+  /// In en, this message translates to:
+  /// **'File renamed.'**
+  String get fileRenameSuccess;
+
+  /// Snackbar after failed file rename
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to rename file: {error}'**
+  String fileRenameFailed(String error);
+
+  /// Snackbar after successful file delete
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted.'**
+  String fileDeleteSuccess(String name);
+
+  /// Snackbar after failed file delete
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete file: {error}'**
+  String fileDeleteFailed(String error);
+
+  /// Downgrade dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Plan Change'**
+  String get planChange;
+
+  /// Downgrade confirmation button
+  ///
+  /// In en, this message translates to:
+  /// **'Change & Logout'**
+  String get changeAndLogout;
+
+  /// Subtitle for the always-visible top-left area in visible areas dialog
+  ///
+  /// In en, this message translates to:
+  /// **'All Tab (fixed)'**
+  String get allTabFixed;
+
+  /// Downgrade confirmation dialog content
+  ///
+  /// In en, this message translates to:
+  /// **'Switching from Premium to {plan} plan will stop cloud sync and automatically log you out.\n\nDo you want to continue?'**
+  String downgradeFromPremiumMessage(String plan);
+
+  /// Snackbar after downgrade and logout
+  ///
+  /// In en, this message translates to:
+  /// **'Changed to {plan} plan. Logged out.'**
+  String planChangedAndLoggedOut(String plan);
+
+  /// STT memo settings dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Memo Settings'**
+  String get voiceMemoSettings;
+
+  /// Label for STT source language
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription Language'**
+  String get transcriptionLanguage;
+
+  /// Label for AI summary output language
+  ///
+  /// In en, this message translates to:
+  /// **'Summary Language'**
+  String get summaryLanguage;
+
+  /// Label for AI summary depth selector
+  ///
+  /// In en, this message translates to:
+  /// **'Summary Level'**
+  String get summaryLevel;
+
+  /// Summary level 1 label
+  ///
+  /// In en, this message translates to:
+  /// **'One-line Summary'**
+  String get summaryLevelOneLiner;
+
+  /// Summary level 2 label
+  ///
+  /// In en, this message translates to:
+  /// **'Brief Summary'**
+  String get summaryLevelBrief;
+
+  /// Summary level 3 label
+  ///
+  /// In en, this message translates to:
+  /// **'Normal Summary'**
+  String get summaryLevelNormal;
+
+  /// Summary level 4 label
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed Summary'**
+  String get summaryLevelDetailed;
+
+  /// Summary level 5 label
+  ///
+  /// In en, this message translates to:
+  /// **'Nearly Full'**
+  String get summaryLevelFull;
+
+  /// Summary level 1 description
+  ///
+  /// In en, this message translates to:
+  /// **'Key topics and conclusions only · ~10%'**
+  String get summaryLevelDesc1;
+
+  /// Summary level 2 description
+  ///
+  /// In en, this message translates to:
+  /// **'Main points and key discussions · ~25%'**
+  String get summaryLevelDesc2;
+
+  /// Summary level 3 description
+  ///
+  /// In en, this message translates to:
+  /// **'Practical flow and design intent · ~40–50%'**
+  String get summaryLevelDesc3;
+
+  /// Summary level 4 description
+  ///
+  /// In en, this message translates to:
+  /// **'Most of the discussion flow · ~70%'**
+  String get summaryLevelDesc4;
+
+  /// Summary level 5 description
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum context preserved · ~90%'**
+  String get summaryLevelDesc5;
+
+  /// Label for auto summary timing selector
+  ///
+  /// In en, this message translates to:
+  /// **'Auto Summary Interval'**
+  String get autoSummaryInterval;
+
+  /// Interval option label in minutes
+  ///
+  /// In en, this message translates to:
+  /// **'{n}min'**
+  String intervalMin(int n);
+
+  /// Interval option: summarize when recording stops
+  ///
+  /// In en, this message translates to:
+  /// **'On Stop'**
+  String get intervalOnStop;
+
+  /// Interval option: no auto summary
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get intervalOff;
+
+  /// Start button in voice memo settings dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startButton;
+
+  /// Label in STT summary panel header
+  ///
+  /// In en, this message translates to:
+  /// **'AI Summary'**
+  String get aiSummary;
+
+  /// Loading text while AI summary is in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Summarizing...'**
+  String get summarizing;
+
+  /// Hint text when interval summary is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Auto summary every {minutes} min after recording starts.'**
+  String autoSummaryEveryMinutes(int minutes);
+
+  /// Hint text when on-stop summary is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Auto summary when recording stops.'**
+  String get autoSummaryOnStop;
+
+  /// Hint text when auto summary is off
+  ///
+  /// In en, this message translates to:
+  /// **'Auto summary is disabled.'**
+  String get autoSummaryDisabled;
+
+  /// Snackbar when AI summary fails
+  ///
+  /// In en, this message translates to:
+  /// **'Summary failed: {error}'**
+  String summaryFailed(String error);
+
+  /// Short label for summary level 1 in dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'1-line'**
+  String get summaryLevelShortOneLiner;
+
+  /// Short label for summary level 2 in dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'Brief'**
+  String get summaryLevelShortBrief;
+
+  /// Short label for summary level 3 in dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get summaryLevelShortNormal;
+
+  /// Short label for summary level 4 in dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'Detail'**
+  String get summaryLevelShortDetailed;
+
+  /// Short label for summary level 5 in dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get summaryLevelShortFull;
+
+  /// Label for past summary records dropdown
+  ///
+  /// In en, this message translates to:
+  /// **'Summary History'**
+  String get summaryHistory;
+
+  /// Label for the source text language selector in summary dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Target Language'**
+  String get targetLanguage;
+
+  /// Loading text shown while AI summary is in progress in summary dialog
+  ///
+  /// In en, this message translates to:
+  /// **'AI is summarizing...'**
+  String get aiSummarizing;
+
+  /// Button label to start summarization
+  ///
+  /// In en, this message translates to:
+  /// **'Summarize'**
+  String get summarize;
+
+  /// Button label to summarize again when history exists
+  ///
+  /// In en, this message translates to:
+  /// **'Re-summarize'**
+  String get summarizeAgain;
+
+  /// Snackbar when summary is successfully added to file
+  ///
+  /// In en, this message translates to:
+  /// **'Summary added to file.'**
+  String get summaryAdded;
+
+  /// Snackbar when summary is added and remind items are created
+  ///
+  /// In en, this message translates to:
+  /// **'Summary added. {count} remind(s) created.'**
+  String summaryAddedWithRemind(int count);
+
+  /// Snackbar when saving summary to file fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save summary: {error}'**
+  String summarySaveFailed(String error);
 }
 
 class _AppLocalizationsDelegate

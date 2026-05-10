@@ -94,25 +94,15 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         debugPrint('🔄 [MainTabScreen] build 호출 - 현재 탭: ${appState.selectedTabIndex}');
         debugPrint('📢 [MainTabScreen] isPremiumUser: ${appState.isPremiumUser}, subscriptionType: ${appState.subscriptionType}');
 
-        debugPrint('🚨 [MainTabScreen] 광고 표시 조건: !isPremiumUser=${!appState.isPremiumUser}');
+        debugPrint('🚨 [MainTabScreen] 광고 표시 조건: adsEnabled=${appState.adsEnabled}, !isPremiumUser=${!appState.isPremiumUser}');
 
         return Scaffold(
           body: SafeArea(
             child: Column(
               children: [
                 // 광고 배너 영역 - 최상위 배치
-                Builder(
-                  builder: (context) {
-                    debugPrint('🎯 [MainTabScreen] Builder 진입 - isPremiumUser: ${appState.isPremiumUser}, adsEnabled: ${appState.adsEnabled}');
-                    if (appState.adsEnabled && !appState.isPremiumUser) {
-                      debugPrint('✅ [MainTabScreen] AdBanner 위젯 생성');
-                      return const AdBanner();
-                    } else {
-                      debugPrint('✅ [MainTabScreen] 광고 숨김 (adsEnabled: ${appState.adsEnabled}, isPremiumUser: ${appState.isPremiumUser})');
-                      return const SizedBox.shrink();
-                    }
-                  },
-                ),
+                // 무료 사용자이면서 광고 표시 설정이 켜진 경우에만 표시
+                if (appState.adsEnabled && !appState.isPremiumUser) const AdBanner(),
               Expanded(
                 // ⭐ PageView를 사용하여 탭 상태 완벽 보존 (physics 비활성화로 스와이프 제스처 차단)
                 child: PageView(
@@ -212,7 +202,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               ),
               BottomNavigationBarItem(
                 icon: _buildHomeIconWithBadge(appState),
-                label: '캘린더',
+                label: l10n?.calendarTab ?? '캘린더',
               ),
               BottomNavigationBarItem(
                 icon: const Icon(Icons.settings),

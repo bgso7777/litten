@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../models/text_file.dart';
+import '../../l10n/app_localizations.dart';
 
 // 앱 지원 30개 언어 목록 (code → 표시명)
-const _kLevels = [
-  (1, '한줄 요약'),
-  (2, '간단 요약'),
-  (3, '일반 요약'),
-  (4, '상세 요약'),
-  (5, '거의 전체'),
-];
-
 const _kLanguages = [
   ('ko', '한국어'),
   ('en', 'English'),
@@ -44,8 +37,6 @@ const _kLanguages = [
   ('th', 'ไทย'),
 ];
 
-const _kLevelNames = {1: '한줄', 2: '간단', 3: '일반', 4: '상세', 5: '전체'};
-
 class SummaryDialog extends StatefulWidget {
   final TextFile file;
 
@@ -62,31 +53,46 @@ class _SummaryDialogState extends State<SummaryDialog> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // 이력 선택 (null = 이력 없음 또는 미선택)
   SummaryRecord? _selectedHistory;
 
   @override
   void initState() {
     super.initState();
-    // 가장 최근 이력이 있으면 기본 선택
     if (widget.file.summaryHistory.isNotEmpty) {
       _selectedHistory = widget.file.summaryHistory.first;
     }
   }
 
-  String get _levelDescription => switch (_summaryLevel) {
-    1 => '핵심 주제와 결론만 · 약 10% · 임원/리더 빠른 확인용',
-    2 => '주요 기능과 핵심 논의 · 약 25% · 팀 공유용',
-    3 => '실무 흐름과 설계 의도 · 약 40~50% · 일반 회의록 공유',
-    4 => '전체 논의 흐름 대부분 · 약 70% · 상세 실무 검토용',
-    5 => '전체 맥락 최대한 유지 · 약 90% · 회의 복기 및 문서화',
-    _ => '실무 흐름과 설계 의도 · 약 40~50% · 일반 회의록 공유',
+  String _levelDescription(AppLocalizations? l10n) => switch (_summaryLevel) {
+    1 => l10n?.summaryLevelDesc1 ?? '핵심 주제와 결론만 · 약 10%',
+    2 => l10n?.summaryLevelDesc2 ?? '주요 기능과 핵심 논의 · 약 25%',
+    3 => l10n?.summaryLevelDesc3 ?? '실무 흐름과 설계 의도 · 약 40~50%',
+    4 => l10n?.summaryLevelDesc4 ?? '전체 논의 흐름 대부분 · 약 70%',
+    5 => l10n?.summaryLevelDesc5 ?? '전체 맥락 최대한 유지 · 약 90%',
+    _ => l10n?.summaryLevelDesc3 ?? '실무 흐름과 설계 의도 · 약 40~50%',
   };
 
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
     final history = widget.file.summaryHistory;
+
+    final levelItems = [
+      (1, l10n?.summaryLevelOneLiner  ?? '한줄 요약'),
+      (2, l10n?.summaryLevelBrief     ?? '간단 요약'),
+      (3, l10n?.summaryLevelNormal    ?? '일반 요약'),
+      (4, l10n?.summaryLevelDetailed  ?? '상세 요약'),
+      (5, l10n?.summaryLevelFull      ?? '거의 전체'),
+    ];
+
+    final levelShortNames = {
+      1: l10n?.summaryLevelShortOneLiner  ?? '한줄',
+      2: l10n?.summaryLevelShortBrief     ?? '간단',
+      3: l10n?.summaryLevelShortNormal    ?? '일반',
+      4: l10n?.summaryLevelShortDetailed  ?? '상세',
+      5: l10n?.summaryLevelShortFull      ?? '전체',
+    };
 
     return AlertDialog(
       title: Row(children: [
@@ -109,9 +115,9 @@ class _SummaryDialogState extends State<SummaryDialog> {
             children: [
               // ── 요약 이력 ──────────────────────────────
               if (history.isNotEmpty) ...[
-                _buildLabel('요약 이력'),
+                _buildLabel(l10n?.summaryHistory ?? '요약 이력'),
                 const SizedBox(height: 6),
-                _buildHistoryDropdown(history, color),
+                _buildHistoryDropdown(history, color, levelShortNames),
                 const SizedBox(height: 8),
                 if (_selectedHistory != null)
                   _buildHistorySummaryBox(_selectedHistory!, color),
@@ -124,7 +130,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  SizedBox(width: 80, child: _buildLabel('대상 언어')),
+                  SizedBox(width: 80, child: _buildLabel(l10n?.targetLanguage ?? '대상 언어')),
                   Expanded(
                     child: _buildDropdown(
                       value: _textLanguage,
@@ -139,7 +145,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  SizedBox(width: 80, child: _buildLabel('요약 언어')),
+                  SizedBox(width: 80, child: _buildLabel(l10n?.summaryLanguage ?? '요약 언어')),
                   Expanded(
                     child: _buildDropdown(
                       value: _summaryLanguage,
@@ -154,9 +160,9 @@ class _SummaryDialogState extends State<SummaryDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  SizedBox(width: 80, child: _buildLabel('요약 수준')),
+                  SizedBox(width: 80, child: _buildLabel(l10n?.summaryLevel ?? '요약 수준')),
                   Expanded(
-                    child: _buildLevelDropdown(),
+                    child: _buildLevelDropdown(levelItems),
                   ),
                 ],
               ),
@@ -169,7 +175,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _levelDescription,
+                  _levelDescription(l10n),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.5),
                 ),
               ),
@@ -198,7 +204,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
                     children: [
                       CircularProgressIndicator(color: color, strokeWidth: 2),
                       const SizedBox(height: 8),
-                      Text('AI가 요약 중입니다...',
+                      Text(l10n?.aiSummarizing ?? 'AI가 요약 중입니다...',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                     ],
                   ),
@@ -211,18 +217,21 @@ class _SummaryDialogState extends State<SummaryDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('닫기'),
+          child: Text(l10n?.close ?? '닫기'),
         ),
         ElevatedButton.icon(
           onPressed: _isLoading ? null : _onSummarize,
           icon: const Icon(Icons.auto_awesome, size: 16),
-          label: Text(history.isNotEmpty ? '다시 요약' : '요약하기'),
+          label: Text(history.isNotEmpty
+              ? (l10n?.summarizeAgain ?? '다시 요약')
+              : (l10n?.summarize ?? '요약하기')),
         ),
       ],
     );
   }
 
-  Widget _buildHistoryDropdown(List<SummaryRecord> history, Color color) {
+  Widget _buildHistoryDropdown(
+      List<SummaryRecord> history, Color color, Map<int, String> levelShortNames) {
     return DropdownButtonFormField<SummaryRecord>(
       value: _selectedHistory,
       isDense: true,
@@ -239,7 +248,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
         ),
       ),
       items: history.map((rec) {
-        final levelName = _kLevelNames[rec.level] ?? '일반';
+        final levelName = levelShortNames[rec.level] ?? '일반';
         return DropdownMenuItem<SummaryRecord>(
           value: rec,
           child: Text(
@@ -253,7 +262,6 @@ class _SummaryDialogState extends State<SummaryDialog> {
   }
 
   Widget _buildHistorySummaryBox(SummaryRecord rec, Color color) {
-    // ⭐ 리마인드 섹션 제거 (본문 요약만 표시)
     const reminderMarker = '─── 📌 리마인드 ───';
     final reminderIdx = rec.summary.indexOf(reminderMarker);
     final summaryOnly = reminderIdx != -1
@@ -329,7 +337,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
     );
   }
 
-  Widget _buildLevelDropdown() {
+  Widget _buildLevelDropdown(List<(int, String)> levelItems) {
     final color = Theme.of(context).primaryColor;
     return DropdownButtonFormField<int>(
       value: _summaryLevel,
@@ -346,7 +354,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
           borderSide: BorderSide(color: color),
         ),
       ),
-      items: _kLevels.map((lv) {
+      items: levelItems.map((lv) {
         return DropdownMenuItem<int>(
           value: lv.$1,
           child: Text('${lv.$1}. ${lv.$2}', style: const TextStyle(fontSize: 13)),
@@ -359,7 +367,6 @@ class _SummaryDialogState extends State<SummaryDialog> {
   /// 자동 요약 마커(<!-- SUMMARY_START --> ... <!-- SUMMARY_END -->) 사이의
   /// 모든 요약 블록을 제거하고 순수한 전사/입력 내용만 반환
   String _stripAutoSummaryBlocks(String content) {
-    // 1단계: HTML 주석 마커 기반 제거 (에디터가 주석을 보존한 경우)
     final regex = RegExp(
       r'<!--\s*SUMMARY_START\s*-->.*?<!--\s*SUMMARY_END\s*-->',
       multiLine: true,
@@ -367,14 +374,11 @@ class _SummaryDialogState extends State<SummaryDialog> {
     );
     String cleaned = content.replaceAll(regex, '');
 
-    // SUMMARY_START 마커만 있고 END가 없는 경우(비정상 종료) — START 이후 모두 제거
     final orphanStart = cleaned.indexOf('<!-- SUMMARY_START -->');
     if (orphanStart != -1) {
       cleaned = cleaned.substring(0, orphanStart);
     }
 
-    // 2단계: 에디터가 HTML 주석을 제거한 경우 대비 — <hr> + 📋 AI 요약 패턴으로 제거
-    // _summaryToHtml()이 삽입하는 패턴: <hr/><p><strong>📋 AI 요약</strong></p>
     final hrSummaryPattern = RegExp(
       r'<hr\s*/?>\s*<p[^>]*>\s*<strong[^>]*>📋\s*AI\s*요약</strong>',
       dotAll: true,
@@ -385,10 +389,8 @@ class _SummaryDialogState extends State<SummaryDialog> {
       cleaned = cleaned.substring(0, hrMatch.start);
     }
 
-    // 3단계: 최종 방어 — [AI 요약] 텍스트 자체가 포함된 경우 이후 모두 제거
     final aiIdx = cleaned.indexOf('[AI 요약]');
     if (aiIdx != -1) {
-      // [AI 요약]을 포함하는 <p> 태그의 시작 위치로 거슬러 올라가 자름
       final beforeAi = cleaned.substring(0, aiIdx);
       final lastTagStart = beforeAi.lastIndexOf('<');
       final cutPoint = lastTagStart != -1 ? lastTagStart : aiIdx;
@@ -407,7 +409,6 @@ class _SummaryDialogState extends State<SummaryDialog> {
     });
 
     try {
-      // ⭐ 이전에 삽입된 자동 요약 블록을 모두 제거하고 순수 전사 내용만 전송
       final pureContent = _stripAutoSummaryBlocks(widget.file.content);
       debugPrint('✨ [SummaryDialog] 원본 길이: ${widget.file.content.length}, 요약 제거 후: ${pureContent.length}');
 

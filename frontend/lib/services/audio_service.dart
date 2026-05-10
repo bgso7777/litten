@@ -57,7 +57,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 듣기(녹음) 시작
-  Future<bool> startRecording(Litten litten) async {
+  Future<bool> startRecording(Litten litten, {String undefinedPrefix = '녹음'}) async {
     debugPrint('[AudioService] startRecording 진입 - littenId: ${litten.id}');
     
     if (_isRecording) {
@@ -83,7 +83,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
 
       // 파일명 생성 (일정명 + 년월일시분초)
       final now = DateTime.now();
-      final littenName = litten.title == 'undefined' ? '녹음' : litten.title;
+      final littenName = litten.title == 'undefined' ? undefinedPrefix : litten.title;
       final fileName = '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.m4a';
       final filePath = '${littenDir.path}/$fileName';
       

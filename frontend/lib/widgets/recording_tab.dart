@@ -116,18 +116,6 @@ class _RecordingTabState extends State<RecordingTab> {
 
           print('[RecordingTab] 파일 목록 새로고침 완료, mounted: $mounted');
 
-          if (mounted) {
-            print('[RecordingTab] SnackBar 표시 시도');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  l10n?.recordingStoppedAndSaved ?? '녹음이 중지되고 파일이 저장되었습니다.',
-                ),
-                backgroundColor: Colors.blue,
-              ),
-            );
-            print('[RecordingTab] SnackBar 표시 완료');
-          }
         }
         print('[RecordingTab] 녹음 중지 프로세스 종료');
       }
@@ -153,6 +141,7 @@ class _RecordingTabState extends State<RecordingTab> {
       // 녹음 시작
       final success = await _audioService.startRecording(
         appState.selectedLitten!,
+        undefinedPrefix: l10n?.audioTab ?? '녹음',
       );
       if (mounted) {
         if (success) {
@@ -205,7 +194,7 @@ class _RecordingTabState extends State<RecordingTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n?.deleteFile ?? '파일 삭제'),
-        content: Text('${audioFile.fileName} 파일을 삭제하시겠습니까?'),
+        content: Text(l10n?.confirmDeleteFile(audioFile.fileName) ?? '${audioFile.fileName} 파일을 삭제하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -640,7 +629,7 @@ class _RecordingTabState extends State<RecordingTab> {
                                             color: Theme.of(context).primaryColor,
                                           ),
                                           onPressed: () => _showRenameAudioFileDialog(audioFile),
-                                          tooltip: '이름 변경',
+                                          tooltip: AppLocalizations.of(context)?.rename ?? '이름 변경',
                                         ),
                                         IconButton(
                                           icon: Icon(
@@ -697,34 +686,37 @@ class _RecordingTabState extends State<RecordingTab> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('파일 이름 변경'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '새 파일 이름',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-          onSubmitted: (_) {
-            Navigator.pop(context);
-            _renameAudioFile(audioFile, controller.text.trim());
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n?.renameFile ?? '파일 이름 변경'),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: l10n?.newFileName ?? '새 파일 이름',
+              border: const OutlineInputBorder(),
+            ),
+            autofocus: true,
+            onSubmitted: (_) {
               Navigator.pop(context);
               _renameAudioFile(audioFile, controller.text.trim());
             },
-            child: const Text('변경'),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n?.cancel ?? '취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _renameAudioFile(audioFile, controller.text.trim());
+              },
+              child: Text(l10n?.confirm ?? '확인'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -745,14 +737,16 @@ class _RecordingTabState extends State<RecordingTab> {
       await _loadAudioFiles();
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('파일 이름이 변경되었습니다')),
+          SnackBar(content: Text(l10n?.fileRenameSuccess ?? '파일 이름이 변경되었습니다.')),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('파일 이름 변경 실패: $e')),
+          SnackBar(content: Text(l10n?.fileRenameFailed(e.toString()) ?? '파일 이름 변경에 실패했습니다: $e')),
         );
       }
     }

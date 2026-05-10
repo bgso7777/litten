@@ -174,9 +174,9 @@ class _SchedulePickerState extends State<SchedulePicker> {
                   children: [
                     const Icon(Icons.calendar_today, size: 24),
                     const SizedBox(width: 12),
-                    const Text(
-                      '시작일자',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      l10n?.startDate ?? '시작일자',
+                      style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -209,16 +209,16 @@ class _SchedulePickerState extends State<SchedulePicker> {
                   children: [
                     const Icon(Icons.event, size: 24),
                     const SizedBox(width: 12),
-                    const Text(
-                      '종료일자',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      l10n?.endDate ?? '종료일자',
+                      style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _selectedEndDate != null
                             ? DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedEndDate!)
-                            : '선택 안 함',
+                            : (l10n?.notSelected ?? '선택 안 함'),
                         style: TextStyle(
                           fontSize: 12,
                           color: _selectedEndDate != null ? Colors.black : Colors.grey,
@@ -323,7 +323,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _getDurationText(),
+                  _getDurationText(l10n),
                   style: TextStyle(
                     color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.w500,
@@ -467,7 +467,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
     );
   }
 
-  String _getDurationText() {
+  String _getDurationText(AppLocalizations? l10n) {
     final start = DateTime(2000, 1, 1, _startTime.hour, _startTime.minute);
     final end = DateTime(2000, 1, 1, _endTime.hour, _endTime.minute);
     final duration = end.difference(start);
@@ -476,11 +476,11 @@ class _SchedulePickerState extends State<SchedulePicker> {
     final minutes = duration.inMinutes % 60;
 
     if (hours == 0) {
-      return '총 $minutes분';
+      return l10n?.durationMinutes(minutes) ?? '총 ${minutes}분';
     } else if (minutes == 0) {
-      return '총 $hours시간';
+      return l10n?.durationHours(hours) ?? '총 ${hours}시간';
     } else {
-      return '총 $hours시간 $minutes분';
+      return l10n?.durationHoursMinutes(hours, minutes) ?? '총 ${hours}시간 ${minutes}분';
     }
   }
 }

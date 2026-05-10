@@ -472,13 +472,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                               MainAxisAlignment.center,
                                           children: [
                                             Icon(
-                                              Icons.keyboard,
+                                              Icons.notes,
                                               size: 48,
                                               color: Colors.grey.shade400,
                                             ),
                                             AppSpacing.verticalSpaceS,
                                             Text(
-                                              AppLocalizations.of(context)?.noTextFiles ?? '텍스트 파일이 없습니다',
+                                              AppLocalizations.of(context)?.noTextFiles ?? '메모 파일이 없습니다',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey.shade500,
@@ -509,7 +509,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: const [
-                                        Icon(Icons.keyboard, size: 16),
+                                        Icon(Icons.notes, size: 16),
                                         SizedBox(width: 2),
                                         Icon(Icons.add, size: 16),
                                       ],
@@ -536,7 +536,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
-      final littenName = selectedLitten.title == 'undefined' ? '텍스트' : selectedLitten.title;
+      final littenName = selectedLitten.title == 'undefined' ? (AppLocalizations.of(context)?.textTab ?? '텍스트') : selectedLitten.title;
       final defaultTitle =
           '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
@@ -601,22 +601,23 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
     );
 
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('파일 이름 변경'),
+        title: Text(l10n?.renameFile ?? '파일 이름 변경'),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '파일 이름을 입력하세요',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: l10n?.fileNameInputHint ?? '파일 이름을 입력하세요',
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: Text(l10n?.cancel ?? '취소'),
           ),
           TextButton(
             onPressed: () async {
@@ -626,7 +627,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                 await _renameTextFile(file, newTitle);
               }
             },
-            child: const Text('확인'),
+            child: Text(l10n?.confirm ?? '확인'),
           ),
         ],
       ),
@@ -662,9 +663,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       print('디버그: 텍스트 파일 이름 변경 완료 - $newTitle');
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('파일 이름이 "$newTitle"(으)로 변경되었습니다.'),
+            content: Text(l10n?.fileRenameSuccessName(newTitle) ?? '파일 이름이 "$newTitle"(으)로 변경되었습니다.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -672,9 +674,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     } catch (e) {
       print('에러: 텍스트 파일 이름 변경 실패 - $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('파일 이름 변경에 실패했습니다: $e'),
+            content: Text(l10n?.fileRenameFailed(e.toString()) ?? '파일 이름 변경에 실패했습니다: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -683,15 +686,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   }
 
   void _showDeleteConfirmDialog(String fileName, VoidCallback onConfirm) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('파일 삭제'),
-        content: Text('"$fileName"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
+        title: Text(l10n?.deleteFile ?? '파일 삭제'),
+        content: Text(l10n?.confirmDeleteFileMessage(fileName) ?? '"$fileName"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: Text(l10n?.cancel ?? '취소'),
           ),
           TextButton(
             onPressed: () {
@@ -699,7 +703,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               onConfirm();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
+            child: Text(l10n?.delete ?? '삭제'),
           ),
         ],
       ),
@@ -750,9 +754,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       await appState.updateFileCount();
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${file.displayTitle} 파일이 삭제되었습니다.'),
+            content: Text(l10n?.fileDeleteSuccess(file.displayTitle) ?? '${file.displayTitle} 파일이 삭제되었습니다.'),
             backgroundColor: Colors.blue,
           ),
         );
@@ -760,9 +765,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     } catch (e) {
       print('에러: 텍스트 파일 삭제 실패 - $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('파일 삭제에 실패했습니다: $e'),
+            content: Text(l10n?.fileDeleteFailed(e.toString()) ?? '파일 삭제에 실패했습니다: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -783,12 +789,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
       // 녹음 중지
       if (_audioService.isRecording) {
-        debugPrint('⚠️ 녹음이 진행 중 - 녹음 중단');
+        debugPrint('⚠️ 녹음이 진행 중 - 녹음 중단 (isFromSTT: $_isRecordingWithSTT)');
         try {
           if (!mounted) return;
           final appState = Provider.of<AppStateProvider>(context, listen: false);
           if (appState.selectedLitten != null) {
-            final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
+            final audioFile = await _audioService.stopRecording(appState.selectedLitten!, isFromSTT: _isRecordingWithSTT);
             debugPrint('✅ 녹음 중단 완료');
 
             // 녹음 파일 저장
@@ -828,15 +834,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     // ⭐ 녹음 중인지 확인 - 녹음 중이면 녹음을 중단하고 STT 시작
     if (_isRecordingWithSTT || _audioService.isRecording) {
-      debugPrint('⚠️ 녹음이 진행 중 - 녹음을 중단하고 STT 시작');
+      debugPrint('⚠️ 녹음이 진행 중 - 녹음을 중단하고 STT 재시작 (isFromSTT: $_isRecordingWithSTT)');
 
-      // 녹음 중단
+      // 녹음 중단 — STT 도중 자동 재시작이므로 isFromSTT 플래그 유지
       try {
         if (_audioService.isRecording) {
           final appState = Provider.of<AppStateProvider>(context, listen: false);
           if (appState.selectedLitten != null) {
-            final audioFile = await _audioService.stopRecording(appState.selectedLitten!);
-            debugPrint('✅ 녹음 중단 완료 (STT 시작을 위해)');
+            final audioFile = await _audioService.stopRecording(appState.selectedLitten!, isFromSTT: _isRecordingWithSTT);
+            debugPrint('✅ 녹음 중단 완료 (STT 재시작을 위해)');
 
             // 녹음 파일 저장
             if (audioFile != null) {
@@ -1430,7 +1436,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       }
 
       // 녹음 시작 (실패해도 STT는 계속 진행되도록 try-catch로 감쌈)
-      final started = await _audioService.startRecording(selectedLitten);
+      final started = await _audioService.startRecording(selectedLitten, undefinedPrefix: AppLocalizations.of(context)?.audioTab ?? '녹음');
 
       if (started) {
         setState(() {
@@ -1503,16 +1509,6 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           Provider.of<AppStateProvider>(context, listen: false).notifyFileListChanged();
         }
 
-        // 사용자에게 알림 (mounted 확인 후에만)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('녹음 파일이 저장되었습니다'),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       } else {
         debugPrint('⚠️ STT 녹음 파일 생성 실패');
       }
@@ -1638,15 +1634,6 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           }
         }
 
-        // STT 중 자동 저장 시에는 스낵바 표시 안 함 (방해 방지)
-        if (mounted && !_isListening) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('저장되었습니다'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
       } catch (e) {
         debugPrint('❌ 텍스트 파일 저장 실패 - $e');
         if (mounted) {
@@ -2605,9 +2592,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('❌ [SttMode] 자동 요약 실패: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('요약 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(l10n?.summaryFailed(e.toString().replaceFirst('Exception: ', '')) ?? '요약 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
             duration: const Duration(seconds: 4),
             backgroundColor: Colors.red.shade700,
           ),
@@ -2732,6 +2720,30 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
   Widget _buildSttSummaryArea() {
     final color = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
+
+    final intervalItems = [
+      (3,  l10n?.intervalMin(3)  ?? '3분'),
+      (5,  l10n?.intervalMin(5)  ?? '5분'),
+      (10, l10n?.intervalMin(10) ?? '10분'),
+      (30, l10n?.intervalMin(30) ?? '30분'),
+      (-1, l10n?.intervalOnStop  ?? '종료'),
+      (0,  l10n?.intervalOff     ?? '안함'),
+    ];
+
+    final levelItems = [
+      (1, l10n?.summaryLevelShortOneLiner  ?? '한줄'),
+      (2, l10n?.summaryLevelShortBrief     ?? '간단'),
+      (3, l10n?.summaryLevelShortNormal    ?? '일반'),
+      (4, l10n?.summaryLevelShortDetailed  ?? '상세'),
+      (5, l10n?.summaryLevelShortFull      ?? '전체'),
+    ];
+
+    final hintText = _sttSettings.summaryIntervalMinutes > 0
+        ? (l10n?.autoSummaryEveryMinutes(_sttSettings.summaryIntervalMinutes) ?? '녹음 시작 후 ${_sttSettings.summaryIntervalMinutes}분마다 자동으로 요약됩니다.')
+        : _sttSettings.summaryIntervalMinutes == -1
+            ? (l10n?.autoSummaryOnStop ?? '녹음 종료 시 자동으로 요약됩니다.')
+            : (l10n?.autoSummaryDisabled ?? '자동 요약이 비활성화되어 있습니다.');
 
     return Container(
       width: double.infinity,
@@ -2760,7 +2772,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                 // 좌측: AI 요약 레이블
                 Icon(Icons.auto_awesome, size: 13, color: color),
                 const SizedBox(width: 4),
-                Text('AI 요약',
+                Text(l10n?.aiSummary ?? 'AI 요약',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
                 const Spacer(),
                 // 우측: 드롭다운들
@@ -2797,7 +2809,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
                   style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
-                  items: const [(3, '3분'), (5, '5분'), (10, '10분'), (30, '30분'), (-1, '종료'), (0, '안함')]
+                  items: intervalItems
                       .map((opt) => DropdownMenuItem(
                         value: opt.$1,
                         child: Text(opt.$2, style: TextStyle(fontSize: 11, color: color)),
@@ -2813,7 +2825,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
                   style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
-                  items: const [(1, '한줄'), (2, '간단'), (3, '일반'), (4, '상세'), (5, '전체')]
+                  items: levelItems
                       .map((l) => DropdownMenuItem(
                         value: l.$1,
                         child: Text('Lv.${l.$1} ${l.$2}', style: TextStyle(fontSize: 11, color: color)),
@@ -2832,7 +2844,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       children: [
                         CircularProgressIndicator(color: color, strokeWidth: 2),
                         const SizedBox(height: 8),
-                        Text('요약 중...', style: TextStyle(fontSize: 12, color: color)),
+                        Text(l10n?.summarizing ?? '요약 중...', style: TextStyle(fontSize: 12, color: color)),
                       ],
                     ),
                   )
@@ -2840,11 +2852,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                     padding: const EdgeInsets.all(12),
                     child: _sttSummary.isEmpty
                         ? Text(
-                            _sttSettings.summaryIntervalMinutes > 0
-                                ? '녹음 시작 후 ${_sttSettings.summaryIntervalMinutes}분마다 자동으로 요약됩니다.'
-                                : _sttSettings.summaryIntervalMinutes == -1
-                                    ? '녹음 종료 시 자동으로 요약됩니다.'
-                                    : '자동 요약이 비활성화되어 있습니다.',
+                            hintText,
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.6),
                           )
                         : Text(

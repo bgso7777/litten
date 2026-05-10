@@ -4138,14 +4138,6 @@ class _WritingScreenState extends State<WritingScreen>
         // 파일 수 배지 업데이트를 위해 AppStateProvider 리플래시
         await appState.refreshLittens();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${updatedFile.displayTitle} 파일이 저장되었습니다.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       } catch (e) {
         print('에러: 텍스트 파일 저장 실패 - $e');
         if (mounted) {
@@ -4223,13 +4215,6 @@ class _WritingScreenState extends State<WritingScreen>
           '디버그: 필기 파일 저장 완료 - $fileTitle ${_currentHandwritingFile!.pageInfo}',
         );
 
-        // 저장 완료 알림을 위한 간단한 피드백 (선택사항)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('저장되었습니다'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
 
         // 편집 모드를 유지하고 화면 전환하지 않음
         // setState(() {
@@ -4328,14 +4313,6 @@ class _WritingScreenState extends State<WritingScreen>
       if (audioFile != null) {
         await _loadFiles();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('녹음이 저장되었습니다: ${audioFile.fileName}'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       }
     } else {
       final success = await _audioService.startRecording(selectedLitten);

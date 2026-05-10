@@ -218,8 +218,10 @@ class _WritingScreenState extends State<WritingScreen>
         icon: Icons.apps,
         customTabWidget: AllFilesTabButton(
           textCount: textCount,
-          handwritingCount: handwritingCount,
+          canvasCount: canvasCount,
+          pdfCount: pdfCount,
           audioCount: audioCount,
+          sttMemoCount: sttMemoCount,
           littenTitle: littenTitle,
         ),
         content: const AllFilesTab(),
@@ -228,7 +230,7 @@ class _WritingScreenState extends State<WritingScreen>
       TabItem(
         id: 'text',
         title: textCount.toString(),
-        icon: Icons.keyboard,
+        icon: Icons.notes,
         content: TextTab(key: _textTabKey),
         position: parsePosition(savedPositions['text'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('text'),

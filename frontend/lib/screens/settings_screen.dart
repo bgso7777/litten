@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // 실제 설정 내용
             Padding(
-              padding: AppSpacing.paddingL,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -114,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingsItem(
                 icon: Icons.card_membership,
                 title:
-                    '구독 플랜 (${_getSubscriptionName(appState.subscriptionType, l10n)})',
+                    '${l10n?.subscriptionPlan ?? '구독 플랜'} (${_getSubscriptionName(appState.subscriptionType, l10n)})',
                 subtitle: _getSubscriptionStatusText(
                   appState.subscriptionType,
                   l10n,
@@ -131,107 +131,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showUsageDialog(context, appState),
               ),
             ]),
-            AppSpacing.verticalSpaceL,
+            AppSpacing.verticalSpaceM,
 
-            // 앱 설정 섹션
-            _buildSettingsSection(l10n?.appSettings ?? '앱 설정', [
-              _buildSettingsItem(
-                icon: Icons.palette,
-                title: l10n?.theme ?? '테마',
-                subtitle: _getThemeText(appState.themeType, l10n),
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showThemeDialog(context, appState),
-              ),
-              _buildSettingsItem(
-                icon: Icons.language,
-                title: l10n?.language ?? '언어',
-                subtitle: _getLanguageText(appState.locale.languageCode),
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showLanguageDialog(context, appState),
-              ),
-              _buildSettingsItem(
-                icon: Icons.home,
-                title: l10n?.startScreen ?? '시작 화면',
-                subtitle: appState.startScreen == 'calendar' ? '캘린더' : '노트',
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showStartScreenDialog(context, appState),
-              ),
-              _buildSettingsItem(
-                icon: Icons.view_quilt,
-                title: '영역 보기',
-                subtitle: _getVisibleAreasText(appState.visibleAreas),
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showVisibleAreasDialog(context, appState),
-              ),
-              _buildSettingsSwitchItem(
-                icon: Icons.campaign_outlined,
-                title: '광고 표시',
-                subtitle: appState.isPremiumUser ? '유료 플랜 - 광고 없음' : '무료 플랜에서 광고 표시',
-                iconColor: appState.isPremiumUser ? Colors.grey : Theme.of(context).primaryColor,
-                value: appState.adsEnabled && !appState.isPremiumUser,
-                onChanged: appState.isPremiumUser ? (_) {} : (v) => appState.setAdsEnabled(v),
-              ),
-              _buildSettingsItem(
-                icon: Icons.tab,
-                title: '노트탭 보기',
-                subtitle: _getNoteTabVisibilityText(appState.noteTabVisibility),
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showNoteTabVisibilityDialog(context, appState),
-              ),
-              _buildSettingsItem(
-                icon: Icons.add_circle_outline,
-                title: '전체탭 버튼',
-                subtitle: _getAllTabFabText(appState.allTabFabVisibility),
-                iconColor: Theme.of(context).primaryColor,
-                onTap: () => _showAllTabFabVisibilityDialog(context, appState),
-              ),
-            ]),
-            AppSpacing.verticalSpaceL,
-
-            // 녹음 설정 섹션
-            _buildSettingsSection(l10n?.recordingSettings ?? '듣기 설정', [
-              _buildSettingsItem(
-                icon: Icons.timer,
-                title: l10n?.maxRecordingTime ?? '최대 녹음 시간',
-                subtitle: l10n?.maxRecordingTimeValue ?? '1시간',
-                iconColor: Theme.of(context).primaryColor,
-              ),
-              _buildSettingsItem(
-                icon: Icons.headphones,
-                title: l10n?.audioQuality ?? '오디오 품질',
-                subtitle: l10n?.standardQuality ?? '표준',
-                iconColor: Theme.of(context).primaryColor,
-              ),
-            ]),
-            AppSpacing.verticalSpaceL,
-
-            // 쓰기 설정 섹션
-            _buildSettingsSection(l10n?.writingSettings ?? '쓰기 설정', [
-              _buildSettingsItem(
-                icon: Icons.save,
-                title: l10n?.autoSaveInterval ?? '자동 저장 간격',
-                subtitle: l10n?.autoSaveIntervalValue ?? '3분',
-                iconColor: Theme.of(context).primaryColor,
-              ),
-              _buildSettingsItem(
-                icon: Icons.font_download,
-                title: l10n?.defaultFont ?? '기본 폰트',
-                subtitle: l10n?.systemFont ?? '시스템 폰트',
-                iconColor: Theme.of(context).primaryColor,
-              ),
-            ]),
-            AppSpacing.verticalSpaceL,
-
-            // 계정 섹션 - 항상 표시, 프리미엄이 아닐 때 비활성화
+            // 계정 섹션 - 무료 플랜만 비활성화, 스탠다드/프리미엄은 로그인 가능
             _buildSettingsSection(l10n?.account ?? '계정', [
-              if (appState.subscriptionType != SubscriptionType.premium)
-                // 비프리미엄: 잠금 안내 항목만 표시
+              if (appState.subscriptionType == SubscriptionType.free)
+                // 무료 플랜: 잠금 안내 항목만 표시
                 _buildSettingsItemDisabled(
                   icon: Icons.lock_outline,
                   title: l10n?.account ?? '계정',
-                  subtitle: '프리미엄 플랜에서 사용 가능합니다',
+                  subtitle: l10n?.availableInPaidPlans ?? '스탠다드 프리미엄 플랜에서 사용 가능합니다',
                 ),
-              if (appState.subscriptionType == SubscriptionType.premium) ...[
+              if (appState.subscriptionType != SubscriptionType.free) ...[
                 _buildSettingsItem(
                   icon: Icons.person,
                   title: l10n?.userStatus ?? '사용자 상태',
@@ -277,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildSettingsItem(
                     icon: Icons.login,
                     title: l10n?.login ?? '로그인',
-                    subtitle: '클라우드 동기화를 위해 로그인하세요',
+                    subtitle: l10n?.loginForCloudSync ?? '클라우드 동기화를 위해 로그인하세요',
                     iconColor: Theme.of(context).primaryColor,
                     onTap: () {
                       Navigator.push(
@@ -289,6 +200,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
               ],
+            ]),
+            AppSpacing.verticalSpaceM,
+
+            // 앱 설정 섹션
+            _buildSettingsSection(l10n?.appSettings ?? '앱 설정', [
+              _buildSettingsItem(
+                icon: Icons.palette,
+                title: l10n?.theme ?? '테마',
+                subtitle: _getThemeText(appState.themeType, l10n),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showThemeDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.language,
+                title: l10n?.language ?? '언어',
+                subtitle: _getLanguageText(appState.locale.languageCode),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showLanguageDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.home,
+                title: l10n?.startScreen ?? '시작 화면',
+                subtitle: appState.startScreen == 'calendar'
+                    ? (l10n?.calendarTab ?? '캘린더')
+                    : (l10n?.noteOption ?? '노트'),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showStartScreenDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.view_quilt,
+                title: l10n?.visibleAreas ?? '영역 보기',
+                subtitle: _getVisibleAreasText(appState.visibleAreas, l10n),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showVisibleAreasDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.tab,
+                title: l10n?.noteTabView ?? '노트탭 보기',
+                subtitle: _getNoteTabVisibilityText(appState.noteTabVisibility, l10n),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showNoteTabVisibilityDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.add_circle_outline,
+                title: l10n?.allTabFab ?? '전체탭 버튼',
+                subtitle: _getAllTabFabText(appState.allTabFabVisibility, l10n),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showAllTabFabVisibilityDialog(context, appState),
+              ),
+              _buildSettingsSwitchItem(
+                icon: Icons.campaign_outlined,
+                title: l10n?.showAds ?? '광고 표시',
+                subtitle: appState.subscriptionType == SubscriptionType.free
+                    ? (l10n?.freeShowAds ?? '무료 플랜 - 광고 항상 ON')
+                    : (l10n?.paidPlanNoAds ?? '유료 플랜 - 기본 광고 OFF'),
+                iconColor: appState.subscriptionType == SubscriptionType.free
+                    ? Colors.grey
+                    : Theme.of(context).primaryColor,
+                value: appState.adsEnabled,
+                onChanged: appState.subscriptionType == SubscriptionType.free
+                    ? null
+                    : (v) => appState.setAdsEnabled(v),
+              ),
+            ]),
+            AppSpacing.verticalSpaceM,
+
+            // 녹음 설정 섹션
+            _buildSettingsSection(l10n?.recordingSettings ?? '듣기 설정', [
+              _buildSettingsItem(
+                icon: Icons.timer,
+                title: l10n?.maxRecordingTime ?? '최대 녹음 시간',
+                subtitle: l10n?.maxRecordingTimeValue ?? '무제한',
+                iconColor: Theme.of(context).primaryColor,
+              ),
+              _buildSettingsItem(
+                icon: Icons.headphones,
+                title: l10n?.audioQuality ?? '오디오 품질',
+                subtitle: l10n?.standardQuality ?? '표준',
+                iconColor: Theme.of(context).primaryColor,
+              ),
+            ]),
+            AppSpacing.verticalSpaceM,
+
+            // 쓰기 설정 섹션
+            _buildSettingsSection(l10n?.writingSettings ?? '쓰기 설정', [
+              _buildSettingsItem(
+                icon: Icons.save,
+                title: l10n?.autoSaveInterval ?? '자동 저장 간격',
+                subtitle: l10n?.autoSaveIntervalValue ?? '3분',
+                iconColor: Theme.of(context).primaryColor,
+              ),
+              _buildSettingsItem(
+                icon: Icons.font_download,
+                title: l10n?.defaultFont ?? '기본 폰트',
+                subtitle: l10n?.systemFont ?? '시스템 폰트',
+                iconColor: Theme.of(context).primaryColor,
+              ),
             ]),
 
             // 개발자 정보
@@ -325,13 +333,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSettingsSection(String title, List<Widget> children) {
     final primaryColor = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
@@ -359,17 +367,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String? subtitle,
     Color iconColor = Colors.blue,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
     return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: iconColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
+        child: Icon(icon, color: iconColor, size: 16),
       ),
       title: Row(
         children: [
@@ -391,7 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onChanged: onChanged,
         activeColor: iconColor,
       ),
-      onTap: () => onChanged(!value),
+      onTap: onChanged == null ? null : () => onChanged(!value),
     );
   }
 
@@ -403,14 +413,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     VoidCallback? onTap,
   }) {
     return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: iconColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
+        child: Icon(icon, color: iconColor, size: 16),
       ),
       title: Row(
         children: [
@@ -440,14 +452,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String? subtitle,
   }) {
     return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: Colors.grey.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Icon(icon, color: Colors.grey.shade400, size: 20),
+        child: Icon(icon, color: Colors.grey.shade400, size: 16),
       ),
       title: Row(
         children: [
@@ -704,28 +718,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _showDowngradeFromPremiumDialog(context, appState, type, title, l10n);
                 return;
               }
-              // 프리미엄 선택 + 미로그인: 플랜만 변경하고 안내 다이얼로그 표시
-              if (type == SubscriptionType.premium && !appState.isLoggedIn) {
+              // 스탠다드 또는 프리미엄 선택 시 클라우드 동기화 안내 팝업 표시
+              if (type == SubscriptionType.standard || type == SubscriptionType.premium) {
                 appState.changeSubscriptionType(type);
                 Navigator.of(context).pop();
-                debugPrint('[SettingsScreen] 프리미엄 선택 - 클라우드 서비스 안내 표시');
+                debugPrint('[SettingsScreen] $type 선택 - 클라우드 서비스 안내 표시');
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Row(
+                    title: Row(
                       children: [
-                        Icon(Icons.cloud_outlined, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text('클라우드 동기화'),
+                        const Icon(Icons.cloud_outlined, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text(l10n?.cloudSync ?? '클라우드 동기화'),
                       ],
                     ),
-                    content: const Text(
-                      '프리미엄 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
+                    content: Text(
+                      l10n?.cloudSyncPlanChanged(title) ?? '$title 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('확인'),
+                        child: Text(l10n?.confirm ?? '확인'),
                       ),
                     ],
                   ),
@@ -801,30 +815,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _getNoteTabVisibilityText(Set<String> visibility) {
+  String _getNoteTabVisibilityText(Set<String> visibility, AppLocalizations? l10n) {
     final labels = <String>[];
-    if (visibility.contains('all')) labels.add('전체');
-    if (visibility.contains('text')) labels.add('텍스트');
-    if (visibility.contains('handwriting')) labels.add('필기');
+    if (visibility.contains('all')) labels.add(l10n?.allFilesLabel ?? '전체');
+    if (visibility.contains('text')) labels.add(l10n?.textTab ?? '텍스트');
+    if (visibility.contains('handwriting')) labels.add(l10n?.handwritingTab ?? '필기');
     if (visibility.contains('pdf')) labels.add('PDF');
-    if (visibility.contains('sttMemo')) labels.add('음성메모');
-    if (visibility.contains('audio')) labels.add('녹음');
-    if (visibility.contains('browser')) labels.add('검색');
+    if (visibility.contains('sttMemo')) labels.add(l10n?.sttMemoLabel ?? '음성메모');
+    if (visibility.contains('audio')) labels.add(l10n?.audioTab ?? '녹음');
+    if (visibility.contains('browser')) labels.add(l10n?.browserTab ?? '검색');
     return labels.join(', ');
   }
 
-  String _getAllTabFabText(Set<String> visibility) {
-    if (visibility.isEmpty) return '없음';
-    const labels = {
-      'canvas': '필기',
+  String _getAllTabFabText(Set<String> visibility, AppLocalizations? l10n) {
+    if (visibility.isEmpty) return l10n?.noneLabel ?? '없음';
+    final labels = {
+      'canvas': l10n?.handwritingTab ?? '필기',
       'pdf': 'PDF',
-      'text': '메모',
-      'audio': '녹음',
-      'stt': '음성메모',
+      'text': l10n?.memoLabel ?? '메모',
+      'audio': l10n?.audioTab ?? '녹음',
+      'stt': l10n?.sttMemoLabel ?? '음성메모',
     };
     final order = ['canvas', 'pdf', 'text', 'audio', 'stt'];
     final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
-    return result.isEmpty ? '없음' : result.join(', ');
+    return result.isEmpty ? (l10n?.noneLabel ?? '없음') : result.join(', ');
   }
 
   void _showAllTabFabVisibilityDialog(BuildContext context, AppStateProvider appState) {
@@ -835,15 +849,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showStartScreenDialog(BuildContext context, AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('시작 화면'),
+        title: Text(l10n?.startScreen ?? '시작 화면'),
         children: [
           RadioListTile<String>(
             value: 'note',
             groupValue: appState.startScreen,
-            title: const Text('노트'),
+            title: Text(l10n?.noteOption ?? '노트'),
             onChanged: (v) {
               appState.setStartScreen(v!);
               Navigator.pop(ctx);
@@ -852,7 +867,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           RadioListTile<String>(
             value: 'calendar',
             groupValue: appState.startScreen,
-            title: const Text('캘린더'),
+            title: Text(l10n?.calendarTab ?? '캘린더'),
             onChanged: (v) {
               appState.setStartScreen(v!);
               Navigator.pop(ctx);
@@ -863,13 +878,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _getVisibleAreasText(Set<String> areas) {
+  String _getVisibleAreasText(Set<String> areas, AppLocalizations? l10n) {
     final labels = <String>[];
-    if (areas.contains('topRight')) labels.add('우상단');
-    if (areas.contains('bottomLeft')) labels.add('좌하단');
-    if (areas.contains('bottomRight')) labels.add('우하단');
-    if (labels.isEmpty) return '좌상단만 표시';
-    return '좌상단 + ${labels.join(', ')}';
+    if (areas.contains('topRight')) labels.add(l10n?.positionTopRight ?? '우상단');
+    if (areas.contains('bottomLeft')) labels.add(l10n?.positionBottomLeft ?? '좌하단');
+    if (areas.contains('bottomRight')) labels.add(l10n?.positionBottomRight ?? '우하단');
+    if (labels.isEmpty) return l10n?.topLeftOnly ?? '좌상단만 표시';
+    return l10n?.topLeftWith(labels.join(', ')) ?? '좌상단 + ${labels.join(', ')}';
   }
 
   void _showVisibleAreasDialog(BuildContext context, AppStateProvider appState) {
@@ -1033,7 +1048,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        appState.isLoggedIn ? '로그인됨' : '로그아웃됨',
+                        appState.isLoggedIn ? (l10n?.loggedIn ?? '로그인됨') : (l10n?.loggedOut ?? '로그아웃됨'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1075,7 +1090,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         size: 18,
                       ),
                       label: Text(
-                        appState.isLoggedIn ? '로그아웃' : '로그인',
+                        appState.isLoggedIn ? (l10n?.logout ?? '로그아웃') : (l10n?.login ?? '로그인'),
                         style: const TextStyle(fontSize: 14),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -1119,11 +1134,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               isCurrentPlan:
                   appState.subscriptionType == SubscriptionType.standard,
               onSelect: () {
+                final planTitle = l10n?.standardVersion ?? '스탠다드';
                 appState.changeSubscriptionType(SubscriptionType.standard);
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n?.subscriptionChanged ?? '구독이 변경되었습니다'),
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Row(
+                      children: [
+                        const Icon(Icons.cloud_outlined, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text(l10n?.cloudSync ?? '클라우드 동기화'),
+                      ],
+                    ),
+                    content: Text(
+                      l10n?.cloudSyncPlanChanged(planTitle) ?? '$planTitle 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(l10n?.confirm ?? '확인'),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -1135,26 +1167,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               price: l10n?.premiumMonthly ?? 'Premium (\$9.99/month)',
               isCurrentPlan:
                   appState.subscriptionType == SubscriptionType.premium,
-              isDisabled: !appState.isLoggedIn, // 로그아웃 상태면 비활성화
               onSelect: () {
-                if (appState.isLoggedIn) {
-                  appState.changeSubscriptionType(SubscriptionType.premium);
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n?.subscriptionChanged ?? '구독이 변경되었습니다'),
+                final planTitle = l10n?.premiumVersion ?? '프리미엄';
+                appState.changeSubscriptionType(SubscriptionType.premium);
+                Navigator.of(context).pop();
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Row(
+                      children: [
+                        const Icon(Icons.cloud_outlined, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text(l10n?.cloudSync ?? '클라우드 동기화'),
+                      ],
                     ),
-                  );
-                } else {
-                  // 로그아웃 상태면 안내 메시지
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('프리미엄은 로그인 후 선택 가능합니다'),
-                      backgroundColor: Colors.orange,
-                      duration: Duration(seconds: 2),
+                    content: Text(
+                      l10n?.cloudSyncPlanChanged(planTitle) ?? '$planTitle 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
                     ),
-                  );
-                }
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(l10n?.confirm ?? '확인'),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ],
@@ -1288,15 +1325,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('플랜 변경'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text(l10n?.planChange ?? '플랜 변경'),
           ],
         ),
         content: Text(
-          '프리미엄 플랜에서 $planTitle 플랜으로 변경하면 클라우드 동기화가 중단되고 자동으로 로그아웃됩니다.\n\n계속하시겠습니까?',
+          l10n?.downgradeFromPremiumMessage(planTitle) ?? '프리미엄 플랜에서 $planTitle 플랜으로 변경하면 클라우드 동기화가 중단되고 자동으로 로그아웃됩니다.\n\n계속하시겠습니까?',
         ),
         actions: [
           TextButton(
@@ -1313,7 +1350,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await appState.authService.signOut();
               scaffoldMessenger.showSnackBar(
                 SnackBar(
-                  content: Text('$planTitle 플랜으로 변경되었습니다. 로그아웃되었습니다.'),
+                  content: Text(l10n?.planChangedAndLoggedOut(planTitle) ?? '$planTitle 플랜으로 변경되었습니다. 로그아웃되었습니다.'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -1322,7 +1359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
             ),
-            child: const Text('변경 및 로그아웃'),
+            child: Text(l10n?.changeAndLogout ?? '변경 및 로그아웃'),
           ),
         ],
       ),
@@ -1580,10 +1617,10 @@ class _VisibleAreasDialog extends StatefulWidget {
 class _VisibleAreasDialogState extends State<_VisibleAreasDialog> {
   late Set<String> _selected;
 
-  static const _areas = [
-    {'id': 'topRight',    'label': '우상단', 'icon': Icons.north_east},
-    {'id': 'bottomLeft',  'label': '좌하단', 'icon': Icons.south_west},
-    {'id': 'bottomRight', 'label': '우하단', 'icon': Icons.south_east},
+  List<Map<String, dynamic>> _buildAreas(AppLocalizations? l10n) => [
+    {'id': 'topRight',    'label': l10n?.positionTopRight ?? '우상단',    'icon': Icons.north_east},
+    {'id': 'bottomLeft',  'label': l10n?.positionBottomLeft ?? '좌하단',  'icon': Icons.south_west},
+    {'id': 'bottomRight', 'label': l10n?.positionBottomRight ?? '우하단', 'icon': Icons.south_east},
   ];
 
   @override
@@ -1594,9 +1631,11 @@ class _VisibleAreasDialogState extends State<_VisibleAreasDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final themeColor = Theme.of(context).primaryColor;
+    final areas = _buildAreas(l10n);
     return AlertDialog(
-      title: const Text('영역 보기'),
+      title: Text(l10n?.visibleAreas ?? '영역 보기'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1604,12 +1643,12 @@ class _VisibleAreasDialogState extends State<_VisibleAreasDialog> {
           ListTile(
             dense: true,
             leading: Icon(Icons.north_west, size: 20, color: themeColor),
-            title: const Text('좌상단'),
-            subtitle: const Text('전체탭 고정', style: TextStyle(fontSize: 11)),
+            title: Text(l10n?.positionTopLeft ?? '좌상단'),
+            subtitle: Text(l10n?.allTabFixed ?? '전체탭 고정', style: const TextStyle(fontSize: 11)),
             trailing: Icon(Icons.lock, color: themeColor, size: 18),
           ),
           const Divider(height: 1),
-          ..._areas.map((area) {
+          ...areas.map((area) {
             final id = area['id'] as String;
             final label = area['label'] as String;
             final icon = area['icon'] as IconData;
@@ -1636,14 +1675,14 @@ class _VisibleAreasDialogState extends State<_VisibleAreasDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n?.cancel ?? '취소'),
         ),
         TextButton(
           onPressed: () {
             widget.appState.setVisibleAreas(_selected);
             Navigator.of(context).pop();
           },
-          child: const Text('확인'),
+          child: Text(l10n?.confirm ?? '확인'),
         ),
       ],
     );
@@ -1663,26 +1702,28 @@ class _NoteTabVisibilityDialog extends StatefulWidget {
 class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
   late Set<String> _selected;
 
-  static const _tabs = [
-    {'id': 'text', 'label': '메모', 'icon': Icons.notes},
-    {'id': 'handwriting', 'label': '필기', 'icon': Icons.draw},
-    {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
-    {'id': 'sttMemo', 'label': '음성메모', 'icon': Icons.record_voice_over},
-    {'id': 'audio', 'label': '녹음', 'icon': Icons.mic},
-    {'id': 'browser', 'label': '검색', 'icon': Icons.public},
-  ];
-
   @override
   void initState() {
     super.initState();
     _selected = Set<String>.from(widget.appState.noteTabVisibility);
   }
 
+  List<Map<String, dynamic>> _buildTabs(AppLocalizations? l10n) => [
+    {'id': 'text', 'label': l10n?.memoLabel ?? '메모', 'icon': Icons.notes},
+    {'id': 'handwriting', 'label': l10n?.handwritingTab ?? '필기', 'icon': Icons.draw},
+    {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
+    {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
+    {'id': 'audio', 'label': l10n?.audioTab ?? '녹음', 'icon': Icons.mic},
+    {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final tabs = _buildTabs(l10n);
     final themeColor = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: const Text('노트탭 보기'),
+      title: Text(l10n?.noteTabView ?? '노트탭 보기'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1690,11 +1731,11 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
           ListTile(
             dense: true,
             leading: Icon(Icons.apps, size: 20, color: themeColor),
-            title: const Text('전체'),
+            title: Text(l10n?.allFilesLabel ?? '전체'),
             trailing: Icon(Icons.check_circle, color: themeColor, size: 20),
           ),
           const Divider(height: 1),
-          ..._tabs.map((tab) {
+          ...tabs.map((tab) {
             final id = tab['id'] as String;
             final label = tab['label'] as String;
             final icon = tab['icon'] as IconData;
@@ -1721,14 +1762,14 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n?.cancel ?? '취소'),
         ),
         TextButton(
           onPressed: () {
             widget.appState.setNoteTabVisibility(_selected); // ignore: discarded_futures
             Navigator.of(context).pop();
           },
-          child: const Text('확인'),
+          child: Text(l10n?.confirm ?? '확인'),
         ),
       ],
     );
@@ -1747,28 +1788,30 @@ class _AllTabFabVisibilityDialog extends StatefulWidget {
 class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> {
   late Set<String> _selected;
 
-  static const _buttons = [
-    {'id': 'canvas', 'label': '필기',    'icon': Icons.draw},
-    {'id': 'pdf',    'label': 'PDF',     'icon': Icons.picture_as_pdf},
-    {'id': 'text',   'label': '메모',    'icon': Icons.notes},
-    {'id': 'audio',  'label': '녹음',    'icon': Icons.mic},
-    {'id': 'stt',    'label': '음성메모', 'icon': Icons.record_voice_over},
-  ];
-
   @override
   void initState() {
     super.initState();
     _selected = Set<String>.from(widget.appState.allTabFabVisibility);
   }
 
+  List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
+    {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기', 'icon': Icons.draw},
+    {'id': 'pdf',    'label': 'PDF',                          'icon': Icons.picture_as_pdf},
+    {'id': 'text',   'label': l10n?.memoLabel ?? '메모',      'icon': Icons.notes},
+    {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',       'icon': Icons.mic},
+    {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final buttons = _buildButtons(l10n);
     final color = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: const Text('전체탭 버튼'),
+      title: Text(l10n?.allTabFab ?? '전체탭 버튼'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: _buttons.map((btn) {
+        children: buttons.map((btn) {
           final id = btn['id'] as String;
           final label = btn['label'] as String;
           final icon = btn['icon'] as IconData;
@@ -1791,14 +1834,14 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n?.cancel ?? '취소'),
         ),
         TextButton(
           onPressed: () {
             widget.appState.setAllTabFabVisibility(_selected);
             Navigator.of(context).pop();
           },
-          child: const Text('확인'),
+          child: Text(l10n?.confirm ?? '확인'),
         ),
       ],
     );

@@ -120,29 +120,31 @@ class _NotificationSettingsState extends State<NotificationSettings> {
 
     debugPrint('📅 매주 알림 요일 선택 다이얼로그 - 기본 선택 요일: $selectedWeekdays');
 
+    final l10n = AppLocalizations.of(context);
+
     await showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('요일 선택'),
+              title: Text(l10n?.selectWeekdays ?? '요일 선택'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildWeekdayChip('일', 7, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('월', 1, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('화', 2, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('수', 3, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('목', 4, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('금', 5, selectedWeekdays, setDialogState),
-                  _buildWeekdayChip('토', 6, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.daySun ?? '일', 7, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.dayMon ?? '월', 1, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.dayTue ?? '화', 2, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.dayWed ?? '수', 3, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.dayThu ?? '목', 4, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.dayFri ?? '금', 5, selectedWeekdays, setDialogState),
+                  _buildWeekdayChip(l10n?.daySat ?? '토', 6, selectedWeekdays, setDialogState),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('취소'),
+                  child: Text(l10n?.cancel ?? '취소'),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -154,7 +156,7 @@ class _NotificationSettingsState extends State<NotificationSettings> {
                     );
                     Navigator.pop(context);
                   },
-                  child: const Text('확인'),
+                  child: Text(l10n?.confirm ?? '확인'),
                 ),
               ],
             );

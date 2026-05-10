@@ -620,7 +620,7 @@ class _HandwritingTabState extends State<HandwritingTab>
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
-      final littenName = selectedLitten.title == 'undefined' ? '필기' : selectedLitten.title;
+      final littenName = selectedLitten.title == 'undefined' ? (AppLocalizations.of(context)?.handwritingTab ?? '필기') : selectedLitten.title;
       final defaultTitle =
           '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
@@ -2680,34 +2680,37 @@ class _HandwritingTabState extends State<HandwritingTab>
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('파일 이름 변경'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '새 파일 이름',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-          onSubmitted: (_) {
-            Navigator.pop(context);
-            _renameHandwritingFile(file, controller.text.trim());
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n?.renameFile ?? '파일 이름 변경'),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: l10n?.newFileName ?? '새 파일 이름',
+              border: const OutlineInputBorder(),
+            ),
+            autofocus: true,
+            onSubmitted: (_) {
               Navigator.pop(context);
               _renameHandwritingFile(file, controller.text.trim());
             },
-            child: const Text('변경'),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n?.cancel ?? '취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _renameHandwritingFile(file, controller.text.trim());
+              },
+              child: Text(l10n?.confirm ?? '확인'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2736,15 +2739,17 @@ class _HandwritingTabState extends State<HandwritingTab>
         await _loadFiles();
 
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('파일 이름이 변경되었습니다')),
+            SnackBar(content: Text(l10n?.fileRenameSuccess ?? '파일 이름이 변경되었습니다.')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('파일 이름 변경 실패: $e')),
+          SnackBar(content: Text(l10n?.fileRenameFailed(e.toString()) ?? '파일 이름 변경에 실패했습니다: $e')),
         );
       }
     }
@@ -3785,24 +3790,27 @@ class _HandwritingTabState extends State<HandwritingTab>
   void _showDeleteConfirmDialog(String fileName, VoidCallback onConfirm) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('파일 삭제'),
-        content: Text('"$fileName"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n?.deleteFile ?? '파일 삭제'),
+          content: Text(l10n?.confirmDeleteFileMessage(fileName) ?? '"$fileName"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n?.cancel ?? '취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onConfirm();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n?.delete ?? '삭제'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -3857,9 +3865,10 @@ class _HandwritingTabState extends State<HandwritingTab>
       print('디버그: 삭제 후 파일 목록 새로고침 완료');
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${file.displayTitle} 파일이 삭제되었습니다.'),
+            content: Text(l10n?.fileDeleteSuccess(file.displayTitle) ?? '${file.displayTitle} 파일이 삭제되었습니다.'),
             backgroundColor: Colors.blue,
           ),
         );
@@ -3867,9 +3876,10 @@ class _HandwritingTabState extends State<HandwritingTab>
     } catch (e) {
       print('에러: 필기 파일 삭제 실패 - $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('파일 삭제에 실패했습니다: $e'),
+            content: Text(l10n?.fileDeleteFailed(e.toString()) ?? '파일 삭제에 실패했습니다: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -3973,14 +3983,6 @@ class _HandwritingTabState extends State<HandwritingTab>
             );
           }
         }
-
-        // 저장 완료 알림을 위한 간단한 피드백 (선택사항)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('저장되었습니다'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
 
         // 파일 카운트 업데이트는 파일 추가/삭제 시에만 필요 (저장 시에는 불필요)
         // await appState.updateFileCount();

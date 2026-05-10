@@ -313,7 +313,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
   Set<String> get visibleAreas => _visibleAreas;
-  bool get adsEnabled => _adsEnabled;
+  // 무료 플랜은 항상 광고 ON; 유료 플랜은 사용자 설정값
+  bool get adsEnabled => _subscriptionType == SubscriptionType.free ? true : _adsEnabled;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -621,8 +622,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     debugPrint('✅ [AppStateProvider] 영역 보기 복원: $_visibleAreas');
 
-    _adsEnabled = prefs.getBool('ads_enabled') ?? false;
-    debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled');
+    // 유료 플랜: 저장된 값 우선, 없으면 false(광고 OFF)
+    // 무료 플랜: _adsEnabled 값은 무관 (getter에서 항상 true 반환)
+    final adsDefault = _subscriptionType == SubscriptionType.free ? true : false;
+    _adsEnabled = prefs.getBool('ads_enabled') ?? adsDefault;
+    debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled (플랜: $_subscriptionType)');
   }
 
   String _getSystemLanguage() {
@@ -782,8 +786,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 구독 상태 변경
   Future<void> changeSubscriptionType(SubscriptionType subscriptionType) async {
+    final wasFreePlan = _subscriptionType == SubscriptionType.free;
     _subscriptionType = subscriptionType;
     await _saveSubscriptionType(subscriptionType);
+    // 무료 → 유료 전환 시 광고 기본 OFF
+    if (wasFreePlan && subscriptionType != SubscriptionType.free) {
+      _adsEnabled = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('ads_enabled', false);
+      debugPrint('💾 [AppStateProvider] 유료 플랜 전환 — 광고 기본 비활성화');
+    }
     // AuthService.currentUser 동기화 (SyncService._canSync 체크용)
     if (_authService.authStatus == AuthStatus.authenticated) {
       final plan = _subscriptionTypeToPlan(subscriptionType);
@@ -1204,6 +1216,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 현지화된 기본 리튼 생성
   Future<void> _createDefaultLittensWithLocalization() async {
+    // 샘플 리튼 생성 안 함 — 'undefined' 리튼만 사용
+  }
+
+  Future<void> _createDefaultLittensWithLocalization_unused() async {
     // 현재 언어에 따른 기본 리튼 제목과 설명 결정
     String? defaultLittenTitle, lectureTitle, meetingTitle;
     String? defaultLittenDescription, lectureDescription, meetingDescription;
@@ -1579,6 +1595,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> setAdsEnabled(bool enabled) async {
+    if (_subscriptionType == SubscriptionType.free) {
+      debugPrint('🚫 [AppStateProvider] 무료 플랜은 광고 비활성화 불가');
+      return;
+    }
     if (_adsEnabled == enabled) return;
     _adsEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();

@@ -141,7 +141,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get removeAdsAndUnlimited => '광고 제거 및 무제한 기능';
 
   @override
-  String get maxRecordingTimeValue => '1시간';
+  String get maxRecordingTimeValue => '무제한';
 
   @override
   String get standardQuality => '표준';
@@ -878,5 +878,353 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String loginFailed(String error) {
     return '로그인 실패: $error';
+  }
+
+  @override
+  String get calendarTab => '캘린더';
+
+  @override
+  String get noteOption => '노트';
+
+  @override
+  String get reminderLabel => '리마인드';
+
+  @override
+  String reminderCount(int count) {
+    return '리마인드 $count개';
+  }
+
+  @override
+  String get noVoiceMemos => '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.';
+
+  @override
+  String get noFilesPrompt => '파일이 없습니다.\n아래 버튼으로 추가하세요.';
+
+  @override
+  String get notSynced => '동기화 안 됨';
+
+  @override
+  String get menuTooltip => '메뉴';
+
+  @override
+  String get editLabel => '수정';
+
+  @override
+  String get viewSummary => '요약 보기';
+
+  @override
+  String get noSummary => '요약 없음';
+
+  @override
+  String get share => '공유';
+
+  @override
+  String characterCount(int count) {
+    return '$count자';
+  }
+
+  @override
+  String pageCount(int count) {
+    return '$count페이지';
+  }
+
+  @override
+  String get summaryUnsupported => '요약 미지원';
+
+  @override
+  String get memoLabel => '메모';
+
+  @override
+  String recordingStatus(String time) {
+    return '녹음중... $time';
+  }
+
+  @override
+  String get voiceMemoLabel => '음성 메모';
+
+  @override
+  String get allFilesLabel => '전체';
+
+  @override
+  String get sttMemoLabel => '음성메모';
+
+  @override
+  String get noneLabel => '없음';
+
+  @override
+  String get visibleAreas => '영역 보기';
+
+  @override
+  String get noteTabView => '노트탭 보기';
+
+  @override
+  String get allTabFab => '전체탭 버튼';
+
+  @override
+  String get showAds => '광고 표시';
+
+  @override
+  String get paidPlanNoAds => '유료 플랜 - 기본 광고 OFF';
+
+  @override
+  String get freeShowAds => '상단 광고 표시';
+
+  @override
+  String get availableInPaidPlans => '스탠다드 프리미엄 플랜에서 사용 가능합니다';
+
+  @override
+  String get loginForCloudSync => '클라우드 동기화를 위해 로그인하세요';
+
+  @override
+  String get topLeftOnly => '좌상단만 표시';
+
+  @override
+  String topLeftWith(String areas) {
+    return '좌상단 + $areas';
+  }
+
+  @override
+  String get rename => '이름 변경';
+
+  @override
+  String get fileNameHint => '파일 이름';
+
+  @override
+  String get noRemindItems => '요약에서 리마인드를\n추출하면 여기 표시됩니다';
+
+  @override
+  String cloudSyncPlanChanged(String plan) {
+    return '$plan 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.';
+  }
+
+  @override
+  String get viewScheduleList => '일정 목록 보기';
+
+  @override
+  String get startDate => '시작일자';
+
+  @override
+  String get endDate => '종료일자';
+
+  @override
+  String get notSelected => '선택 안 함';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '총 $minutes분';
+  }
+
+  @override
+  String durationHours(int hours) {
+    return '총 $hours시간';
+  }
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) {
+    return '총 $hours시간 $minutes분';
+  }
+
+  @override
+  String get selectWeekdays => '요일 선택';
+
+  @override
+  String get daySun => '일';
+
+  @override
+  String get dayMon => '월';
+
+  @override
+  String get dayTue => '화';
+
+  @override
+  String get dayWed => '수';
+
+  @override
+  String get dayThu => '목';
+
+  @override
+  String get dayFri => '금';
+
+  @override
+  String get daySat => '토';
+
+  @override
+  String get renameFile => '파일 이름 변경';
+
+  @override
+  String get newFileName => '새 파일 이름';
+
+  @override
+  String get fileNameInputHint => '파일 이름을 입력하세요';
+
+  @override
+  String confirmDeleteFileMessage(String name) {
+    return '\"$name\"을(를) 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.';
+  }
+
+  @override
+  String fileRenameSuccessName(String name) {
+    return '파일 이름이 \"$name\"(으)로 변경되었습니다.';
+  }
+
+  @override
+  String get fileRenameSuccess => '파일 이름이 변경되었습니다.';
+
+  @override
+  String fileRenameFailed(String error) {
+    return '파일 이름 변경에 실패했습니다: $error';
+  }
+
+  @override
+  String fileDeleteSuccess(String name) {
+    return '$name 파일이 삭제되었습니다.';
+  }
+
+  @override
+  String fileDeleteFailed(String error) {
+    return '파일 삭제에 실패했습니다: $error';
+  }
+
+  @override
+  String get planChange => '플랜 변경';
+
+  @override
+  String get changeAndLogout => '변경 및 로그아웃';
+
+  @override
+  String get allTabFixed => '전체탭 고정';
+
+  @override
+  String downgradeFromPremiumMessage(String plan) {
+    return '프리미엄 플랜에서 $plan 플랜으로 변경하면 클라우드 동기화가 중단되고 자동으로 로그아웃됩니다.\n\n계속하시겠습니까?';
+  }
+
+  @override
+  String planChangedAndLoggedOut(String plan) {
+    return '$plan 플랜으로 변경되었습니다. 로그아웃되었습니다.';
+  }
+
+  @override
+  String get voiceMemoSettings => '음성 메모 설정';
+
+  @override
+  String get transcriptionLanguage => '전사 언어';
+
+  @override
+  String get summaryLanguage => '요약 언어';
+
+  @override
+  String get summaryLevel => '요약 수준';
+
+  @override
+  String get summaryLevelOneLiner => '한줄 요약';
+
+  @override
+  String get summaryLevelBrief => '간단 요약';
+
+  @override
+  String get summaryLevelNormal => '일반 요약';
+
+  @override
+  String get summaryLevelDetailed => '상세 요약';
+
+  @override
+  String get summaryLevelFull => '거의 전체';
+
+  @override
+  String get summaryLevelDesc1 => '핵심 주제와 결론만 · 약 10%';
+
+  @override
+  String get summaryLevelDesc2 => '주요 기능과 핵심 논의 · 약 25%';
+
+  @override
+  String get summaryLevelDesc3 => '실무 흐름과 설계 의도 · 약 40~50%';
+
+  @override
+  String get summaryLevelDesc4 => '전체 논의 흐름 대부분 · 약 70%';
+
+  @override
+  String get summaryLevelDesc5 => '전체 맥락 최대한 유지 · 약 90%';
+
+  @override
+  String get autoSummaryInterval => '자동 요약 주기';
+
+  @override
+  String intervalMin(int n) {
+    return '$n분';
+  }
+
+  @override
+  String get intervalOnStop => '종료';
+
+  @override
+  String get intervalOff => '안함';
+
+  @override
+  String get startButton => '시작';
+
+  @override
+  String get aiSummary => 'AI 요약';
+
+  @override
+  String get summarizing => '요약 중...';
+
+  @override
+  String autoSummaryEveryMinutes(int minutes) {
+    return '녹음 시작 후 $minutes분마다 자동으로 요약됩니다.';
+  }
+
+  @override
+  String get autoSummaryOnStop => '녹음 종료 시 자동으로 요약됩니다.';
+
+  @override
+  String get autoSummaryDisabled => '자동 요약이 비활성화되어 있습니다.';
+
+  @override
+  String summaryFailed(String error) {
+    return '요약 실패: $error';
+  }
+
+  @override
+  String get summaryLevelShortOneLiner => '한줄';
+
+  @override
+  String get summaryLevelShortBrief => '간단';
+
+  @override
+  String get summaryLevelShortNormal => '일반';
+
+  @override
+  String get summaryLevelShortDetailed => '상세';
+
+  @override
+  String get summaryLevelShortFull => '전체';
+
+  @override
+  String get summaryHistory => '요약 이력';
+
+  @override
+  String get targetLanguage => '대상 언어';
+
+  @override
+  String get aiSummarizing => 'AI가 요약 중입니다...';
+
+  @override
+  String get summarize => '요약하기';
+
+  @override
+  String get summarizeAgain => '다시 요약';
+
+  @override
+  String get summaryAdded => '요약이 파일에 추가되었습니다.';
+
+  @override
+  String summaryAddedWithRemind(int count) {
+    return '요약이 추가되었습니다. 리마인드 $count개 생성';
+  }
+
+  @override
+  String summarySaveFailed(String error) {
+    return '요약 저장 실패: $error';
   }
 }

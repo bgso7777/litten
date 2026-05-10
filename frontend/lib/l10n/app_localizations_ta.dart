@@ -143,7 +143,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get removeAdsAndUnlimited => 'Remove ads and unlimited features';
 
   @override
-  String get maxRecordingTimeValue => '1 hour';
+  String get maxRecordingTimeValue => 'Unlimited';
 
   @override
   String get standardQuality => 'Standard';
@@ -899,5 +899,354 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String loginFailed(String error) {
     return 'Login failed: $error';
+  }
+
+  @override
+  String get calendarTab => 'Calendar';
+
+  @override
+  String get noteOption => 'Note';
+
+  @override
+  String get reminderLabel => 'Reminder';
+
+  @override
+  String reminderCount(int count) {
+    return 'Reminder $count';
+  }
+
+  @override
+  String get noVoiceMemos => 'No voice memos.\nTap below to start.';
+
+  @override
+  String get noFilesPrompt => 'No files.\nTap below to add.';
+
+  @override
+  String get notSynced => 'Not synced';
+
+  @override
+  String get menuTooltip => 'Menu';
+
+  @override
+  String get editLabel => 'Edit';
+
+  @override
+  String get viewSummary => 'View Summary';
+
+  @override
+  String get noSummary => 'No summary';
+
+  @override
+  String get share => 'Share';
+
+  @override
+  String characterCount(int count) {
+    return '$count chars';
+  }
+
+  @override
+  String pageCount(int count) {
+    return '$count pages';
+  }
+
+  @override
+  String get summaryUnsupported => 'Summary unavailable';
+
+  @override
+  String get memoLabel => 'Memo';
+
+  @override
+  String recordingStatus(String time) {
+    return 'Recording... $time';
+  }
+
+  @override
+  String get voiceMemoLabel => 'Voice Memo';
+
+  @override
+  String get allFilesLabel => 'All';
+
+  @override
+  String get sttMemoLabel => 'Voice Memo';
+
+  @override
+  String get noneLabel => 'None';
+
+  @override
+  String get visibleAreas => 'Visible Areas';
+
+  @override
+  String get noteTabView => 'Note Tab View';
+
+  @override
+  String get allTabFab => 'All Tab Button';
+
+  @override
+  String get showAds => 'Show Ads';
+
+  @override
+  String get paidPlanNoAds => 'Paid plan - ads off by default';
+
+  @override
+  String get freeShowAds => 'Show banner ad';
+
+  @override
+  String get availableInPaidPlans => 'Available in Standard & Premium plans';
+
+  @override
+  String get loginForCloudSync => 'Login for cloud sync';
+
+  @override
+  String get topLeftOnly => 'Top left only';
+
+  @override
+  String topLeftWith(String areas) {
+    return 'Top left + $areas';
+  }
+
+  @override
+  String get rename => 'Rename';
+
+  @override
+  String get fileNameHint => 'File name';
+
+  @override
+  String get noRemindItems =>
+      'Extract from summaries\nand they\'ll appear here';
+
+  @override
+  String cloudSyncPlanChanged(String plan) {
+    return 'Changed to $plan plan.\n\nTo use cloud sync, please login at Settings > Account.';
+  }
+
+  @override
+  String get viewScheduleList => 'View Schedule List';
+
+  @override
+  String get startDate => 'Start Date';
+
+  @override
+  String get endDate => 'End Date';
+
+  @override
+  String get notSelected => 'Not selected';
+
+  @override
+  String durationMinutes(int minutes) {
+    return 'Total $minutes min';
+  }
+
+  @override
+  String durationHours(int hours) {
+    return 'Total $hours hr';
+  }
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) {
+    return 'Total $hours hr $minutes min';
+  }
+
+  @override
+  String get selectWeekdays => 'Select Days';
+
+  @override
+  String get daySun => 'Sun';
+
+  @override
+  String get dayMon => 'Mon';
+
+  @override
+  String get dayTue => 'Tue';
+
+  @override
+  String get dayWed => 'Wed';
+
+  @override
+  String get dayThu => 'Thu';
+
+  @override
+  String get dayFri => 'Fri';
+
+  @override
+  String get daySat => 'Sat';
+
+  @override
+  String get renameFile => 'Rename File';
+
+  @override
+  String get newFileName => 'New file name';
+
+  @override
+  String get fileNameInputHint => 'Enter file name';
+
+  @override
+  String confirmDeleteFileMessage(String name) {
+    return 'Delete \"$name\"?\n\nThis action cannot be undone.';
+  }
+
+  @override
+  String fileRenameSuccessName(String name) {
+    return 'File renamed to \"$name\".';
+  }
+
+  @override
+  String get fileRenameSuccess => 'File renamed.';
+
+  @override
+  String fileRenameFailed(String error) {
+    return 'Failed to rename file: $error';
+  }
+
+  @override
+  String fileDeleteSuccess(String name) {
+    return '$name deleted.';
+  }
+
+  @override
+  String fileDeleteFailed(String error) {
+    return 'Failed to delete file: $error';
+  }
+
+  @override
+  String get planChange => 'Plan Change';
+
+  @override
+  String get changeAndLogout => 'Change & Logout';
+
+  @override
+  String get allTabFixed => 'All Tab (fixed)';
+
+  @override
+  String downgradeFromPremiumMessage(String plan) {
+    return 'Switching from Premium to $plan plan will stop cloud sync and automatically log you out.\n\nDo you want to continue?';
+  }
+
+  @override
+  String planChangedAndLoggedOut(String plan) {
+    return 'Changed to $plan plan. Logged out.';
+  }
+
+  @override
+  String get voiceMemoSettings => 'Voice Memo Settings';
+
+  @override
+  String get transcriptionLanguage => 'Transcription Language';
+
+  @override
+  String get summaryLanguage => 'Summary Language';
+
+  @override
+  String get summaryLevel => 'Summary Level';
+
+  @override
+  String get summaryLevelOneLiner => 'One-line Summary';
+
+  @override
+  String get summaryLevelBrief => 'Brief Summary';
+
+  @override
+  String get summaryLevelNormal => 'Normal Summary';
+
+  @override
+  String get summaryLevelDetailed => 'Detailed Summary';
+
+  @override
+  String get summaryLevelFull => 'Nearly Full';
+
+  @override
+  String get summaryLevelDesc1 => 'Key topics and conclusions only · ~10%';
+
+  @override
+  String get summaryLevelDesc2 => 'Main points and key discussions · ~25%';
+
+  @override
+  String get summaryLevelDesc3 => 'Practical flow and design intent · ~40–50%';
+
+  @override
+  String get summaryLevelDesc4 => 'Most of the discussion flow · ~70%';
+
+  @override
+  String get summaryLevelDesc5 => 'Maximum context preserved · ~90%';
+
+  @override
+  String get autoSummaryInterval => 'Auto Summary Interval';
+
+  @override
+  String intervalMin(int n) {
+    return '${n}min';
+  }
+
+  @override
+  String get intervalOnStop => 'On Stop';
+
+  @override
+  String get intervalOff => 'Off';
+
+  @override
+  String get startButton => 'Start';
+
+  @override
+  String get aiSummary => 'AI Summary';
+
+  @override
+  String get summarizing => 'Summarizing...';
+
+  @override
+  String autoSummaryEveryMinutes(int minutes) {
+    return 'Auto summary every $minutes min after recording starts.';
+  }
+
+  @override
+  String get autoSummaryOnStop => 'Auto summary when recording stops.';
+
+  @override
+  String get autoSummaryDisabled => 'Auto summary is disabled.';
+
+  @override
+  String summaryFailed(String error) {
+    return 'Summary failed: $error';
+  }
+
+  @override
+  String get summaryLevelShortOneLiner => '1-line';
+
+  @override
+  String get summaryLevelShortBrief => 'Brief';
+
+  @override
+  String get summaryLevelShortNormal => 'Normal';
+
+  @override
+  String get summaryLevelShortDetailed => 'Detail';
+
+  @override
+  String get summaryLevelShortFull => 'Full';
+
+  @override
+  String get summaryHistory => 'Summary History';
+
+  @override
+  String get targetLanguage => 'Target Language';
+
+  @override
+  String get aiSummarizing => 'AI is summarizing...';
+
+  @override
+  String get summarize => 'Summarize';
+
+  @override
+  String get summarizeAgain => 'Re-summarize';
+
+  @override
+  String get summaryAdded => 'Summary added to file.';
+
+  @override
+  String summaryAddedWithRemind(int count) {
+    return 'Summary added. $count remind(s) created.';
+  }
+
+  @override
+  String summarySaveFailed(String error) {
+    return 'Failed to save summary: $error';
   }
 }

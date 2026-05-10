@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/remind_item.dart';
 import '../services/app_state_provider.dart';
+import '../l10n/app_localizations.dart';
 
 /// 노트영역 하단 — 요약 리마인드 아코디언 패널 (3단계 높이)
 ///
@@ -822,6 +823,7 @@ class _RemindPanelState extends State<RemindPanel> {
 
   Widget _buildEmpty() {
     final primaryColor = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -831,7 +833,7 @@ class _RemindPanelState extends State<RemindPanel> {
             Icon(Icons.folder_open_outlined, size: 36, color: primaryColor.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
             Text(
-              '요약에서 리마인드를\n추출하면 여기 표시됩니다',
+              l10n?.noRemindItems ?? '요약에서 리마인드를\n추출하면 여기 표시됩니다',
               style: TextStyle(fontSize: 13, color: primaryColor.withValues(alpha: 0.6)),
               textAlign: TextAlign.center,
             ),

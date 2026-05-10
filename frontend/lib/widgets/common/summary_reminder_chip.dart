@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/app_state_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 /// 노트탭 하단 — 요약 리마인드 칩
 /// [panelLevel]: 0=닫힘, 1=절반, 2=전체
@@ -23,8 +24,11 @@ class SummaryReminderChip extends StatelessWidget {
 
     return Consumer<AppStateProvider>(
       builder: (context, appState, _) {
+        final l10n = AppLocalizations.of(context);
         final pendingCount = appState.remindItems.where((i) => !i.isDone).length;
-        final label = pendingCount > 0 ? '리마인드 $pendingCount개' : '리마인드';
+        final label = pendingCount > 0
+            ? (l10n?.reminderCount(pendingCount) ?? '리마인드 ${pendingCount}개')
+            : (l10n?.reminderLabel ?? '리마인드');
 
         return GestureDetector(
           onTap: () {
@@ -50,12 +54,14 @@ class SummaryReminderChip extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.lightbulb_outline, size: 15, color: color),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(width: 16),
+                  if (panelLevel > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   // 레이아웃 높이를 단일 아이콘과 동일하게 고정
                   SizedBox(
                     width: 18,

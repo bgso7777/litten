@@ -2060,6 +2060,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
   // 일정 목록 스크롤 유도 힌트 칩 위젯
   Widget _buildScheduleHintChip(AppStateProvider appState) {
+    final l10n = AppLocalizations.of(context);
     final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
 
     final String timeLabel;
@@ -2085,7 +2086,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     } else if (hint.daysUntilNext > 0) {
       timeLabel = '${hint.daysUntilNext}일 후 일정 있음';
     } else {
-      timeLabel = '일정 목록 보기';
+      timeLabel = l10n?.viewScheduleList ?? '일정 목록 보기';
     }
     final String? title = hint.nearestTitle;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'l10n/app_localizations.dart';
 
 import 'services/app_state_provider.dart';
@@ -11,6 +12,14 @@ import 'config/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // AdMob 초기화
+  try {
+    await MobileAds.instance.initialize();
+    debugPrint('✅ AdMob 초기화 완료');
+  } catch (e) {
+    debugPrint('⚠️ AdMob 초기화 실패: $e');
+  }
 
   // 백그라운드 알림 서비스 초기화 (실패해도 앱 실행 계속)
   try {

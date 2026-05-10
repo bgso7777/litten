@@ -58,18 +58,12 @@ class _RecordingScreenState extends State<RecordingScreen> {
         final littenService = LittenService();
         await littenService.addAudioFileToLitten(appState.selectedLitten!.id, audioFile.id);
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n?.recordingStoppedAndSaved ?? '듣기가 중지되고 파일이 저장되었습니다.'),
-            backgroundColor: Colors.blue,
-          ),
-        );
         await _loadAudioFiles(); // 목록 새로고침
         await appState.refreshLittens(); // 파일 수 배지 업데이트
       }
     } else {
       // 듣기 시작
-      final success = await _audioService.startRecording(appState.selectedLitten!);
+      final success = await _audioService.startRecording(appState.selectedLitten!, undefinedPrefix: l10n?.audioTab ?? '녹음');
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
