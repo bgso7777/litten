@@ -64,5 +64,8 @@
 	<array>
 		<string>com.litten.litten.notification-check</string>
 	</array>
+	<!-- Google Mobile Ads SDK 필수 키 (없으면 앱 시작 시 SIGABRT 크래시) -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 </dict>
 </plist>
