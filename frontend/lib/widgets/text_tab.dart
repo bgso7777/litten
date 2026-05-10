@@ -2604,6 +2604,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('❌ [SttMode] 자동 요약 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('요약 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSummarizing = false);
     }
