@@ -30,8 +30,10 @@ class _MergedFile {
 }
 
 /// 텍스트 · 필기 · 녹음 파일을 하나의 탭에서 모두 보여주는 통합 뷰
+/// [showOnlySTT] = true 이면 음성메모(STT)로 생성된 파일만 표시
 class AllFilesTab extends StatefulWidget {
-  const AllFilesTab({super.key});
+  final bool showOnlySTT;
+  const AllFilesTab({super.key, this.showOnlySTT = false});
 
   @override
   State<AllFilesTab> createState() => _AllFilesTabState();
@@ -63,11 +65,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // 병합 정렬 파일 목록 (createdAt 내림차순)
   List<_MergedFile> get _mergedFiles {
+    final textSrc = widget.showOnlySTT ? _textFiles.where((f) => f.isFromSTT).toList() : _textFiles;
+    final audioSrc = widget.showOnlySTT ? _audioFiles.where((f) => f.isFromSTT).toList() : _audioFiles;
     final list = <_MergedFile>[
-      ..._textFiles.map((f) => _MergedFile(type: _FileType.text, file: f, createdAt: f.createdAt)),
-      ..._pdfFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
-      ..._canvasFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
-      ..._audioFiles.map((f) => _MergedFile(type: _FileType.audio, file: f, createdAt: f.createdAt)),
+      ...textSrc.map((f) => _MergedFile(type: _FileType.text, file: f, createdAt: f.createdAt)),
+      if (!widget.showOnlySTT) ...[
+        ..._pdfFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
+        ..._canvasFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
+      ],
+      ...audioSrc.map((f) => _MergedFile(type: _FileType.audio, file: f, createdAt: f.createdAt)),
     ];
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
@@ -277,40 +283,42 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   else
                     _buildFileList(),
                   Positioned(
-                    bottom: 28, // ⭐ 애니메이션 시 아래로 쳐지지 않도록 더 위로 올림
+                    bottom: 28,
                     left: 0,
                     right: 0,
-                    child: _BottomFabRow(
-                      onText: () => _openEditorView(_EditorType.text, autoCreate: true),
-                      onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-                      onPdf: () async {
-                        final appState = Provider.of<AppStateProvider>(context, listen: false);
-                        if (appState.selectedLitten == null) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
-                            );
-                          }
-                          return;
-                        }
-                        final result = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['pdf'],
-                          withData: false,
-                        );
-                        if (result == null || result.files.single.path == null) return;
-                        if (!mounted) return;
-                        _openEditorView(
-                          _EditorType.handwriting,
-                          initialPdfPath: result.files.single.path!,
-                          initialPdfFileName: result.files.single.name,
-                        );
-                      },
-                      onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
-                      onAudio: _toggleRecording,
-                      isRecording: _isRecording,
-                      recordingDuration: _recordingDuration,
-                    ),
+                    child: widget.showOnlySTT
+                        ? _buildSttOnlyFab(color: Theme.of(context).primaryColor)
+                        : _BottomFabRow(
+                            onText: () => _openEditorView(_EditorType.text, autoCreate: true),
+                            onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
+                            onPdf: () async {
+                              final appState = Provider.of<AppStateProvider>(context, listen: false);
+                              if (appState.selectedLitten == null) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
+                                  );
+                                }
+                                return;
+                              }
+                              final result = await FilePicker.platform.pickFiles(
+                                type: FileType.custom,
+                                allowedExtensions: ['pdf'],
+                                withData: false,
+                              );
+                              if (result == null || result.files.single.path == null) return;
+                              if (!mounted) return;
+                              _openEditorView(
+                                _EditorType.handwriting,
+                                initialPdfPath: result.files.single.path!,
+                                initialPdfFileName: result.files.single.name,
+                              );
+                            },
+                            onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
+                            onAudio: _toggleRecording,
+                            isRecording: _isRecording,
+                            recordingDuration: _recordingDuration,
+                          ),
                   ),
                 ],
               ),
@@ -344,6 +352,22 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  Widget _buildSttOnlyFab({required Color color}) {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: FloatingActionButton(
+          heroTag: 'stt_memo_fab',
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          onPressed: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
+          child: const Icon(Icons.record_voice_over),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFileList() {
     final merged = _mergedFiles;
     if (merged.isEmpty) {
@@ -351,11 +375,19 @@ class _AllFilesTabState extends State<AllFilesTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open, size: 48, color: Colors.grey[400]),
+            Icon(
+              widget.showOnlySTT ? Icons.record_voice_over : Icons.folder_open,
+              size: 48,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 12),
-            Text('파일이 없습니다.\n아래 버튼으로 추가하세요.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[500])),
+            Text(
+              widget.showOnlySTT
+                  ? '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.'
+                  : '파일이 없습니다.\n아래 버튼으로 추가하세요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[500]),
+            ),
           ],
         ),
       );

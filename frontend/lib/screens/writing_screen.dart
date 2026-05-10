@@ -52,6 +52,7 @@ class _WritingScreenState extends State<WritingScreen>
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _handwritingTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _pdfTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _sttMemoTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
 
   @override
@@ -191,7 +192,7 @@ class _WritingScreenState extends State<WritingScreen>
     }
   }
 
-  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
         case 'topLeft':
@@ -249,6 +250,14 @@ class _WritingScreenState extends State<WritingScreen>
         isVisible: noteTabVisibility.contains('pdf'),
       ),
       TabItem(
+        id: 'sttMemo',
+        title: sttMemoCount.toString(),
+        icon: Icons.record_voice_over,
+        content: AllFilesTab(key: _sttMemoTabKey, showOnlySTT: true),
+        position: parsePosition(savedPositions['sttMemo'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('sttMemo'),
+      ),
+      TabItem(
         id: 'audio',
         title: audioCount.toString(),
         icon: Icons.mic,
@@ -278,6 +287,7 @@ class _WritingScreenState extends State<WritingScreen>
           handwritingCount: appState.actualHandwritingCount,
           pdfCount: appState.actualPdfCount,
           canvasCount: appState.actualCanvasCount,
+          sttMemoCount: appState.actualSttMemoCount,
           audioCount: appState.actualAudioCount,
           littenTitle: appState.selectedLitten?.title,
           noteTabVisibility: appState.noteTabVisibility,
