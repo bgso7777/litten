@@ -806,6 +806,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (visibility.contains('all')) labels.add('전체');
     if (visibility.contains('text')) labels.add('텍스트');
     if (visibility.contains('handwriting')) labels.add('필기');
+    if (visibility.contains('pdf')) labels.add('PDF');
     if (visibility.contains('audio')) labels.add('녹음');
     if (visibility.contains('browser')) labels.add('검색');
     return labels.join(', ');
@@ -1664,6 +1665,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
   static const _tabs = [
     {'id': 'text', 'label': '메모', 'icon': Icons.notes},
     {'id': 'handwriting', 'label': '필기', 'icon': Icons.draw},
+    {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
     {'id': 'audio', 'label': '녹음', 'icon': Icons.mic},
     {'id': 'browser', 'label': '검색', 'icon': Icons.public},
   ];

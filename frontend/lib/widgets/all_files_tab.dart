@@ -104,10 +104,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
       });
       debugPrint('🔄 [AllFilesTab] 외부 녹음 시작 감지 (STT 등)');
     } else {
-      // 외부에서 녹음 종료
+      // 외부에서 녹음 종료 (STT 등) → 파일 목록 새로고침 (isFromSTT 아이콘 즉시 반영)
       _recordingTimer?.cancel();
       _recordingDuration = Duration.zero;
-      debugPrint('🔄 [AllFilesTab] 외부 녹음 종료 감지');
+      debugPrint('🔄 [AllFilesTab] 외부 녹음 종료 감지 - 파일 목록 새로고침');
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      _loadFiles(appState);
     }
     setState(() => _isRecording = nowRecording);
   }

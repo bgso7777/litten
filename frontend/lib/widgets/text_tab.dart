@@ -1497,8 +1497,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           localUpdatedAt: audioFile.updatedAt,
         );
 
-        // ⚠️ refreshLittens() 호출하지 않음 - notifyListeners()가 화면 rebuild를 일으켜 편집 모드가 종료됨
-        // 녹음 파일은 녹음 탭에서 확인 가능
+        // 전체탭 파일 목록 갱신 (isFromSTT 아이콘 즉시 반영)
+        // _isEditing=true 상태이므로 TextTab Consumer builder는 에디터 유지, AllFilesTab만 갱신됨
+        if (mounted) {
+          Provider.of<AppStateProvider>(context, listen: false).notifyFileListChanged();
+        }
 
         // 사용자에게 알림 (mounted 확인 후에만)
         if (mounted) {

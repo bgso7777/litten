@@ -14,6 +14,7 @@ import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../services/sync_service.dart';
+import '../models/handwriting_file.dart' show HandwritingType;
 
 class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final LittenService _littenService = LittenService();
@@ -55,6 +56,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _actualAudioCount = 0;
   int _actualTextCount = 0;
   int _actualHandwritingCount = 0;
+  int _actualPdfCount = 0;
+  int _actualCanvasCount = 0;
 
   // 전체 파일 카운트 (캘린더 통계 영역용 - 항상 전체 합계)
   int _totalAudioCount = 0;
@@ -258,11 +261,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 광고 표시 여부 (기본: false - 나중에 활성화 가능)
   bool _adsEnabled = false;
 
-  // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, audio, browser 각각의 위치)
+  // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, pdf, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
     'all': 'topLeft',
     'text': 'topLeft',
     'handwriting': 'topLeft',
+    'pdf': 'topLeft',
     'audio': 'topLeft',
     'browser': 'topLeft',
   };
@@ -326,6 +330,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualAudioCount => _actualAudioCount;
   int get actualTextCount => _actualTextCount;
   int get actualHandwritingCount => _actualHandwritingCount;
+  int get actualPdfCount => _actualPdfCount;
+  int get actualCanvasCount => _actualCanvasCount;
 
   // 전체 파일 카운트 Getters (캘린더 통계 영역용 - 항상 전체 합계)
   int get totalAudioCount => _totalAudioCount;
@@ -535,6 +541,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       'all':         savedTabPositionAll ?? 'topLeft',
       'text':        prefs.getString('tab_position_text') ?? 'topLeft',
       'handwriting': prefs.getString('tab_position_handwriting') ?? 'topLeft',
+      'pdf':         prefs.getString('tab_position_pdf') ?? 'topLeft',
       'audio':       prefs.getString('tab_position_audio') ?? 'topLeft',
       'browser':     prefs.getString('tab_position_browser') ?? 'topLeft',
     };
@@ -2107,6 +2114,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     int totalAudio = 0, totalText = 0, totalHandwriting = 0;
     int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
+    int selectedPdf = 0, selectedCanvas = 0;
 
     for (final litten in _littens) {
       final audioFiles = await _audioService.getAudioFiles(litten);
@@ -2121,6 +2129,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         selectedAudio += audioFiles.length;
         selectedText += textFiles.length;
         selectedHandwriting += handwritingFiles.length;
+        selectedPdf += handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).length;
+        selectedCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
       }
     }
 
@@ -2133,10 +2143,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _actualAudioCount = selectedAudio;
     _actualTextCount = selectedText;
     _actualHandwritingCount = selectedHandwriting;
+    _actualPdfCount = selectedPdf;
+    _actualCanvasCount = selectedCanvas;
 
     debugPrint('📊 전체 파일 수 - 오디오: $totalAudio, 텍스트: $totalText, 필기: $totalHandwriting');
     if (littenId != null) {
-      debugPrint('📊 선택 리튼 "$littenId" 파일 수 - 오디오: $selectedAudio, 텍스트: $selectedText, 필기: $selectedHandwriting');
+      debugPrint('📊 선택 리튼 "$littenId" 파일 수 - 오디오: $selectedAudio, 텍스트: $selectedText, 필기: $selectedHandwriting (PDF: $selectedPdf, 캔버스: $selectedCanvas)');
     }
 
     notifyListeners();

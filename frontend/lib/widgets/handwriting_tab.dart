@@ -24,8 +24,12 @@ import '../services/sync_service.dart';
 
 enum HandwritingInitialAction { none, loadPdf, createCanvas }
 
+/// 탭 표시 모드: all=전체, pdfOnly=PDF변환만, canvasOnly=캔버스만
+enum HandwritingTabMode { all, pdfOnly, canvasOnly }
+
 class HandwritingTab extends StatefulWidget {
   final HandwritingInitialAction initialAction;
+  final HandwritingTabMode mode;
   final VoidCallback? onClose;
   final HandwritingFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
   final String? initialPdfPath; // ⭐ 전체탭에서 파일 선택 후 전달받는 PDF 경로
@@ -33,6 +37,7 @@ class HandwritingTab extends StatefulWidget {
   const HandwritingTab({
     super.key,
     this.initialAction = HandwritingInitialAction.none,
+    this.mode = HandwritingTabMode.all,
     this.onClose,
     this.initialFile,
     this.initialPdfPath,
@@ -480,86 +485,91 @@ class _HandwritingTabState extends State<HandwritingTab>
                       flex: 1,
                       child: Column(
                         children: [
-                          // 필기 파일 리스트
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                _handwritingFiles.isEmpty
-                                    ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.draw,
-                                              size: 48,
-                                              color: Colors.grey.shade400,
-                                            ),
-                                            AppSpacing.verticalSpaceS,
-                                            Text(
-                                              AppLocalizations.of(context)?.noHandwritingFiles ?? '필기 파일이 없습니다',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
+                          // 필기 파일 리스트 (모드별 필터링)
+                          Builder(builder: (context) {
+                            final displayFiles = widget.mode == HandwritingTabMode.pdfOnly
+                                ? _handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).toList()
+                                : widget.mode == HandwritingTabMode.canvasOnly
+                                    ? _handwritingFiles.where((f) => f.type == HandwritingType.drawing).toList()
+                                    : _handwritingFiles;
+                            final emptyIcon = widget.mode == HandwritingTabMode.pdfOnly
+                                ? Icons.picture_as_pdf
+                                : Icons.draw;
+                            final emptyText = widget.mode == HandwritingTabMode.pdfOnly
+                                ? 'PDF 파일이 없습니다'
+                                : (AppLocalizations.of(context)?.noHandwritingFiles ?? '필기 파일이 없습니다');
+                            return Expanded(
+                              child: Stack(
+                                children: [
+                                  displayFiles.isEmpty
+                                      ? Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(emptyIcon, size: 48, color: Colors.grey.shade400),
+                                              AppSpacing.verticalSpaceS,
+                                              Text(
+                                                emptyText,
+                                                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
                                               ),
+                                            ],
+                                          ),
+                                        )
+                                      : ListView.builder(
+                                          itemCount: displayFiles.length,
+                                          itemBuilder: (context, index) {
+                                            return _buildHandwritingFileItem(displayFiles[index]);
+                                          },
+                                        ),
+                                  // FAB 버튼 (모드별)
+                                  Positioned(
+                                    right: 16,
+                                    bottom: 16,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (widget.mode == HandwritingTabMode.all || widget.mode == HandwritingTabMode.pdfOnly) ...[
+                                          FloatingActionButton(
+                                            onPressed: _loadPdfForNewFile,
+                                            backgroundColor: Theme.of(context).primaryColor,
+                                            foregroundColor: Colors.white,
+                                            mini: true,
+                                            heroTag: 'pdf_button',
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Icon(Icons.picture_as_pdf, size: 16),
+                                                SizedBox(width: 2),
+                                                Icon(Icons.add, size: 16),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: _handwritingFiles.length,
-                                        itemBuilder: (context, index) {
-                                          return _buildHandwritingFileItem(
-                                            _handwritingFiles[index],
-                                          );
-                                        },
-                                      ),
-                                // PDF+ 및 캔버스+ 버튼
-                                Positioned(
-                                  right: 16,
-                                  bottom: 16,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // PDF 버튼
-                                      FloatingActionButton(
-                                        onPressed: _loadPdfForNewFile,
-                                        backgroundColor: Theme.of(context).primaryColor,
-                                        foregroundColor: Colors.white,
-                                        mini: true,
-                                        heroTag: 'pdf_button',
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: const [
-                                            Icon(Icons.picture_as_pdf, size: 16),
-                                            SizedBox(width: 2),
-                                            Icon(Icons.add, size: 16),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // 캔버스 버튼
-                                      FloatingActionButton(
-                                        onPressed: _createEmptyHandwritingFile,
-                                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.8),
-                                        foregroundColor: Colors.white,
-                                        mini: true,
-                                        heroTag: 'canvas_button',
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: const [
-                                            Icon(Icons.draw, size: 16),
-                                            SizedBox(width: 2),
-                                            Icon(Icons.add, size: 16),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                                          ),
+                                        ],
+                                        if (widget.mode == HandwritingTabMode.all) const SizedBox(width: 8),
+                                        if (widget.mode == HandwritingTabMode.all || widget.mode == HandwritingTabMode.canvasOnly) ...[
+                                          FloatingActionButton(
+                                            onPressed: _createEmptyHandwritingFile,
+                                            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.8),
+                                            foregroundColor: Colors.white,
+                                            mini: true,
+                                            heroTag: 'canvas_button',
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Icon(Icons.draw, size: 16),
+                                                SizedBox(width: 2),
+                                                Icon(Icons.add, size: 16),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
+                                ],
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),

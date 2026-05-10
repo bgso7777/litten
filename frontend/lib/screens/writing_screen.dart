@@ -51,6 +51,7 @@ class _WritingScreenState extends State<WritingScreen>
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _handwritingTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _pdfTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
 
   @override
@@ -190,7 +191,7 @@ class _WritingScreenState extends State<WritingScreen>
     }
   }
 
-  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
         case 'topLeft':
@@ -233,11 +234,19 @@ class _WritingScreenState extends State<WritingScreen>
       ),
       TabItem(
         id: 'handwriting',
-        title: handwritingCount.toString(),
+        title: canvasCount.toString(),
         icon: Icons.draw,
-        content: HandwritingTab(key: _handwritingTabKey),
+        content: HandwritingTab(key: _handwritingTabKey, mode: HandwritingTabMode.canvasOnly),
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('handwriting'),
+      ),
+      TabItem(
+        id: 'pdf',
+        title: pdfCount.toString(),
+        icon: Icons.picture_as_pdf,
+        content: HandwritingTab(key: _pdfTabKey, mode: HandwritingTabMode.pdfOnly),
+        position: parsePosition(savedPositions['pdf'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('pdf'),
       ),
       TabItem(
         id: 'audio',
@@ -267,6 +276,8 @@ class _WritingScreenState extends State<WritingScreen>
           appState.writingTabPositions,
           textCount: appState.actualTextCount,
           handwritingCount: appState.actualHandwritingCount,
+          pdfCount: appState.actualPdfCount,
+          canvasCount: appState.actualCanvasCount,
           audioCount: appState.actualAudioCount,
           littenTitle: appState.selectedLitten?.title,
           noteTabVisibility: appState.noteTabVisibility,
