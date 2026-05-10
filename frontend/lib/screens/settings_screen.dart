@@ -178,6 +178,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showNoteTabVisibilityDialog(context, appState),
               ),
+              _buildSettingsItem(
+                icon: Icons.add_circle_outline,
+                title: '전체탭 버튼',
+                subtitle: _getAllTabFabText(appState.allTabFabVisibility),
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showAllTabFabVisibilityDialog(context, appState),
+              ),
             ]),
             AppSpacing.verticalSpaceL,
 
@@ -802,6 +809,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (visibility.contains('audio')) labels.add('녹음');
     if (visibility.contains('browser')) labels.add('검색');
     return labels.join(', ');
+  }
+
+  String _getAllTabFabText(Set<String> visibility) {
+    if (visibility.isEmpty) return '없음';
+    const labels = {
+      'canvas': '필기',
+      'pdf': 'PDF',
+      'text': '메모',
+      'audio': '녹음',
+      'stt': '음성메모',
+    };
+    final order = ['canvas', 'pdf', 'text', 'audio', 'stt'];
+    final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
+    return result.isEmpty ? '없음' : result.join(', ');
+  }
+
+  void _showAllTabFabVisibilityDialog(BuildContext context, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (context) => _AllTabFabVisibilityDialog(appState: appState),
+    );
   }
 
   void _showStartScreenDialog(BuildContext context, AppStateProvider appState) {
@@ -1693,7 +1721,77 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
         ),
         TextButton(
           onPressed: () {
-            widget.appState.setNoteTabVisibility(_selected);
+            widget.appState.setNoteTabVisibility(_selected); // ignore: discarded_futures
+            Navigator.of(context).pop();
+          },
+          child: const Text('확인'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 전체탭 FAB 버튼 가시성 다이얼로그 ────────────────────────────────────────
+class _AllTabFabVisibilityDialog extends StatefulWidget {
+  final AppStateProvider appState;
+  const _AllTabFabVisibilityDialog({required this.appState});
+
+  @override
+  State<_AllTabFabVisibilityDialog> createState() => _AllTabFabVisibilityDialogState();
+}
+
+class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> {
+  late Set<String> _selected;
+
+  static const _buttons = [
+    {'id': 'canvas', 'label': '필기',    'icon': Icons.draw},
+    {'id': 'pdf',    'label': 'PDF',     'icon': Icons.picture_as_pdf},
+    {'id': 'text',   'label': '메모',    'icon': Icons.notes},
+    {'id': 'audio',  'label': '녹음',    'icon': Icons.mic},
+    {'id': 'stt',    'label': '음성메모', 'icon': Icons.record_voice_over},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.appState.allTabFabVisibility);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    return AlertDialog(
+      title: const Text('전체탭 버튼'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _buttons.map((btn) {
+          final id = btn['id'] as String;
+          final label = btn['label'] as String;
+          final icon = btn['icon'] as IconData;
+          final isChecked = _selected.contains(id);
+          return CheckboxListTile(
+            dense: true,
+            secondary: Icon(icon, size: 20, color: isChecked ? color : Colors.grey),
+            title: Text(label),
+            value: isChecked,
+            activeColor: color,
+            onChanged: (val) {
+              setState(() {
+                if (val == true) _selected.add(id);
+                else _selected.remove(id);
+              });
+            },
+          );
+        }).toList(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.appState.setAllTabFabVisibility(_selected);
             Navigator.of(context).pop();
           },
           child: const Text('확인'),

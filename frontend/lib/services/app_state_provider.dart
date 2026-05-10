@@ -243,6 +243,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 노트탭 가시성 설정 (기본: 전체탭만 표시)
   Set<String> _noteTabVisibility = {'all'};
 
+  // ⭐ 전체탭 FAB 버튼 가시성 (기본: 모두 표시)
+  Set<String> _allTabFabVisibility = {'canvas', 'pdf', 'text', 'audio', 'stt'};
+
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
 
@@ -300,6 +303,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get currentMainTabIndex => _currentMainTabIndex;
   Map<String, String> get writingTabPositions => _writingTabPositions;
   Set<String> get noteTabVisibility => _noteTabVisibility;
+  Set<String> get allTabFabVisibility => _allTabFabVisibility;
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
   Set<String> get visibleAreas => _visibleAreas;
@@ -544,6 +548,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _noteTabVisibility = {'all'};
     }
     debugPrint('✅ [AppStateProvider] 노트탭 가시성 복원: $_noteTabVisibility');
+
+    // ⭐ 전체탭 FAB 버튼 가시성 복원 (기본: 모두 표시)
+    final savedFabVisibility = prefs.getStringList('all_tab_fab_visibility');
+    if (savedFabVisibility != null) {
+      _allTabFabVisibility = savedFabVisibility.toSet();
+    } else {
+      _allTabFabVisibility = {'canvas', 'pdf', 'text', 'audio', 'stt'};
+    }
+    debugPrint('✅ [AppStateProvider] 전체탭 FAB 가시성 복원: $_allTabFabVisibility');
 
     // ⭐ 시작 화면 복원 (기본: note)
     _startScreen = prefs.getString('start_screen') ?? 'note';
@@ -1495,6 +1508,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('note_tab_visibility', _noteTabVisibility.toList());
     debugPrint('💾 [AppStateProvider] 노트탭 가시성 저장: $_noteTabVisibility');
+    notifyListeners();
+  }
+
+  /// 전체탭 FAB 버튼 가시성 저장
+  Future<void> setAllTabFabVisibility(Set<String> visibility) async {
+    _allTabFabVisibility = Set<String>.from(visibility);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('all_tab_fab_visibility', _allTabFabVisibility.toList());
+    debugPrint('💾 [AppStateProvider] 전체탭 FAB 가시성 저장: $_allTabFabVisibility');
     notifyListeners();
   }
 

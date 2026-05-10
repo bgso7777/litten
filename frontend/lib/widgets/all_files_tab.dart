@@ -1248,11 +1248,64 @@ class _BottomFabRowState extends State<_BottomFabRow> {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
-    final recordColor = color;
+    final appState = Provider.of<AppStateProvider>(context);
+    final fabVis = appState.allTabFabVisibility;
+
+    final dialItems = <Widget>[];
+    if (fabVis.contains('canvas')) {
+      dialItems.addAll([
+        _SpeedDialItem(label: '필기', icon: Icons.draw, color: color,
+            onTap: () => _handleAction(widget.onCanvas)),
+        const SizedBox(height: 8),
+      ]);
+    }
+    if (fabVis.contains('pdf')) {
+      dialItems.addAll([
+        _SpeedDialItem(label: 'PDF', icon: Icons.picture_as_pdf, color: color,
+            onTap: () => _handleAction(widget.onPdf)),
+        const SizedBox(height: 8),
+      ]);
+    }
+    if (fabVis.contains('text')) {
+      dialItems.addAll([
+        _SpeedDialItem(label: '메모', icon: Icons.notes, color: color,
+            onTap: () => _handleAction(widget.onText)),
+        const SizedBox(height: 8),
+      ]);
+    }
+    if (fabVis.contains('audio')) {
+      dialItems.addAll([
+        _SpeedDialItem(
+          label: widget.isRecording
+              ? '녹음중... ${_formatDuration(widget.recordingDuration)}'
+              : '녹음',
+          icon: widget.isRecording ? Icons.stop : Icons.mic,
+          color: color,
+          onTap: widget.onAudio,
+        ),
+        const SizedBox(height: 8),
+      ]);
+    }
+    if (fabVis.contains('stt')) {
+      dialItems.addAll([
+        _SpeedDialItem(
+          label: '음성 메모',
+          icon: Icons.record_voice_over,
+          color: color,
+          onTap: () => _handleAction(widget.onTextWithSTT),
+        ),
+        const SizedBox(height: 8),
+      ]);
+    }
+    // 마지막 SizedBox(height:8) 제거
+    if (dialItems.isNotEmpty && dialItems.last is SizedBox) {
+      dialItems.removeLast();
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_isExpanded) ...[
+        if (_isExpanded && dialItems.isNotEmpty) ...[
           Align(
             alignment: Alignment.bottomRight,
             child: Padding(
@@ -1261,32 +1314,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SpeedDialItem(label: '필기', icon: Icons.draw, color: color,
-                        onTap: () => _handleAction(widget.onCanvas)),
-                    const SizedBox(height: 8),
-                    _SpeedDialItem(label: 'PDF', icon: Icons.picture_as_pdf, color: color,
-                        onTap: () => _handleAction(widget.onPdf)),
-                    const SizedBox(height: 8),
-                    _SpeedDialItem(label: '메모', icon: Icons.notes, color: color,
-                        onTap: () => _handleAction(widget.onText)),
-                    const SizedBox(height: 8),
-                    _SpeedDialItem(
-                      label: widget.isRecording
-                          ? '녹음중... ${_formatDuration(widget.recordingDuration)}'
-                          : '녹음',
-                      icon: widget.isRecording ? Icons.stop : Icons.mic,
-                      color: recordColor,
-                      onTap: widget.onAudio,
-                    ),
-                    const SizedBox(height: 8),
-                    _SpeedDialItem(
-                      label: '음성 메모',
-                      icon: Icons.record_voice_over,
-                      color: color,
-                      onTap: () => _handleAction(widget.onTextWithSTT),
-                    ),
-                  ],
+                  children: dialItems,
                 ),
               ),
             ),

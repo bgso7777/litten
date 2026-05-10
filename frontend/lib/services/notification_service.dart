@@ -564,6 +564,13 @@ class NotificationService extends ChangeNotifier {
         _littenMap[litten.id] = litten;
       }
 
+      // ⭐ _littenMap 채워진 직후 놓친 알림 재체크
+      // startNotificationChecker() 시점엔 _littenMap이 비어있어 놓친 알림을 감지 못하기 때문에
+      // _littenMap이 준비된 이 시점에 다시 실행하여 캘린더 탭 뱃지가 올바르게 표시되도록 함
+      if (littens.isNotEmpty) {
+        await _checkMissedNotificationsOnStart();
+      }
+
       // 서비스가 실행 중이 아니면 시작 (리튼 맵 업데이트 후에 시작)
       if (!_isRunning) {
         debugPrint('🔄 알림 서비스가 중지됨 - 재시작');
