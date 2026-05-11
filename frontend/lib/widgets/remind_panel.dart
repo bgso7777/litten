@@ -129,24 +129,36 @@ class _RemindPanelState extends State<RemindPanel> {
   Widget _buildList(BuildContext context, List<RemindTarget> targets, AppStateProvider appState) {
     // SelectionArea: 자식 위젯의 모든 Text를 선택/복사 가능하게 함
     // (GestureDetector의 onTap과 충돌하지 않음 — long-press로 선택 시작)
+    final children = <Widget>[];
+    DateTime? lastDate;
+    for (final target in targets) {
+      // ⭐ 그룹의 첫 항목 createdAt 기준 일자 헤더
+      final groupCreatedAt = target.items.isNotEmpty
+          ? target.items.first.createdAt
+          : DateTime.now();
+      final currentDate = DateTime(groupCreatedAt.year, groupCreatedAt.month, groupCreatedAt.day);
+      if (lastDate == null || lastDate != currentDate) {
+        children.add(_buildDateHeader(currentDate));
+        lastDate = currentDate;
+      }
+
+      children.add(_buildTargetRow(context, target));
+      if (_openTargets.contains(target.summaryGroupId ?? 'file:${target.fileId}')) {
+        for (final item in _sortedItems(target.items)) {
+          children.add(_buildItemRow(context, item, appState));
+          if (_openItems.contains(item.id)) {
+            children.add(_buildContentRow(context, item, appState));
+          }
+        }
+      }
+    }
+    children.add(const SizedBox(height: 8));
+
     final scrollContent = SelectionArea(
       child: SingleChildScrollView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            for (final target in targets) ...[
-              _buildTargetRow(context, target),
-              if (_openTargets.contains(target.summaryGroupId ?? 'file:${target.fileId}'))
-                for (final item in _sortedItems(target.items)) ...[
-                  _buildItemRow(context, item, appState),
-                  if (_openItems.contains(item.id))
-                    _buildContentRow(context, item, appState),
-                ],
-            ],
-            const SizedBox(height: 8),
-          ],
-        ),
+        child: Column(children: children),
       ),
     );
 
@@ -814,6 +826,47 @@ class _RemindPanelState extends State<RemindPanel> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ── 일자 헤더 ─────────────────────────────────────────────────────────────
+
+  Widget _buildDateHeader(DateTime date) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    String label;
+    if (date == today) {
+      label = '오늘';
+    } else if (date == yesterday) {
+      label = '어제';
+    } else {
+      label = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(date);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: primaryColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: primaryColor.withValues(alpha: 0.2),
+            ),
+          ),
         ],
       ),
     );

@@ -2150,13 +2150,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       totalHandwriting += handwritingFiles.length;
 
       if (littenId == null || litten.id == littenId) {
-        selectedAudio += audioFiles.length;
-        selectedText += textFiles.length;
+        // ⭐ 음성메모(isFromSTT)는 별도 카운트, 일반 녹음/메모와 분리
+        selectedAudio += audioFiles.where((f) => !f.isFromSTT).length;
+        selectedText += textFiles.where((f) => !f.isFromSTT).length;
         selectedHandwriting += handwritingFiles.length;
         selectedPdf += handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).length;
         selectedCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
-        selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length
-            + textFiles.where((f) => f.isFromSTT).length;
+        // 음성메모는 텍스트+오디오 쌍이지만 1개로 카운트 (STT 오디오 기준)
+        selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length;
       }
     }
 

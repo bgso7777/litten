@@ -402,15 +402,77 @@ class _AllFilesTabState extends State<AllFilesTab> {
       itemCount: merged.length,
       itemBuilder: (context, index) {
         final entry = merged[index];
-        switch (entry.type) {
-          case _FileType.text:
-            return _buildTextCard(entry.file as TextFile);
-          case _FileType.handwriting:
-            return _buildHandwritingCard(entry.file as HandwritingFile);
-          case _FileType.audio:
-            return _buildAudioCard(entry.file as AudioFile);
+
+        // ⭐ 일자가 바뀌면 구분선 헤더 표시
+        final currentDate = DateTime(
+          entry.createdAt.year,
+          entry.createdAt.month,
+          entry.createdAt.day,
+        );
+        final showDateHeader = index == 0 ||
+            DateTime(
+                  merged[index - 1].createdAt.year,
+                  merged[index - 1].createdAt.month,
+                  merged[index - 1].createdAt.day,
+                ) !=
+                currentDate;
+
+        final card = switch (entry.type) {
+          _FileType.text => _buildTextCard(entry.file as TextFile),
+          _FileType.handwriting => _buildHandwritingCard(entry.file as HandwritingFile),
+          _FileType.audio => _buildAudioCard(entry.file as AudioFile),
+        };
+
+        if (showDateHeader) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDateHeader(currentDate),
+              card,
+            ],
+          );
         }
+        return card;
       },
+    );
+  }
+
+  Widget _buildDateHeader(DateTime date) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    String label;
+    if (date == today) {
+      label = '오늘';
+    } else if (date == yesterday) {
+      label = '어제';
+    } else {
+      label = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(date);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: primaryColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: primaryColor.withValues(alpha: 0.2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -753,6 +815,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isCurrentPlaying = _audioService.currentPlayingFile?.id == file.id;
     final isPlaying = isCurrentPlaying && _audioService.isPlaying;
 
+    // ⭐ 휴리스틱: 같은 리튼의 STT 텍스트가 60초 이내에 있으면 음성메모 쌍으로 인식
+    // (기존 데이터에서 isFromSTT가 누락된 경우 대비)
+    final isPairedSTT = file.isFromSTT || _textFiles.any((t) =>
+      t.isFromSTT &&
+      t.littenId == file.littenId &&
+      (t.createdAt.difference(file.createdAt).inSeconds).abs() <= 60
+    );
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: InkWell(
@@ -778,7 +848,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         size: 18,
                       ),
                     ),
-                    if (file.isFromSTT)
+                    if (isPairedSTT)
                       Positioned(
                         right: 0,
                         bottom: 0,

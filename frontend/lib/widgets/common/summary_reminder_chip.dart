@@ -54,8 +54,15 @@ class SummaryReminderChip extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.lightbulb_outline, size: 15, color: color),
-                  if (panelLevel > 0) ...[
-                    const SizedBox(width: 6),
+                  const SizedBox(width: 6),
+                  // ⭐ 닫혔을 때만 카운트, 펼쳐졌을 때는 라벨만 (중복 방지)
+                  if (panelLevel == 0) ...[
+                    Text(
+                      '$pendingCount',
+                      style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 16),
+                  ] else ...[
                     Text(
                       label,
                       style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
