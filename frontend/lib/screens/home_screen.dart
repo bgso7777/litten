@@ -2008,18 +2008,34 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
     for (final litten in littens) {
       if (litten.schedule == null || litten.title == 'undefined') continue;
-      final start = DateTime(
+      DateTime start = DateTime(
         litten.schedule!.date.year,
         litten.schedule!.date.month,
         litten.schedule!.date.day,
       );
-      final end = litten.schedule!.endDate != null
+      DateTime end = litten.schedule!.endDate != null
           ? DateTime(
               litten.schedule!.endDate!.year,
               litten.schedule!.endDate!.month,
               litten.schedule!.endDate!.day,
             )
           : start;
+
+      // ⭐ 반복 알림 고려: 일정 시작 시각이 지났으면 다음 발생일로 보정
+      // (시작일이 과거이거나, 오늘이지만 startTime이 이미 지난 경우)
+      final scheduleStartDateTime = DateTime(
+        start.year, start.month, start.day,
+        litten.schedule!.startTime.hour, litten.schedule!.startTime.minute,
+      );
+      if (scheduleStartDateTime.isBefore(now)) {
+        final nextOccurrence = _calculateNextOccurrenceFromRules(
+          start, todayOnly, litten.schedule!, now,
+        );
+        if (nextOccurrence != null) {
+          start = nextOccurrence;
+          end = nextOccurrence;
+        }
+      }
 
       final isToday = (todayOnly.isAtSameMomentAs(start) || todayOnly.isAfter(start)) &&
           (todayOnly.isAtSameMomentAs(end) || todayOnly.isBefore(end));
@@ -2058,16 +2074,90 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return (secondsUntilToday: nearestTodaySeconds, daysUntilNext: nearestDays, secondsUntilFutureEvent: nearestFutureSeconds, nearestTitle: nearestTitle);
   }
 
+  /// 반복 알림 규칙을 기반으로 now 이후의 다음 발생일 계산 (시각 포함 비교)
+  DateTime? _calculateNextOccurrenceFromRules(
+    DateTime originalStart,
+    DateTime todayOnly,
+    LittenSchedule schedule,
+    DateTime now,
+  ) {
+    DateTime makeStartDateTime(DateTime d) => DateTime(
+      d.year, d.month, d.day,
+      schedule.startTime.hour, schedule.startTime.minute,
+    );
+
+    DateTime? best;
+    for (final rule in schedule.notificationRules) {
+      if (!rule.isEnabled) continue;
+      DateTime? next;
+      switch (rule.frequency) {
+        case NotificationFrequency.daily:
+          // 오늘 시작 시각이 미래면 오늘, 아니면 내일
+          DateTime candidate = todayOnly;
+          if (!makeStartDateTime(candidate).isAfter(now)) {
+            candidate = candidate.add(const Duration(days: 1));
+          }
+          next = candidate;
+          break;
+        case NotificationFrequency.weekly:
+          if (rule.weekdays == null || rule.weekdays!.isEmpty) break;
+          // 오늘부터 14일 이내 허용 요일 + 시각 미래 조건
+          DateTime candidate = todayOnly;
+          for (int i = 0; i < 14; i++) {
+            if (rule.weekdays!.contains(candidate.weekday) &&
+                makeStartDateTime(candidate).isAfter(now)) {
+              next = candidate;
+              break;
+            }
+            candidate = candidate.add(const Duration(days: 1));
+          }
+          break;
+        case NotificationFrequency.monthly:
+          // 매월 같은 날
+          DateTime candidate = DateTime(todayOnly.year, todayOnly.month, originalStart.day);
+          if (!makeStartDateTime(candidate).isAfter(now)) {
+            candidate = DateTime(
+              candidate.month == 12 ? candidate.year + 1 : candidate.year,
+              candidate.month == 12 ? 1 : candidate.month + 1,
+              originalStart.day,
+            );
+          }
+          next = candidate;
+          break;
+        case NotificationFrequency.yearly:
+          // 매년 같은 월/일
+          DateTime candidate = DateTime(todayOnly.year, originalStart.month, originalStart.day);
+          if (!makeStartDateTime(candidate).isAfter(now)) {
+            candidate = DateTime(todayOnly.year + 1, originalStart.month, originalStart.day);
+          }
+          next = candidate;
+          break;
+        case NotificationFrequency.onDay:
+        case NotificationFrequency.oneDayBefore:
+          // 일회성 알림 → 무시
+          break;
+      }
+      if (next != null && (best == null || next.isBefore(best))) {
+        best = next;
+      }
+    }
+    return best;
+  }
+
   // 일정 목록 스크롤 유도 힌트 칩 위젯
   Widget _buildScheduleHintChip(AppStateProvider appState) {
     final l10n = AppLocalizations.of(context);
     final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
 
     final String timeLabel;
-    if (hint.secondsUntilToday != null) {
-      final totalSec = hint.secondsUntilToday!;
-      final minutes = totalSec ~/ 60;
-      final seconds = totalSec % 60;
+    // ⭐ 1일(24시간) 이내면 시간/분, 그 외에는 일로 표시
+    const int oneDayInSec = 86400; // 24*60*60
+    final int? secsToNext = hint.secondsUntilToday ?? hint.secondsUntilFutureEvent;
+
+    if (secsToNext != null && secsToNext < oneDayInSec) {
+      // 1일 이내 → 시간/분/초로 표시
+      final minutes = secsToNext ~/ 60;
+      final seconds = secsToNext % 60;
       if (minutes == 0) {
         timeLabel = '0분 ${seconds}초 후 일정 있음';
       } else if (minutes < 60) {
@@ -2077,14 +2167,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         final remaining = minutes % 60;
         timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
       }
-    } else if (hint.daysUntilNext > 0 && hint.secondsUntilFutureEvent != null) {
-      final totalSec = hint.secondsUntilFutureEvent!;
-      final totalMin = totalSec ~/ 60;
-      final hours = totalMin ~/ 60;
-      final remaining = totalMin % 60;
-      timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
     } else if (hint.daysUntilNext > 0) {
+      // 1일 이상 → 일 단위로 표시
       timeLabel = '${hint.daysUntilNext}일 후 일정 있음';
+    } else if (secsToNext != null) {
+      // 24시간 이상이지만 daysUntilNext가 0인 경우 (예: 23시간 59분 후 → 표시 안 됨 방지)
+      final days = secsToNext ~/ oneDayInSec;
+      timeLabel = days > 0 ? '$days일 후 일정 있음' : (l10n?.viewScheduleList ?? '일정 목록 보기');
     } else {
       timeLabel = l10n?.viewScheduleList ?? '일정 목록 보기';
     }

@@ -70,12 +70,18 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     debugPrint('🎵 MainTabScreen: 앱 생명주기 변경 - $state');
 
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
     switch (state) {
       case AppLifecycleState.paused:
         debugPrint('🎵 앱이 백그라운드로 이동 - 오디오 재생 유지');
+        // ⭐ NotificationService에 백그라운드 전환 알림
+        appState.notificationService.onAppPaused();
         break;
       case AppLifecycleState.resumed:
-        debugPrint('🎵 앱이 포그라운드로 복귀 - 오디오 재생 상태 확인');
+        debugPrint('🎵 앱이 포그라운드로 복귀 - 오디오 재생 상태 확인 + 알림 뱃지 갱신');
+        // ⭐ NotificationService에 포그라운드 복귀 알림 (놓친 알림 체크 + 뱃지 갱신)
+        appState.notificationService.onAppResumed();
         break;
       case AppLifecycleState.detached:
         debugPrint('🎵 앱 종료 - 오디오 재생 중지');
@@ -101,8 +107,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             child: Column(
               children: [
                 // 광고 배너 영역 - 최상위 배치
-                // 무료 사용자이면서 광고 표시 설정이 켜진 경우에만 표시
-                if (appState.adsEnabled && !appState.isPremiumUser) const AdBanner(),
+                // ⭐ 설정 > 광고 표시가 켜진 경우 (유료 플랜이라도) 광고 표시
+                if (appState.adsEnabled) const AdBanner(),
               Expanded(
                 // ⭐ PageView를 사용하여 탭 상태 완벽 보존 (physics 비활성화로 스와이프 제스처 차단)
                 child: PageView(

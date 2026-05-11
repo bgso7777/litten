@@ -68,23 +68,24 @@ class NotificationGeneratorService {
     final isRepeating = _isRepeatingFrequency(rule.frequency);
 
     if (isRepeating) {
-      // 반복 알림: 종료일자가 있으면 그 날짜까지, 없으면 1년치 생성
-      final DateTime limitDate;
+      // ⭐ 반복 알림: 일정 endDate와 1년치 중 더 늦은 것까지 생성
+      // (단일 날짜 일정에 매주/매월/매년 알림 설정 시 다음 반복이 안 생기는 버그 수정)
+      final DateTime oneYearLater = now.add(const Duration(days: 365));
+      DateTime limitDate = oneYearLater;
       if (schedule.endDate != null) {
-        // 종료일자가 있으면 종료일자의 endTime까지 알림 생성
-        limitDate = DateTime(
+        final scheduleEndDate = DateTime(
           schedule.endDate!.year,
           schedule.endDate!.month,
           schedule.endDate!.day,
           schedule.endTime.hour,
           schedule.endTime.minute,
         );
-        debugPrint('      📅 반복 알림 종료일자까지 생성: ${now.year}-${now.month}-${now.day} ~ ${limitDate.year}-${limitDate.month}-${limitDate.day}');
-      } else {
-        // 종료일자가 없으면 1년치 생성
-        limitDate = now.add(const Duration(days: 365));
-        debugPrint('      📅 반복 알림 1년치 생성: ${now.year}-${now.month}-${now.day} ~ ${limitDate.year}-${limitDate.month}-${limitDate.day}');
+        // 일정 endDate가 1년보다 길면 그것을 사용, 아니면 1년치
+        if (scheduleEndDate.isAfter(oneYearLater)) {
+          limitDate = scheduleEndDate;
+        }
       }
+      debugPrint('      📅 반복 알림 생성: ${now.year}-${now.month}-${now.day} ~ ${limitDate.year}-${limitDate.month}-${limitDate.day}');
 
       DateTime? nextTrigger = _getNextTriggerTime(scheduleDateTime, rule, now);
 
