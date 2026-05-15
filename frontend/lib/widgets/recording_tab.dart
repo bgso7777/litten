@@ -84,16 +84,23 @@ class _RecordingTabState extends State<RecordingTab> {
       // 녹음 중지
       if (_audioService.isRecording) {
         print('[RecordingTab] 녹음 중지 시작');
-        final audioFile = await _audioService.stopRecording(
-          appState.selectedLitten!,
-        );
+        // ⭐ 정지에 사용할 리튼: selected → operation lock → recording littenId 순 폴백
+        final stopLitten = appState.effectiveSelectedLitten
+            ?? (_audioService.currentRecordingLittenId != null
+                ? appState.littens.where((l) => l.id == _audioService.currentRecordingLittenId).firstOrNull
+                : null);
+        if (stopLitten == null) {
+          debugPrint('⚠️ [RecordingTab] 정지에 사용할 리튼을 찾지 못함');
+          return;
+        }
+        final audioFile = await _audioService.stopRecording(stopLitten);
         print('[RecordingTab] 녹음 중지 완료, mounted: $mounted, audioFile: ${audioFile?.id}');
 
         if (mounted && audioFile != null) {
           // 리튼의 오디오 파일 목록에 추가
           final littenService = LittenService();
           await littenService.addAudioFileToLitten(
-            appState.selectedLitten!.id,
+            stopLitten.id,
             audioFile.id,
           );
 
@@ -118,6 +125,8 @@ class _RecordingTabState extends State<RecordingTab> {
 
         }
         print('[RecordingTab] 녹음 중지 프로세스 종료');
+        // ⭐ 녹음 정지 후 작업 락 해제
+        await appState.unlockLittenForOperation();
       }
 
       // STT 중지
@@ -137,6 +146,9 @@ class _RecordingTabState extends State<RecordingTab> {
         appState.setSTTActive(false);
         debugPrint('✅ STT 중단 완료 (녹음 시작을 위해)');
       }
+
+      // ⭐ 녹음 시작 직전에 작업 락 설정 (selectedLitten이 비어 있어도 정지 보장)
+      await appState.lockLittenForOperation(appState.selectedLitten!);
 
       // 녹음 시작
       final success = await _audioService.startRecording(

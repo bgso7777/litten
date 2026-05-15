@@ -44,6 +44,8 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   Duration get totalDuration => _totalDuration;
   AudioFile? get currentPlayingFile => _currentPlayingFile;
   double get playbackSpeed => _playbackSpeed;
+  // ⭐ 녹음 중 fallback용: 진행 중 녹음의 리튼 ID (selectedLitten이 해제되어도 정지 가능)
+  String? get currentRecordingLittenId => _currentRecordingLittenId;
 
   /// 녹음 권한 요청
   Future<bool> requestPermission() async {

@@ -52,6 +52,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Litten? _selectedLitten;
   int _selectedTabIndex = 0;
 
+  // ⭐ STT/녹음 진행 중 잠금된 리튼 (어떤 이유로 _selectedLitten이 해제되어도 정지/저장 가능하도록 보존)
+  // - lockLittenForOperation() 호출 시 설정, unlock 시 해제
+  // - id는 SharedPreferences('operation_locked_litten_id')에도 저장하여 콜드 스타트 복구 가능
+  Litten? _operationLockedLitten;
+  static const String _kOperationLockedLittenIdKey = 'operation_locked_litten_id';
+
   // 선택된 리튼의 파일 카운트 (WritingScreen 헤더용)
   int _actualAudioCount = 0;
   int _actualTextCount = 0;
@@ -296,6 +302,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isFirstLaunch => _isFirstLaunch;
   List<Litten> get littens => _littens;
   Litten? get selectedLitten => _selectedLitten;
+  // ⭐ STT/녹음 도중 _selectedLitten이 해제되어도 lock된 리튼으로 폴백되는 게터
+  Litten? get effectiveSelectedLitten => _selectedLitten ?? _operationLockedLitten;
+  Litten? get operationLockedLitten => _operationLockedLitten;
   int get selectedTabIndex => _selectedTabIndex;
   String? get targetWritingTabId => _targetWritingTabId;
   int get homeBottomTabIndex => _homeBottomTabIndex;
@@ -410,6 +419,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final _startPrefs = await SharedPreferences.getInstance();
     await _startPrefs.remove('selected_litten_id');
     debugPrint('🔄 콜드 스타트: 선택 리튼 초기화 완료');
+
+    // ⭐ 작업 락(STT/녹음 중 잠금된 리튼) 복원: 콜드 스타트 후 진행 중 녹음이 복원될 때 필요
+    await _restoreOperationLockedLitten();
 
     // 캘린더를 오늘 날짜로 초기화
     final today = DateTime.now();
@@ -901,6 +913,42 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint('✅ 리튼 선택 해제 완료');
   }
 
+  // ⭐ STT/녹음 시작 시 호출: 현재 선택 리튼을 작업 락에 잠금
+  // 작업 중 _selectedLitten이 해제되어도 lockedLitten으로 정지/저장 가능
+  Future<void> lockLittenForOperation(Litten litten) async {
+    _operationLockedLitten = litten;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kOperationLockedLittenIdKey, litten.id);
+    debugPrint('🔒 작업용 리튼 잠금: ${litten.title} (${litten.id})');
+    notifyListeners();
+  }
+
+  // ⭐ STT/녹음 종료 시 호출: 잠금 해제
+  Future<void> unlockLittenForOperation() async {
+    if (_operationLockedLitten == null) return;
+    debugPrint('🔓 작업용 리튼 잠금 해제: ${_operationLockedLitten!.title}');
+    _operationLockedLitten = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kOperationLockedLittenIdKey);
+    notifyListeners();
+  }
+
+  // ⭐ 콜드 스타트 시 작업 락 복구: 녹음 상태가 복원되었다면 락도 함께 복원
+  Future<void> _restoreOperationLockedLitten() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockedId = prefs.getString(_kOperationLockedLittenIdKey);
+    if (lockedId == null) return;
+
+    final found = _littens.where((l) => l.id == lockedId).firstOrNull;
+    if (found != null) {
+      _operationLockedLitten = found;
+      debugPrint('🔄 작업 락 복원: ${found.title} ($lockedId)');
+    } else {
+      debugPrint('⚠️ 작업 락 복원 실패 - 리튼 미발견: $lockedId, 락 제거');
+      await prefs.remove(_kOperationLockedLittenIdKey);
+    }
+  }
+
   // 선택된 리튼 상태 저장
   Future<void> _saveSelectedLittenState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1122,8 +1170,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _littens = await _littenService.getAllLittens();
 
     // 선택된 리튼이 있다면 업데이트된 데이터로 다시 설정
+    // ⭐ 찾지 못해도 기존 _selectedLitten 참조를 유지 (STT/녹음 중 데이터 소실 방지)
     if (_selectedLitten != null) {
-      _selectedLitten = _littens.where((l) => l.id == _selectedLitten!.id).firstOrNull;
+      final found = _littens.where((l) => l.id == _selectedLitten!.id).firstOrNull;
+      if (found != null) {
+        _selectedLitten = found;
+      } else {
+        debugPrint('⚠️ refreshLittens: 선택된 리튼(${_selectedLitten!.id}/${_selectedLitten!.title})을 갱신 리스트에서 찾지 못함 - 기존 참조 유지');
+        // _selectedLitten = null 로 설정하지 않음: 녹음/STT 진행 중일 때 화면 해제 방지
+      }
     }
 
     // 파일 카운트 업데이트

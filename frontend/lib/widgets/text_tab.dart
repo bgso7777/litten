@@ -13,6 +13,7 @@ import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/text_file.dart';
 import '../models/audio_file.dart';
+import '../models/litten.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/audio_service.dart';
@@ -373,7 +374,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           }
         }
 
-        if (appState.selectedLitten == null) {
+        // ⭐ STT/녹음 진행 중이거나 작업 락이 잡혀 있으면 selectedLitten=null이어도 에디터 유지
+        // (정지/저장 흐름이 끊겨 파일이 사라지는 증상 방지)
+        final ongoingStt = _isListening || _isRecordingWithSTT || _audioService.isRecording;
+        final hasOperationLock = appState.operationLockedLitten != null;
+        if (appState.selectedLitten == null && !ongoingStt && !hasOperationLock) {
           return EmptyState(
             icon: Icons.edit_note,
             title: l10n?.emptyLittenTitle ?? '리튼을 선택해주세요',
@@ -793,15 +798,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         try {
           if (!mounted) return;
           final appState = Provider.of<AppStateProvider>(context, listen: false);
-          if (appState.selectedLitten != null) {
-            final audioFile = await _audioService.stopRecording(appState.selectedLitten!, isFromSTT: _isRecordingWithSTT);
+          final stopLitten = _resolveLittenForStop(appState);
+          if (stopLitten != null) {
+            final audioFile = await _audioService.stopRecording(stopLitten, isFromSTT: _isRecordingWithSTT);
             debugPrint('✅ 녹음 중단 완료');
 
             // 녹음 파일 저장
             if (audioFile != null && mounted) {
               final littenService = LittenService();
               await littenService.addAudioFileToLitten(
-                appState.selectedLitten!.id,
+                stopLitten.id,
                 audioFile.id,
               );
               await appState.updateFileCount();
@@ -815,6 +821,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                 localUpdatedAt: audioFile.updatedAt,
               );
             }
+          } else {
+            debugPrint('⚠️ 정지에 사용할 리튼을 찾지 못함 (selectedLitten/recordingLittenId 모두 null)');
           }
         } catch (e) {
           debugPrint('❌ 녹음 중단 실패: $e');
@@ -825,6 +833,25 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       _sttRawContent.clear();
       await _startListening();
     }
+  }
+
+  /// 정지에 사용할 Litten 해석:
+  /// selectedLitten → operationLockedLitten(STT/녹음 잠금) → 진행 중 녹음 littenId → 현재 텍스트 파일 littenId
+  Litten? _resolveLittenForStop(AppStateProvider appState) {
+    // 1) effective: selected 또는 operation lock 중 살아있는 쪽
+    final effective = appState.effectiveSelectedLitten;
+    if (effective != null) return effective;
+
+    // 2) 마지막 폴백 - 진행 중 녹음 ID 또는 현재 편집 파일 ID로 _littens에서 검색
+    final fallbackId = _audioService.currentRecordingLittenId
+        ?? _currentTextFile?.littenId;
+    if (fallbackId == null) return null;
+
+    final recovered = appState.littens.where((l) => l.id == fallbackId).firstOrNull;
+    if (recovered != null) {
+      debugPrint('🔁 정지용 리튼 복구(폴백): $fallbackId (selectedLitten/lock 모두 null)');
+    }
+    return recovered;
   }
 
   /// 음성 인식 시작
@@ -840,15 +867,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       try {
         if (_audioService.isRecording) {
           final appState = Provider.of<AppStateProvider>(context, listen: false);
-          if (appState.selectedLitten != null) {
-            final audioFile = await _audioService.stopRecording(appState.selectedLitten!, isFromSTT: _isRecordingWithSTT);
+          final stopLitten = _resolveLittenForStop(appState);
+          if (stopLitten != null) {
+            final audioFile = await _audioService.stopRecording(stopLitten, isFromSTT: _isRecordingWithSTT);
             debugPrint('✅ 녹음 중단 완료 (STT 재시작을 위해)');
 
             // 녹음 파일 저장
             if (audioFile != null) {
               final littenService = LittenService();
               await littenService.addAudioFileToLitten(
-                appState.selectedLitten!.id,
+                stopLitten.id,
                 audioFile.id,
               );
               await appState.updateFileCount();
@@ -862,6 +890,8 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                 localUpdatedAt: audioFile.updatedAt,
               );
             }
+          } else {
+            debugPrint('⚠️ STT 재시작 정지: 사용할 리튼을 찾지 못함');
           }
         }
         _isRecordingWithSTT = false;
@@ -930,6 +960,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // ⭐ 전역 STT 상태 업데이트 (다른 탭에서도 확인 가능)
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     appState.setSTTActive(true);
+
+    // ⭐ STT 동작 중에는 현재 선택 리튼을 작업 락으로 보존
+    // (어떤 이유로 _selectedLitten이 해제되어도 lock으로 정지/저장 가능)
+    final lockTarget = appState.selectedLitten ?? appState.operationLockedLitten;
+    if (lockTarget != null) {
+      await appState.lockLittenForOperation(lockTarget);
+    } else {
+      debugPrint('⚠️ STT 시작 시 잠금할 리튼이 없음 (selectedLitten=null)');
+    }
 
     // ⭐ HTML 에디터 비활성화 - STT 중에는 키보드 입력 불필요
     try {
@@ -1344,6 +1383,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
     await _speechToText.stop();
 
+    // ⭐ 작업 락 해제 (정지 경로가 락을 사용해서 끝났으므로 안전하게 해제)
+    if (mounted) {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      // 녹음이 아직 진행 중이면 _stopRecordingWithSTT 완료 후 해제하기 위해 보류
+      if (!_isRecordingWithSTT && !_audioService.isRecording) {
+        await appState.unlockLittenForOperation();
+      }
+    }
+
     // ⚠️ STT 중지 후 약간 대기 - 마지막 onResult 처리 시간 확보
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -1428,11 +1476,17 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       // 하지만 명시적으로 체크하지 않음 (이미 STT 컨텍스트에서 호출됨)
 
       final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final selectedLitten = appState.selectedLitten;
+      // effective: selected → operation lock 폴백
+      final selectedLitten = appState.effectiveSelectedLitten;
 
       if (selectedLitten == null) {
         debugPrint('⚠️ 리튼이 선택되지 않음 - 녹음 건너뜀');
         return;
+      }
+
+      // ⭐ 작업 락이 비어 있으면 여기서 잠금 (STT 자동 재시작 등으로 _startListening 경로를 우회한 경우)
+      if (appState.operationLockedLitten == null) {
+        await appState.lockLittenForOperation(selectedLitten);
       }
 
       // 녹음 시작 (실패해도 STT는 계속 진행되도록 try-catch로 감쌈)
@@ -1461,10 +1515,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
 
       // context 사용은 await 이전 (동기 구간)에서만 수행
       final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final selectedLitten = appState.selectedLitten;
+      final selectedLitten = _resolveLittenForStop(appState);
 
       if (selectedLitten == null) {
-        debugPrint('⚠️ 리튼이 선택되지 않음');
+        debugPrint('⚠️ 리튼이 선택되지 않음 (fallback 실패)');
         if (mounted) {
           setState(() { _isRecordingWithSTT = false; });
         } else {
@@ -1521,6 +1575,15 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       }
     } finally {
       _isStoppingRecording = false;
+      // ⭐ 작업 락 해제: STT/녹음 모두 끝났을 때만
+      if (!_isListening && !_audioService.isRecording && mounted) {
+        try {
+          final appState = Provider.of<AppStateProvider>(context, listen: false);
+          await appState.unlockLittenForOperation();
+        } catch (e) {
+          debugPrint('⚠️ 작업 락 해제 실패 (무시): $e');
+        }
+      }
     }
   }
 

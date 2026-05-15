@@ -55,20 +55,12 @@ class SummaryReminderChip extends StatelessWidget {
                 children: [
                   Icon(Icons.lightbulb_outline, size: 15, color: color),
                   const SizedBox(width: 6),
-                  // ⭐ 닫혔을 때만 카운트, 펼쳐졌을 때는 라벨만 (중복 방지)
-                  if (panelLevel == 0) ...[
-                    Text(
-                      '$pendingCount',
-                      style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 16),
-                  ] else ...[
-                    Text(
-                      label,
-                      style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
+                  // ⭐ 닫힘/펼침 동일하게 라벨 표시 (예: "리마인드 3개")
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(width: 16),
                   // 레이아웃 높이를 단일 아이콘과 동일하게 고정
                   SizedBox(
                     width: 18,
