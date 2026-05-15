@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -17,6 +18,7 @@ import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/handwriting_file.dart';
 import '../models/audio_file.dart' show SyncStatus;
+import '../models/attachment_file.dart';
 import '../models/litten.dart';
 import '../services/file_storage_service.dart';
 import '../services/litten_service.dart';
@@ -102,6 +104,7 @@ class _HandwritingTabState extends State<HandwritingTab>
   Offset? _screenTextInputPosition; // 화면 좌표계 위치
 
   bool _showDrawingToolbar = true; // 필기 툴바 표시 상태
+  bool _showFileOpenMenu = false; // 파일 열기 드롭다운 메뉴 표시 상태
   Size? _canvasSize; // 실제 캔버스 크기 저장
 
   // 텍스트 도구 고급 설정
@@ -646,6 +649,8 @@ class _HandwritingTabState extends State<HandwritingTab>
         _painterController.background = null; // 배경 이미지도 완전히 초기화
         _backgroundImageOriginalSize = null;
         _backgroundImageAspectRatio = null; // 배경 이미지 비율도 초기화
+        // ⭐ 빈 캔버스 진입 시 파일 열기 메뉴 자동 표시
+        _showFileOpenMenu = true;
       });
 
       // 캔버스를 좌상단으로 초기화
@@ -1938,6 +1943,21 @@ class _HandwritingTabState extends State<HandwritingTab>
   void _selectDrawingTool(String tool) {
     print('DEBUG: 그리기 도구 선택 - $tool');
 
+    // ⭐ 파일 열기 버튼: 도구 선택이 아닌 드롭다운 토글
+    if (tool == '파일열기') {
+      setState(() {
+        _showFileOpenMenu = !_showFileOpenMenu;
+      });
+      return;
+    }
+
+    // 다른 도구 선택 시 파일 열기 메뉴 닫기
+    if (_showFileOpenMenu) {
+      setState(() {
+        _showFileOpenMenu = false;
+      });
+    }
+
     setState(() {
       _selectedTool = tool;
 
@@ -2594,15 +2614,40 @@ class _HandwritingTabState extends State<HandwritingTab>
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(
-            context,
-          ).primaryColor.withValues(alpha: 0.1),
-          child: Icon(
-            file.type == HandwritingType.pdfConvert
-                ? Icons.picture_as_pdf
-                : Icons.draw,
-            color: Theme.of(context).primaryColor,
+        leading: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            children: [
+              // 모든 필기 파일은 동일한 필기 아이콘 사용
+              CircleAvatar(
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                child: Icon(
+                  Icons.draw,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              // PDF 변환으로 생성된 파일만 우하단에 작은 PDF 뱃지
+              if (file.type == HandwritingType.pdfConvert)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.picture_as_pdf,
+                      size: 11,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         title: Text(
@@ -2855,6 +2900,13 @@ class _HandwritingTabState extends State<HandwritingTab>
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
                   children: [
+                    // ⭐ 파일 열기 드롭다운 (PDF/사진/카메라)
+                    _buildCompactDrawingTool(
+                      Icons.folder_open,
+                      '파일열기',
+                      _showFileOpenMenu,
+                    ),
+                    _buildToolSeparator(),
                     // 사용 빈도 순서로 배열
                     _buildCompactDrawingTool(
                       Icons.pan_tool,
@@ -3187,8 +3239,589 @@ class _HandwritingTabState extends State<HandwritingTab>
               ),
             ),
           ),
+
+        // ⭐ 파일 열기 드롭다운 메뉴 (PDF/사진/카메라)
+        if (_showFileOpenMenu) _buildFileOpenMenuOverlay(),
       ],
     );
+  }
+
+  /// 파일 열기 메뉴 오버레이 (외부 탭 시 닫기, 툴바 하단 좌측 정렬)
+  Widget _buildFileOpenMenuOverlay() {
+    // 헤더(50) + 툴바(40) = 90px 아래에 위치 (확장 색상 팔레트 있으면 더 아래)
+    final topOffset = 90.0 + (_showColorPicker ? 48.0 : 0.0);
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // 배경 탭으로 닫기
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => setState(() => _showFileOpenMenu = false),
+          ),
+          Positioned(
+            left: 8,
+            top: topOffset,
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(8),
+              color: Theme.of(context).cardColor,
+              child: Container(
+                width: 56,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildFileOpenMenuItem(
+                      Icons.picture_as_pdf,
+                      'PDF',
+                      _onPickPdfFromFileOpenMenu,
+                    ),
+                    _buildFileOpenMenuItem(
+                      Icons.photo_library,
+                      '사진',
+                      _onPickPhotoFromGallery,
+                    ),
+                    _buildFileOpenMenuItem(
+                      Icons.photo_camera,
+                      '카메라',
+                      _onPickPhotoFromCamera,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileOpenMenuItem(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: () {
+        setState(() => _showFileOpenMenu = false);
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: Theme.of(context).primaryColor),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 캔버스에 이미 배경 콘텐츠가 있는지 판정
+  /// - 다중 페이지 파일
+  /// - 또는 단일 페이지지만 배경 이미지 비율이 추적되어 배경이 깔린 상태
+  bool _currentCanvasHasContent() {
+    final file = _currentHandwritingFile;
+    if (file == null) return false;
+    if (file.isMultiPage) return true;
+    // 배경 이미지가 설정되어 있으면 콘텐츠 있다고 판단
+    if (_backgroundImageAspectRatio != null) return true;
+    if (_backgroundImageOriginalSize != null) return true;
+    return false;
+  }
+
+  /// 파일 열기 메뉴 — PDF: 빈 캔버스면 새 파일, 콘텐츠 있으면 현재 파일에 페이지 추가
+  Future<void> _onPickPdfFromFileOpenMenu() async {
+    if (_currentCanvasHasContent()) {
+      await _appendPdfPagesToCurrentFile();
+    } else {
+      _loadPdfForNewFile();
+    }
+  }
+
+  /// 파일 열기 메뉴 — 사진: 빈 캔버스면 새 파일, 콘텐츠 있으면 현재 파일에 페이지 추가
+  Future<void> _onPickPhotoFromGallery() async {
+    if (_currentCanvasHasContent()) {
+      await _appendImagePageFromSource(ImageSource.gallery);
+    } else {
+      await _pickAndLoadImageAsHandwriting(ImageSource.gallery);
+    }
+  }
+
+  /// 파일 열기 메뉴 — 카메라: 빈 캔버스면 새 파일, 콘텐츠 있으면 현재 파일에 페이지 추가
+  Future<void> _onPickPhotoFromCamera() async {
+    if (_currentCanvasHasContent()) {
+      await _appendImagePageFromSource(ImageSource.camera);
+    } else {
+      await _pickAndLoadImageAsHandwriting(ImageSource.camera);
+    }
+  }
+
+  /// 파일 열기 메뉴 — Files: 임의의 파일을 노트의 파일 리스트에 첨부
+  /// (캔버스에 들어가지 않음 — 분석/보관/공유 용 첨부 파일)
+  Future<void> _onPickAttachmentFromFiles() async {
+    debugPrint('📎 첨부 파일 선택 시작');
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) {
+      debugPrint('❌ 리튼 미선택 - 첨부 파일 추가 중단');
+      return;
+    }
+
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        withData: false,
+      );
+    } catch (e) {
+      debugPrint('❌ 파일 선택 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일을 가져오지 못했습니다: $e')),
+        );
+      }
+      return;
+    }
+    if (result == null || result.files.isEmpty) return;
+    final picked = result.files.first;
+    if (picked.path == null) {
+      debugPrint('❌ 선택한 파일의 경로가 없음');
+      return;
+    }
+
+    try {
+      // 1) 리튼의 attachments 폴더로 복사
+      final docDir = await getApplicationDocumentsDirectory();
+      final attachDir = Directory(
+        '${docDir.path}/littens/${selectedLitten.id}/attachments',
+      );
+      if (!await attachDir.exists()) {
+        await attachDir.create(recursive: true);
+      }
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final safeName = picked.name.replaceAll(RegExp(r'[\\/]'), '_');
+      final savedPath = '${attachDir.path}/${ts}_$safeName';
+      await File(picked.path!).copy(savedPath);
+      final fileSize = await File(savedPath).length();
+      debugPrint('💾 첨부 파일 저장: $savedPath (${fileSize}B)');
+
+      // 2) AttachmentFile 생성 + 메타데이터 저장
+      final attachment = AttachmentFile(
+        littenId: selectedLitten.id,
+        fileName: picked.name,
+        filePath: savedPath,
+        sizeBytes: fileSize,
+      );
+
+      final stored = await FileStorageService.instance
+          .loadAttachmentFiles(selectedLitten.id);
+      stored.add(attachment);
+      await FileStorageService.instance
+          .saveAttachmentFiles(selectedLitten.id, stored);
+
+      // 3) 리튼에 ID 연결
+      await LittenService().addAttachmentFileToLitten(
+        selectedLitten.id,
+        attachment.id,
+      );
+
+      // 4) 파일 리스트 카운트 갱신
+      if (mounted) {
+        await appState.updateFileCount();
+        appState.notifyFileListChanged();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${picked.name}" 파일이 추가되었습니다')),
+        );
+      }
+
+      debugPrint('✅ 첨부 파일 추가 완료: ${attachment.id}');
+    } catch (e, st) {
+      debugPrint('❌ 첨부 파일 추가 실패: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일 추가에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 현재 캔버스 아래에 이미지 1장을 세로로 이어붙임 (원본 비율 유지)
+  Future<void> _appendImagePageFromSource(ImageSource source) async {
+    final current = _currentHandwritingFile;
+    if (current == null) return;
+    debugPrint('🖼️ 이미지 세로 추가 시작 - source: $source');
+
+    // 1) 현재 페이지 필기 내용 먼저 저장 (background에 baked in 됨)
+    await _saveCurrentPageDrawing();
+
+    // 2) 이미지 선택
+    final picker = ImagePicker();
+    XFile? picked;
+    try {
+      picked = await picker.pickImage(source: source, imageQuality: 100);
+    } catch (e) {
+      debugPrint('❌ 이미지 선택 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미지를 가져오지 못했습니다: $e')),
+        );
+      }
+      return;
+    }
+    if (picked == null) return;
+
+    try {
+      final newBytes = await File(picked.path).readAsBytes();
+      await _appendBytesBelowCurrentBackground(current, [newBytes]);
+    } catch (e, st) {
+      debugPrint('❌ 이미지 세로 추가 실패: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미지 추가에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 현재 캔버스 아래에 PDF의 모든 페이지를 세로로 이어붙임
+  Future<void> _appendPdfPagesToCurrentFile() async {
+    final current = _currentHandwritingFile;
+    if (current == null) return;
+    debugPrint('📄 PDF 세로 추가 시작');
+
+    // 1) 현재 페이지 필기 내용 저장
+    await _saveCurrentPageDrawing();
+
+    // 2) PDF 파일 선택
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+    } catch (e) {
+      debugPrint('❌ PDF 선택 실패: $e');
+      return;
+    }
+    if (result == null || result.files.isEmpty) return;
+    final pdfPath = result.files.first.path;
+    if (pdfPath == null) return;
+
+    try {
+      final pdfBytes = await File(pdfPath).readAsBytes();
+      // PDF 모든 페이지를 PNG로 변환
+      final List<Uint8List> pageBytes = [];
+      await for (final page in Printing.raster(pdfBytes, dpi: 150)) {
+        pageBytes.add(await page.toPng());
+      }
+      if (pageBytes.isEmpty) {
+        debugPrint('⚠️ PDF에서 페이지를 추출하지 못함');
+        return;
+      }
+
+      await _appendBytesBelowCurrentBackground(current, pageBytes);
+    } catch (e, st) {
+      debugPrint('❌ PDF 세로 추가 실패: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF 추가에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 현재 캔버스의 (background + 현재 필기 baked) 아래에 추가 이미지를 세로로 합성
+  /// - 각 이미지는 원본 비율을 유지하고, 폭은 최대 폭에 맞춰 스케일됨
+  /// - 합성된 이미지를 background로 새로 설정하고 캔버스 비율을 갱신
+  Future<void> _appendBytesBelowCurrentBackground(
+    HandwritingFile current,
+    List<Uint8List> appendBytesList,
+  ) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final littenDir = Directory(
+      '${directory.path}/littens/${current.littenId}/handwriting',
+    );
+    if (!await littenDir.exists()) {
+      await littenDir.create(recursive: true);
+    }
+
+    // 1) 현재 background bytes 확보 (단일/다중 모두 호환)
+    Uint8List? currentBgBytes;
+    final candidatePaths = <String>[
+      if (current.imagePath.isNotEmpty) current.imagePath,
+      '${littenDir.path}/${current.id}.png',
+      if (current.pageImagePaths.isNotEmpty)
+        '${littenDir.path}/${current.pageImagePaths.first}',
+    ];
+    for (final p in candidatePaths) {
+      if (await File(p).exists()) {
+        currentBgBytes = await File(p).readAsBytes();
+        break;
+      }
+    }
+
+    // 2) 합성 대상 리스트 (현재 background + append 목록)
+    final List<Uint8List> allBytes = [
+      if (currentBgBytes != null) currentBgBytes,
+      ...appendBytesList,
+    ];
+
+    // 3) 세로로 합성 (각 이미지 원본 비율 유지, 폭은 최대 폭에 맞춤)
+    final composedBytes = await _composeVertically(allBytes);
+    final newPath = '${littenDir.path}/${current.id}.png';
+    await File(newPath).writeAsBytes(composedBytes);
+    debugPrint('💾 합성 이미지 저장: $newPath (${composedBytes.length} bytes)');
+
+    // 4) 합성 이미지 비율 계산
+    final codec = await ui.instantiateImageCodec(composedBytes);
+    final frame = await codec.getNextFrame();
+    final newAspectRatio = frame.image.width / frame.image.height;
+    debugPrint('📐 합성 캔버스 크기: ${frame.image.width}x${frame.image.height} (ratio: $newAspectRatio)');
+
+    // 5) 단일 페이지 모델로 통일 (다중 페이지 시스템 사용 안 함)
+    final updated = current.copyWith(
+      imagePath: newPath,
+      pageImagePaths: [newPath],
+      totalPages: 1,
+      currentPageIndex: 0,
+      aspectRatio: newAspectRatio,
+    );
+
+    // 6) 메모리/스토리지 동기화
+    final stored = await FileStorageService.instance
+        .loadHandwritingFiles(current.littenId);
+    final idx = stored.indexWhere((f) => f.id == updated.id);
+    if (idx >= 0) {
+      stored[idx] = updated;
+    } else {
+      stored.add(updated);
+      await LittenService().addHandwritingFileToLitten(
+        current.littenId,
+        updated.id,
+      );
+    }
+    await FileStorageService.instance
+        .saveHandwritingFiles(current.littenId, stored);
+
+    if (!mounted) return;
+    setState(() {
+      _currentHandwritingFile = updated;
+      _backgroundImageAspectRatio = newAspectRatio;
+      _backgroundImageOriginalSize = Size(
+        frame.image.width.toDouble(),
+        frame.image.height.toDouble(),
+      );
+      _painterController.clearDrawables();
+    });
+
+    // 7) 합성 이미지를 새 background로 설정
+    await _setBackgroundFromBytes(composedBytes);
+
+    // 이전 필기 레이어 파일은 합성에 baked in 되었으므로 삭제 (재로드 시 중복 방지)
+    try {
+      final oldDrawing = File('${littenDir.path}/${current.id}_drawing.png');
+      if (await oldDrawing.exists()) {
+        await oldDrawing.delete();
+        debugPrint('🗑️ 이전 필기 레이어 삭제 (background에 baked in)');
+      }
+    } catch (e) {
+      debugPrint('⚠️ 이전 필기 레이어 삭제 실패 (무시): $e');
+    }
+
+    if (mounted) {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      await appState.updateFileCount();
+      appState.notifyFileListChanged();
+    }
+
+    debugPrint('✅ 세로 합성 완료');
+  }
+
+  /// 여러 이미지를 폭 최대값에 맞춰 스케일하고(비율 유지) 세로로 합성한 PNG 반환
+  Future<Uint8List> _composeVertically(List<Uint8List> imagesBytes) async {
+    if (imagesBytes.length == 1) {
+      // 합성할 필요 없으면 원본 그대로 반환
+      return imagesBytes.first;
+    }
+    // 1) ui.Image로 디코드
+    final List<ui.Image> images = [];
+    for (final bytes in imagesBytes) {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      images.add(frame.image);
+    }
+
+    // 2) 최대 폭 + 각 이미지 스케일된 높이
+    int maxWidth = 0;
+    for (final img in images) {
+      if (img.width > maxWidth) maxWidth = img.width;
+    }
+    if (maxWidth == 0) maxWidth = 1;
+
+    final List<int> scaledHeights = [];
+    int totalHeight = 0;
+    for (final img in images) {
+      final h = (img.height * maxWidth / img.width).round();
+      scaledHeights.add(h);
+      totalHeight += h;
+    }
+
+    // 3) PictureRecorder로 합성
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, maxWidth.toDouble(), totalHeight.toDouble()),
+    );
+    // 흰 배경
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, maxWidth.toDouble(), totalHeight.toDouble()),
+      Paint()..color = Colors.white,
+    );
+
+    double y = 0;
+    for (int i = 0; i < images.length; i++) {
+      final img = images[i];
+      final h = scaledHeights[i];
+      canvas.drawImageRect(
+        img,
+        Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+        Rect.fromLTWH(0, y, maxWidth.toDouble(), h.toDouble()),
+        Paint(),
+      );
+      y += h;
+    }
+
+    final picture = recorder.endRecording();
+    final composed = await picture.toImage(maxWidth, totalHeight);
+    final byteData =
+        await composed.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
+  /// 이미지를 새 필기 파일로 만들어 캔버스 배경에 깔고 편집 모드로 진입
+  Future<void> _pickAndLoadImageAsHandwriting(ImageSource source) async {
+    debugPrint('🖼️ 이미지 선택 시작 - source: $source');
+
+    final picker = ImagePicker();
+    final XFile? picked;
+    try {
+      picked = await picker.pickImage(source: source, imageQuality: 100);
+    } catch (e) {
+      debugPrint('❌ 이미지 선택 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미지를 가져오지 못했습니다: $e')),
+        );
+      }
+      return;
+    }
+
+    if (picked == null) {
+      debugPrint('ℹ️ 사용자가 이미지 선택을 취소함');
+      return;
+    }
+
+    if (!mounted) return;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) {
+      debugPrint('❌ 리튼 미선택 - 이미지 로드 중단');
+      return;
+    }
+
+    try {
+      // 원본 이미지를 리튼의 handwriting 폴더로 복사
+      final docDir = await getApplicationDocumentsDirectory();
+      final handwritingDir = Directory(
+        '${docDir.path}/littens/${selectedLitten.id}/handwriting',
+      );
+      if (!await handwritingDir.exists()) {
+        await handwritingDir.create(recursive: true);
+      }
+
+      final now = DateTime.now();
+      final ts = now.millisecondsSinceEpoch;
+      final ext = picked.path.split('.').last.toLowerCase();
+      final ext2 = (ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp')
+          ? ext
+          : 'png';
+      final savedPath =
+          '${handwritingDir.path}/image_$ts.$ext2';
+      await File(picked.path).copy(savedPath);
+      debugPrint('💾 이미지 저장 완료: $savedPath');
+
+      // 이미지 비율 계산
+      final bytes = await File(savedPath).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final imageWidth = frame.image.width;
+      final imageHeight = frame.image.height;
+      final aspectRatio = imageWidth / imageHeight;
+      debugPrint('📐 이미지 크기: ${imageWidth}x$imageHeight (ratio: $aspectRatio)');
+
+      // 새 필기 파일 생성 (drawing 타입)
+      final littenName = selectedLitten.title == 'undefined'
+          ? (AppLocalizations.of(context)?.handwritingTab ?? '필기')
+          : selectedLitten.title;
+      final defaultTitle =
+          '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+      final newFile = HandwritingFile(
+        littenId: selectedLitten.id,
+        title: defaultTitle,
+        imagePath: savedPath,
+        type: HandwritingType.drawing,
+        aspectRatio: aspectRatio,
+      );
+
+      // 리튼에 필기 파일 추가 + 메타데이터 저장
+      await LittenService().addHandwritingFileToLitten(
+        selectedLitten.id,
+        newFile.id,
+      );
+      final stored = await FileStorageService.instance
+          .loadHandwritingFiles(selectedLitten.id);
+      stored.add(newFile);
+      await FileStorageService.instance
+          .saveHandwritingFiles(selectedLitten.id, stored);
+
+      if (!mounted) return;
+      setState(() {
+        _currentHandwritingFile = newFile;
+        _isEditing = true;
+        _selectedTool = '제스처';
+        _isGestureMode = true;
+        _backgroundImageAspectRatio = aspectRatio;
+        _painterController.clearDrawables();
+      });
+
+      // 배경 이미지 설정
+      await _setBackgroundFromBytes(bytes);
+      await appState.updateFileCount();
+      appState.notifyFileListChanged();
+
+      debugPrint('✅ 이미지 → 필기 파일 생성 완료: ${newFile.id}');
+    } catch (e, st) {
+      debugPrint('❌ 이미지 → 필기 변환 실패: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미지를 필기로 변환하지 못했습니다: $e')),
+        );
+      }
+    }
   }
 
   void _loadPdfForNewFile() async {
@@ -3681,6 +4314,35 @@ class _HandwritingTabState extends State<HandwritingTab>
         print('DEBUG: 모바일 - 배경 이미지 로드 완료 - $backgroundFileName');
       } else {
         print('❌ [_loadHandwritingFile] 파일이 존재하지 않음: ${backgroundFile.path}');
+      }
+    } else {
+      // ⭐ 단일 페이지인 경우 (사진/카메라로 만든 파일 등) - file.imagePath를 배경으로 로드
+      File? bgFile;
+      // 우선 file.imagePath(절대 경로)에서 시도
+      if (file.imagePath.isNotEmpty) {
+        final candidate = File(file.imagePath);
+        if (await candidate.exists()) {
+          bgFile = candidate;
+          print('DEBUG: 모바일 - 단일 페이지 - file.imagePath에서 배경 발견: ${candidate.path}');
+        }
+      }
+      // 폴백: handwriting 폴더에서 {file.id}.{ext} 형태로 검색
+      if (bgFile == null) {
+        for (final ext in const ['png', 'jpg', 'jpeg', 'webp']) {
+          final candidate = File('${littenDir.path}/${file.id}.$ext');
+          if (await candidate.exists()) {
+            bgFile = candidate;
+            print('DEBUG: 모바일 - 단일 페이지 - id 기반 배경 발견: ${candidate.path}');
+            break;
+          }
+        }
+      }
+      if (bgFile != null) {
+        final backgroundBytes = await bgFile.readAsBytes();
+        await _setBackgroundFromBytes(backgroundBytes);
+        print('DEBUG: 모바일 - 단일 페이지 배경 이미지 로드 완료');
+      } else {
+        print('DEBUG: 모바일 - 단일 페이지 배경 이미지 없음 (빈 캔버스)');
       }
     }
 

@@ -50,6 +50,8 @@ dependencies:
   # File & Storage
   path_provider: ^2.1.1
   file_picker: ^10.3.2
+  image_picker: ^1.1.2
+  share_plus: ^10.1.4
 
   # Text Editor
   html_editor_enhanced: ^2.7.1

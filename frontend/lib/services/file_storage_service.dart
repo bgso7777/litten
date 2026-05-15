@@ -7,12 +7,14 @@ import 'package:flutter/foundation.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../models/audio_file.dart';
+import '../models/attachment_file.dart';
 import 'litten_service.dart';
 
 class FileStorageService {
   static const String _textFilesKey = 'text_files';
   static const String _handwritingFilesKey = 'handwriting_files';
   static const String _audioFilesKey = 'audio_files';
+  static const String _attachmentFilesKey = 'attachment_files';
   
   static FileStorageService? _instance;
   static FileStorageService get instance => _instance ??= FileStorageService._();
@@ -346,6 +348,7 @@ class FileStorageService {
       await prefs.remove('${_textFilesKey}_$littenId');
       await prefs.remove('${_handwritingFilesKey}_$littenId');
       await prefs.remove('${_audioFilesKey}_$littenId');
+      await prefs.remove('${_attachmentFilesKey}_$littenId');
       
       // 파일 시스템에서 디렉토리 삭제
       final directory = await getApplicationDocumentsDirectory();
@@ -454,6 +457,56 @@ class FileStorageService {
       return success;
     } catch (e) {
       print('에러: 웹 이미지 삭제 실패 - $e');
+      return false;
+    }
+  }
+
+  // ───────────────────────────── 첨부 파일 (Attachment) ─────────────────────────────
+
+  /// 첨부 파일 메타데이터 로드
+  Future<List<AttachmentFile>> loadAttachmentFiles(String littenId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('${_attachmentFilesKey}_$littenId');
+      if (jsonStr == null || jsonStr.isEmpty) return [];
+      final List<dynamic> list = json.decode(jsonStr);
+      return list.map((j) => AttachmentFile.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('❌ 첨부 파일 로드 실패: $e');
+      return [];
+    }
+  }
+
+  /// 첨부 파일 메타데이터 저장
+  Future<bool> saveAttachmentFiles(
+    String littenId,
+    List<AttachmentFile> files,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = json.encode(files.map((f) => f.toJson()).toList());
+      final ok = await prefs.setString('${_attachmentFilesKey}_$littenId', jsonStr);
+      debugPrint('💾 첨부 파일 저장: ${files.length}개 (성공: $ok)');
+      return ok;
+    } catch (e) {
+      debugPrint('❌ 첨부 파일 저장 실패: $e');
+      return false;
+    }
+  }
+
+  /// 특정 첨부 파일 삭제 (메타데이터 + 실제 파일)
+  Future<bool> deleteAttachmentFile(AttachmentFile file) async {
+    try {
+      final files = await loadAttachmentFiles(file.littenId);
+      files.removeWhere((f) => f.id == file.id);
+      await saveAttachmentFiles(file.littenId, files);
+      final f = File(file.filePath);
+      if (await f.exists()) {
+        await f.delete();
+      }
+      return true;
+    } catch (e) {
+      debugPrint('❌ 첨부 파일 삭제 실패: $e');
       return false;
     }
   }

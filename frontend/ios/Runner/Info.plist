@@ -49,6 +49,10 @@
 	<string>리튼 앱에서 듣기(녹음) 기능을 사용하기 위해 마이크 권한이 필요합니다.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>리튼 앱에서 음성 인식(음성을 텍스트로 변환) 기능을 사용하기 위해 음성 인식 권한이 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>리튼 앱에서 필기에 사용할 사진을 촬영하기 위해 카메라 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>리튼 앱에서 필기에 사용할 사진을 불러오기 위해 사진 라이브러리 권한이 필요합니다.</string>
 	<key>UIKeyboardInputModeUsesEmojiKeyboard</key>
 	<true/>
 	<key>UIKeyboardInputModeSupportAutocorrection</key>

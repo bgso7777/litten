@@ -198,6 +198,7 @@ class Litten {
   final List<String> audioFileIds;
   final List<String> textFileIds;
   final List<String> handwritingFileIds;
+  final List<String> attachmentFileIds; // ⭐ 임의 첨부 파일 ID들
   final LittenSchedule? schedule;
   final int notificationCount; // 알림 발생 횟수 카운트
 
@@ -210,6 +211,7 @@ class Litten {
     List<String>? audioFileIds,
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
+    List<String>? attachmentFileIds,
     this.schedule,
     this.notificationCount = 0,
   })  : id = id ?? const Uuid().v4(),
@@ -217,12 +219,18 @@ class Litten {
         updatedAt = updatedAt ?? DateTime.now(),
         audioFileIds = audioFileIds ?? [],
         textFileIds = textFileIds ?? [],
-        handwritingFileIds = handwritingFileIds ?? [];
+        handwritingFileIds = handwritingFileIds ?? [],
+        attachmentFileIds = attachmentFileIds ?? [];
 
-  int get totalFileCount => audioFileIds.length + textFileIds.length + handwritingFileIds.length;
+  int get totalFileCount =>
+      audioFileIds.length +
+      textFileIds.length +
+      handwritingFileIds.length +
+      attachmentFileIds.length;
   int get audioCount => audioFileIds.length;
   int get textCount => textFileIds.length;
   int get handwritingCount => handwritingFileIds.length;
+  int get attachmentCount => attachmentFileIds.length;
 
   Litten copyWith({
     String? title,
@@ -230,6 +238,7 @@ class Litten {
     List<String>? audioFileIds,
     List<String>? textFileIds,
     List<String>? handwritingFileIds,
+    List<String>? attachmentFileIds,
     LittenSchedule? schedule,
     int? notificationCount,
   }) {
@@ -242,6 +251,7 @@ class Litten {
       audioFileIds: audioFileIds ?? this.audioFileIds,
       textFileIds: textFileIds ?? this.textFileIds,
       handwritingFileIds: handwritingFileIds ?? this.handwritingFileIds,
+      attachmentFileIds: attachmentFileIds ?? this.attachmentFileIds,
       schedule: schedule ?? this.schedule,
       notificationCount: notificationCount ?? this.notificationCount,
     );
@@ -257,6 +267,7 @@ class Litten {
       'audioFileIds': audioFileIds,
       'textFileIds': textFileIds,
       'handwritingFileIds': handwritingFileIds,
+      'attachmentFileIds': attachmentFileIds,
       'schedule': schedule?.toJson(),
       'notificationCount': notificationCount,
     };
@@ -272,6 +283,7 @@ class Litten {
       audioFileIds: List<String>.from(json['audioFileIds'] ?? []),
       textFileIds: List<String>.from(json['textFileIds'] ?? []),
       handwritingFileIds: List<String>.from(json['handwritingFileIds'] ?? []),
+      attachmentFileIds: List<String>.from(json['attachmentFileIds'] ?? []),
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
       notificationCount: json['notificationCount'] ?? 0,
     );

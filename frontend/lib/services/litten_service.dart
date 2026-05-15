@@ -358,6 +358,29 @@ class LittenService {
     await _updateLittenHandwritingFiles(littenId, fileId, false);
   }
 
+  // ⭐ 첨부 파일 ID 관리
+  Future<void> _updateLittenAttachmentFiles(
+      String littenId, String fileId, bool add) async {
+    final litten = await getLittenById(littenId);
+    if (litten == null) return;
+    final ids = List<String>.from(litten.attachmentFileIds);
+    if (add && !ids.contains(fileId)) {
+      ids.add(fileId);
+    } else if (!add) {
+      ids.remove(fileId);
+    }
+    final updated = litten.copyWith(attachmentFileIds: ids);
+    await saveLitten(updated);
+  }
+
+  Future<void> addAttachmentFileToLitten(String littenId, String fileId) async {
+    await _updateLittenAttachmentFiles(littenId, fileId, true);
+  }
+
+  Future<void> removeAttachmentFileFromLitten(String littenId, String fileId) async {
+    await _updateLittenAttachmentFiles(littenId, fileId, false);
+  }
+
   // 기본 리튼들 생성
   Future<void> createDefaultLittensIfNeeded({
     String? defaultLittenTitle,
