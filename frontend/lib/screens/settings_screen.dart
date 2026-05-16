@@ -1796,9 +1796,9 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
 
   List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
     {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기', 'icon': Icons.draw},
-    {'id': 'pdf',    'label': 'PDF',                          'icon': Icons.picture_as_pdf},
     {'id': 'text',   'label': l10n?.memoLabel ?? '메모',      'icon': Icons.notes},
     {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',       'icon': Icons.mic},
+    {'id': 'files',  'label': '파일',                          'icon': Icons.attach_file},
     {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
   ];
 

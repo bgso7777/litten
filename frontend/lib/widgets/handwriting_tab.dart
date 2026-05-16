@@ -2617,38 +2617,46 @@ class _HandwritingTabState extends State<HandwritingTab>
         leading: SizedBox(
           width: 40,
           height: 40,
-          child: Stack(
-            children: [
-              // 모든 필기 파일은 동일한 필기 아이콘 사용
-              CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                child: Icon(
-                  Icons.draw,
-                  color: Theme.of(context).primaryColor,
+          child: () {
+            final primary = Theme.of(context).primaryColor;
+            final isPdfDoc = file.imagePath.toLowerCase().endsWith('.pdf');
+            if (isPdfDoc) {
+              // .pdf 원본 파일: 순수 PDF 아이콘
+              return CircleAvatar(
+                backgroundColor: primary.withValues(alpha: 0.1),
+                child: Icon(Icons.picture_as_pdf, color: primary),
+              );
+            }
+            return Stack(
+              children: [
+                // 일반 필기/PNG 다중페이지 변환: 필기 아이콘
+                CircleAvatar(
+                  backgroundColor: primary.withValues(alpha: 0.1),
+                  child: Icon(Icons.draw, color: primary),
                 ),
-              ),
-              // PDF 변환으로 생성된 파일만 우하단에 작은 PDF 뱃지
-              if (file.type == HandwritingType.pdfConvert)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                    child: const Icon(
-                      Icons.picture_as_pdf,
-                      size: 11,
-                      color: Colors.white,
+                // PNG로 변환된 다중페이지 PDF만 우하단 PDF 뱃지
+                if (file.type == HandwritingType.pdfConvert)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: const Icon(
+                        Icons.picture_as_pdf,
+                        size: 11,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            );
+          }(),
         ),
         title: Text(
           file.displayTitle,

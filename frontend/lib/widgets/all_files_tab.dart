@@ -15,6 +15,7 @@ import '../models/audio_file.dart';
 import '../models/attachment_file.dart';
 import 'text_tab.dart';
 import 'handwriting_tab.dart';
+import 'syncfusion_pdf_editor.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
 import '../models/remind_item.dart';
@@ -313,29 +314,6 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         : _BottomFabRow(
                             onText: () => _openEditorView(_EditorType.text, autoCreate: true),
                             onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-                            onPdf: () async {
-                              final appState = Provider.of<AppStateProvider>(context, listen: false);
-                              if (appState.selectedLitten == null) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
-                                  );
-                                }
-                                return;
-                              }
-                              final result = await FilePicker.platform.pickFiles(
-                                type: FileType.custom,
-                                allowedExtensions: ['pdf'],
-                                withData: false,
-                              );
-                              if (result == null || result.files.single.path == null) return;
-                              if (!mounted) return;
-                              _openEditorView(
-                                _EditorType.handwriting,
-                                initialPdfPath: result.files.single.path!,
-                                initialPdfFileName: result.files.single.name,
-                              );
-                            },
                             onFiles: _addAttachmentFromFiles,
                             onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                             onAudio: _toggleRecording,
@@ -364,6 +342,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
           sttSettings: _sttMemoSettings,
         );
       case _EditorType.handwriting:
+        // ⭐ 선택된 파일의 imagePath가 .pdf로 끝나면 Syncfusion PDF 에디터로 진입
+        final selFile = _selectedHandwritingFile;
+        if (selFile != null && selFile.imagePath.toLowerCase().endsWith('.pdf')) {
+          return SyncfusionPdfEditor(
+            key: ValueKey('syncfusion_${selFile.id}'),
+            file: selFile,
+            onClose: _closeEditor,
+          );
+        }
         return HandwritingTab(
           key: ValueKey(_selectedHandwritingFile?.id ?? _initialPdfPath ?? _handwritingAction),
           initialAction: _handwritingAction,
@@ -758,34 +745,47 @@ class _AllFilesTabState extends State<AllFilesTab> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Leading 아이콘 (모든 필기 동일 + PDF 변환 시 우하단 작은 PDF 뱃지)
+              // Leading 아이콘:
+              // - .pdf 원본 파일(Syncfusion 흐름): 순수 PDF 아이콘
+              // - .png 다중 페이지 PDF 변환(기존 흐름): 필기 + PDF 뱃지
+              // - 일반 필기: 필기 아이콘
               SizedBox(
                 width: 32,
                 height: 32,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
+                child: () {
+                  final isPdfDoc = file.imagePath.toLowerCase().endsWith('.pdf');
+                  if (isPdfDoc) {
+                    return CircleAvatar(
                       radius: 16,
                       backgroundColor: color.withValues(alpha: 0.1),
-                      child: Icon(Icons.draw, color: color, size: 18),
-                    ),
-                    if (file.type == HandwritingType.pdfConvert)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 17,
-                          height: 17,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          child: const Icon(Icons.picture_as_pdf, size: 10, color: Colors.white),
-                        ),
+                      child: Icon(Icons.picture_as_pdf, color: color, size: 18),
+                    );
+                  }
+                  return Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: color.withValues(alpha: 0.1),
+                        child: Icon(Icons.draw, color: color, size: 18),
                       ),
-                  ],
-                ),
+                      if (file.type == HandwritingType.pdfConvert)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 17,
+                            height: 17,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: const Icon(Icons.picture_as_pdf, size: 10, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  );
+                }(),
               ),
               const SizedBox(width: 12),
               // 제목 영역 (60%)
@@ -851,6 +851,62 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  /// 선택된 PDF 경로를 받아 Syncfusion 흐름으로 HandwritingFile 등록 + 에디터 진입
+  /// (노트 + → 파일에서 PDF 선택 시 호출)
+  Future<void> _registerPdfForSyncfusion(
+    String pdfPath,
+    String pdfName,
+    dynamic selectedLitten,
+    AppStateProvider appState,
+  ) async {
+    try {
+      // 1) 리튼의 handwriting 폴더로 PDF 원본 복사
+      final docDir = await getApplicationDocumentsDirectory();
+      final dir = Directory('${docDir.path}/littens/${selectedLitten.id}/handwriting');
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final titleWithoutExt = pdfName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+
+      // 2) HandwritingFile 메타데이터 (imagePath = 절대 PDF 경로, 단일 파일)
+      final newFile = HandwritingFile(
+        littenId: selectedLitten.id,
+        title: titleWithoutExt,
+        imagePath: '',
+        type: HandwritingType.pdfConvert,
+      );
+      final savedPdfPath = '${dir.path}/${newFile.id}.pdf';
+      await File(pdfPath).copy(savedPdfPath);
+      final saved = newFile.copyWith(imagePath: savedPdfPath);
+
+      // 3) 메타데이터 저장 + 리튼 연결
+      final stored = await FileStorageService.instance
+          .loadHandwritingFiles(selectedLitten.id);
+      stored.add(saved);
+      await FileStorageService.instance
+          .saveHandwritingFiles(selectedLitten.id, stored);
+      await LittenService().addHandwritingFileToLitten(
+        selectedLitten.id,
+        saved.id,
+      );
+
+      // 4) 파일 카운트/목록 갱신
+      if (mounted) {
+        await appState.updateFileCount();
+        appState.notifyFileListChanged();
+        await _loadFiles(appState);
+        // 5) 새 에디터로 진입
+        _openEditorView(_EditorType.handwriting, handwritingFile: saved);
+      }
+      debugPrint('✅ Syncfusion PDF 등록: ${saved.id} ($savedPdfPath)');
+    } catch (e, st) {
+      debugPrint('❌ PDF 등록 실패: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF를 추가하지 못했습니다: $e')),
+        );
+      }
+    }
+  }
+
   /// 임의의 파일을 선택해 노트에 첨부 (분석/보관/공유 용)
   Future<void> _addAttachmentFromFiles() async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -883,6 +939,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (result == null || result.files.isEmpty) return;
     final picked = result.files.first;
     if (picked.path == null) return;
+
+    // ⭐ PDF 파일이면 Syncfusion 에디터 흐름으로 등록 (첨부 파일 아닌 HandwritingFile)
+    if (picked.name.toLowerCase().endsWith('.pdf')) {
+      await _registerPdfForSyncfusion(
+        picked.path!,
+        picked.name,
+        selectedLitten,
+        appState,
+      );
+      return;
+    }
 
     try {
       // 1) 리튼의 attachments 폴더로 복사 (원본 그대로)
@@ -1644,7 +1711,6 @@ enum _EditorType { text, handwriting }
 class _BottomFabRow extends StatefulWidget {
   final VoidCallback onText;
   final VoidCallback onTextWithSTT;
-  final VoidCallback onPdf;
   final VoidCallback onFiles;
   final VoidCallback onCanvas;
   final VoidCallback onAudio;
@@ -1654,7 +1720,6 @@ class _BottomFabRow extends StatefulWidget {
   const _BottomFabRow({
     required this.onText,
     required this.onTextWithSTT,
-    required this.onPdf,
     required this.onFiles,
     required this.onCanvas,
     required this.onAudio,
@@ -1707,6 +1772,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
 
     final dialItems = <Widget>[];
     final l10n = AppLocalizations.of(context);
+    // ⭐ 순서: 필기 → 메모 → 녹음 → 파일 → 음성메모
     if (fabVis.contains('canvas')) {
       dialItems.addAll([
         _SpeedDialItem(label: l10n?.handwritingTab ?? '필기', icon: Icons.draw, color: color,
@@ -1714,19 +1780,6 @@ class _BottomFabRowState extends State<_BottomFabRow> {
         const SizedBox(height: 8),
       ]);
     }
-    if (fabVis.contains('pdf')) {
-      dialItems.addAll([
-        _SpeedDialItem(label: 'PDF', icon: Icons.picture_as_pdf, color: color,
-            onTap: () => _handleAction(widget.onPdf)),
-        const SizedBox(height: 8),
-      ]);
-    }
-    // ⭐ Files: 임의의 파일을 노트에 첨부 (분석/보관/공유 용)
-    dialItems.addAll([
-      _SpeedDialItem(label: 'Files', icon: Icons.attach_file, color: color,
-          onTap: () => _handleAction(widget.onFiles)),
-      const SizedBox(height: 8),
-    ]);
     if (fabVis.contains('text')) {
       dialItems.addAll([
         _SpeedDialItem(label: l10n?.memoLabel ?? '메모', icon: Icons.notes, color: color,
@@ -1744,6 +1797,14 @@ class _BottomFabRowState extends State<_BottomFabRow> {
           color: color,
           onTap: widget.onAudio,
         ),
+        const SizedBox(height: 8),
+      ]);
+    }
+    // ⭐ 파일: 임의의 파일 첨부 (PDF면 Syncfusion 에디터로 자동 분기)
+    if (fabVis.contains('files')) {
+      dialItems.addAll([
+        _SpeedDialItem(label: '파일', icon: Icons.attach_file, color: color,
+            onTap: () => _handleAction(widget.onFiles)),
         const SizedBox(height: 8),
       ]);
     }
