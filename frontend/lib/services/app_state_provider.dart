@@ -65,6 +65,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _actualPdfCount = 0;
   int _actualCanvasCount = 0;
   int _actualSttMemoCount = 0;
+  int _actualAttachmentCount = 0;
 
   // 전체 파일 카운트 (캘린더 통계 영역용 - 항상 전체 합계)
   int _totalAudioCount = 0;
@@ -345,6 +346,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualPdfCount => _actualPdfCount;
   int get actualCanvasCount => _actualCanvasCount;
   int get actualSttMemoCount => _actualSttMemoCount;
+  int get actualAttachmentCount => _actualAttachmentCount;
 
   // 전체 파일 카운트 Getters (캘린더 통계 영역용 - 항상 전체 합계)
   int get totalAudioCount => _totalAudioCount;
@@ -2193,12 +2195,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     int totalAudio = 0, totalText = 0, totalHandwriting = 0;
     int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
-    int selectedPdf = 0, selectedCanvas = 0, selectedSttMemo = 0;
+    int selectedPdf = 0, selectedCanvas = 0, selectedSttMemo = 0, selectedAttachment = 0;
 
     for (final litten in _littens) {
       final audioFiles = await _audioService.getAudioFiles(litten);
       final textFiles = await fileStorageService.loadTextFiles(litten.id);
       final handwritingFiles = await fileStorageService.loadHandwritingFiles(litten.id);
+      final attachmentFiles = await fileStorageService.loadAttachmentFiles(litten.id);
 
       totalAudio += audioFiles.length;
       totalText += textFiles.length;
@@ -2211,6 +2214,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         selectedHandwriting += handwritingFiles.length;
         selectedPdf += handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).length;
         selectedCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
+        selectedAttachment += attachmentFiles.length;
         // 음성메모는 텍스트+오디오 쌍이지만 1개로 카운트 (STT 오디오 기준)
         selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length;
       }
@@ -2228,6 +2232,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _actualPdfCount = selectedPdf;
     _actualCanvasCount = selectedCanvas;
     _actualSttMemoCount = selectedSttMemo;
+    _actualAttachmentCount = selectedAttachment;
 
     debugPrint('📊 전체 파일 수 - 오디오: $totalAudio, 텍스트: $totalText, 필기: $totalHandwriting');
     if (littenId != null) {

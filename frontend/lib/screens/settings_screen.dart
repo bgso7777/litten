@@ -818,11 +818,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _getNoteTabVisibilityText(Set<String> visibility, AppLocalizations? l10n) {
     final labels = <String>[];
     if (visibility.contains('all')) labels.add(l10n?.allFilesLabel ?? '전체');
-    if (visibility.contains('text')) labels.add(l10n?.textTab ?? '텍스트');
     if (visibility.contains('handwriting')) labels.add(l10n?.handwritingTab ?? '필기');
+    if (visibility.contains('text')) labels.add(l10n?.memoLabel ?? '메모');
     if (visibility.contains('pdf')) labels.add('PDF');
-    if (visibility.contains('sttMemo')) labels.add(l10n?.sttMemoLabel ?? '음성메모');
     if (visibility.contains('audio')) labels.add(l10n?.audioTab ?? '녹음');
+    if (visibility.contains('files')) labels.add('파일');
+    if (visibility.contains('sttMemo')) labels.add(l10n?.sttMemoLabel ?? '음성메모');
     if (visibility.contains('browser')) labels.add(l10n?.browserTab ?? '검색');
     return labels.join(', ');
   }
@@ -1709,11 +1710,12 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
   }
 
   List<Map<String, dynamic>> _buildTabs(AppLocalizations? l10n) => [
-    {'id': 'text', 'label': l10n?.memoLabel ?? '메모', 'icon': Icons.notes},
     {'id': 'handwriting', 'label': l10n?.handwritingTab ?? '필기', 'icon': Icons.draw},
+    {'id': 'text', 'label': l10n?.memoLabel ?? '메모', 'icon': Icons.notes},
     {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
-    {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
     {'id': 'audio', 'label': l10n?.audioTab ?? '녹음', 'icon': Icons.mic},
+    {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
+    {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
     {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
   ];
 

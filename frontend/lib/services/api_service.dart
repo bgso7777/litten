@@ -25,6 +25,7 @@ class ApiService {
   static const String _myInfoEndpoint = '/litten/note/v1/members/me';
   static const String _planEndpoint = '/litten/note/v1/members/plan';
   static const String _filesEndpoint = '/litten/note/v1/files';
+  static const String _convertToPdfEndpoint = '/litten/note/v1/convert/to-pdf';
 
   /// HTTP 헤더 생성
   Map<String, String> _getHeaders({String? token}) {
@@ -736,6 +737,49 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] findAccountByUuid - Error: $e');
       return null;
+    }
+  }
+
+  /// 파일을 PDF로 변환 (LibreOffice headless)
+  /// POST /litten/note/v1/convert/to-pdf
+  /// Returns: PDF bytes
+  Future<Uint8List> convertToPdf({
+    required String filePath,
+    required String fileName,
+    String? token,
+  }) async {
+    debugPrint('[ApiService] convertToPdf 진입 - filePath: $filePath, fileName: $fileName');
+
+    try {
+      final url = Uri.parse('$baseUrl$_convertToPdfEndpoint');
+      final request = http.MultipartRequest('POST', url);
+
+      if (token != null) {
+        request.headers['auth-token'] = token;
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        filename: fileName,
+      ));
+
+      debugPrint('[ApiService] convertToPdf - URL: $url');
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 300));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('[ApiService] convertToPdf - Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        debugPrint('[ApiService] convertToPdf - 성공, size: ${response.bodyBytes.length} bytes');
+        return response.bodyBytes;
+      } else {
+        debugPrint('[ApiService] convertToPdf - 실패: ${response.statusCode}, ${response.body}');
+        throw Exception('PDF 변환 실패: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] convertToPdf - Error: $e');
+      rethrow;
     }
   }
 }

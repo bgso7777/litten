@@ -52,6 +52,7 @@ class _WritingScreenState extends State<WritingScreen>
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _handwritingTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _pdfTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _filesTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _sttMemoTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
 
@@ -192,7 +193,7 @@ class _WritingScreenState extends State<WritingScreen>
     }
   }
 
-  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, int attachmentCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
         case 'topLeft':
@@ -222,6 +223,7 @@ class _WritingScreenState extends State<WritingScreen>
           pdfCount: pdfCount,
           audioCount: audioCount,
           sttMemoCount: sttMemoCount,
+          attachmentCount: attachmentCount,
           littenTitle: littenTitle,
         ),
         content: const AllFilesTab(),
@@ -250,6 +252,14 @@ class _WritingScreenState extends State<WritingScreen>
         content: HandwritingTab(key: _pdfTabKey, mode: HandwritingTabMode.pdfOnly),
         position: parsePosition(savedPositions['pdf'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('pdf'),
+      ),
+      TabItem(
+        id: 'files',
+        title: attachmentCount.toString(),
+        icon: Icons.drive_folder_upload,
+        content: AllFilesTab(key: _filesTabKey, showOnlyAttachments: true),
+        position: parsePosition(savedPositions['files'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('files'),
       ),
       TabItem(
         id: 'sttMemo',
@@ -291,6 +301,7 @@ class _WritingScreenState extends State<WritingScreen>
           canvasCount: appState.actualCanvasCount,
           sttMemoCount: appState.actualSttMemoCount,
           audioCount: appState.actualAudioCount,
+          attachmentCount: appState.actualAttachmentCount,
           littenTitle: appState.selectedLitten?.title,
           noteTabVisibility: appState.noteTabVisibility,
         );

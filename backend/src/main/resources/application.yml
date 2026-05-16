@@ -7,7 +7,6 @@ server:
   developer-mail: byoungkyu.so@saltlux.com # 중요 에러 시 메일 발송
   servlet:
     context-path: /litten
-
   billing-url: http://localhost:8787/aice/billing
   #  config-manager-url: http://localhost:8151/aice/configManager
   config-manager-url: http://10.0.131.55:8151/aice/configManager
@@ -41,6 +40,10 @@ management:
       enabled: true
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
   freemarker:
     suffix=: .ftl
   application:

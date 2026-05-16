@@ -22,7 +22,9 @@ import '../models/remind_item.dart';
 import '../utils/remind_parser.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import '../services/api_service.dart';
 
 // ───────────────────────────── 파일 타입 통합 래퍼 ─────────────────────────────
 
@@ -37,9 +39,11 @@ class _MergedFile {
 
 /// 텍스트 · 필기 · 녹음 파일을 하나의 탭에서 모두 보여주는 통합 뷰
 /// [showOnlySTT] = true 이면 음성메모(STT)로 생성된 파일만 표시
+/// [showOnlyAttachments] = true 이면 첨부파일(docx, xlsx 등)만 표시
 class AllFilesTab extends StatefulWidget {
   final bool showOnlySTT;
-  const AllFilesTab({super.key, this.showOnlySTT = false});
+  final bool showOnlyAttachments;
+  const AllFilesTab({super.key, this.showOnlySTT = false, this.showOnlyAttachments = false});
 
   @override
   State<AllFilesTab> createState() => _AllFilesTabState();
@@ -72,6 +76,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // 병합 정렬 파일 목록 (createdAt 내림차순)
   List<_MergedFile> get _mergedFiles {
+    if (widget.showOnlyAttachments) {
+      final list = _attachmentFiles
+          .map((f) => _MergedFile(type: _FileType.attachment, file: f, createdAt: f.createdAt))
+          .toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    }
     final textSrc = widget.showOnlySTT ? _textFiles.where((f) => f.isFromSTT).toList() : _textFiles;
     final audioSrc = widget.showOnlySTT ? _audioFiles.where((f) => f.isFromSTT).toList() : _audioFiles;
     final list = <_MergedFile>[
@@ -311,15 +322,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     right: 0,
                     child: widget.showOnlySTT
                         ? _buildSttOnlyFab(color: Theme.of(context).primaryColor)
-                        : _BottomFabRow(
-                            onText: () => _openEditorView(_EditorType.text, autoCreate: true),
-                            onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-                            onFiles: _addAttachmentFromFiles,
-                            onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
-                            onAudio: _toggleRecording,
-                            isRecording: _isRecording,
-                            recordingDuration: _recordingDuration,
-                          ),
+                        : widget.showOnlyAttachments
+                            ? _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor)
+                            : _BottomFabRow(
+                                onText: () => _openEditorView(_EditorType.text, autoCreate: true),
+                                onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
+                                onFiles: _addAttachmentFromFiles,
+                                onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
+                                onAudio: _toggleRecording,
+                                isRecording: _isRecording,
+                                recordingDuration: _recordingDuration,
+                              ),
                   ),
                 ],
               ),
@@ -378,6 +391,22 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  Widget _buildAttachmentsOnlyFab({required Color color}) {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: FloatingActionButton(
+          heroTag: 'attachments_only_fab',
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          onPressed: _addAttachmentFromFiles,
+          child: const Icon(Icons.drive_folder_upload),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFileList() {
     final merged = _mergedFiles;
     if (merged.isEmpty) {
@@ -386,7 +415,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              widget.showOnlySTT ? Icons.record_voice_over : Icons.folder_open,
+              widget.showOnlySTT
+                  ? Icons.record_voice_over
+                  : widget.showOnlyAttachments
+                      ? Icons.drive_folder_upload
+                      : Icons.folder_open,
               size: 48,
               color: Colors.grey[400],
             ),
@@ -396,7 +429,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
               return Text(
                 widget.showOnlySTT
                     ? (l10n?.noVoiceMemos ?? '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.')
-                    : (l10n?.noFilesPrompt ?? '파일이 없습니다.\n아래 버튼으로 추가하세요.'),
+                    : widget.showOnlyAttachments
+                        ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
+                        : (l10n?.noFilesPrompt ?? '파일이 없습니다.\n아래 버튼으로 추가하세요.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500]),
               );
@@ -1010,90 +1045,132 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildAttachmentCard(AttachmentFile file) {
     final color = Theme.of(context).primaryColor;
     final ext = file.extension.toUpperCase();
+    final isConvertible = _isLibreOfficeSupported(file.extension);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: InkWell(
-        onTap: () => _showAttachmentInfoSheet(file),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Leading 아이콘
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: color.withValues(alpha: 0.1),
-                child: Icon(Icons.attach_file, color: color, size: 18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Leading 아이콘
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: color.withValues(alpha: 0.1),
+              child: Icon(Icons.description, color: color, size: 18),
+            ),
+            const SizedBox(width: 12),
+            // 제목 영역
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    file.displayTitle,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (ext.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            ext,
+                            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      if (ext.isNotEmpty) const SizedBox(width: 4),
+                      Text(
+                        _formatBytes(file.sizeBytes),
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              // 제목 영역
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      file.displayTitle,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (ext.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              ext,
-                              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+            ),
+            // 아이콘 영역
+            Expanded(
+              flex: 2,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                  _iconBtn(
+                    icon: Icons.auto_awesome,
+                    color: Colors.grey.shade400,
+                    tooltip: '분석 (미지원)',
+                    onPressed: () {},
+                  ),
+                  _iconBtn(
+                    icon: Icons.share_outlined,
+                    color: color,
+                    tooltip: AppLocalizations.of(context)?.share ?? '공유',
+                    onPressed: () => _shareAttachment(file),
+                  ),
+                  // ... 더보기 메뉴
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      iconSize: 16,
+                      icon: Icon(Icons.more_vert, color: color, size: 16),
+                      tooltip: '메뉴',
+                      onSelected: (value) {
+                        if (value == 'convert') _convertAttachmentToPdf(file);
+                        else if (value == 'rename') _showRenameAttachmentDialog(file);
+                        else if (value == 'delete') _showDeleteDialog(file.displayTitle, () => _deleteAttachment(file));
+                      },
+                      itemBuilder: (ctx) => [
+                        if (isConvertible)
+                          const PopupMenuItem(
+                            value: 'convert',
+                            child: Row(
+                              children: [
+                                Icon(Icons.picture_as_pdf_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('PDF 변환'),
+                              ],
                             ),
                           ),
-                        if (ext.isNotEmpty) const SizedBox(width: 4),
-                        Text(
-                          _formatBytes(file.sizeBytes),
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                        PopupMenuItem(
+                          value: 'rename',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit_outlined, size: 18),
+                              const SizedBox(width: 8),
+                              Text(AppLocalizations.of(ctx)?.editLabel ?? '수정'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Text(AppLocalizations.of(ctx)?.delete ?? '삭제',
+                                  style: const TextStyle(color: Colors.red)),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              // 아이콘 영역
-              Expanded(
-                flex: 2,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
-                    _iconBtn(
-                      icon: Icons.auto_awesome,
-                      color: Colors.grey.shade400,
-                      tooltip: '분석 (미지원)',
-                      onPressed: () {},
-                    ),
-                    _iconBtn(
-                      icon: Icons.share_outlined,
-                      color: color,
-                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                      onPressed: () => _shareAttachment(file),
-                    ),
-                    _moreMenuBtn(
-                      color: color,
-                      onEdit: () => _shareAttachment(file),
-                      onDelete: () => _showDeleteDialog(file.displayTitle, () => _deleteAttachment(file)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1147,7 +1224,67 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  // ── 첨부 파일 이름 변경 ──
+  void _showRenameAttachmentDialog(AttachmentFile file) {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: file.fileName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n?.rename ?? '이름 변경'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: l10n?.fileNameHint ?? '파일 이름'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n?.cancel ?? '취소')),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                Navigator.pop(ctx);
+                await _renameAttachmentFile(file, newName);
+              }
+            },
+            child: Text(l10n?.confirm ?? '확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameAttachmentFile(AttachmentFile file, String newName) async {
+    try {
+      final storage = FileStorageService.instance;
+      final allFiles = await storage.loadAttachmentFiles(file.littenId);
+      final updated = allFiles.map((f) => f.id == file.id ? f.copyWith(fileName: newName) : f).toList();
+      await storage.saveAttachmentFiles(file.littenId, updated);
+      if (mounted) {
+        final appState = Provider.of<AppStateProvider>(context, listen: false);
+        await _loadFiles(appState);
+      }
+      debugPrint('✅ [AllFilesTab] 첨부파일 이름 변경: ${file.fileName} → $newName');
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] 첨부파일 이름 변경 실패: $e');
+    }
+  }
+
+  // LibreOffice headless가 지원하는 파일 포맷
+  static const Set<String> _libreOfficeFormats = {
+    'doc', 'docx',       // Word
+    'xls', 'xlsx',       // Excel
+    'ppt', 'pptx',       // PowerPoint
+    'odt', 'ods', 'odp', // OpenDocument
+    'rtf',               // Rich Text
+    'csv',               // CSV
+  };
+
+  bool _isLibreOfficeSupported(String extension) =>
+      _libreOfficeFormats.contains(extension.toLowerCase());
+
   void _showAttachmentInfoSheet(AttachmentFile file) {
+    final isConvertible = _isLibreOfficeSupported(file.extension);
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -1159,7 +1296,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.attach_file, color: Theme.of(context).primaryColor),
+                  Icon(Icons.drive_folder_upload, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1174,37 +1311,101 @@ class _AllFilesTabState extends State<AllFilesTab> {
               Text('크기: ${_formatBytes(file.sizeBytes)}'),
               Text('확장자: ${file.extension.isEmpty ? '-' : file.extension}'),
               Text('추가: ${DateFormat('yyyy-MM-dd HH:mm').format(file.createdAt)}'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.share_outlined),
-                      label: const Text('공유'),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _shareAttachment(file);
-                      },
-                    ),
+              if (isConvertible) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: const Text('PDF 변환'),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _convertAttachmentToPdf(file);
+                    },
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      label: const Text('삭제', style: TextStyle(color: Colors.red)),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _showDeleteDialog(file.displayTitle, () => _deleteAttachment(file));
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
+              const SizedBox(height: 8),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _convertAttachmentToPdf(AttachmentFile file) async {
+    debugPrint('🔄 [AllFilesTab] _convertAttachmentToPdf 진입 - fileName: ${file.fileName}');
+
+    // 로그인(토큰) 확인
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('로그인 필요'),
+          content: const Text('PDF 변환은 로그인 후 이용할 수 있습니다.\n설정 > 계정에서 로그인해 주세요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('PDF 변환 중...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      debugPrint('📡 [AllFilesTab] API 호출 - filePath: ${file.filePath}, hasToken: true');
+      final pdfBytes = await ApiService().convertToPdf(
+        filePath: file.filePath,
+        fileName: file.fileName,
+        token: token,
+      );
+
+      final tempDir = await getTemporaryDirectory();
+      final nameWithoutExt = file.fileName.contains('.')
+          ? file.fileName.substring(0, file.fileName.lastIndexOf('.'))
+          : file.fileName;
+      final pdfName = '$nameWithoutExt.pdf';
+      final tempPdfPath = '${tempDir.path}/$pdfName';
+      await File(tempPdfPath).writeAsBytes(pdfBytes);
+      debugPrint('✅ [AllFilesTab] PDF 임시 저장 완료 - path: $tempPdfPath');
+
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      await _registerPdfForSyncfusion(tempPdfPath, pdfName, selectedLitten, appState);
+    } catch (e) {
+      debugPrint('❌ [AllFilesTab] PDF 변환 실패: $e');
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF 변환에 실패했습니다: $e')),
+        );
+      }
+    }
   }
 
   // ── 녹음 카드 ──
@@ -1803,7 +2004,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
     // ⭐ 파일: 임의의 파일 첨부 (PDF면 Syncfusion 에디터로 자동 분기)
     if (fabVis.contains('files')) {
       dialItems.addAll([
-        _SpeedDialItem(label: '파일', icon: Icons.attach_file, color: color,
+        _SpeedDialItem(label: '파일', icon: Icons.drive_folder_upload, color: color,
             onTap: () => _handleAction(widget.onFiles)),
         const SizedBox(height: 8),
       ]);
@@ -1957,6 +2158,7 @@ class AllFilesTabButton extends StatelessWidget {
   final int pdfCount;
   final int audioCount;
   final int sttMemoCount;
+  final int attachmentCount;
   final String? littenTitle;
 
   const AllFilesTabButton({
@@ -1966,6 +2168,7 @@ class AllFilesTabButton extends StatelessWidget {
     required this.pdfCount,
     required this.audioCount,
     required this.sttMemoCount,
+    required this.attachmentCount,
     this.littenTitle,
     bool isActive = false,
   });
@@ -1989,6 +2192,7 @@ class AllFilesTabButton extends StatelessWidget {
         maybeAdd('audio', Icons.mic, audioCount);
         maybeAdd('text', Icons.notes, textCount);
         maybeAdd('stt', Icons.record_voice_over, sttMemoCount);
+        maybeAdd('files', Icons.description, attachmentCount);
 
         return Row(
           mainAxisSize: MainAxisSize.min,
