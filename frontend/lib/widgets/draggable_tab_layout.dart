@@ -14,6 +14,7 @@ class TabItem {
   final String title;
   final Widget content;
   final IconData icon;
+  final Widget? iconWidget; // icon 대신 사용할 커스텀 위젯 (Stack 배지 등)
   final Widget? customTabWidget; // 탭 버튼 커스텀 위젯 (제공 시 icon+title 대체)
   TabPosition position;
   bool isVisible;
@@ -24,6 +25,7 @@ class TabItem {
     required this.title,
     required this.content,
     required this.icon,
+    this.iconWidget,
     this.customTabWidget,
     this.position = TabPosition.fullScreen,
     this.isVisible = true,
@@ -508,28 +510,38 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                   AnimatedScale(
                     scale: isActive ? 1.1 : 1.0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      tab.icon,
-                      size: 19,
-                      color: isActive
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey[600],
-                    ),
+                    child: tab.iconWidget != null
+                        ? IconTheme(
+                            data: IconThemeData(
+                              size: 19,
+                              color: isActive ? Theme.of(context).primaryColor : Colors.grey[600],
+                            ),
+                            child: tab.iconWidget!,
+                          )
+                        : Icon(
+                            tab.icon,
+                            size: 19,
+                            color: isActive
+                                ? Theme.of(context).primaryColor
+                                : Colors.grey[600],
+                          ),
                   ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      tab.title,
-                      style: TextStyle(
-                        fontSize: isFullScreen ? 17 : 14,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                        color: isActive
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[700],
+                  if (tab.title.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        tab.title,
+                        style: TextStyle(
+                          fontSize: isFullScreen ? 17 : 14,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          color: isActive
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey[700],
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                  ],
                   if (tab.isDraggable)
                     Padding(
                       padding: const EdgeInsets.only(left: 4),

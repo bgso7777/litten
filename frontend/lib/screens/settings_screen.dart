@@ -10,7 +10,6 @@ import '../config/themes.dart';
 import '../widgets/common/ad_banner.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
-import 'youtube_subscription_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -249,18 +248,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: _getAllTabFabText(appState.allTabFabVisibility, l10n),
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showAllTabFabVisibilityDialog(context, appState),
-              ),
-              _buildSettingsItem(
-                icon: Icons.subscriptions_outlined,
-                title: '유튜브 구독',
-                subtitle: '채널 구독 및 영상 요약 보기',
-                iconColor: Colors.red,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const YoutubeSubscriptionScreen()),
-                  );
-                },
               ),
               _buildSettingsSwitchItem(
                 icon: Icons.campaign_outlined,
@@ -838,6 +825,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (visibility.contains('files')) labels.add('파일');
     if (visibility.contains('sttMemo')) labels.add(l10n?.sttMemoLabel ?? '음성메모');
     if (visibility.contains('browser')) labels.add(l10n?.browserTab ?? '검색');
+    if (visibility.contains('youtube')) labels.add('유튜브');
     return labels.join(', ');
   }
 
@@ -849,8 +837,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'text': l10n?.memoLabel ?? '메모',
       'audio': l10n?.audioTab ?? '녹음',
       'stt': l10n?.sttMemoLabel ?? '음성메모',
+      'youtube': '유튜브',
     };
-    final order = ['canvas', 'pdf', 'text', 'audio', 'stt'];
+    final order = ['canvas', 'pdf', 'text', 'audio', 'stt', 'youtube'];
     final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
     return result.isEmpty ? (l10n?.noneLabel ?? '없음') : result.join(', ');
   }
@@ -1730,6 +1719,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
     {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
     {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
+    {'id': 'youtube', 'label': '유튜브', 'icon': Icons.subscriptions_outlined},
   ];
 
   @override
@@ -1815,6 +1805,7 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
     {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',       'icon': Icons.mic},
     {'id': 'files',  'label': '파일',                          'icon': Icons.attach_file},
     {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
+    {'id': 'youtube', 'label': '유튜브', 'icon': Icons.subscriptions_outlined},
   ];
 
   @override

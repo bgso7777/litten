@@ -9,6 +9,7 @@ import '../widgets/text_tab.dart';
 import '../widgets/handwriting_tab.dart';
 import '../widgets/browser_tab.dart';
 import '../widgets/all_files_tab.dart';
+import '../widgets/youtube_tab.dart';
 import '../widgets/common/summary_reminder_chip.dart';
 import '../widgets/remind_panel.dart';
 
@@ -55,6 +56,7 @@ class _WritingScreenState extends State<WritingScreen>
   final GlobalKey<State<StatefulWidget>> _filesTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _sttMemoTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _youtubeTabKey = GlobalKey();
 
   @override
   void initState() {
@@ -284,6 +286,15 @@ class _WritingScreenState extends State<WritingScreen>
         content: BrowserTab(key: _browserTabKey),
         position: parsePosition(savedPositions['browser'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('browser'),
+      ),
+      TabItem(
+        id: 'youtube',
+        title: '',
+        icon: Icons.notes,
+        iconWidget: const YoutubeTabIcon(),
+        content: YoutubeTab(key: _youtubeTabKey),
+        position: parsePosition(savedPositions['youtube'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('youtube'),
       ),
     ];
   }

@@ -41,14 +41,40 @@ public class YoutubeController {
         String channelId = body.get("channelId");
         String channelName = body.get("channelName");
         String channelThumbnail = body.getOrDefault("channelThumbnail", "");
+        Boolean autoTitle = Boolean.parseBoolean(body.getOrDefault("autoTitle", "true"));
+        Boolean autoMemo = Boolean.parseBoolean(body.getOrDefault("autoMemo", "false"));
+        Boolean autoSummary = Boolean.parseBoolean(body.getOrDefault("autoSummary", "false"));
+        Boolean autoRemind = Boolean.parseBoolean(body.getOrDefault("autoRemind", "false"));
 
         if (channelId == null || channelId.isBlank()) {
             return badRequest("channelId는 필수입니다.");
         }
 
-        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}", memberId, channelId);
-        YoutubeChannel channel = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail);
+        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoTitle: {}, autoMemo: {}, autoSummary: {}, autoRemind: {}",
+                memberId, channelId, autoTitle, autoMemo, autoSummary, autoRemind);
+        YoutubeChannel channel = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail, autoTitle, autoMemo, autoSummary, autoRemind);
         return ok(Map.of("channel", channel));
+    }
+
+    // ── 채널 자동화 설정 업데이트 ──────────────────────────────────────────────
+
+    @PatchMapping("/note/v1/youtube/channels/{id}")
+    public ResponseEntity<Map<String, Object>> updateSettings(
+            @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        log.debug("[YoutubeController] PATCH /note/v1/youtube/channels/{} 진입", id);
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+
+        Boolean autoTitle   = body.get("autoTitle")   instanceof Boolean b ? b : null;
+        Boolean autoMemo    = body.get("autoMemo")    instanceof Boolean b ? b : null;
+        Boolean autoSummary = body.get("autoSummary") instanceof Boolean b ? b : null;
+        Boolean autoRemind  = body.get("autoRemind")  instanceof Boolean b ? b : null;
+
+        log.info("[YoutubeController] 설정 업데이트 - memberId: {}, channelPk: {}, autoTitle: {}, autoMemo: {}, autoSummary: {}, autoRemind: {}",
+                memberId, id, autoTitle, autoMemo, autoSummary, autoRemind);
+        boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoRemind);
+        if (!updated) return badRequest("채널을 찾을 수 없습니다.");
+        return ok(Map.of("message", "설정 업데이트 완료"));
     }
 
     // ── 채널 구독 해제 ─────────────────────────────────────────────────────────

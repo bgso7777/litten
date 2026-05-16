@@ -5,6 +5,10 @@ class YoutubeChannel {
   final String channelName;
   final String channelThumbnail;
   final bool isActive;
+  final bool autoTitle;
+  final bool autoMemo;
+  final bool autoSummary;
+  final bool autoRemind;
 
   const YoutubeChannel({
     required this.id,
@@ -13,6 +17,10 @@ class YoutubeChannel {
     required this.channelName,
     required this.channelThumbnail,
     required this.isActive,
+    this.autoTitle = true,
+    this.autoMemo = false,
+    this.autoSummary = false,
+    this.autoRemind = false,
   });
 
   factory YoutubeChannel.fromJson(Map<String, dynamic> json) => YoutubeChannel(
@@ -22,6 +30,28 @@ class YoutubeChannel {
         channelName: json['channelName'] ?? '',
         channelThumbnail: json['channelThumbnail'] ?? '',
         isActive: json['isActive'] ?? true,
+        autoTitle: json['autoTitle'] ?? true,
+        autoMemo: json['autoMemo'] ?? false,
+        autoSummary: json['autoSummary'] ?? false,
+        autoRemind: json['autoRemind'] ?? false,
+      );
+
+  YoutubeChannel copyWith({
+    bool? autoTitle,
+    bool? autoMemo,
+    bool? autoSummary,
+    bool? autoRemind,
+  }) => YoutubeChannel(
+        id: id,
+        memberId: memberId,
+        channelId: channelId,
+        channelName: channelName,
+        channelThumbnail: channelThumbnail,
+        isActive: isActive,
+        autoTitle: autoTitle ?? this.autoTitle,
+        autoMemo: autoMemo ?? this.autoMemo,
+        autoSummary: autoSummary ?? this.autoSummary,
+        autoRemind: autoRemind ?? this.autoRemind,
       );
 }
 

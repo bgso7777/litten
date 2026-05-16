@@ -814,14 +814,22 @@ class ApiService {
     required String channelId,
     required String channelName,
     String channelThumbnail = '',
+    bool autoTitle = true,
+    bool autoMemo = false,
+    bool autoSummary = false,
+    bool autoRemind = false,
   }) async {
-    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId');
+    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId, autoTitle: $autoTitle, autoMemo: $autoMemo, autoSummary: $autoSummary, autoRemind: $autoRemind');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
       final body = jsonEncode({
         'channelId': channelId,
         'channelName': channelName,
         'channelThumbnail': channelThumbnail,
+        'autoTitle': autoTitle,
+        'autoMemo': autoMemo,
+        'autoSummary': autoSummary,
+        'autoRemind': autoRemind,
       });
       final response = await http.post(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] subscribeYoutubeChannel - status: ${response.statusCode}');
@@ -835,6 +843,33 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] subscribeYoutubeChannel - 오류: $e');
       return null;
+    }
+  }
+
+  /// 유튜브 채널 자동화 설정 업데이트
+  Future<bool> updateYoutubeChannelSettings({
+    required String token,
+    required int channelPk,
+    required bool autoTitle,
+    required bool autoMemo,
+    required bool autoSummary,
+    required bool autoRemind,
+  }) async {
+    debugPrint('[ApiService] updateYoutubeChannelSettings 진입 - channelPk: $channelPk, autoTitle: $autoTitle, autoMemo: $autoMemo, autoSummary: $autoSummary, autoRemind: $autoRemind');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelPk');
+      final body = jsonEncode({
+        'autoTitle': autoTitle,
+        'autoMemo': autoMemo,
+        'autoSummary': autoSummary,
+        'autoRemind': autoRemind,
+      });
+      final response = await http.patch(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] updateYoutubeChannelSettings - status: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] updateYoutubeChannelSettings - 오류: $e');
+      return false;
     }
   }
 

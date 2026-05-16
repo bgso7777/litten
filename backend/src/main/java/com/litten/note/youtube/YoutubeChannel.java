@@ -34,4 +34,16 @@ public class YoutubeChannel extends BaseEntity implements Serializable {
 
     @Column(name = "is_active", columnDefinition = "BOOLEAN NOT NULL DEFAULT TRUE COMMENT '구독 활성 여부'")
     private Boolean isActive = true;
+
+    @Column(name = "auto_title", columnDefinition = "BOOLEAN NOT NULL DEFAULT TRUE COMMENT '영상 제목 자동 저장'")
+    private Boolean autoTitle = true;
+
+    @Column(name = "auto_memo", columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '메모 자동 생성'")
+    private Boolean autoMemo = false;
+
+    @Column(name = "auto_summary", columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '요약 자동 생성'")
+    private Boolean autoSummary = false;
+
+    @Column(name = "auto_remind", columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '리마인드 자동 생성'")
+    private Boolean autoRemind = false;
 }

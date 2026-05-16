@@ -255,7 +255,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> _noteTabVisibility = {'all'};
 
   // ⭐ 전체탭 FAB 버튼 가시성 (기본: 모두 표시)
-  Set<String> _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt'};
+  Set<String> _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt', 'youtube'};
 
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
@@ -579,8 +579,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final savedFabVisibility = prefs.getStringList('all_tab_fab_visibility');
     if (savedFabVisibility != null) {
       _allTabFabVisibility = savedFabVisibility.toSet();
+      // 신규 항목은 기존 저장값에 없어도 자동 추가
+      _allTabFabVisibility.add('youtube');
     } else {
-      _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt'};
+      _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt', 'youtube'};
     }
     debugPrint('✅ [AppStateProvider] 전체탭 FAB 가시성 복원: $_allTabFabVisibility');
 

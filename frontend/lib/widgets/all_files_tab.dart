@@ -23,6 +23,7 @@ import '../utils/remind_parser.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'youtube_tab.dart';
 import 'dart:io';
 import '../services/api_service.dart';
 
@@ -330,6 +331,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                                 onFiles: _addAttachmentFromFiles,
                                 onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                                 onAudio: _toggleRecording,
+                                onYoutube: () => showYoutubeChannelSheet(context),
                                 isRecording: _isRecording,
                                 recordingDuration: _recordingDuration,
                               ),
@@ -1915,6 +1917,7 @@ class _BottomFabRow extends StatefulWidget {
   final VoidCallback onFiles;
   final VoidCallback onCanvas;
   final VoidCallback onAudio;
+  final VoidCallback? onYoutube;
   final bool isRecording;
   final Duration recordingDuration;
 
@@ -1924,6 +1927,7 @@ class _BottomFabRow extends StatefulWidget {
     required this.onFiles,
     required this.onCanvas,
     required this.onAudio,
+    this.onYoutube,
     this.isRecording = false,
     this.recordingDuration = Duration.zero,
   });
@@ -2016,6 +2020,17 @@ class _BottomFabRowState extends State<_BottomFabRow> {
           icon: Icons.record_voice_over,
           color: color,
           onTap: () => _handleAction(widget.onTextWithSTT),
+        ),
+        const SizedBox(height: 8),
+      ]);
+    }
+    if (fabVis.contains('youtube') && widget.onYoutube != null) {
+      dialItems.addAll([
+        _SpeedDialItem(
+          label: '유튜브',
+          customChild: const YoutubeSpeedDialIcon(),
+          color: color,
+          onTap: () => _handleAction(widget.onYoutube!),
         ),
         const SizedBox(height: 8),
       ]);

@@ -40,15 +40,19 @@ public class YoutubeService {
     // ── 채널 구독 ──────────────────────────────────────────────────────────────
 
     @Transactional
-    public YoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail) {
+    public YoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
+                                    Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind) {
         log.debug("[YoutubeService] subscribe 진입 - memberId: {}, channelId: {}", memberId, channelId);
 
         if (channelRepository.existsByMemberIdAndChannelId(memberId, channelId)) {
-            // 비활성 상태였으면 다시 활성화
             YoutubeChannel existing = channelRepository.findByMemberIdAndChannelId(memberId, channelId).orElseThrow();
             existing.setIsActive(true);
             existing.setChannelName(channelName);
             existing.setChannelThumbnail(channelThumbnail);
+            existing.setAutoTitle(autoTitle != null ? autoTitle : true);
+            existing.setAutoMemo(autoMemo != null ? autoMemo : false);
+            existing.setAutoSummary(autoSummary != null ? autoSummary : false);
+            existing.setAutoRemind(autoRemind != null ? autoRemind : false);
             log.info("[YoutubeService] 기존 채널 구독 재활성화 - channelId: {}", channelId);
             return channelRepository.save(existing);
         }
@@ -59,8 +63,28 @@ public class YoutubeService {
         channel.setChannelName(channelName);
         channel.setChannelThumbnail(channelThumbnail);
         channel.setIsActive(true);
-        log.info("[YoutubeService] 채널 구독 등록 - memberId: {}, channelId: {}, channelName: {}", memberId, channelId, channelName);
+        channel.setAutoTitle(autoTitle != null ? autoTitle : true);
+        channel.setAutoMemo(autoMemo != null ? autoMemo : false);
+        channel.setAutoSummary(autoSummary != null ? autoSummary : false);
+        channel.setAutoRemind(autoRemind != null ? autoRemind : false);
+        log.info("[YoutubeService] 채널 구독 등록 - memberId: {}, channelId: {}, autoTitle: {}, autoSummary: {}", memberId, channelId, autoTitle, autoSummary);
         return channelRepository.save(channel);
+    }
+
+    @Transactional
+    public boolean updateSettings(String memberId, Long channelPk,
+                                  Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind) {
+        log.debug("[YoutubeService] updateSettings 진입 - memberId: {}, channelPk: {}", memberId, channelPk);
+        return channelRepository.findById(channelPk).map(ch -> {
+            if (!ch.getMemberId().equals(memberId)) return false;
+            if (autoTitle   != null) ch.setAutoTitle(autoTitle);
+            if (autoMemo    != null) ch.setAutoMemo(autoMemo);
+            if (autoSummary != null) ch.setAutoSummary(autoSummary);
+            if (autoRemind  != null) ch.setAutoRemind(autoRemind);
+            channelRepository.save(ch);
+            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}", ch.getChannelId());
+            return true;
+        }).orElse(false);
     }
 
     @Transactional
@@ -114,7 +138,8 @@ public class YoutubeService {
             }
 
             log.info("[YoutubeService] 신규 영상 감지 - videoId: {}, title: {}", videoId, video.get("title"));
-            processNewVideo(channel.getChannelId(), videoId, video.get("title"), video.get("publishedAt"));
+            processNewVideo(channel.getChannelId(), videoId, video.get("title"), video.get("publishedAt"),
+                    Boolean.TRUE.equals(channel.getAutoSummary()));
         }
     }
 
@@ -173,8 +198,8 @@ public class YoutubeService {
     // ── 신규 영상 처리 ─────────────────────────────────────────────────────────
 
     @Transactional
-    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr) {
-        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}", videoId, title);
+    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr, boolean doSummary) {
+        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}, doSummary: {}", videoId, title, doSummary);
 
         YoutubeVideo video = new YoutubeVideo();
         video.setChannelId(channelId);
@@ -212,9 +237,11 @@ public class YoutubeService {
 
         video.setTranscriptText(transcript);
 
-        // AI 요약
-        String summary = summarize(videoId, title, transcript);
-        video.setSummary(summary);
+        // AI 요약 (채널 설정에 따라)
+        if (doSummary) {
+            String summary = summarize(videoId, title, transcript);
+            video.setSummary(summary);
+        }
         video.setStatus("done");
         video.setProcessedAt(LocalDateTime.now());
         videoRepository.save(video);
