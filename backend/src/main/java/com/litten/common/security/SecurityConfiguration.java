@@ -217,6 +217,8 @@ public class SecurityConfiguration {
 
         // litten
         .requestMatchers("/note/v1/summary/**").permitAll()
+        // 유튜브 채널 모니터링 API (인증 필요)
+        .requestMatchers("/note/v1/youtube/**").authenticated()
         // 파일 동기화 API (인증 필요)
         .requestMatchers("/note/v1/files/**").authenticated()
         // 회원 인증 필요 API

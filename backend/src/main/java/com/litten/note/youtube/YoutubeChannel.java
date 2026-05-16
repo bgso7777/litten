@@ -1,0 +1,37 @@
+package com.litten.note.youtube;
+
+import com.litten.common.dynamic.BaseEntity;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import jakarta.persistence.*;
+import java.io.Serializable;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity(name = "YoutubeChannel")
+@Table(name = "youtube_channel")
+public class YoutubeChannel extends BaseEntity implements Serializable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", columnDefinition = "BIGINT NOT NULL AUTO_INCREMENT COMMENT 'PK'")
+    private Long id;
+
+    @Column(name = "member_id", columnDefinition = "VARCHAR(128) NOT NULL COMMENT '회원 ID'")
+    private String memberId;
+
+    @Column(name = "channel_id", columnDefinition = "VARCHAR(64) NOT NULL COMMENT '유튜브 채널 ID'")
+    private String channelId;
+
+    @Column(name = "channel_name", columnDefinition = "VARCHAR(256) NOT NULL COMMENT '채널명'")
+    private String channelName;
+
+    @Column(name = "channel_thumbnail", columnDefinition = "VARCHAR(512) NULL COMMENT '채널 썸네일 URL'")
+    private String channelThumbnail;
+
+    @Column(name = "is_active", columnDefinition = "BOOLEAN NOT NULL DEFAULT TRUE COMMENT '구독 활성 여부'")
+    private Boolean isActive = true;
+}

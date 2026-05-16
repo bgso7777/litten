@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/foundation.dart';
+import '../models/youtube_channel.dart';
 
 /// API 서비스
 /// 백엔드 API와의 통신을 담당합니다.
@@ -26,6 +27,7 @@ class ApiService {
   static const String _planEndpoint = '/litten/note/v1/members/plan';
   static const String _filesEndpoint = '/litten/note/v1/files';
   static const String _convertToPdfEndpoint = '/litten/note/v1/convert/to-pdf';
+  static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
 
   /// HTTP 헤더 생성
   Map<String, String> _getHeaders({String? token}) {
@@ -780,6 +782,119 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] convertToPdf - Error: $e');
       rethrow;
+    }
+  }
+
+  // ── 유튜브 채널 구독 ───────────────────────────────────────────────────────
+
+  /// 구독 중인 유튜브 채널 목록 조회
+  Future<List<YoutubeChannel>> getYoutubeChannels({required String token}) async {
+    debugPrint('[ApiService] getYoutubeChannels 진입');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] getYoutubeChannels - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final list = data['channels'] as List<dynamic>? ?? [];
+          return list.map((e) => YoutubeChannel.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeChannels - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 유튜브 채널 구독 등록
+  Future<YoutubeChannel?> subscribeYoutubeChannel({
+    required String token,
+    required String channelId,
+    required String channelName,
+    String channelThumbnail = '',
+  }) async {
+    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
+      final body = jsonEncode({
+        'channelId': channelId,
+        'channelName': channelName,
+        'channelThumbnail': channelThumbnail,
+      });
+      final response = await http.post(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] subscribeYoutubeChannel - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['channel'] != null) {
+          return YoutubeChannel.fromJson(data['channel'] as Map<String, dynamic>);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] subscribeYoutubeChannel - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 유튜브 채널 구독 해제
+  Future<bool> unsubscribeYoutubeChannel({required String token, required int channelPk}) async {
+    debugPrint('[ApiService] unsubscribeYoutubeChannel 진입 - channelPk: $channelPk');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelPk');
+      final response = await http.delete(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] unsubscribeYoutubeChannel - status: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] unsubscribeYoutubeChannel - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 채널 ID로 유튜브 채널 정보 조회 (구독 전 검증)
+  Future<Map<String, String>?> getYoutubeChannelInfo({required String token, required String channelId}) async {
+    debugPrint('[ApiService] getYoutubeChannelInfo 진입 - channelId: $channelId');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/info?channelId=${Uri.encodeComponent(channelId)}');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] getYoutubeChannelInfo - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['channel'] != null) {
+          final ch = data['channel'] as Map<String, dynamic>;
+          return {
+            'channelId': ch['channelId']?.toString() ?? '',
+            'channelName': ch['channelName']?.toString() ?? '',
+            'channelThumbnail': ch['channelThumbnail']?.toString() ?? '',
+          };
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeChannelInfo - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 채널의 영상 요약 목록 조회
+  Future<List<YoutubeVideo>> getYoutubeVideos({required String token, required String channelId}) async {
+    debugPrint('[ApiService] getYoutubeVideos 진입 - channelId: $channelId');
+    try {
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelId/videos');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] getYoutubeVideos - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final list = data['videos'] as List<dynamic>? ?? [];
+          return list.map((e) => YoutubeVideo.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeVideos - 오류: $e');
+      return [];
     }
   }
 }
