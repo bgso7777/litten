@@ -250,6 +250,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showAllTabFabVisibilityDialog(context, appState),
               ),
               _buildSettingsSwitchItem(
+                icon: Icons.subscriptions_outlined,
+                title: '전체탭 영상 채널',
+                subtitle: appState.showYoutubeInAllTab ? '전체탭에 구독 채널 표시' : '전체탭에 구독 채널 숨김',
+                iconColor: Theme.of(context).primaryColor,
+                value: appState.showYoutubeInAllTab,
+                onChanged: (v) => appState.setShowYoutubeInAllTab(v),
+              ),
+              _buildSettingsSwitchItem(
                 icon: Icons.campaign_outlined,
                 title: l10n?.showAds ?? '광고 표시',
                 subtitle: appState.subscriptionType == SubscriptionType.free
@@ -823,9 +831,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (visibility.contains('pdf')) labels.add('PDF');
     if (visibility.contains('audio')) labels.add(l10n?.audioTab ?? '녹음');
     if (visibility.contains('files')) labels.add('파일');
-    if (visibility.contains('sttMemo')) labels.add(l10n?.sttMemoLabel ?? '음성메모');
     if (visibility.contains('browser')) labels.add(l10n?.browserTab ?? '검색');
-    if (visibility.contains('youtube')) labels.add('유튜브');
+    if (visibility.contains('youtube')) labels.add('영상');
     return labels.join(', ');
   }
 
@@ -836,10 +843,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'pdf': 'PDF',
       'text': l10n?.memoLabel ?? '메모',
       'audio': l10n?.audioTab ?? '녹음',
-      'stt': l10n?.sttMemoLabel ?? '음성메모',
-      'youtube': '유튜브',
+      'files': '파일',
+      'youtube': '영상',
     };
-    final order = ['canvas', 'pdf', 'text', 'audio', 'stt', 'youtube'];
+    final order = ['canvas', 'audio', 'text', 'pdf', 'files', 'youtube'];
     final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
     return result.isEmpty ? (l10n?.noneLabel ?? '없음') : result.join(', ');
   }
@@ -1719,7 +1726,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
     {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
     {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
-    {'id': 'youtube', 'label': '유튜브', 'icon': Icons.subscriptions_outlined},
+    {'id': 'youtube', 'label': '영상', 'icon': Icons.subscriptions_outlined},
   ];
 
   @override
@@ -1801,11 +1808,11 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
 
   List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
     {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기', 'icon': Icons.draw},
-    {'id': 'text',   'label': l10n?.memoLabel ?? '메모',      'icon': Icons.notes},
     {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',       'icon': Icons.mic},
+    {'id': 'text',   'label': l10n?.memoLabel ?? '메모',      'icon': Icons.notes},
+    {'id': 'pdf',    'label': 'PDF',                          'icon': Icons.picture_as_pdf},
     {'id': 'files',  'label': '파일',                          'icon': Icons.attach_file},
-    {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
-    {'id': 'youtube', 'label': '유튜브', 'icon': Icons.subscriptions_outlined},
+    {'id': 'youtube', 'label': '영상', 'icon': Icons.subscriptions_outlined},
   ];
 
   @override

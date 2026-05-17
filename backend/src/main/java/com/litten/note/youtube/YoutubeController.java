@@ -3,6 +3,7 @@ package com.litten.note.youtube;
 import com.litten.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -105,17 +106,41 @@ public class YoutubeController {
         return ok(Map.of("channel", info));
     }
 
-    // ── 채널별 영상 요약 목록 조회 ────────────────────────────────────────────
+    // ── 채널별 영상 목록 조회 (제목만, 페이징) ───────────────────────────────
 
     @GetMapping("/note/v1/youtube/channels/{channelId}/videos")
-    public ResponseEntity<Map<String, Object>> getVideos(@PathVariable String channelId) {
-        log.debug("[YoutubeController] GET /note/v1/youtube/channels/{}/videos 진입", channelId);
+    public ResponseEntity<Map<String, Object>> getVideos(
+            @PathVariable String channelId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "3") int size) {
+        log.debug("[YoutubeController] GET /note/v1/youtube/channels/{}/videos - page: {}, size: {}", channelId, page, size);
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        List<YoutubeVideo> videos = youtubeService.getChannelVideos(channelId);
-        log.info("[YoutubeController] 영상 목록 조회 - channelId: {}, count: {}", channelId, videos.size());
-        return ok(Map.of("videos", videos));
+        Page<YoutubeVideoSummaryDto> videoPage = youtubeService.getChannelVideoSummaries(channelId, page, size);
+        log.info("[YoutubeController] 영상 목록 조회 - channelId: {}, page: {}, totalPages: {}, count: {}",
+                channelId, page, videoPage.getTotalPages(), videoPage.getContent().size());
+        return ok(Map.of(
+                "videos", videoPage.getContent(),
+                "totalPages", videoPage.getTotalPages(),
+                "totalElements", videoPage.getTotalElements()
+        ));
+    }
+
+    // ── 영상 상세 조회 (자막/요약 포함) ───────────────────────────────────────
+
+    @GetMapping("/note/v1/youtube/videos/{id}")
+    public ResponseEntity<Map<String, Object>> getVideoDetail(@PathVariable Long id) {
+        log.debug("[YoutubeController] GET /note/v1/youtube/videos/{} 진입", id);
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+
+        return youtubeService.findVideoById(id)
+                .map(v -> {
+                    log.info("[YoutubeController] 영상 상세 조회 - id: {}, title: {}", v.getId(), v.getTitle());
+                    return ok(Map.of("video", v));
+                })
+                .orElse(badRequest("영상을 찾을 수 없습니다."));
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────

@@ -55,6 +55,12 @@ class YoutubeChannel {
       );
 }
 
+class YoutubeVideosResult {
+  final List<YoutubeVideo> videos;
+  final int totalPages;
+  const YoutubeVideosResult({required this.videos, required this.totalPages});
+}
+
 class YoutubeVideo {
   final int id;
   final String channelId;

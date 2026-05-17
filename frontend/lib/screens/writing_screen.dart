@@ -195,7 +195,7 @@ class _WritingScreenState extends State<WritingScreen>
     }
   }
 
-  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, int attachmentCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
+  void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, int attachmentCount = 0, int youtubeCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
     TabPosition parsePosition(String positionStr) {
       switch (positionStr) {
         case 'topLeft':
@@ -224,7 +224,6 @@ class _WritingScreenState extends State<WritingScreen>
           canvasCount: canvasCount,
           pdfCount: pdfCount,
           audioCount: audioCount,
-          sttMemoCount: sttMemoCount,
           attachmentCount: attachmentCount,
           littenTitle: littenTitle,
         ),
@@ -289,7 +288,7 @@ class _WritingScreenState extends State<WritingScreen>
       ),
       TabItem(
         id: 'youtube',
-        title: '',
+        title: youtubeCount.toString(),
         icon: Icons.notes,
         iconWidget: const YoutubeTabIcon(),
         content: YoutubeTab(key: _youtubeTabKey),
@@ -313,6 +312,7 @@ class _WritingScreenState extends State<WritingScreen>
           sttMemoCount: appState.actualSttMemoCount,
           audioCount: appState.actualAudioCount,
           attachmentCount: appState.actualAttachmentCount,
+          youtubeCount: appState.actualYoutubeChannelCount,
           littenTitle: appState.selectedLitten?.title,
           noteTabVisibility: appState.noteTabVisibility,
         );

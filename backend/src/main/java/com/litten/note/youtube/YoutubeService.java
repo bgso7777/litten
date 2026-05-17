@@ -6,6 +6,9 @@ import com.litten.note.summary.SummaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -103,10 +106,23 @@ public class YoutubeService {
         return channelRepository.findByMemberIdAndIsActiveTrue(memberId);
     }
 
-    // ── 채널 요약 목록 조회 ─────────────────────────────────────────────────────
+    // ── 채널 영상 목록 조회 (제목만, 페이징) ───────────────────────────────────
 
     public List<YoutubeVideo> getChannelVideos(String channelId) {
         return videoRepository.findByChannelIdOrderByPublishedAtDesc(channelId);
+    }
+
+    public Page<YoutubeVideoSummaryDto> getChannelVideoSummaries(String channelId, int page, int size) {
+        log.debug("[YoutubeService] getChannelVideoSummaries - channelId: {}, page: {}, size: {}", channelId, page, size);
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("publishedAt").descending());
+        return videoRepository.findByChannelIdOrderByPublishedAtDesc(channelId, pageable)
+                .map(YoutubeVideoSummaryDto::from);
+    }
+
+    // ── 영상 상세 조회 (자막/요약 포함) ───────────────────────────────────────
+
+    public Optional<YoutubeVideo> findVideoById(Long id) {
+        return videoRepository.findById(id);
     }
 
     // ── RSS 폴링 — 스케줄러에서 호출 ──────────────────────────────────────────
@@ -196,8 +212,8 @@ public class YoutubeService {
     }
 
     // ── 신규 영상 처리 ─────────────────────────────────────────────────────────
-
-    @Transactional
+    // self-invocation으로 @Transactional이 무시되므로 트랜잭션을 각 save()에 위임.
+    // 외부 호출(Python subprocess, AI API)이 DB 연결을 점유하지 않도록 의도적으로 비트랜잭션.
     public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr, boolean doSummary) {
         log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}, doSummary: {}", videoId, title, doSummary);
 
@@ -217,9 +233,10 @@ public class YoutubeService {
             log.warn("[YoutubeService] publishedAt 파싱 실패 - value: {}", publishedAtStr);
         }
 
+        // Step 1: 영상 레코드 저장 (DB 연결 즉시 반환)
         videoRepository.save(video);
 
-        // 자막 추출
+        // Step 2: 자막 추출 (최대 60초, DB 연결 없음)
         String transcript = extractTranscript(videoId);
         if (transcript == null || transcript.isBlank()) {
             video.setStatus("no_transcript");
@@ -237,11 +254,13 @@ public class YoutubeService {
 
         video.setTranscriptText(transcript);
 
-        // AI 요약 (채널 설정에 따라)
+        // Step 3: AI 요약 (외부 API 호출, DB 연결 없음)
         if (doSummary) {
             String summary = summarize(videoId, title, transcript);
             video.setSummary(summary);
         }
+
+        // Step 4: 최종 결과 저장 (DB 연결 즉시 반환)
         video.setStatus("done");
         video.setProcessedAt(LocalDateTime.now());
         videoRepository.save(video);

@@ -7,10 +7,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
 
 @Log4j2
 @Service
@@ -36,7 +39,10 @@ public class SummaryService {
     @Value("${claude.api.max-tokens:1024}")
     private int maxTokens;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = new RestTemplateBuilder()
+            .setConnectTimeout(Duration.ofSeconds(10))
+            .setReadTimeout(Duration.ofSeconds(120))
+            .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SummaryResponseVo summarize(SummaryRequestVo request) {

@@ -66,6 +66,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _actualCanvasCount = 0;
   int _actualSttMemoCount = 0;
   int _actualAttachmentCount = 0;
+  int _actualYoutubeChannelCount = 0;
 
   // 전체 파일 카운트 (캘린더 통계 영역용 - 항상 전체 합계)
   int _totalAudioCount = 0;
@@ -255,7 +256,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> _noteTabVisibility = {'all'};
 
   // ⭐ 전체탭 FAB 버튼 가시성 (기본: 모두 표시)
-  Set<String> _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt', 'youtube'};
+  Set<String> _allTabFabVisibility = {'canvas', 'audio', 'text', 'pdf', 'files', 'youtube'};
 
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
@@ -268,6 +269,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ⭐ 광고 표시 여부 (기본: false - 나중에 활성화 가능)
   bool _adsEnabled = false;
+
+  // ⭐ 전체탭에 구독 영상 채널 목록 표시 여부 (기본: false)
+  bool _showYoutubeInAllTab = false;
 
   // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, pdf, sttMemo, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
@@ -325,6 +329,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get visibleAreas => _visibleAreas;
   // 무료 플랜은 항상 광고 ON; 유료 플랜은 사용자 설정값
   bool get adsEnabled => _subscriptionType == SubscriptionType.free ? true : _adsEnabled;
+  bool get showYoutubeInAllTab => _showYoutubeInAllTab;
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
@@ -347,6 +352,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualCanvasCount => _actualCanvasCount;
   int get actualSttMemoCount => _actualSttMemoCount;
   int get actualAttachmentCount => _actualAttachmentCount;
+  int get actualYoutubeChannelCount => _actualYoutubeChannelCount;
 
   // 전체 파일 카운트 Getters (캘린더 통계 영역용 - 항상 전체 합계)
   int get totalAudioCount => _totalAudioCount;
@@ -581,8 +587,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _allTabFabVisibility = savedFabVisibility.toSet();
       // 신규 항목은 기존 저장값에 없어도 자동 추가
       _allTabFabVisibility.add('youtube');
+      _allTabFabVisibility.add('pdf');
+      _allTabFabVisibility.remove('stt');
     } else {
-      _allTabFabVisibility = {'canvas', 'files', 'text', 'audio', 'stt', 'youtube'};
+      _allTabFabVisibility = {'canvas', 'audio', 'text', 'pdf', 'files', 'youtube'};
     }
     debugPrint('✅ [AppStateProvider] 전체탭 FAB 가시성 복원: $_allTabFabVisibility');
 
@@ -643,6 +651,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final adsDefault = _subscriptionType == SubscriptionType.free ? true : false;
     _adsEnabled = prefs.getBool('ads_enabled') ?? adsDefault;
     debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled (플랜: $_subscriptionType)');
+
+    _showYoutubeInAllTab = prefs.getBool('show_youtube_in_all_tab') ?? false;
+    debugPrint('✅ [AppStateProvider] 전체탭 영상 채널 표시 복원: $_showYoutubeInAllTab');
   }
 
   String _getSystemLanguage() {
@@ -1666,6 +1677,22 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> setShowYoutubeInAllTab(bool enabled) async {
+    if (_showYoutubeInAllTab == enabled) return;
+    _showYoutubeInAllTab = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_youtube_in_all_tab', enabled);
+    debugPrint('💾 [AppStateProvider] 전체탭 영상 채널 표시 저장: $_showYoutubeInAllTab');
+    notifyListeners();
+  }
+
+  void setYoutubeChannelCount(int count) {
+    if (_actualYoutubeChannelCount == count) return;
+    _actualYoutubeChannelCount = count;
+    debugPrint('📊 [AppStateProvider] 유튜브 채널 카운트: $count');
+    notifyListeners();
+  }
+
   Future<void> setStartScreen(String screen) async {
     if (_startScreen == screen) return;
     _startScreen = screen;
@@ -2210,14 +2237,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       totalHandwriting += handwritingFiles.length;
 
       if (littenId == null || litten.id == littenId) {
-        // ⭐ 음성메모(isFromSTT)는 별도 카운트, 일반 녹음/메모와 분리
-        selectedAudio += audioFiles.where((f) => !f.isFromSTT).length;
-        selectedText += textFiles.where((f) => !f.isFromSTT).length;
+        // 녹음 = 일반 녹음 + 음성메모 녹음 모두 포함
+        selectedAudio += audioFiles.length;
+        // 메모 = 일반 메모 + 음성메모 메모 + 영상 구독 메모 모두 포함
+        selectedText += textFiles.length;
         selectedHandwriting += handwritingFiles.length;
         selectedPdf += handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).length;
         selectedCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
         selectedAttachment += attachmentFiles.length;
-        // 음성메모는 텍스트+오디오 쌍이지만 1개로 카운트 (STT 오디오 기준)
         selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length;
       }
     }
@@ -2235,6 +2262,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _actualCanvasCount = selectedCanvas;
     _actualSttMemoCount = selectedSttMemo;
     _actualAttachmentCount = selectedAttachment;
+    // 유튜브 채널 카운트는 YoutubeTab에서 별도 업데이트
 
     debugPrint('📊 전체 파일 수 - 오디오: $totalAudio, 텍스트: $totalText, 필기: $totalHandwriting');
     if (littenId != null) {

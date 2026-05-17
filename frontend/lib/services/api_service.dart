@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/youtube_channel.dart';
 
 /// API 서비스
@@ -787,23 +788,51 @@ class ApiService {
 
   // ── 유튜브 채널 구독 ───────────────────────────────────────────────────────
 
-  /// 구독 중인 유튜브 채널 목록 조회
-  Future<List<YoutubeChannel>> getYoutubeChannels({required String token}) async {
-    debugPrint('[ApiService] getYoutubeChannels 진입');
+  static const String _youtubeChannelsCacheKey = 'youtube_channels_cache';
+
+  /// 구독 중인 유튜브 채널 목록 조회 (페이지네이션 + 실패 시 캐시 반환)
+  Future<List<YoutubeChannel>> getYoutubeChannels({
+    required String token,
+    int page = 0,
+    int size = 5,
+  }) async {
+    debugPrint('[ApiService] getYoutubeChannels 진입 - page: $page, size: $size');
     try {
-      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint?page=$page&size=$size');
       final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] getYoutubeChannels - status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {
           final list = data['channels'] as List<dynamic>? ?? [];
-          return list.map((e) => YoutubeChannel.fromJson(e as Map<String, dynamic>)).toList();
+          final channels = list.map((e) => YoutubeChannel.fromJson(e as Map<String, dynamic>)).toList();
+          // 첫 페이지 성공 시 캐시 저장
+          if (page == 0) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(_youtubeChannelsCacheKey, response.body);
+            debugPrint('[ApiService] getYoutubeChannels - 캐시 저장: ${channels.length}개');
+          }
+          return channels;
         }
       }
-      return [];
+      return page == 0 ? _loadYoutubeChannelsFromCache() : [];
     } catch (e) {
-      debugPrint('[ApiService] getYoutubeChannels - 오류: $e');
+      debugPrint('[ApiService] getYoutubeChannels - 오류: $e → ${page == 0 ? "캐시 사용" : "빈 목록"}');
+      return page == 0 ? _loadYoutubeChannelsFromCache() : [];
+    }
+  }
+
+  Future<List<YoutubeChannel>> _loadYoutubeChannelsFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString(_youtubeChannelsCacheKey);
+      if (cached == null) return [];
+      final data = jsonDecode(cached) as Map<String, dynamic>;
+      final list = data['channels'] as List<dynamic>? ?? [];
+      debugPrint('[ApiService] getYoutubeChannels - 캐시에서 ${list.length}개 로드');
+      return list.map((e) => YoutubeChannel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeChannels - 캐시 로드 실패: $e');
       return [];
     }
   }
@@ -912,24 +941,51 @@ class ApiService {
     }
   }
 
-  /// 채널의 영상 요약 목록 조회
-  Future<List<YoutubeVideo>> getYoutubeVideos({required String token, required String channelId}) async {
-    debugPrint('[ApiService] getYoutubeVideos 진입 - channelId: $channelId');
+  /// 채널의 영상 목록 조회 (제목만, 페이징)
+  Future<YoutubeVideosResult> getYoutubeVideos({
+    required String token,
+    required String channelId,
+    int page = 0,
+    int size = 3,
+  }) async {
+    debugPrint('[ApiService] getYoutubeVideos 진입 - channelId: $channelId, page: $page, size: $size');
     try {
-      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelId/videos');
+      final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelId/videos?page=$page&size=$size');
       final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] getYoutubeVideos - status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {
           final list = data['videos'] as List<dynamic>? ?? [];
-          return list.map((e) => YoutubeVideo.fromJson(e as Map<String, dynamic>)).toList();
+          final videos = list.map((e) => YoutubeVideo.fromJson(e as Map<String, dynamic>)).toList();
+          final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
+          return YoutubeVideosResult(videos: videos, totalPages: totalPages);
         }
       }
-      return [];
+      return const YoutubeVideosResult(videos: [], totalPages: 0);
     } catch (e) {
       debugPrint('[ApiService] getYoutubeVideos - 오류: $e');
-      return [];
+      return const YoutubeVideosResult(videos: [], totalPages: 0);
+    }
+  }
+
+  /// 영상 상세 조회 (자막/요약 포함)
+  Future<YoutubeVideo?> getYoutubeVideoDetail({required String token, required int videoId}) async {
+    debugPrint('[ApiService] getYoutubeVideoDetail 진입 - videoId: $videoId');
+    try {
+      final url = Uri.parse('$baseUrl/note/v1/youtube/videos/$videoId');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] getYoutubeVideoDetail - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return YoutubeVideo.fromJson(data['video'] as Map<String, dynamic>);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeVideoDetail - 오류: $e');
+      return null;
     }
   }
 }

@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Entity(name = "YoutubeVideo")
-@Table(name = "youtube_video")
+@Table(name = "youtube_video", indexes = {
+    @Index(name = "idx_youtube_video_channel", columnList = "channel_id")
+})
 public class YoutubeVideo extends BaseEntity implements Serializable {
 
     @Id

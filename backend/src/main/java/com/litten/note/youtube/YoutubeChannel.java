@@ -12,7 +12,10 @@ import java.io.Serializable;
 @Setter
 @NoArgsConstructor
 @Entity(name = "YoutubeChannel")
-@Table(name = "youtube_channel")
+@Table(name = "youtube_channel", indexes = {
+    @Index(name = "idx_youtube_channel_member_active", columnList = "member_id, is_active"),
+    @Index(name = "idx_youtube_channel_member_channel", columnList = "member_id, channel_id")
+})
 public class YoutubeChannel extends BaseEntity implements Serializable {
 
     @Id

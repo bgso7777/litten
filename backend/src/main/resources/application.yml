@@ -58,8 +58,10 @@ spring:
     password: zaq1!@2wsxN
     driver-class-name: org.mariadb.jdbc.Driver
     hikari:
-      connectionTimeout : 30000 # 최대 3초까지만 pool 대기
-      maximumPoolSize : 3
+      connectionTimeout : 30000
+      maximumPoolSize : 10
+      minimumIdle : 3
+      idleTimeout : 600000
       connectionTestQuery : select 1
   jpa:
     hibernate:
