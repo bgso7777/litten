@@ -59,7 +59,10 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
   bool _autoTitle = true;
   bool _autoMemo = false;
   bool _autoSummary = false;
+  String _summaryType = SummaryTypes.defaultValue;
   bool _autoRemind = false;
+  String _remindType = RemindTypes.defaultValue;
+  final _remindCustomCtrl = TextEditingController(text: '7');
 
   @override
   void initState() {
@@ -73,6 +76,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
     _channelIdCtrl.removeListener(_onIdChanged);
     _channelIdCtrl.dispose();
     _focusNode.dispose();
+    _remindCustomCtrl.dispose();
     super.dispose();
   }
 
@@ -227,6 +231,16 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
     if (_validated == null || widget.token == null) return;
     final channelId = _resolvedChannelId ?? _channelIdCtrl.text.trim();
     final channelName = _validated!['channelName'] ?? channelId;
+    final remindCustomCount = _remindType == RemindTypes.custom
+        ? int.tryParse(_remindCustomCtrl.text.trim())
+        : null;
+    if (_autoRemind && _remindType == RemindTypes.custom &&
+        (remindCustomCount == null || remindCustomCount <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('리마인드 개수를 1 이상의 숫자로 입력해 주세요.')),
+      );
+      return;
+    }
     debugPrint('[_YoutubeChannelSheet] _subscribe - channelId: $channelId');
     setState(() => _subscribing = true);
     final result = await _apiService.subscribeYoutubeChannel(
@@ -237,7 +251,10 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       autoTitle: _autoTitle,
       autoMemo: _autoMemo,
       autoSummary: _autoSummary,
+      summaryType: _autoSummary ? _summaryType : null,
       autoRemind: _autoRemind,
+      remindType: _autoRemind ? _remindType : null,
+      remindCustomCount: remindCustomCount,
     );
     debugPrint('[_YoutubeChannelSheet] 구독 결과: ${result?.channelId}');
     if (mounted) {
@@ -253,7 +270,9 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
           _autoTitle = true;
           _autoMemo = false;
           _autoSummary = false;
+          _summaryType = SummaryTypes.defaultValue;
           _autoRemind = false;
+          _remindType = RemindTypes.defaultValue;
         }
       });
       if (result != null) {
@@ -490,6 +509,13 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                       value: _autoSummary,
                       onChanged: (v) => setState(() => _autoSummary = v),
                     ),
+                    if (_autoSummary)
+                      _ExpandedRadioOptions(
+                        values: SummaryTypes.values,
+                        selected: _summaryType,
+                        labelOf: SummaryTypes.label,
+                        onChanged: (v) => setState(() => _summaryType = v),
+                      ),
                     _OptionCheckbox(
                       icon: Icons.notifications_none,
                       label: '리마인드',
@@ -497,6 +523,29 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                       value: _autoRemind,
                       onChanged: (v) => setState(() => _autoRemind = v),
                     ),
+                    if (_autoRemind)
+                      _ExpandedRadioOptions(
+                        values: RemindTypes.values,
+                        selected: _remindType,
+                        labelOf: (t) => RemindTypes.label(t),
+                        onChanged: (v) => setState(() => _remindType = v),
+                        trailingFor: (v) => v == RemindTypes.custom
+                            ? SizedBox(
+                                width: 64,
+                                child: TextField(
+                                  controller: _remindCustomCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  decoration: const InputDecoration(
+                                    hintText: 'N',
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
 
                     const SizedBox(height: 12),
 
@@ -559,29 +608,51 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
 
   Future<void> _toggleChannelOption(YoutubeChannel ch, String option) async {
     if (widget.token == null) return;
+    debugPrint('[_YoutubeChannelSheet] _toggleChannelOption - channelPk: ${ch.id}, option: $option');
+    // 요약/리마인드: type 선택 시트
+    if (option == 'summary') {
+      await showSummarySettingSheet(
+        context,
+        token: widget.token!,
+        channel: ch,
+        apiService: _apiService,
+        onUpdated: (updated) => setState(() {
+          final idx = _channels.indexWhere((c) => c.id == ch.id);
+          if (idx != -1) _channels[idx] = updated;
+        }),
+      );
+      return;
+    }
+    if (option == 'remind') {
+      await showRemindSettingSheet(
+        context,
+        token: widget.token!,
+        channel: ch,
+        apiService: _apiService,
+        onUpdated: (updated) => setState(() {
+          final idx = _channels.indexWhere((c) => c.id == ch.id);
+          if (idx != -1) _channels[idx] = updated;
+        }),
+      );
+      return;
+    }
+    // title / memo: 낙관적 토글
     final updated = switch (option) {
-      'title'  => ch.copyWith(autoTitle: !ch.autoTitle),
-      'memo'   => ch.copyWith(autoMemo: !ch.autoMemo),
-      'summary' => ch.copyWith(autoSummary: !ch.autoSummary),
-      'remind' => ch.copyWith(autoRemind: !ch.autoRemind),
+      'title' => ch.copyWith(autoTitle: !ch.autoTitle),
+      'memo'  => ch.copyWith(autoMemo: !ch.autoMemo),
       _ => ch,
     };
-    // 낙관적 업데이트 (즉시 반영)
     setState(() {
       final idx = _channels.indexWhere((c) => c.id == ch.id);
       if (idx != -1) _channels[idx] = updated;
     });
-    debugPrint('[_YoutubeChannelSheet] _toggleChannelOption - channelPk: ${ch.id}, option: $option');
     final ok = await _apiService.updateYoutubeChannelSettings(
       token: widget.token!,
       channelPk: ch.id,
       autoTitle: updated.autoTitle,
       autoMemo: updated.autoMemo,
-      autoSummary: updated.autoSummary,
-      autoRemind: updated.autoRemind,
     );
     if (!ok && mounted) {
-      // 실패 시 원복
       setState(() {
         final idx = _channels.indexWhere((c) => c.id == ch.id);
         if (idx != -1) _channels[idx] = ch;
@@ -778,11 +849,37 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
 
   Future<void> _toggleChannelOption(YoutubeChannel ch, String option) async {
     if (_token == null) return;
+    // 요약/리마인드는 type 선택이 필요하므로 시트로 분기
+    if (option == 'summary') {
+      await showSummarySettingSheet(
+        context,
+        token: _token!,
+        channel: ch,
+        apiService: _apiService,
+        onUpdated: (updated) => setState(() {
+          final idx = _channels.indexWhere((c) => c.id == ch.id);
+          if (idx != -1) _channels[idx] = updated;
+        }),
+      );
+      return;
+    }
+    if (option == 'remind') {
+      await showRemindSettingSheet(
+        context,
+        token: _token!,
+        channel: ch,
+        apiService: _apiService,
+        onUpdated: (updated) => setState(() {
+          final idx = _channels.indexWhere((c) => c.id == ch.id);
+          if (idx != -1) _channels[idx] = updated;
+        }),
+      );
+      return;
+    }
+    // title / memo: 단순 토글
     final updated = switch (option) {
-      'title'   => ch.copyWith(autoTitle: !ch.autoTitle),
-      'memo'    => ch.copyWith(autoMemo: !ch.autoMemo),
-      'summary' => ch.copyWith(autoSummary: !ch.autoSummary),
-      'remind'  => ch.copyWith(autoRemind: !ch.autoRemind),
+      'title' => ch.copyWith(autoTitle: !ch.autoTitle),
+      'memo'  => ch.copyWith(autoMemo: !ch.autoMemo),
       _ => ch,
     };
     setState(() {
@@ -794,8 +891,6 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
       channelPk: ch.id,
       autoTitle: updated.autoTitle,
       autoMemo: updated.autoMemo,
-      autoSummary: updated.autoSummary,
-      autoRemind: updated.autoRemind,
     );
     if (!ok && mounted) {
       setState(() {
@@ -1181,6 +1276,345 @@ class _OptionCheckbox extends StatelessWidget {
             Checkbox(value: value, onChanged: (v) => onChanged(v ?? value)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 구독 채널의 요약 설정 변경 시트 (auto + summaryType).
+/// 변경 성공 시 [onUpdated]를 호출하고 true 반환.
+Future<bool> showSummarySettingSheet(
+  BuildContext context, {
+  required String token,
+  required YoutubeChannel channel,
+  required ApiService apiService,
+  required void Function(YoutubeChannel updated) onUpdated,
+}) async {
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (_) => _SummarySettingSheet(
+      token: token, channel: channel, apiService: apiService, onUpdated: onUpdated,
+    ),
+  );
+  return result ?? false;
+}
+
+/// 구독 채널의 리마인드 설정 변경 시트 (auto + remindType + CUSTOM 시 N).
+Future<bool> showRemindSettingSheet(
+  BuildContext context, {
+  required String token,
+  required YoutubeChannel channel,
+  required ApiService apiService,
+  required void Function(YoutubeChannel updated) onUpdated,
+}) async {
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (_) => _RemindSettingSheet(
+      token: token, channel: channel, apiService: apiService, onUpdated: onUpdated,
+    ),
+  );
+  return result ?? false;
+}
+
+class _SummarySettingSheet extends StatefulWidget {
+  final String token;
+  final YoutubeChannel channel;
+  final ApiService apiService;
+  final void Function(YoutubeChannel updated) onUpdated;
+  const _SummarySettingSheet({
+    required this.token, required this.channel, required this.apiService, required this.onUpdated,
+  });
+  @override
+  State<_SummarySettingSheet> createState() => _SummarySettingSheetState();
+}
+
+class _SummarySettingSheetState extends State<_SummarySettingSheet> {
+  late bool _enabled = widget.channel.autoSummary;
+  late String _type = widget.channel.summaryType ?? SummaryTypes.defaultValue;
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final ok = await widget.apiService.updateYoutubeChannelSettings(
+      token: widget.token,
+      channelPk: widget.channel.id,
+      autoSummary: _enabled,
+      summaryType: _enabled ? _type : null,
+      clearSummaryType: !_enabled,
+    );
+    if (!mounted) return;
+    if (ok) {
+      widget.onUpdated(widget.channel.copyWith(
+        autoSummary: _enabled,
+        summaryType: _enabled ? _type : null,
+        clearSummaryType: !_enabled,
+      ));
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('설정 저장에 실패했습니다.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingSheetScaffold(
+      icon: Icons.auto_awesome,
+      title: '요약 설정',
+      enabled: _enabled,
+      onToggle: (v) => setState(() => _enabled = v),
+      saving: _saving,
+      onSave: _save,
+      child: _ExpandedRadioOptions(
+        values: SummaryTypes.values,
+        selected: _type,
+        labelOf: SummaryTypes.label,
+        onChanged: (v) => setState(() => _type = v),
+      ),
+    );
+  }
+}
+
+class _RemindSettingSheet extends StatefulWidget {
+  final String token;
+  final YoutubeChannel channel;
+  final ApiService apiService;
+  final void Function(YoutubeChannel updated) onUpdated;
+  const _RemindSettingSheet({
+    required this.token, required this.channel, required this.apiService, required this.onUpdated,
+  });
+  @override
+  State<_RemindSettingSheet> createState() => _RemindSettingSheetState();
+}
+
+class _RemindSettingSheetState extends State<_RemindSettingSheet> {
+  late bool _enabled = widget.channel.autoRemind;
+  late String _type = widget.channel.remindType ?? RemindTypes.defaultValue;
+  late final TextEditingController _customCtrl = TextEditingController(
+    text: (widget.channel.remindCustomCount ?? 7).toString(),
+  );
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _customCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    int? customCount;
+    if (_enabled && _type == RemindTypes.custom) {
+      customCount = int.tryParse(_customCtrl.text.trim());
+      if (customCount == null || customCount <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('리마인드 개수를 1 이상의 숫자로 입력해 주세요.')),
+        );
+        return;
+      }
+    }
+    setState(() => _saving = true);
+    final ok = await widget.apiService.updateYoutubeChannelSettings(
+      token: widget.token,
+      channelPk: widget.channel.id,
+      autoRemind: _enabled,
+      remindType: _enabled ? _type : null,
+      clearRemindType: !_enabled,
+      remindCustomCount: customCount,
+      clearRemindCustomCount: !_enabled || _type != RemindTypes.custom,
+    );
+    if (!mounted) return;
+    if (ok) {
+      widget.onUpdated(widget.channel.copyWith(
+        autoRemind: _enabled,
+        remindType: _enabled ? _type : null,
+        clearRemindType: !_enabled,
+        remindCustomCount: customCount,
+        clearRemindCustomCount: !_enabled || _type != RemindTypes.custom,
+      ));
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('설정 저장에 실패했습니다.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingSheetScaffold(
+      icon: Icons.notifications_none,
+      title: '리마인드 설정',
+      enabled: _enabled,
+      onToggle: (v) => setState(() => _enabled = v),
+      saving: _saving,
+      onSave: _save,
+      child: _ExpandedRadioOptions(
+        values: RemindTypes.values,
+        selected: _type,
+        labelOf: (t) => RemindTypes.label(t),
+        onChanged: (v) => setState(() => _type = v),
+        trailingFor: (v) => v == RemindTypes.custom
+            ? SizedBox(
+                width: 64,
+                child: TextField(
+                  controller: _customCtrl,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(
+                    hintText: 'N',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+/// 시트 공통 스캐폴드 — 헤더 / on-off 스위치 / 옵션 / 저장 버튼.
+class _SettingSheetScaffold extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool enabled;
+  final ValueChanged<bool> onToggle;
+  final bool saving;
+  final VoidCallback onSave;
+  final Widget child;
+  const _SettingSheetScaffold({
+    required this.icon, required this.title, required this.enabled,
+    required this.onToggle, required this.saving, required this.onSave, required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+                  Switch(value: enabled, onChanged: saving ? null : onToggle),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: enabled ? 1 : 0.4,
+                child: IgnorePointer(ignoring: !enabled, child: child),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: saving ? null : onSave,
+                  child: saving
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('저장'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 체크박스 ON 시 인라인으로 펼쳐지는 단일 선택 라디오 옵션 목록.
+/// 옵션마다 후행 위젯(예: CUSTOM 시 숫자 입력)을 붙일 수 있다.
+class _ExpandedRadioOptions extends StatelessWidget {
+  final List<String> values;
+  final String selected;
+  final String Function(String) labelOf;
+  final ValueChanged<String> onChanged;
+  final Widget? Function(String)? trailingFor;
+
+  const _ExpandedRadioOptions({
+    required this.values,
+    required this.selected,
+    required this.labelOf,
+    required this.onChanged,
+    this.trailingFor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(26, 0, 0, 4),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: values.map((v) {
+          final isSelected = v == selected;
+          final trailing = trailingFor?.call(v);
+          return InkWell(
+            onTap: () => onChanged(v),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 16,
+                    color: isSelected ? color : Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      labelOf(v),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isSelected ? color : Colors.grey[800],
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) trailing,
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

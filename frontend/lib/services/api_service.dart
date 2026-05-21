@@ -846,9 +846,12 @@ class ApiService {
     bool autoTitle = true,
     bool autoMemo = false,
     bool autoSummary = false,
+    String? summaryType,
     bool autoRemind = false,
+    String? remindType,
+    int? remindCustomCount,
   }) async {
-    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId, autoTitle: $autoTitle, autoMemo: $autoMemo, autoSummary: $autoSummary, autoRemind: $autoRemind');
+    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId, autoSummary: $autoSummary($summaryType), autoRemind: $autoRemind($remindType${remindType == 'CUSTOM' ? '=$remindCustomCount' : ''})');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
       final body = jsonEncode({
@@ -858,7 +861,11 @@ class ApiService {
         'autoTitle': autoTitle,
         'autoMemo': autoMemo,
         'autoSummary': autoSummary,
+        if (autoSummary && summaryType != null) 'summaryType': summaryType,
         'autoRemind': autoRemind,
+        if (autoRemind && remindType != null) 'remindType': remindType,
+        if (autoRemind && remindType == 'CUSTOM' && remindCustomCount != null)
+          'remindCustomCount': remindCustomCount,
       });
       final response = await http.post(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] subscribeYoutubeChannel - status: ${response.statusCode}');
@@ -876,24 +883,47 @@ class ApiService {
   }
 
   /// 유튜브 채널 자동화 설정 업데이트
+  ///
+  /// `null` 인 boolean/string은 PATCH body에서 제외되어 백엔드에서 무시된다.
+  /// `summaryType`, `remindType`, `remindCustomCount`는 명시적으로 null 전달을 원할 때 `clear*` 플래그 사용.
   Future<bool> updateYoutubeChannelSettings({
     required String token,
     required int channelPk,
-    required bool autoTitle,
-    required bool autoMemo,
-    required bool autoSummary,
-    required bool autoRemind,
+    bool? autoTitle,
+    bool? autoMemo,
+    bool? autoSummary,
+    String? summaryType,
+    bool clearSummaryType = false,
+    bool? autoRemind,
+    String? remindType,
+    bool clearRemindType = false,
+    int? remindCustomCount,
+    bool clearRemindCustomCount = false,
   }) async {
-    debugPrint('[ApiService] updateYoutubeChannelSettings 진입 - channelPk: $channelPk, autoTitle: $autoTitle, autoMemo: $autoMemo, autoSummary: $autoSummary, autoRemind: $autoRemind');
+    debugPrint('[ApiService] updateYoutubeChannelSettings 진입 - channelPk: $channelPk, autoSummary: $autoSummary($summaryType), autoRemind: $autoRemind($remindType${remindType == 'CUSTOM' ? '=$remindCustomCount' : ''})');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelPk');
-      final body = jsonEncode({
-        'autoTitle': autoTitle,
-        'autoMemo': autoMemo,
-        'autoSummary': autoSummary,
-        'autoRemind': autoRemind,
-      });
-      final response = await http.patch(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
+      final body = <String, dynamic>{};
+      if (autoTitle != null)   body['autoTitle']   = autoTitle;
+      if (autoMemo != null)    body['autoMemo']    = autoMemo;
+      if (autoSummary != null) body['autoSummary'] = autoSummary;
+      if (summaryType != null) {
+        body['summaryType'] = summaryType;
+      } else if (clearSummaryType) {
+        body['summaryType'] = null;
+      }
+      if (autoRemind != null) body['autoRemind'] = autoRemind;
+      if (remindType != null) {
+        body['remindType'] = remindType;
+      } else if (clearRemindType) {
+        body['remindType'] = null;
+      }
+      if (remindCustomCount != null) {
+        body['remindCustomCount'] = remindCustomCount;
+      } else if (clearRemindCustomCount) {
+        body['remindCustomCount'] = null;
+      }
+      final response = await http.patch(url, headers: _getHeaders(token: token), body: jsonEncode(body)).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] updateYoutubeChannelSettings - status: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
@@ -973,7 +1003,7 @@ class ApiService {
   Future<YoutubeVideo?> getYoutubeVideoDetail({required String token, required int videoId}) async {
     debugPrint('[ApiService] getYoutubeVideoDetail 진입 - videoId: $videoId');
     try {
-      final url = Uri.parse('$baseUrl/note/v1/youtube/videos/$videoId');
+      final url = Uri.parse('$baseUrl/litten/note/v1/youtube/videos/$videoId');
       final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] getYoutubeVideoDetail - status: ${response.statusCode}');
       if (response.statusCode == 200) {

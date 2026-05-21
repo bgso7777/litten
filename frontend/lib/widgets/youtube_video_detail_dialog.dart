@@ -35,7 +35,9 @@ class _YoutubeVideoDetailDialogState extends State<YoutubeVideoDetailDialog> {
           t.cancel();
           return;
         }
-        if (widget.detailCache.containsKey(widget.video.id)) {
+        final cached = widget.detailCache.containsKey(widget.video.id);
+        final stillLoading = widget.loadingSet.contains(widget.video.id);
+        if (cached || !stillLoading) {
           setState(() {});
           t.cancel();
         }

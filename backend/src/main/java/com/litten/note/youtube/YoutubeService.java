@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Log4j2
 @Service
@@ -44,8 +43,15 @@ public class YoutubeService {
 
     @Transactional
     public YoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
-                                    Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind) {
+                                    Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
+                                    String summaryType, String remindType, Integer remindCustomCount) {
         log.debug("[YoutubeService] subscribe 진입 - memberId: {}, channelId: {}", memberId, channelId);
+
+        boolean useSummary = autoSummary != null && autoSummary;
+        boolean useRemind  = autoRemind  != null && autoRemind;
+        String normalizedSummaryType = useSummary ? (summaryType == null || summaryType.isBlank() ? "NORMAL" : summaryType) : null;
+        String normalizedRemindType  = useRemind  ? (remindType  == null || remindType.isBlank()  ? "FIVE"   : remindType)  : null;
+        Integer normalizedRemindCount = "CUSTOM".equals(normalizedRemindType) ? remindCustomCount : null;
 
         if (channelRepository.existsByMemberIdAndChannelId(memberId, channelId)) {
             YoutubeChannel existing = channelRepository.findByMemberIdAndChannelId(memberId, channelId).orElseThrow();
@@ -54,8 +60,11 @@ public class YoutubeService {
             existing.setChannelThumbnail(channelThumbnail);
             existing.setAutoTitle(autoTitle != null ? autoTitle : true);
             existing.setAutoMemo(autoMemo != null ? autoMemo : false);
-            existing.setAutoSummary(autoSummary != null ? autoSummary : false);
-            existing.setAutoRemind(autoRemind != null ? autoRemind : false);
+            existing.setAutoSummary(useSummary);
+            existing.setAutoRemind(useRemind);
+            existing.setSummaryType(normalizedSummaryType);
+            existing.setRemindType(normalizedRemindType);
+            existing.setRemindCustomCount(normalizedRemindCount);
             log.info("[YoutubeService] 기존 채널 구독 재활성화 - channelId: {}", channelId);
             return channelRepository.save(existing);
         }
@@ -68,24 +77,76 @@ public class YoutubeService {
         channel.setIsActive(true);
         channel.setAutoTitle(autoTitle != null ? autoTitle : true);
         channel.setAutoMemo(autoMemo != null ? autoMemo : false);
-        channel.setAutoSummary(autoSummary != null ? autoSummary : false);
-        channel.setAutoRemind(autoRemind != null ? autoRemind : false);
-        log.info("[YoutubeService] 채널 구독 등록 - memberId: {}, channelId: {}, autoTitle: {}, autoSummary: {}", memberId, channelId, autoTitle, autoSummary);
+        channel.setAutoSummary(useSummary);
+        channel.setAutoRemind(useRemind);
+        channel.setSummaryType(normalizedSummaryType);
+        channel.setRemindType(normalizedRemindType);
+        channel.setRemindCustomCount(normalizedRemindCount);
+        log.info("[YoutubeService] 채널 구독 등록 - memberId: {}, channelId: {}, autoTitle: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
+                memberId, channelId, autoTitle, useSummary, normalizedSummaryType, useRemind, normalizedRemindType,
+                normalizedRemindCount != null ? "=" + normalizedRemindCount : "");
         return channelRepository.save(channel);
     }
 
     @Transactional
     public boolean updateSettings(String memberId, Long channelPk,
-                                  Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind) {
+                                  Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
+                                  String summaryType, boolean clearSummaryType,
+                                  String remindType, boolean clearRemindType,
+                                  Integer remindCustomCount, boolean clearRemindCustomCount) {
         log.debug("[YoutubeService] updateSettings 진입 - memberId: {}, channelPk: {}", memberId, channelPk);
         return channelRepository.findById(channelPk).map(ch -> {
             if (!ch.getMemberId().equals(memberId)) return false;
             if (autoTitle   != null) ch.setAutoTitle(autoTitle);
             if (autoMemo    != null) ch.setAutoMemo(autoMemo);
-            if (autoSummary != null) ch.setAutoSummary(autoSummary);
-            if (autoRemind  != null) ch.setAutoRemind(autoRemind);
+            if (autoSummary != null) {
+                ch.setAutoSummary(autoSummary);
+                if (autoSummary) {
+                    String t = summaryType != null && !summaryType.isBlank()
+                            ? summaryType
+                            : (ch.getSummaryType() != null ? ch.getSummaryType() : "NORMAL");
+                    ch.setSummaryType(t);
+                } else {
+                    ch.setSummaryType(null);
+                }
+            } else if (summaryType != null && !summaryType.isBlank()) {
+                ch.setSummaryType(summaryType);
+            } else if (clearSummaryType) {
+                ch.setSummaryType(null);
+            }
+            if (autoRemind != null) {
+                ch.setAutoRemind(autoRemind);
+                if (autoRemind) {
+                    String t = remindType != null && !remindType.isBlank()
+                            ? remindType
+                            : (ch.getRemindType() != null ? ch.getRemindType() : "FIVE");
+                    ch.setRemindType(t);
+                    if ("CUSTOM".equals(t)) {
+                        if (remindCustomCount != null) ch.setRemindCustomCount(remindCustomCount);
+                    } else {
+                        ch.setRemindCustomCount(null);
+                    }
+                } else {
+                    ch.setRemindType(null);
+                    ch.setRemindCustomCount(null);
+                }
+            } else {
+                if (remindType != null && !remindType.isBlank()) {
+                    ch.setRemindType(remindType);
+                    if (!"CUSTOM".equals(remindType)) ch.setRemindCustomCount(null);
+                } else if (clearRemindType) {
+                    ch.setRemindType(null);
+                    ch.setRemindCustomCount(null);
+                }
+                if (remindCustomCount != null) {
+                    ch.setRemindCustomCount(remindCustomCount);
+                } else if (clearRemindCustomCount) {
+                    ch.setRemindCustomCount(null);
+                }
+            }
             channelRepository.save(ch);
-            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}", ch.getChannelId());
+            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}, summaryType: {}, remindType: {}, remindCustomCount: {}",
+                    ch.getChannelId(), ch.getSummaryType(), ch.getRemindType(), ch.getRemindCustomCount());
             return true;
         }).orElse(false);
     }
@@ -152,7 +213,8 @@ public class YoutubeService {
     private void pollChannel(YoutubeChannel channel) throws Exception {
         String channelId = channel.getChannelId();
         boolean autoSummary = Boolean.TRUE.equals(channel.getAutoSummary());
-        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}", channelId);
+        String summaryType = channel.getSummaryType();
+        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}, summaryType: {}", channelId, summaryType);
 
         String rssUrl = RSS_BASE_URL + channelId;
         log.debug("[YoutubeService] RSS 피드 요청 - url: {}", rssUrl);
@@ -198,7 +260,7 @@ public class YoutubeService {
 
             log.info("[YoutubeService] 신규 영상 감지 - videoId: {}, title: {}", videoId, title);
             processNewVideo(channelId, videoId, title != null ? title : "",
-                    published != null ? published : "", autoSummary);
+                    published != null ? published : "", autoSummary, summaryType);
             processed++;
         }
 
@@ -217,8 +279,8 @@ public class YoutubeService {
     // ── 신규 영상 처리 ─────────────────────────────────────────────────────────
     // self-invocation으로 @Transactional이 무시되므로 트랜잭션을 각 save()에 위임.
     // 외부 호출(Python subprocess, AI API)이 DB 연결을 점유하지 않도록 의도적으로 비트랜잭션.
-    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr, boolean doSummary) {
-        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}, doSummary: {}", videoId, title, doSummary);
+    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr, boolean doSummary, String summaryType) {
+        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}, doSummary: {}, summaryType: {}", videoId, title, doSummary, summaryType);
 
         YoutubeVideo video = new YoutubeVideo();
         video.setChannelId(channelId);
@@ -257,7 +319,7 @@ public class YoutubeService {
         // Step 3: AI 요약 (외부 API 호출). 요약 호출 중 자막+프롬프트+응답이 잠시 메모리에 공존하므로
         // 호출 후 summary는 즉시 entity에 옮기고 raw 변수는 해제.
         if (doSummary) {
-            String summary = summarize(videoId, title, transcript);
+            String summary = summarize(videoId, title, transcript, summaryType);
             video.setSummary(summary);
             summary = null;
         }
@@ -348,14 +410,28 @@ public class YoutubeService {
 
     // ── AI 요약 ────────────────────────────────────────────────────────────────
 
-    private String summarize(String videoId, String title, String transcript) {
-        log.debug("[YoutubeService] summarize 진입 - videoId: {}", videoId);
+    // summaryType → SummaryRequestVo.summaryLevel(1~5)
+    private static int summaryLevelOf(String summaryType) {
+        if (summaryType == null) return 3;
+        return switch (summaryType) {
+            case "ONE_LINE" -> 1;
+            case "SHORT"    -> 2;
+            case "NORMAL"   -> 3;
+            case "DETAILED" -> 4;
+            case "FULL"     -> 5;
+            default         -> 3;
+        };
+    }
+
+    private String summarize(String videoId, String title, String transcript, String summaryType) {
+        int level = summaryLevelOf(summaryType);
+        log.debug("[YoutubeService] summarize 진입 - videoId: {}, summaryType: {}, level: {}", videoId, summaryType, level);
         try {
             SummaryRequestVo req = new SummaryRequestVo();
             req.setText("유튜브 영상 제목: " + title + "\n\n자막 내용:\n" + transcript);
             req.setTextLanguage("ko");
             req.setSummaryLanguage("ko");
-            req.setSummaryLevel(3);
+            req.setSummaryLevel(level);
             req.setFileId(videoId);
 
             SummaryResponseVo res = summaryService.summarize(req);

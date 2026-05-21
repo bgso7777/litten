@@ -34,26 +34,31 @@ public class YoutubeController {
     // ── 채널 구독 등록 ─────────────────────────────────────────────────────────
 
     @PostMapping("/note/v1/youtube/channels")
-    public ResponseEntity<Map<String, Object>> subscribe(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, Object>> subscribe(@RequestBody Map<String, Object> body) {
         log.debug("[YoutubeController] POST /note/v1/youtube/channels 진입");
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        String channelId = body.get("channelId");
-        String channelName = body.get("channelName");
-        String channelThumbnail = body.getOrDefault("channelThumbnail", "");
-        Boolean autoTitle = Boolean.parseBoolean(body.getOrDefault("autoTitle", "true"));
-        Boolean autoMemo = Boolean.parseBoolean(body.getOrDefault("autoMemo", "false"));
-        Boolean autoSummary = Boolean.parseBoolean(body.getOrDefault("autoSummary", "false"));
-        Boolean autoRemind = Boolean.parseBoolean(body.getOrDefault("autoRemind", "false"));
+        String channelId = asString(body.get("channelId"));
+        String channelName = asString(body.get("channelName"));
+        String channelThumbnail = asString(body.getOrDefault("channelThumbnail", ""));
+        Boolean autoTitle = asBool(body.get("autoTitle"), true);
+        Boolean autoMemo = asBool(body.get("autoMemo"), false);
+        Boolean autoSummary = asBool(body.get("autoSummary"), false);
+        Boolean autoRemind = asBool(body.get("autoRemind"), false);
+        String summaryType = asString(body.get("summaryType"));
+        String remindType  = asString(body.get("remindType"));
+        Integer remindCustomCount = asInt(body.get("remindCustomCount"));
 
         if (channelId == null || channelId.isBlank()) {
             return badRequest("channelId는 필수입니다.");
         }
 
-        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoTitle: {}, autoMemo: {}, autoSummary: {}, autoRemind: {}",
-                memberId, channelId, autoTitle, autoMemo, autoSummary, autoRemind);
-        YoutubeChannel channel = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail, autoTitle, autoMemo, autoSummary, autoRemind);
+        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoTitle: {}, autoMemo: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
+                memberId, channelId, autoTitle, autoMemo, autoSummary, summaryType, autoRemind, remindType,
+                "CUSTOM".equals(remindType) && remindCustomCount != null ? "=" + remindCustomCount : "");
+        YoutubeChannel channel = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail,
+                autoTitle, autoMemo, autoSummary, autoRemind, summaryType, remindType, remindCustomCount);
         return ok(Map.of("channel", channel));
     }
 
@@ -70,12 +75,40 @@ public class YoutubeController {
         Boolean autoMemo    = body.get("autoMemo")    instanceof Boolean b ? b : null;
         Boolean autoSummary = body.get("autoSummary") instanceof Boolean b ? b : null;
         Boolean autoRemind  = body.get("autoRemind")  instanceof Boolean b ? b : null;
+        String  summaryType = body.containsKey("summaryType") ? asString(body.get("summaryType")) : null;
+        String  remindType  = body.containsKey("remindType")  ? asString(body.get("remindType"))  : null;
+        Integer remindCustomCount = body.containsKey("remindCustomCount") ? asInt(body.get("remindCustomCount")) : null;
+        boolean clearSummaryType = body.containsKey("summaryType") && body.get("summaryType") == null;
+        boolean clearRemindType  = body.containsKey("remindType")  && body.get("remindType")  == null;
+        boolean clearRemindCustomCount = body.containsKey("remindCustomCount") && body.get("remindCustomCount") == null;
 
-        log.info("[YoutubeController] 설정 업데이트 - memberId: {}, channelPk: {}, autoTitle: {}, autoMemo: {}, autoSummary: {}, autoRemind: {}",
-                memberId, id, autoTitle, autoMemo, autoSummary, autoRemind);
-        boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoRemind);
+        log.info("[YoutubeController] 설정 업데이트 - memberId: {}, channelPk: {}, autoTitle: {}, autoMemo: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
+                memberId, id, autoTitle, autoMemo, autoSummary, summaryType, autoRemind, remindType,
+                "CUSTOM".equals(remindType) && remindCustomCount != null ? "=" + remindCustomCount : "");
+        boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoRemind,
+                summaryType, clearSummaryType, remindType, clearRemindType, remindCustomCount, clearRemindCustomCount);
         if (!updated) return badRequest("채널을 찾을 수 없습니다.");
         return ok(Map.of("message", "설정 업데이트 완료"));
+    }
+
+    private String asString(Object v) {
+        return v == null ? null : v.toString();
+    }
+
+    private Boolean asBool(Object v, boolean defaultValue) {
+        if (v == null) return defaultValue;
+        if (v instanceof Boolean b) return b;
+        return Boolean.parseBoolean(v.toString());
+    }
+
+    private Integer asInt(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(v.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ── 채널 구독 해제 ─────────────────────────────────────────────────────────
