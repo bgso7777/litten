@@ -16,6 +16,7 @@ import '../models/attachment_file.dart';
 import 'text_tab.dart';
 import 'handwriting_tab.dart';
 import 'syncfusion_pdf_editor.dart';
+import 'youtube_video_detail_dialog.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
 import '../models/remind_item.dart';
@@ -64,6 +65,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
   final Set<String> _expandedChannels = {};
   final Map<String, int> _channelVideoPage = {};
+  // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
+  final Map<int, YoutubeVideo> _youtubeVideoDetailCache = {};
+  final Set<int> _loadingYoutubeVideoDetails = {};
   String? _youtubeToken;
   final _apiService = ApiService();
   bool _loading = false;
@@ -281,99 +285,26 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
-  void _showYoutubeContentSheet(YoutubeVideo video) {
-    if (_youtubeToken == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => YoutubeVideoDetailSheet(
-        videoId: video.id,
-        title: video.title,
-        publishedAt: video.publishedAt,
+  Future<void> _loadYoutubeVideoDetail(int videoId) async {
+    if (_loadingYoutubeVideoDetails.contains(videoId)) return;
+    setState(() => _loadingYoutubeVideoDetails.add(videoId));
+    try {
+      final detail = await _apiService.getYoutubeVideoDetail(
         token: _youtubeToken!,
-        apiService: _apiService,
-      ),
-    );
+        videoId: videoId,
+      );
+      if (mounted) {
+        setState(() {
+          if (detail != null) _youtubeVideoDetailCache[videoId] = detail;
+          _loadingYoutubeVideoDetails.remove(videoId);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ 영상 상세 로드 실패: $e');
+      if (mounted) setState(() => _loadingYoutubeVideoDetails.remove(videoId));
+    }
   }
 
-  void _showYoutubeChannelPopup(YoutubeChannel ch) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          final current = _youtubeChannels.firstWhere((c) => c.id == ch.id, orElse: () => ch);
-          final themeColor = Theme.of(context).primaryColor;
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-                  ),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.play_circle_outline, color: Colors.red, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(current.channelName,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text('자동화 설정', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    YoutubeToggleChip(
-                      label: '제목',
-                      color: themeColor,
-                      active: current.autoTitle,
-                      onTap: () { _toggleYoutubeChannelOption(current, 'title'); setSheetState(() {}); },
-                    ),
-                    YoutubeToggleChip(
-                      label: '메모',
-                      color: current.autoTitle ? themeColor : Colors.grey,
-                      active: current.autoMemo && current.autoTitle,
-                      onTap: current.autoTitle
-                          ? () { _toggleYoutubeChannelOption(current, 'memo'); setSheetState(() {}); }
-                          : () {},
-                    ),
-                    YoutubeToggleChip(
-                      label: '요약',
-                      color: current.autoTitle ? themeColor : Colors.grey,
-                      active: current.autoSummary && current.autoTitle,
-                      onTap: current.autoTitle
-                          ? () { _toggleYoutubeChannelOption(current, 'summary'); setSheetState(() {}); }
-                          : () {},
-                    ),
-                    YoutubeToggleChip(
-                      label: '리마인드',
-                      color: current.autoTitle ? themeColor : Colors.grey,
-                      active: current.autoRemind && current.autoTitle,
-                      onTap: current.autoTitle
-                          ? () { _toggleYoutubeChannelOption(current, 'remind'); setSheetState(() {}); }
-                          : () {},
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   String _youtubeShortDate(String iso) {
     try {
@@ -437,9 +368,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
         : video.hasNoTranscript
             ? Colors.orange
             : Colors.blue;
-
     return InkWell(
-      onTap: canOpen ? () => _showYoutubeContentSheet(video) : null,
+      // ⭐ 흐릿하든 아니든 항상 클릭 가능 — 팝업으로 상세 내용 표시
+      onTap: () => _showVideoDetailDialog(video, ch),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(56, 7, 12, 7),
         child: Row(
@@ -468,6 +399,28 @@ class _AllFilesTabState extends State<AllFilesTab> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 영상 상세 팝업 (헤더: 채널명/제목/일시, 본문: 요약 또는 전사)
+  void _showVideoDetailDialog(YoutubeVideo video, YoutubeChannel ch) {
+    if (_youtubeToken == null) return;
+    // 캐시에 없으면 lazy 로드
+    if (!_youtubeVideoDetailCache.containsKey(video.id)) {
+      _loadYoutubeVideoDetail(video.id);
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => YoutubeVideoDetailDialog(
+        channelName: ch.channelName,
+        video: video,
+        detailCache: _youtubeVideoDetailCache,
+        loadingSet: _loadingYoutubeVideoDetails,
       ),
     );
   }
@@ -893,11 +846,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // 채널명 (탭 시 설정 팝업)
+                // 채널명 (탭 시 영상 리스트 펼침/접힘)
                 Expanded(
                   flex: 3,
                   child: GestureDetector(
-                    onTap: () => _showYoutubeChannelPopup(ch),
+                    onTap: () => _toggleChannel(ch),
                     child: Text(
                       ch.channelName,
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
