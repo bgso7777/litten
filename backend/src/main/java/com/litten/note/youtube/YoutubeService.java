@@ -108,10 +108,6 @@ public class YoutubeService {
 
     // ── 채널 영상 목록 조회 (제목만, 페이징) ───────────────────────────────────
 
-    public List<YoutubeVideo> getChannelVideos(String channelId) {
-        return videoRepository.findByChannelIdOrderByPublishedAtDesc(channelId);
-    }
-
     public Page<YoutubeVideoSummaryDto> getChannelVideoSummaries(String channelId, int page, int size) {
         log.debug("[YoutubeService] getChannelVideoSummaries - channelId: {}, page: {}, size: {}", channelId, page, size);
         PageRequest pageable = PageRequest.of(page, size, Sort.by("publishedAt").descending());
@@ -127,41 +123,37 @@ public class YoutubeService {
 
     // ── RSS 폴링 — 스케줄러에서 호출 ──────────────────────────────────────────
 
+    private static final int POLL_BATCH_SIZE = 50;
+
     public void pollAllChannels() {
         log.debug("[YoutubeService] pollAllChannels 진입");
-        List<YoutubeChannel> channels = channelRepository.findByIsActiveTrue();
-        log.info("[YoutubeService] 구독 채널 수: {}", channels.size());
-
-        // 채널별로 순차 처리 (서버 부하 최소화)
-        for (YoutubeChannel channel : channels) {
-            try {
-                pollChannel(channel);
-            } catch (Exception e) {
-                log.error("[YoutubeService] 채널 폴링 실패 - channelId: {}, error: {}", channel.getChannelId(), e.getMessage());
+        int pageNum = 0;
+        int total = 0;
+        Page<YoutubeChannel> page;
+        do {
+            page = channelRepository.findByIsActiveTrue(PageRequest.of(pageNum++, POLL_BATCH_SIZE));
+            log.info("[YoutubeService] 채널 배치 처리 - batch: {}/{}, count: {}",
+                    pageNum, page.getTotalPages(), page.getContent().size());
+            for (YoutubeChannel channel : page.getContent()) {
+                try {
+                    pollChannel(channel);
+                } catch (Exception e) {
+                    log.error("[YoutubeService] 채널 폴링 실패 - channelId: {}, error: {}",
+                            channel.getChannelId(), e.getMessage());
+                }
             }
-        }
+            total += page.getContent().size();
+        } while (!page.isLast());
+        log.info("[YoutubeService] pollAllChannels 완료 - 총 처리 채널 수: {}", total);
     }
 
+    // RSS 파싱과 영상 처리를 동시에 수행 — 영상 목록을 메모리에 모으지 않고
+    // entry를 만나는 즉시 processNewVideo()로 넘겨 GC가 빨리 회수하도록 한다.
     private void pollChannel(YoutubeChannel channel) throws Exception {
-        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}", channel.getChannelId());
-        List<Map<String, String>> videos = fetchRssFeed(channel.getChannelId());
+        String channelId = channel.getChannelId();
+        boolean autoSummary = Boolean.TRUE.equals(channel.getAutoSummary());
+        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}", channelId);
 
-        for (Map<String, String> video : videos) {
-            String videoId = video.get("videoId");
-            if (videoRepository.existsByVideoId(videoId)) {
-                log.debug("[YoutubeService] 이미 처리된 영상 - videoId: {}", videoId);
-                continue;
-            }
-
-            log.info("[YoutubeService] 신규 영상 감지 - videoId: {}, title: {}", videoId, video.get("title"));
-            processNewVideo(channel.getChannelId(), videoId, video.get("title"), video.get("publishedAt"),
-                    Boolean.TRUE.equals(channel.getAutoSummary()));
-        }
-    }
-
-    // ── RSS 피드 파싱 ──────────────────────────────────────────────────────────
-
-    private List<Map<String, String>> fetchRssFeed(String channelId) throws Exception {
         String rssUrl = RSS_BASE_URL + channelId;
         log.debug("[YoutubeService] RSS 피드 요청 - url: {}", rssUrl);
 
@@ -177,30 +169,41 @@ public class YoutubeService {
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc;
 
-        try (InputStream is = conn.getInputStream()) {
-            doc = builder.parse(is);
+        try {
+            try (InputStream is = conn.getInputStream()) {
+                doc = builder.parse(is);
+            }
+        } finally {
+            conn.disconnect();
         }
 
-        List<Map<String, String>> result = new ArrayList<>();
         NodeList entries = doc.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "entry");
+        int total = entries.getLength();
+        int processed = 0;
+        int skipped = 0;
+        log.info("[YoutubeService] RSS 파싱 완료 - channelId: {}, 영상 수: {}", channelId, total);
 
-        for (int i = 0; i < entries.getLength(); i++) {
+        for (int i = 0; i < total; i++) {
             Element entry = (Element) entries.item(i);
             String videoId = getTagText(entry, "http://www.youtube.com/xml/schemas/2015", "videoId");
             String title = getTagText(entry, "http://www.w3.org/2005/Atom", "title");
             String published = getTagText(entry, "http://www.w3.org/2005/Atom", "published");
 
-            if (videoId != null && !videoId.isBlank()) {
-                Map<String, String> map = new HashMap<>();
-                map.put("videoId", videoId);
-                map.put("title", title != null ? title : "");
-                map.put("publishedAt", published != null ? published : "");
-                result.add(map);
+            if (videoId == null || videoId.isBlank()) continue;
+            if (videoRepository.existsByVideoId(videoId)) {
+                log.debug("[YoutubeService] 이미 처리된 영상 - videoId: {}", videoId);
+                skipped++;
+                continue;
             }
+
+            log.info("[YoutubeService] 신규 영상 감지 - videoId: {}, title: {}", videoId, title);
+            processNewVideo(channelId, videoId, title != null ? title : "",
+                    published != null ? published : "", autoSummary);
+            processed++;
         }
 
-        log.info("[YoutubeService] RSS 파싱 완료 - channelId: {}, 영상 수: {}", channelId, result.size());
-        return result;
+        log.info("[YoutubeService] 채널 처리 종료 - channelId: {}, 총: {}, 신규처리: {}, 스킵: {}",
+                channelId, total, processed, skipped);
     }
 
     private String getTagText(Element parent, String namespace, String tagName) {
@@ -236,7 +239,8 @@ public class YoutubeService {
         // Step 1: 영상 레코드 저장 (DB 연결 즉시 반환)
         videoRepository.save(video);
 
-        // Step 2: 자막 추출 (최대 60초, DB 연결 없음)
+        // Step 2: 자막 추출 (최대 60초, DB 연결 없음).
+        // extractTranscript()가 이미 MAX_TRANSCRIPT_CHARS 한도 내로 반환하므로 추가 substring 불필요.
         String transcript = extractTranscript(videoId);
         if (transcript == null || transcript.isBlank()) {
             video.setStatus("no_transcript");
@@ -246,21 +250,20 @@ public class YoutubeService {
             return;
         }
 
-        // 너무 긴 자막은 앞부분만 사용
-        if (transcript.length() > MAX_TRANSCRIPT_CHARS) {
-            transcript = transcript.substring(0, MAX_TRANSCRIPT_CHARS);
-            log.info("[YoutubeService] 자막 잘림 - videoId: {}, 원본길이: {}", videoId, transcript.length());
-        }
-
+        // 자막을 즉시 DB에 저장하고 entity의 transcriptText만 유지 — raw 변수 해제로 임시 String 회수 유도.
         video.setTranscriptText(transcript);
+        videoRepository.save(video);
 
-        // Step 3: AI 요약 (외부 API 호출, DB 연결 없음)
+        // Step 3: AI 요약 (외부 API 호출). 요약 호출 중 자막+프롬프트+응답이 잠시 메모리에 공존하므로
+        // 호출 후 summary는 즉시 entity에 옮기고 raw 변수는 해제.
         if (doSummary) {
             String summary = summarize(videoId, title, transcript);
             video.setSummary(summary);
+            summary = null;
         }
+        transcript = null;
 
-        // Step 4: 최종 결과 저장 (DB 연결 즉시 반환)
+        // Step 4: 최종 상태 저장
         video.setStatus("done");
         video.setProcessedAt(LocalDateTime.now());
         videoRepository.save(video);
@@ -278,34 +281,66 @@ public class YoutubeService {
             "t = api.fetch('" + videoId + "', languages=['ko', 'en', 'ja', 'zh-Hans', 'zh-Hant']); " +
             "print(' '.join([s.text for s in t]))";
 
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder("python3", "-c", script);
             pb.redirectErrorStream(false);
+            process = pb.start();
 
-            Process process = pb.start();
+            // stdout을 MAX_TRANSCRIPT_CHARS까지만 읽고 즉시 subprocess 종료.
+            // 자막 전체를 메모리에 모으지 않음 — 1시간 강의도 8000자에서 잘라 종료.
+            StringBuilder transcript = new StringBuilder(Math.min(8192, MAX_TRANSCRIPT_CHARS));
+            boolean truncated = false;
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                char[] buf = new char[4096];
+                int read;
+                while ((read = br.read(buf)) != -1) {
+                    int remaining = MAX_TRANSCRIPT_CHARS - transcript.length();
+                    if (remaining <= 0) {
+                        truncated = true;
+                        break;
+                    }
+                    transcript.append(buf, 0, Math.min(read, remaining));
+                }
+            }
+            if (truncated) {
+                log.info("[YoutubeService] 자막 한도({}자) 도달, subprocess 강제 종료 - videoId: {}",
+                        MAX_TRANSCRIPT_CHARS, videoId);
+                process.destroyForcibly();
+            }
+
+            // stderr는 진단 목적 — 최대 2KB만 읽음.
+            StringBuilder stderr = new StringBuilder();
+            try (BufferedReader er = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                char[] ebuf = new char[1024];
+                int read;
+                while ((read = er.read(ebuf)) != -1 && stderr.length() < 2048) {
+                    stderr.append(ebuf, 0, Math.min(read, 2048 - stderr.length()));
+                }
+            }
+
             boolean finished = process.waitFor(TRANSCRIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
             if (!finished) {
                 process.destroyForcibly();
                 log.error("[YoutubeService] 자막 추출 타임아웃 - videoId: {}", videoId);
                 return null;
             }
 
-            String stdout = new BufferedReader(new InputStreamReader(process.getInputStream()))
-                .lines().collect(Collectors.joining("\n")).trim();
-            String stderr = new BufferedReader(new InputStreamReader(process.getErrorStream()))
-                .lines().collect(Collectors.joining("\n")).trim();
-
+            // truncated 경로에서는 destroyForcibly가 exit code를 비정상으로 만들 수 있으므로
+            // 자막이 한 글자 이상 있으면 성공으로 본다.
             int exitCode = process.exitValue();
-            if (exitCode != 0) {
+            if (exitCode != 0 && !truncated) {
                 log.warn("[YoutubeService] 자막 추출 실패 - videoId: {}, stderr: {}", videoId, stderr);
                 return null;
             }
 
-            log.info("[YoutubeService] 자막 추출 성공 - videoId: {}, 길이: {}", videoId, stdout.length());
-            return stdout;
+            String result = transcript.toString().trim();
+            log.info("[YoutubeService] 자막 추출 성공 - videoId: {}, 길이: {}, truncated: {}",
+                    videoId, result.length(), truncated);
+            return result.isEmpty() ? null : result;
 
         } catch (Exception e) {
+            if (process != null && process.isAlive()) process.destroyForcibly();
             log.error("[YoutubeService] 자막 추출 오류 - videoId: {}, error: {}", videoId, e.getMessage());
             return null;
         }
@@ -349,34 +384,38 @@ public class YoutubeService {
             conn.setReadTimeout(15000);
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-            int status = conn.getResponseCode();
-            log.info("[YoutubeService] fetchChannelInfo RSS 응답 코드 - channelId: {}, status: {}", channelId, status);
-            if (status != 200) {
-                log.warn("[YoutubeService] fetchChannelInfo RSS 응답 오류 - channelId: {}, status: {}", channelId, status);
-                return null;
-            }
+            try {
+                int status = conn.getResponseCode();
+                log.info("[YoutubeService] fetchChannelInfo RSS 응답 코드 - channelId: {}, status: {}", channelId, status);
+                if (status != 200) {
+                    log.warn("[YoutubeService] fetchChannelInfo RSS 응답 오류 - channelId: {}, status: {}", channelId, status);
+                    return null;
+                }
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc;
-            try (InputStream is = conn.getInputStream()) {
-                doc = builder.parse(is);
-            }
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                factory.setNamespaceAware(true);
+                DocumentBuilder builder = factory.newDocumentBuilder();
+                Document doc;
+                try (InputStream is = conn.getInputStream()) {
+                    doc = builder.parse(is);
+                }
 
-            // 피드 최상위 <title>이 채널명 (entry 내 title과 구별하기 위해 feed 직계 자식 탐색)
-            NodeList titleNodes = doc.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "title");
-            String channelName = channelId;
-            if (titleNodes.getLength() > 0) {
-                channelName = titleNodes.item(0).getTextContent().trim();
-            }
+                // 피드 최상위 <title>이 채널명 (entry 내 title과 구별하기 위해 feed 직계 자식 탐색)
+                NodeList titleNodes = doc.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "title");
+                String channelName = channelId;
+                if (titleNodes.getLength() > 0) {
+                    channelName = titleNodes.item(0).getTextContent().trim();
+                }
 
-            Map<String, String> info = new HashMap<>();
-            info.put("channelId", channelId);
-            info.put("channelName", channelName);
-            info.put("channelThumbnail", "");
-            log.info("[YoutubeService] 채널 정보 조회 성공 - channelId: {}, name: {}", channelId, channelName);
-            return info;
+                Map<String, String> info = new HashMap<>();
+                info.put("channelId", channelId);
+                info.put("channelName", channelName);
+                info.put("channelThumbnail", "");
+                log.info("[YoutubeService] 채널 정보 조회 성공 - channelId: {}, name: {}", channelId, channelName);
+                return info;
+            } finally {
+                conn.disconnect();
+            }
 
         } catch (Exception e) {
             log.error("[YoutubeService] 채널 정보 조회 실패 - channelId: {}, error: {}", channelId, e.getMessage());

@@ -2,6 +2,8 @@ package com.litten.note.sync;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,8 +39,8 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
-    public byte[] load(String filePath) throws Exception {
-        log.debug("[LocalStorageService] load 진입 - filePath: {}", filePath);
+    public Resource loadAsResource(String filePath) throws Exception {
+        log.debug("[LocalStorageService] loadAsResource 진입 - filePath: {}", filePath);
 
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
@@ -46,9 +48,8 @@ public class LocalStorageService implements StorageService {
             throw new IOException("파일을 찾을 수 없습니다: " + filePath);
         }
 
-        byte[] data = Files.readAllBytes(path);
-        log.info("[LocalStorageService] 파일 로드 완료 - path: {}, size: {}", filePath, data.length);
-        return data;
+        log.info("[LocalStorageService] 파일 로드(스트리밍) - path: {}, size: {}", filePath, Files.size(path));
+        return new FileSystemResource(path);
     }
 
     @Override

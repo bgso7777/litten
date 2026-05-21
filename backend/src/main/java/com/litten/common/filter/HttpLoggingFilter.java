@@ -28,6 +28,10 @@ import java.util.*;
 @Component
 public class HttpLoggingFilter extends OncePerRequestFilter {
     final Logger log = LoggerFactory.getLogger(getClass());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    // 로깅용 본문 캡처 한도 (8KB) — 이걸 넘으면 잘라서 기록. 파일 업로드/다운로드 응답이 통째로 메모리에 잡히는 것을 차단.
+    private static final int MAX_BODY_LOG_BYTES = 8192;
 
     @Override
     protected void doFilterInternal(
@@ -43,19 +47,22 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
         try {
             if ("OPTIONS".equalsIgnoreCase(httpServletRequest.getMethod())) {
                 httpServletResponse.setStatus(HttpServletResponse.SC_OK);
-            } else {
-                //            filterChain.doFilter(httpServletRequest,httpServletResponse);
-
-                ContentCachingRequestWrapper cachingReq = new ContentCachingRequestWrapper(httpServletRequest);
-                ContentCachingResponseWrapper cachingRes = new ContentCachingResponseWrapper(httpServletResponse);
-                filterChain.doFilter(cachingReq, cachingRes);
-
-                if (this.isExcludeLogging(cachingReq) == false) {
-                    this.loggingReq(cachingReq, cachingRes);
-                }
-
-                cachingRes.copyBodyToResponse();
+                return;
             }
+
+            // 큰 본문이 오가는 엔드포인트(파일 업/다운로드, PDF 변환)는
+            // ContentCachingRequest/ResponseWrapper 자체를 우회 — 본문 byte[]를 메모리에 캐시하지 않는다.
+            if (this.isExcludeLogging(httpServletRequest)) {
+                filterChain.doFilter(httpServletRequest, httpServletResponse);
+                return;
+            }
+
+            ContentCachingRequestWrapper cachingReq = new ContentCachingRequestWrapper(httpServletRequest);
+            ContentCachingResponseWrapper cachingRes = new ContentCachingResponseWrapper(httpServletResponse);
+            filterChain.doFilter(cachingReq, cachingRes);
+
+            this.loggingReq(cachingReq, cachingRes);
+            cachingRes.copyBodyToResponse();
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -64,14 +71,19 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
     /**
      * <h2>예외처리</h2>
      */
-    boolean isExcludeLogging(ContentCachingRequestWrapper req) {
+    boolean isExcludeLogging(HttpServletRequest req) {
         AntPathMatcher pathMatcher = new AntPathMatcher();
+        // 큰 페이로드 엔드포인트는 로깅+캐싱 모두 스킵 — 메모리 폭주 방지.
         List<String> excludeUrlPatterns = List.of(
             "/health/**"
+            ,"/note/v1/files"           // 파일 업로드(POST 멀티파트)
+            ,"/note/v1/files/*"         // 파일 PUT(멀티파트)/DELETE
+            ,"/note/v1/files/*/download"// 파일 다운로드(바이너리 응답)
+            ,"/note/v1/convert/**"      // PDF 변환(멀티파트 입력, 바이너리 응답)
         );
         return excludeUrlPatterns
                 .stream()
-                .anyMatch(p -> pathMatcher.match(p,req.getServletPath()));
+                .anyMatch(p -> pathMatcher.match(p, req.getServletPath()));
     }
 
     void loggingReq(
@@ -95,9 +107,20 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
             }
 
             VoHttpLogItem logItemRes = new VoHttpLogItem();
-            logItemRes.setContentType(mediaType.toString());
+            String resContentType = res.getContentType();
+            logItemRes.setContentType(resContentType != null ? resContentType : mediaType.toString());
             logItemRes.setHeaders(this.getHeadersRes(res));
-            logItemRes.setBody(this.convToMap(this.getResBody(res)));
+            // 응답도 로깅 가능한 MediaType일 때만 본문 기록 — 파일 다운로드/바이너리 응답이 메모리에서 String으로 변환되는 것을 차단.
+            if (resContentType != null) {
+                try {
+                    MediaType resMediaType = MediaType.valueOf(resContentType);
+                    if (this.isLoggingBody(resMediaType)) {
+                        logItemRes.setBody(this.convToMap(this.getResBody(res)));
+                    }
+                } catch (Exception ignore) {
+                    // content-type 파싱 실패 시 본문 로깅 스킵
+                }
+            }
 
             VoHttpLog voHttpLog = new VoHttpLog();
             voHttpLog.setReq(logItemReq);
@@ -115,6 +138,7 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
     }
 
     boolean isLoggingBody(MediaType mediaType) {
+        // MULTIPART_FORM_DATA 의도적 제외 — 파일 업로드 본문이 메모리에서 String으로 복제되는 것을 차단.
         List<MediaType> VISIBLE_TYPES = Arrays.asList(
                 MediaType.valueOf("text/*")
                 ,MediaType.APPLICATION_FORM_URLENCODED
@@ -122,7 +146,6 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
                 ,MediaType.APPLICATION_XML
                 ,MediaType.valueOf("application/*+json")
                 ,MediaType.valueOf("application/*+xml")
-                ,MediaType.MULTIPART_FORM_DATA
         );
         return VISIBLE_TYPES.stream()
                 .anyMatch(visibleType -> visibleType.includes(mediaType));
@@ -156,29 +179,35 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
     }
 
     String getReqBody(ContentCachingRequestWrapper req) {
-        StringBuilder sbReqBody = new StringBuilder();
         try {
             byte[] reqBody = req.getContentAsByteArray();
-            if(ObjectUtils.isEmpty(reqBody) == false) {
-                sbReqBody.append(new String(reqBody,StandardCharsets.UTF_8));
-            }
-        }catch(Exception e1) {
-            log.error("getReqBody",e1);
+            if (ObjectUtils.isEmpty(reqBody)) return "";
+            return truncatedString(reqBody);
+        } catch (Exception e1) {
+            log.error("getReqBody", e1);
+            return "";
         }
-        return sbReqBody.toString();
     }
 
     String getResBody(ContentCachingResponseWrapper res) {
-        StringBuilder sbReqBody = new StringBuilder();
         try {
-            byte[] reqBody = res.getContentAsByteArray();
-            if(ObjectUtils.isEmpty(reqBody) == false) {
-                sbReqBody.append(new String(reqBody,StandardCharsets.UTF_8));
-            }
-        }catch(Exception e1) {
-            log.error("getResBody",e1);
+            byte[] resBody = res.getContentAsByteArray();
+            if (ObjectUtils.isEmpty(resBody)) return "";
+            return truncatedString(resBody);
+        } catch (Exception e1) {
+            log.error("getResBody", e1);
+            return "";
         }
-        return sbReqBody.toString();
+    }
+
+    // 본문 byte[]을 MAX_BODY_LOG_BYTES까지만 String으로 변환. 큰 페이로드를 통째로 String 복제하는 것을 차단.
+    private String truncatedString(byte[] body) {
+        int len = Math.min(body.length, MAX_BODY_LOG_BYTES);
+        String s = new String(body, 0, len, StandardCharsets.UTF_8);
+        if (body.length > MAX_BODY_LOG_BYTES) {
+            s += "...[truncated " + (body.length - MAX_BODY_LOG_BYTES) + " bytes]";
+        }
+        return s;
     }
 
     Map<String,Object> convToMap(String jsonBody){
@@ -186,8 +215,7 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
             return null;
         }
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(jsonBody,new TypeReference<Map<String,Object>>() {});
+            return OBJECT_MAPPER.readValue(jsonBody,new TypeReference<Map<String,Object>>() {});
         }catch(Exception e1) {
             log.error("convToMap",e1);
         }

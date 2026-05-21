@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
 import java.util.Set;
 
 @Slf4j
@@ -44,19 +45,30 @@ public class ConvertController {
             return ResponseEntity.badRequest().body("지원하지 않는 파일 형식입니다: " + ext);
         }
 
+        ConvertService.ConvertResult result;
         try {
-            byte[] pdfBytes = convertService.convertToPdf(file);
-            String pdfName = fileName.substring(0, fileName.lastIndexOf('.')) + ".pdf";
-
-            log.info("[ConvertController] 변환 성공 - pdfName: {}, size: {}", pdfName, pdfBytes.length);
-            return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + pdfName + "\"")
-                .body(pdfBytes);
-
+            result = convertService.convertToPdf(file);
         } catch (Exception e) {
             log.error("[ConvertController] 변환 실패 - fileName: {}, error: {}", fileName, e.getMessage(), e);
             return ResponseEntity.internalServerError().body("PDF 변환에 실패했습니다: " + e.getMessage());
         }
+
+        String pdfName = fileName.substring(0, fileName.lastIndexOf('.')) + ".pdf";
+        log.info("[ConvertController] 변환 성공 - pdfName: {}, size: {}", pdfName, result.size);
+
+        byte[] pdfBytes;
+        try {
+            pdfBytes = Files.readAllBytes(result.pdfFile);
+        } catch (Exception e) {
+            log.error("[ConvertController] PDF 파일 읽기 실패 - pdfName: {}, error: {}", pdfName, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(("PDF 파일 읽기 실패: " + e.getMessage()).getBytes());
+        } finally {
+            ConvertService.cleanup(result.tempDir);
+        }
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + pdfName + "\"")
+            .body(pdfBytes);
     }
 }

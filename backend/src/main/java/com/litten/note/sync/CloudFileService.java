@@ -4,12 +4,16 @@ import com.litten.Constants;
 import com.litten.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -23,6 +27,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CloudFileService {
 
+    private static final int MAX_SYNC_FILES = 5000;
+
     private final CloudFileRepository cloudFileRepository;
     private final CloudFileBackupRepository cloudFileBackupRepository;
     private final LocalStorageService localStorageService;
@@ -30,13 +36,14 @@ public class CloudFileService {
     public Map<String, Object> getFileList(String memberId) {
         log.debug("[CloudFileService] getFileList 진입 - memberId: {}", memberId);
 
-        Map<String, Object> result = new HashMap<>();
-        List<CloudFile> files = cloudFileRepository.findByMemberIdAndIsDeletedFalse(memberId);
+        PageRequest pageRequest = PageRequest.of(0, MAX_SYNC_FILES, Sort.by("updateDateTime").descending());
+        List<CloudFile> files = cloudFileRepository.findByMemberIdAndIsDeletedFalse(memberId, pageRequest);
         List<Map<String, Object>> fileList = files.stream()
                 .map(this::toMetaMap)
                 .collect(Collectors.toList());
 
         log.info("[CloudFileService] getFileList - memberId: {}, count: {}", memberId, fileList.size());
+        Map<String, Object> result = new HashMap<>();
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
         result.put("files", fileList);
         result.put(Constants.TAG_SIZE, fileList.size());
@@ -46,15 +53,16 @@ public class CloudFileService {
     public Map<String, Object> getChangedFiles(String memberId, String since) {
         log.debug("[CloudFileService] getChangedFiles 진입 - memberId: {}, since: {}", memberId, since);
 
-        Map<String, Object> result = new HashMap<>();
         LocalDateTime sinceTime = LocalDateTime.parse(since.replace(" ", "T"));
+        PageRequest pageRequest = PageRequest.of(0, MAX_SYNC_FILES, Sort.by("updateDateTime").descending());
         List<CloudFile> files = cloudFileRepository
-                .findByMemberIdAndIsDeletedFalseAndUpdateDateTimeAfter(memberId, sinceTime);
+                .findByMemberIdAndIsDeletedFalseAndUpdateDateTimeAfter(memberId, sinceTime, pageRequest);
         List<Map<String, Object>> fileList = files.stream()
                 .map(this::toMetaMap)
                 .collect(Collectors.toList());
 
         log.info("[CloudFileService] getChangedFiles - memberId: {}, since: {}, count: {}", memberId, since, fileList.size());
+        Map<String, Object> result = new HashMap<>();
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
         result.put("files", fileList);
         result.put(Constants.TAG_SIZE, fileList.size());
@@ -198,7 +206,7 @@ public class CloudFileService {
         return result;
     }
 
-    public ResponseEntity<byte[]> downloadFile(Long cloudId, String memberId) {
+    public ResponseEntity<Resource> downloadFile(Long cloudId, String memberId) {
         log.debug("[CloudFileService] downloadFile 진입 - cloudId: {}, memberId: {}", cloudId, memberId);
 
         Optional<CloudFile> optFile = cloudFileRepository.findById(cloudId);
@@ -209,15 +217,17 @@ public class CloudFileService {
 
         try {
             CloudFile cloudFile = optFile.get();
-            byte[] data = localStorageService.load(cloudFile.getFilePath());
-            log.info("[CloudFileService] 파일 다운로드 완료 - cloudId: {}, size: {}", cloudId, data.length);
+            Resource resource = localStorageService.loadAsResource(cloudFile.getFilePath());
+            long contentLength = resource.contentLength();
+            log.info("[CloudFileService] 파일 다운로드 시작 - cloudId: {}, size: {}", cloudId, contentLength);
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + cloudFile.getFileName() + "\"")
                     .contentType(cloudFile.getContentType() != null
                             ? MediaType.parseMediaType(cloudFile.getContentType())
                             : MediaType.APPLICATION_OCTET_STREAM)
-                    .body(data);
+                    .contentLength(contentLength)
+                    .body(resource);
         } catch (Exception e) {
             log.error("[CloudFileService] 파일 다운로드 실패 - cloudId: {}", cloudId, e);
             return ResponseEntity.internalServerError().build();
