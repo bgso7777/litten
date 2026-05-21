@@ -153,7 +153,41 @@ public class NoteMemberService extends CustomHttpService {
         } else {
             String encryptPassword = noteMember.getPassword().substring(8);
             if (Crypto.matchesMemberPassword(value2, encryptPassword)) {
-                if( noteMember.getUuid().equals(uuid) ) {
+                // 다중 디바이스 로그인 — uuid1/uuid2/uuid3 슬롯 매칭 (최대 3대)
+                // 1) 요청 uuid가 슬롯 중 하나와 일치 → 즉시 허용 (기존 디바이스 재로그인)
+                // 2) 빈 슬롯(uuid1 → uuid2 → uuid3 순)이 있으면 새 디바이스로 등록 후 허용
+                // 3) 세 슬롯 모두 점유 중이고 일치 항목 없음 → 거부 ("최대 3대")
+                String uuid1 = noteMember.getUuid1();
+                String uuid2 = noteMember.getUuid2();
+                String uuid3 = noteMember.getUuid3();
+                boolean matched =
+                        (uuid1 != null && uuid1.equals(uuid)) ||
+                        (uuid2 != null && uuid2.equals(uuid)) ||
+                        (uuid3 != null && uuid3.equals(uuid));
+                boolean slot1Empty = uuid1 == null || uuid1.isBlank();
+                boolean slot2Empty = uuid2 == null || uuid2.isBlank();
+                boolean slot3Empty = uuid3 == null || uuid3.isBlank();
+                boolean canRegister = !matched && (slot1Empty || slot2Empty || slot3Empty);
+                log.info("[NoteMemberService] postLogin uuid 매칭 - id: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}, matched: {}, canRegister: {}",
+                        value1, uuid, uuid1, uuid2, uuid3, matched, canRegister);
+                if (matched || canRegister) {
+                    if (!matched) {
+                        // 빈 슬롯에 새 디바이스 등록 (uuid1 → uuid2 → uuid3 순서)
+                        String registeredSlot;
+                        if (slot1Empty) {
+                            noteMember.setUuid1(uuid);
+                            registeredSlot = "uuid1";
+                        } else if (slot2Empty) {
+                            noteMember.setUuid2(uuid);
+                            registeredSlot = "uuid2";
+                        } else {
+                            noteMember.setUuid3(uuid);
+                            registeredSlot = "uuid3";
+                        }
+                        noteMemberRepository.save(noteMember);
+                        log.info("[NoteMemberService] 새 디바이스 등록 - id: {}, slot: {}, uuid: {}",
+                                value1, registeredSlot, uuid);
+                    }
                     try {
                         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(value1, value2); // id, pw
                         AuthenticationManagerBuilder authenticationManagerBuilder = BeanUtil.getBean2(AuthenticationManagerBuilder.class);
@@ -186,8 +220,11 @@ public class NoteMemberService extends CustomHttpService {
                         result.put(Constants.TAG_RESULT_MESSAGE, "bad credentials");
                     }
                 } else {
+                    // 세 슬롯 모두 다른 디바이스가 점유 중 → 거부
+                    log.warn("[NoteMemberService] 로그인 거부 - 최대 3대 초과 - id: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}",
+                            value1, uuid, uuid1, uuid2, uuid3);
                     result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
-                    result.put(Constants.TAG_RESULT_MESSAGE, "다른 장치에서 가입된 계정입니다. id-->"+value1+" uuid-->"+uuid);
+                    result.put(Constants.TAG_RESULT_MESSAGE, "이미 3대의 디바이스에서 로그인되어 있습니다. 기존 디바이스에서 로그아웃 후 다시 시도해 주세요.");
                 }
             } else {
                 result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
