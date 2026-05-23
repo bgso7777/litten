@@ -175,9 +175,8 @@ public class YoutubeService {
 
     public Page<YoutubeVideoSummaryDto> getChannelVideoSummaries(String channelId, int page, int size) {
         log.debug("[YoutubeService] getChannelVideoSummaries - channelId: {}, page: {}, size: {}", channelId, page, size);
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("publishedAt").descending());
-        return videoRepository.findByChannelIdOrderByPublishedAtDesc(channelId, pageable)
-                .map(YoutubeVideoSummaryDto::from);
+        PageRequest pageable = PageRequest.of(page, size);
+        return videoRepository.findSummariesByChannelId(channelId, pageable);
     }
 
     // ── 영상 상세 조회 (자막/요약 포함) ───────────────────────────────────────

@@ -542,28 +542,27 @@ class _YoutubeVideoDetailScreenState extends State<YoutubeVideoDetailScreen> {
     _loadDetail();
   }
 
-  /// 서버에서 최신 영상 상세(자막 포함) 조회 후, 자막 없으면 폰에서 직접 수집.
+  /// hasTranscript로 분기:
+  /// - true  → 서버 DB에 자막 있음 → GET /videos/{id} 로 자막 조회
+  /// - false → 서버에 자막 없음   → YouTube 직접 수집 후 POST로 서버 저장
   Future<void> _loadDetail() async {
-    debugPrint('[YoutubeVideoDetailScreen] _loadDetail - videoId: ${widget.video.videoId}');
+    debugPrint('[YoutubeVideoDetailScreen] _loadDetail - videoId: ${widget.video.videoId}, hasTranscript: ${widget.video.hasTranscript}');
     setState(() { _loading = true; _errorMsg = null; });
 
-    // 서버에서 자막 포함 전체 데이터 조회
-    final detail = await _apiService.getYoutubeVideoDetail(
-      token: widget.token,
-      videoId: widget.video.id,
-    );
-    final current = detail ?? widget.video;
-
-    if (!mounted) return;
-
-    if (current.hasTranscript) {
-      setState(() { _video = current; _loading = false; });
-      return;
+    if (widget.video.hasTranscript) {
+      // 서버에 자막 있음 → 상세 조회
+      final detail = await _apiService.getYoutubeVideoDetail(
+        token: widget.token,
+        videoId: widget.video.id,
+      );
+      if (!mounted) return;
+      setState(() { _video = detail ?? widget.video; _loading = false; });
+    } else {
+      // 서버에 자막 없음 → YouTube 직접 수집
+      if (!mounted) return;
+      setState(() { _video = widget.video; _loading = false; _fetching = true; });
+      await _fetchFromYoutube(widget.video);
     }
-
-    // 자막 없으면 폰에서 YouTube 직접 수집
-    setState(() { _video = current; _loading = false; _fetching = true; });
-    await _fetchFromYoutube(current);
   }
 
   Future<void> _fetchFromYoutube(YoutubeVideo video) async {

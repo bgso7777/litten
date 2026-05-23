@@ -8,12 +8,14 @@ public record YoutubeVideoSummaryDto(
     String videoId,
     String title,
     LocalDateTime publishedAt,
-    String status
+    String status,
+    boolean hasTranscript
 ) {
     public static YoutubeVideoSummaryDto from(YoutubeVideo v) {
         return new YoutubeVideoSummaryDto(
             v.getId(), v.getChannelId(), v.getVideoId(),
-            v.getTitle(), v.getPublishedAt(), v.getStatus()
+            v.getTitle(), v.getPublishedAt(), v.getStatus(),
+            v.getTranscriptText() != null && !v.getTranscriptText().isBlank()
         );
     }
 }

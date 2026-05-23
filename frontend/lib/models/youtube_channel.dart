@@ -140,6 +140,8 @@ class YoutubeVideo {
   final String? transcriptText;
   final String? summary;
   final String status;
+  /// 목록 API에서 서버가 내려주는 자막 존재 여부 (transcriptText가 null이어도 신뢰 가능)
+  final bool hasTranscript;
 
   const YoutubeVideo({
     required this.id,
@@ -150,6 +152,7 @@ class YoutubeVideo {
     this.transcriptText,
     this.summary,
     required this.status,
+    this.hasTranscript = false,
   });
 
   factory YoutubeVideo.fromJson(Map<String, dynamic> json) => YoutubeVideo(
@@ -161,11 +164,11 @@ class YoutubeVideo {
         transcriptText: json['transcriptText'],
         summary: json['summary'],
         status: json['status'] ?? 'pending',
+        hasTranscript: json['hasTranscript'] == true,
       );
 
   String get youtubeUrl => 'https://www.youtube.com/watch?v=$videoId';
   bool get hasSummary => summary != null && summary!.isNotEmpty;
-  bool get hasTranscript => transcriptText != null && transcriptText!.isNotEmpty;
   bool get isDone => status == 'done';
   bool get hasNoTranscript => status == 'no_transcript';
 }
