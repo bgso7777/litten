@@ -63,8 +63,15 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
 
             this.loggingReq(cachingReq, cachingRes);
             cachingRes.copyBodyToResponse();
-        } catch(Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            if (isBrokenPipe(e)) {
+                log.debug("[HttpLoggingFilter] 클라이언트 연결 끊김 (broken pipe) - uri: {}", httpServletRequest.getRequestURI());
+            } else {
+                log.error("[HttpLoggingFilter] 요청 처리 중 오류 - uri: {}", httpServletRequest.getRequestURI(), e);
+                if (e instanceof IOException) throw (IOException) e;
+                if (e instanceof ServletException) throw (ServletException) e;
+                throw new ServletException(e);
+            }
         }
     }
 
@@ -262,6 +269,18 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
             log.error("getClientIp",e1);
         }
         return clientIp;
+    }
+
+    private boolean isBrokenPipe(Throwable t) {
+        while (t != null) {
+            if ("ClientAbortException".equals(t.getClass().getSimpleName())) return true;
+            if (t instanceof IOException) {
+                String msg = t.getMessage();
+                if (msg != null && (msg.contains("Broken pipe") || msg.contains("Connection reset"))) return true;
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     @Override

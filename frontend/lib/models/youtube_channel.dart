@@ -165,6 +165,7 @@ class YoutubeVideo {
 
   String get youtubeUrl => 'https://www.youtube.com/watch?v=$videoId';
   bool get hasSummary => summary != null && summary!.isNotEmpty;
+  bool get hasTranscript => transcriptText != null && transcriptText!.isNotEmpty;
   bool get isDone => status == 'done';
   bool get hasNoTranscript => status == 'no_transcript';
 }

@@ -170,10 +170,31 @@ public class YoutubeController {
 
         return youtubeService.findVideoById(id)
                 .map(v -> {
-                    log.info("[YoutubeController] 영상 상세 조회 - id: {}, title: {}", v.getId(), v.getTitle());
+                    log.info("[YoutubeController] 영상 상세 조회 - id: {}, title: {}, hasTranscript: {}",
+                            v.getId(), v.getTitle(), v.getTranscriptText() != null && !v.getTranscriptText().isBlank());
                     return ok(Map.of("video", v));
                 })
                 .orElse(badRequest("영상을 찾을 수 없습니다."));
+    }
+
+    // ── 클라이언트 자막 저장 (앱에서 YouTube 직접 수집 후 서버에 저장) ──────────
+
+    @PostMapping("/note/v1/youtube/videos/{videoId}/transcript")
+    public ResponseEntity<Map<String, Object>> saveTranscript(
+            @PathVariable String videoId, @RequestBody Map<String, Object> body) {
+        log.debug("[YoutubeController] POST /note/v1/youtube/videos/{}/transcript 진입", videoId);
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+
+        String transcript = asString(body.get("transcript"));
+        if (transcript == null || transcript.isBlank()) {
+            return badRequest("transcript는 필수입니다.");
+        }
+
+        log.info("[YoutubeController] 자막 저장 요청 - videoId: {}, length: {}", videoId, transcript.length());
+        boolean saved = youtubeService.saveTranscript(videoId, transcript);
+        if (!saved) return badRequest("영상을 찾을 수 없습니다. videoId: " + videoId);
+        return ok(Map.of("message", "자막 저장 완료"));
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import com.litten.note.summary.SummaryResponseVo;
 import com.litten.note.summary.SummaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +35,9 @@ public class YoutubeService {
     private static final String RSS_BASE_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=";
     private static final int TRANSCRIPT_TIMEOUT_SECONDS = 60;
     private static final int MAX_TRANSCRIPT_CHARS = 8000;
+
+    @Value("${youtube.cookies-path:}")
+    private String cookiesPath;
 
     private final YoutubeChannelRepository channelRepository;
     private final YoutubeVideoRepository videoRepository;
@@ -212,9 +216,7 @@ public class YoutubeService {
     // entry를 만나는 즉시 processNewVideo()로 넘겨 GC가 빨리 회수하도록 한다.
     private void pollChannel(YoutubeChannel channel) throws Exception {
         String channelId = channel.getChannelId();
-        boolean autoSummary = Boolean.TRUE.equals(channel.getAutoSummary());
-        String summaryType = channel.getSummaryType();
-        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}, summaryType: {}", channelId, summaryType);
+        log.debug("[YoutubeService] pollChannel 진입 - channelId: {}", channelId);
 
         String rssUrl = RSS_BASE_URL + channelId;
         log.debug("[YoutubeService] RSS 피드 요청 - url: {}", rssUrl);
@@ -252,15 +254,24 @@ public class YoutubeService {
             String published = getTagText(entry, "http://www.w3.org/2005/Atom", "published");
 
             if (videoId == null || videoId.isBlank()) continue;
-            if (videoRepository.existsByVideoId(videoId)) {
-                log.debug("[YoutubeService] 이미 처리된 영상 - videoId: {}", videoId);
+
+            Optional<YoutubeVideo> existingOpt = videoRepository.findByVideoId(videoId);
+            if (existingOpt.isPresent()) {
+                YoutubeVideo existing = existingOpt.get();
+                if (title != null && !title.isBlank() && !title.equals(existing.getTitle())) {
+                    log.info("[YoutubeService] 영상 제목 갱신 - videoId: {}, 이전: {}, 신규: {}", videoId, existing.getTitle(), title);
+                    existing.setTitle(title);
+                    videoRepository.save(existing);
+                } else {
+                    log.debug("[YoutubeService] 이미 처리된 영상 - videoId: {}", videoId);
+                }
                 skipped++;
                 continue;
             }
 
             log.info("[YoutubeService] 신규 영상 감지 - videoId: {}, title: {}", videoId, title);
             processNewVideo(channelId, videoId, title != null ? title : "",
-                    published != null ? published : "", autoSummary, summaryType);
+                    published != null ? published : "");
             processed++;
         }
 
@@ -276,11 +287,9 @@ public class YoutubeService {
         return null;
     }
 
-    // ── 신규 영상 처리 ─────────────────────────────────────────────────────────
-    // self-invocation으로 @Transactional이 무시되므로 트랜잭션을 각 save()에 위임.
-    // 외부 호출(Python subprocess, AI API)이 DB 연결을 점유하지 않도록 의도적으로 비트랜잭션.
-    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr, boolean doSummary, String summaryType) {
-        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}, doSummary: {}, summaryType: {}", videoId, title, doSummary, summaryType);
+    // ── 신규 영상 처리 (제목/메타데이터만 저장 — 자막은 클라이언트에서 수집 후 저장) ───────
+    public void processNewVideo(String channelId, String videoId, String title, String publishedAtStr) {
+        log.info("[YoutubeService] processNewVideo 진입 - videoId: {}, title: {}", videoId, title);
 
         YoutubeVideo video = new YoutubeVideo();
         video.setChannelId(channelId);
@@ -289,7 +298,6 @@ public class YoutubeService {
         video.setStatus("pending");
 
         try {
-            // ISO 8601 파싱 (e.g. 2024-01-15T12:00:00+00:00)
             if (publishedAtStr != null && !publishedAtStr.isBlank()) {
                 String normalized = publishedAtStr.replaceAll("\\+\\d{2}:\\d{2}$", "").replace("Z", "");
                 video.setPublishedAt(LocalDateTime.parse(normalized, DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -298,55 +306,75 @@ public class YoutubeService {
             log.warn("[YoutubeService] publishedAt 파싱 실패 - value: {}", publishedAtStr);
         }
 
-        // Step 1: 영상 레코드 저장 (DB 연결 즉시 반환)
         videoRepository.save(video);
+        log.info("[YoutubeService] 영상 레코드 저장 완료 (자막은 클라이언트 수집 대기) - videoId: {}", videoId);
 
-        // Step 2: 자막 추출 (최대 60초, DB 연결 없음).
-        // extractTranscript()가 이미 MAX_TRANSCRIPT_CHARS 한도 내로 반환하므로 추가 substring 불필요.
+        // 자막 추출은 클라이언트(앱)에서 수행 후 saveTranscript() API로 저장
+        // extractTranscript() 서버 직접 호출 비활성화 — 클라우드 IP 차단으로 IpBlocked 발생
+        /*
         String transcript = extractTranscript(videoId);
         if (transcript == null || transcript.isBlank()) {
             video.setStatus("no_transcript");
             video.setProcessedAt(LocalDateTime.now());
             videoRepository.save(video);
-            log.info("[YoutubeService] 자막 없음 - videoId: {}", videoId);
             return;
         }
-
-        // 자막을 즉시 DB에 저장하고 entity의 transcriptText만 유지 — raw 변수 해제로 임시 String 회수 유도.
         video.setTranscriptText(transcript);
-        videoRepository.save(video);
-
-        // Step 3: AI 요약 (외부 API 호출). 요약 호출 중 자막+프롬프트+응답이 잠시 메모리에 공존하므로
-        // 호출 후 summary는 즉시 entity에 옮기고 raw 변수는 해제.
-        if (doSummary) {
-            String summary = summarize(videoId, title, transcript, summaryType);
-            video.setSummary(summary);
-            summary = null;
-        }
-        transcript = null;
-
-        // Step 4: 최종 상태 저장
         video.setStatus("done");
         video.setProcessedAt(LocalDateTime.now());
         videoRepository.save(video);
-        log.info("[YoutubeService] 처리 완료 - videoId: {}", videoId);
+        */
+    }
+
+    // ── 클라이언트에서 수집한 자막 저장 ─────────────────────────────────────────
+
+    @Transactional
+    public boolean saveTranscript(String videoId, String transcript) {
+        log.info("[YoutubeService] saveTranscript 진입 - videoId: {}, length: {}", videoId, transcript != null ? transcript.length() : 0);
+        return videoRepository.findByVideoId(videoId).map(video -> {
+            video.setTranscriptText(transcript);
+            video.setStatus("done");
+            video.setProcessedAt(LocalDateTime.now());
+            videoRepository.save(video);
+            log.info("[YoutubeService] 자막 저장 완료 - videoId: {}", videoId);
+            return true;
+        }).orElseGet(() -> {
+            log.warn("[YoutubeService] 자막 저장 실패 - videoId 없음: {}", videoId);
+            return false;
+        });
     }
 
     // ── 자막 추출 (Python subprocess) ─────────────────────────────────────────
 
     private String extractTranscript(String videoId) {
-        log.debug("[YoutubeService] extractTranscript 진입 - videoId: {}", videoId);
+        log.info("[YoutubeService] extractTranscript 진입 - videoId: {}", videoId);
 
+        // v1.x API: YouTubeTranscriptApi(http_client=requests.Session)
+        // 쿠키 파일이 있으면 MozillaCookieJar 로 로드해서 Session 에 주입, 없으면 bare Session 그대로 사용.
+        String cp = (cookiesPath != null) ? cookiesPath.trim() : "";
+        String cookiesBlock = cp.isEmpty() ? "" :
+            "_jar=__import__('http.cookiejar',fromlist=['MozillaCookieJar']).MozillaCookieJar(); " +
+            "((_jar.load('" + cp + "',ignore_discard=True,ignore_expires=True),_session.__setattr__('cookies',_jar)) if os.path.exists('" + cp + "') else None); ";
+        String useCookiesExpr = cp.isEmpty() ? "False" : "os.path.exists('" + cp + "')";
         String script =
+            "import sys, os, requests; " +
             "from youtube_transcript_api import YouTubeTranscriptApi; " +
-            "api = YouTubeTranscriptApi(); " +
-            "t = api.fetch('" + videoId + "', languages=['ko', 'en', 'ja', 'zh-Hans', 'zh-Hant']); " +
-            "print(' '.join([s.text for s in t]))";
+            "print('[DIAG] python=' + sys.version, flush=True); " +
+            "print('[DIAG] youtube_transcript_api import OK', flush=True); " +
+            "_session=requests.Session(); " +
+            cookiesBlock +
+            "print('[DIAG] cookies_active=' + str(" + useCookiesExpr + "), flush=True); " +
+            "api=YouTubeTranscriptApi(http_client=_session); " +
+            "t=api.fetch('" + videoId + "', languages=['ko', 'en', 'ja', 'zh-Hans', 'zh-Hant']); " +
+            "lines=[s.text for s in t]; " +
+            "print('[DIAG] transcript lines=' + str(len(lines)), flush=True); " +
+            "print(' '.join(lines))";
 
         Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder("python3", "-c", script);
             pb.redirectErrorStream(false);
+            log.info("[YoutubeService] Python subprocess 시작 - videoId: {}", videoId);
             process = pb.start();
 
             // stdout을 MAX_TRANSCRIPT_CHARS까지만 읽고 즉시 subprocess 종료.
@@ -365,34 +393,49 @@ public class YoutubeService {
                     transcript.append(buf, 0, Math.min(read, remaining));
                 }
             }
+
+            // stderr는 stdout 읽기 완료 후, destroyForcibly() 호출 전에 읽어야 한다.
+            // destroyForcibly() 이후에 읽으면 스트림이 닫혀 IOException: Stream closed 발생.
+            StringBuilder stderr = new StringBuilder();
+            try (BufferedReader er = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                char[] ebuf = new char[1024];
+                int read;
+                while ((read = er.read(ebuf)) != -1 && stderr.length() < 4096) {
+                    stderr.append(ebuf, 0, Math.min(read, 4096 - stderr.length()));
+                }
+            }
+
             if (truncated) {
                 log.info("[YoutubeService] 자막 한도({}자) 도달, subprocess 강제 종료 - videoId: {}",
                         MAX_TRANSCRIPT_CHARS, videoId);
                 process.destroyForcibly();
             }
 
-            // stderr는 진단 목적 — 최대 2KB만 읽음.
-            StringBuilder stderr = new StringBuilder();
-            try (BufferedReader er = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                char[] ebuf = new char[1024];
-                int read;
-                while ((read = er.read(ebuf)) != -1 && stderr.length() < 2048) {
-                    stderr.append(ebuf, 0, Math.min(read, 2048 - stderr.length()));
-                }
-            }
-
             boolean finished = process.waitFor(TRANSCRIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                log.error("[YoutubeService] 자막 추출 타임아웃 - videoId: {}", videoId);
+                log.error("[YoutubeService] 자막 추출 타임아웃({}s) - videoId: {}, stderr: {}",
+                        TRANSCRIPT_TIMEOUT_SECONDS, videoId, stderr);
                 return null;
+            }
+
+            int exitCode = process.exitValue();
+            String stdoutPreview = transcript.length() > 0
+                    ? transcript.substring(0, Math.min(200, transcript.length()))
+                    : "(empty)";
+            log.info("[YoutubeService] subprocess 종료 - videoId: {}, exitCode: {}, stdoutLen: {}, stderrLen: {}",
+                    videoId, exitCode, transcript.length(), stderr.length());
+
+            // stderr가 있으면 항상 로그 출력 (exitCode 무관)
+            if (stderr.length() > 0) {
+                log.warn("[YoutubeService] Python stderr - videoId: {}, stderr: {}", videoId, stderr);
             }
 
             // truncated 경로에서는 destroyForcibly가 exit code를 비정상으로 만들 수 있으므로
             // 자막이 한 글자 이상 있으면 성공으로 본다.
-            int exitCode = process.exitValue();
             if (exitCode != 0 && !truncated) {
-                log.warn("[YoutubeService] 자막 추출 실패 - videoId: {}, stderr: {}", videoId, stderr);
+                log.warn("[YoutubeService] 자막 추출 실패(exitCode={}) - videoId: {}, stdout: {}",
+                        exitCode, videoId, stdoutPreview);
                 return null;
             }
 
@@ -403,9 +446,41 @@ public class YoutubeService {
 
         } catch (Exception e) {
             if (process != null && process.isAlive()) process.destroyForcibly();
-            log.error("[YoutubeService] 자막 추출 오류 - videoId: {}, error: {}", videoId, e.getMessage());
+            log.error("[YoutubeService] 자막 추출 오류 - videoId: {}", videoId, e);
             return null;
         }
+    }
+
+    // ── no_transcript 재시도 — 스케줄러에서 호출 ─────────────────────────────
+
+    private static final int RETRY_BATCH_SIZE = 20;
+
+    public void retryNoTranscriptVideos() {
+        log.info("[YoutubeService] retryNoTranscriptVideos 시작");
+        int pageNum = 0;
+        int retried = 0;
+        int recovered = 0;
+        Page<YoutubeVideo> page;
+        do {
+            page = videoRepository.findByStatus("no_transcript", PageRequest.of(pageNum++, RETRY_BATCH_SIZE));
+            log.info("[YoutubeService] no_transcript 배치 - batch: {}/{}, count: {}",
+                    pageNum, page.getTotalPages(), page.getContent().size());
+            for (YoutubeVideo video : page.getContent()) {
+                String transcript = extractTranscript(video.getVideoId());
+                retried++;
+                if (transcript != null && !transcript.isBlank()) {
+                    video.setTranscriptText(transcript);
+                    video.setStatus("done");
+                    video.setProcessedAt(LocalDateTime.now());
+                    videoRepository.save(video);
+                    recovered++;
+                    log.info("[YoutubeService] no_transcript 복구 성공 - videoId: {}", video.getVideoId());
+                } else {
+                    log.debug("[YoutubeService] no_transcript 재시도 실패 - videoId: {}", video.getVideoId());
+                }
+            }
+        } while (!page.isLast());
+        log.info("[YoutubeService] retryNoTranscriptVideos 완료 - 재시도: {}, 복구: {}", retried, recovered);
     }
 
     // ── AI 요약 ────────────────────────────────────────────────────────────────
@@ -423,7 +498,7 @@ public class YoutubeService {
         };
     }
 
-    private String summarize(String videoId, String title, String transcript, String summaryType) {
+    public String summarize(String videoId, String title, String transcript, String summaryType) {
         int level = summaryLevelOf(summaryType);
         log.debug("[YoutubeService] summarize 진입 - videoId: {}, summaryType: {}, level: {}", videoId, summaryType, level);
         try {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/youtube_channel.dart';
 import '../services/api_service.dart';
+import '../services/youtube_transcript_service.dart';
 
 class YoutubeSubscriptionScreen extends StatefulWidget {
   const YoutubeSubscriptionScreen({super.key});
@@ -383,11 +384,11 @@ class _YoutubeVideosScreenState extends State<YoutubeVideosScreen> {
   Future<void> _loadVideos() async {
     debugPrint('[YoutubeVideosScreen] _loadVideos 진입 - channelId: ${widget.channel.channelId}');
     setState(() => _loading = true);
-    final videos = await _apiService.getYoutubeVideos(token: widget.token, channelId: widget.channel.channelId);
-    debugPrint('[YoutubeVideosScreen] 영상 수: ${videos.length}');
+    final result = await _apiService.getYoutubeVideos(token: widget.token, channelId: widget.channel.channelId);
+    debugPrint('[YoutubeVideosScreen] 영상 수: ${result.videos.length}');
     if (mounted) {
       setState(() {
-        _videos = videos;
+        _videos = result.videos;
         _loading = false;
       });
     }
@@ -452,7 +453,7 @@ class _YoutubeVideosScreenState extends State<YoutubeVideosScreen> {
 
     if (video.isDone) {
       statusColor = Colors.green;
-      statusLabel = '요약 완료';
+      statusLabel = '자막 있음';
       statusIcon = Icons.check_circle_outline;
     } else if (video.hasNoTranscript) {
       statusColor = Colors.orange;
@@ -460,7 +461,7 @@ class _YoutubeVideosScreenState extends State<YoutubeVideosScreen> {
       statusIcon = Icons.closed_caption_disabled;
     } else {
       statusColor = Colors.blue;
-      statusLabel = '처리 중';
+      statusLabel = '수집 대기';
       statusIcon = Icons.hourglass_top;
     }
 
@@ -489,19 +490,17 @@ class _YoutubeVideosScreenState extends State<YoutubeVideosScreen> {
           ),
         ],
       ),
-      trailing: video.isDone
-          ? const Icon(Icons.chevron_right)
-          : null,
-      onTap: video.isDone ? () => _openSummaryDetail(video) : null,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openVideoDetail(video),
     );
   }
 
-  void _openSummaryDetail(YoutubeVideo video) {
-    debugPrint('[YoutubeVideosScreen] _openSummaryDetail - videoId: ${video.videoId}');
+  void _openVideoDetail(YoutubeVideo video) {
+    debugPrint('[YoutubeVideosScreen] _openVideoDetail - videoId: ${video.videoId}');
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => YoutubeVideoDetailScreen(video: video),
+        builder: (_) => YoutubeVideoDetailScreen(video: video, token: widget.token),
       ),
     );
   }
@@ -516,73 +515,188 @@ class _YoutubeVideosScreenState extends State<YoutubeVideosScreen> {
   }
 }
 
-// ── 영상 요약 상세 화면 ──────────────────────────────────────────────────────
+// ── 영상 자막 상세 화면 ──────────────────────────────────────────────────────
 
-class YoutubeVideoDetailScreen extends StatelessWidget {
+class YoutubeVideoDetailScreen extends StatefulWidget {
   final YoutubeVideo video;
+  final String token;
 
-  const YoutubeVideoDetailScreen({super.key, required this.video});
+  const YoutubeVideoDetailScreen({super.key, required this.video, required this.token});
+
+  @override
+  State<YoutubeVideoDetailScreen> createState() => _YoutubeVideoDetailScreenState();
+}
+
+class _YoutubeVideoDetailScreenState extends State<YoutubeVideoDetailScreen> {
+  final _apiService = ApiService();
+  final _transcriptService = YoutubeTranscriptService();
+
+  YoutubeVideo? _video;
+  bool _loading = true;
+  bool _fetching = false;   // YouTube에서 직접 수집 중
+  String? _errorMsg;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDetail();
+  }
+
+  /// 서버에서 최신 영상 상세(자막 포함) 조회 후, 자막 없으면 폰에서 직접 수집.
+  Future<void> _loadDetail() async {
+    debugPrint('[YoutubeVideoDetailScreen] _loadDetail - videoId: ${widget.video.videoId}');
+    setState(() { _loading = true; _errorMsg = null; });
+
+    // 서버에서 자막 포함 전체 데이터 조회
+    final detail = await _apiService.getYoutubeVideoDetail(
+      token: widget.token,
+      videoId: widget.video.id,
+    );
+    final current = detail ?? widget.video;
+
+    if (!mounted) return;
+
+    if (current.hasTranscript) {
+      setState(() { _video = current; _loading = false; });
+      return;
+    }
+
+    // 자막 없으면 폰에서 YouTube 직접 수집
+    setState(() { _video = current; _loading = false; _fetching = true; });
+    await _fetchFromYoutube(current);
+  }
+
+  Future<void> _fetchFromYoutube(YoutubeVideo video) async {
+    debugPrint('[YoutubeVideoDetailScreen] YouTube 직접 수집 시작 - videoId: ${video.videoId}');
+    setState(() { _fetching = true; _errorMsg = null; });
+
+    final transcript = await _transcriptService.fetchTranscript(video.videoId);
+
+    if (!mounted) return;
+
+    if (transcript == null || transcript.isEmpty) {
+      setState(() {
+        _fetching = false;
+        _errorMsg = '자막을 가져올 수 없습니다.\n이 영상은 자막이 제공되지 않을 수 있습니다.';
+      });
+      debugPrint('[YoutubeVideoDetailScreen] 자막 수집 실패 - videoId: ${video.videoId}');
+      return;
+    }
+
+    // 화면에 반영
+    setState(() {
+      _video = YoutubeVideo(
+        id: video.id,
+        channelId: video.channelId,
+        videoId: video.videoId,
+        title: video.title,
+        publishedAt: video.publishedAt,
+        transcriptText: transcript,
+        summary: video.summary,
+        status: 'done',
+      );
+      _fetching = false;
+    });
+
+    // 서버에 저장 (백그라운드, 실패해도 화면은 유지)
+    final saved = await _apiService.saveYoutubeTranscript(
+      token: widget.token,
+      videoId: video.videoId,
+      transcript: transcript,
+    );
+    debugPrint('[YoutubeVideoDetailScreen] 서버 저장 결과 - videoId: ${video.videoId}, saved: $saved');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('영상 요약'),
+        title: const Text('영상 자막'),
+        actions: [
+          if (_video != null && !_fetching)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: '자막 다시 수집',
+              onPressed: () => _fetchFromYoutube(_video!),
+            ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 제목
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final video = _video ?? widget.video;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            video.title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          if (video.publishedAt != null) ...[
+            const SizedBox(height: 4),
             Text(
-              video.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              _formatDate(video.publishedAt!),
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
-            if (video.publishedAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                _formatDate(video.publishedAt!),
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ],
-            const SizedBox(height: 12),
-            // 유튜브 링크
-            OutlinedButton.icon(
-              onPressed: () => _openUrl(context, video.youtubeUrl),
-              icon: const Icon(Icons.play_circle_outline, color: Colors.red),
-              label: const Text('유튜브에서 보기'),
-            ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 12),
-            // 요약
-            const Text(
-              'AI 요약',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            if (video.hasSummary)
-              Text(
-                video.summary!,
-                style: const TextStyle(fontSize: 15, height: 1.6),
-              )
-            else
-              const Text('요약 내용이 없습니다.', style: TextStyle(color: Colors.grey)),
           ],
-        ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _showUrl(context, video.youtubeUrl),
+            icon: const Icon(Icons.play_circle_outline, color: Colors.red),
+            label: const Text('유튜브에서 보기'),
+          ),
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 12),
+          const Text(
+            '자막',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          if (_fetching)
+            const Row(
+              children: [
+                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                SizedBox(width: 12),
+                Text('YouTube에서 자막 수집 중...', style: TextStyle(color: Colors.grey)),
+              ],
+            )
+          else if (_errorMsg != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_errorMsg!, style: const TextStyle(color: Colors.orange)),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => _fetchFromYoutube(video),
+                  child: const Text('다시 시도'),
+                ),
+              ],
+            )
+          else if (video.hasTranscript)
+            Text(
+              video.transcriptText!,
+              style: const TextStyle(fontSize: 15, height: 1.6),
+            )
+          else
+            const Text('자막 내용이 없습니다.', style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
 
-  void _openUrl(BuildContext context, String url) {
-    debugPrint('[YoutubeVideoDetailScreen] _openUrl - url: $url');
-    // url_launcher 없이 스낵바로 URL 표시
+  void _showUrl(BuildContext context, String url) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(url),
-        action: SnackBarAction(label: '복사', onPressed: () {}),
-      ),
+      SnackBar(content: Text(url), action: SnackBarAction(label: '닫기', onPressed: () {})),
     );
   }
 

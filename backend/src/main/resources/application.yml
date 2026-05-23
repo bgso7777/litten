@@ -178,3 +178,6 @@ file:
   storage:
     base-path: ${FILE_STORAGE_PATH:/home/backend/litten/note/files}
     backup-path: ${FILE_BACKUP_PATH:/home/backend/litten/note/backups}
+
+youtube:
+  cookies-path: ${YOUTUBE_COOKIES_PATH:/home/backend/litten/youtube-cookies.txt}

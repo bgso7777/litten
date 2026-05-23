@@ -1018,4 +1018,26 @@ class ApiService {
       return null;
     }
   }
+
+  /// 클라이언트에서 수집한 자막을 서버에 저장
+  Future<bool> saveYoutubeTranscript({
+    required String token,
+    required String videoId,
+    required String transcript,
+  }) async {
+    debugPrint('[ApiService] saveYoutubeTranscript 진입 - videoId: $videoId, length: ${transcript.length}');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/youtube/videos/$videoId/transcript');
+      final response = await http.post(
+        url,
+        headers: _getHeaders(token: token),
+        body: jsonEncode({'transcript': transcript}),
+      ).timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] saveYoutubeTranscript - status: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] saveYoutubeTranscript - 오류: $e');
+      return false;
+    }
+  }
 }

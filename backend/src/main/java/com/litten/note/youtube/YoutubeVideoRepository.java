@@ -13,4 +13,6 @@ public interface YoutubeVideoRepository extends JpaRepository<YoutubeVideo, Long
     Optional<YoutubeVideo> findByVideoId(String videoId);
 
     Page<YoutubeVideo> findByChannelIdOrderByPublishedAtDesc(String channelId, Pageable pageable);
+
+    Page<YoutubeVideo> findByStatus(String status, Pageable pageable);
 }

@@ -23,4 +23,8 @@ public class YoutubeScheduler {
             log.error("[YoutubeScheduler] 폴링 중 오류 발생: {}", e.getMessage(), e);
         }
     }
+
+    // 자막 재시도 스케줄러 비활성화 — 자막은 클라이언트(앱)에서 수집
+    // @Scheduled(initialDelay = 120000, fixedDelay = 1800000)
+    // public void retryNoTranscriptVideos() { ... }
 }
