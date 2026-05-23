@@ -593,6 +593,7 @@ class _YoutubeVideoDetailScreenState extends State<YoutubeVideoDetailScreen> {
         transcriptText: transcript,
         summary: video.summary,
         status: 'done',
+        hasTranscript: true,
       );
       _fetching = false;
     });
@@ -681,7 +682,7 @@ class _YoutubeVideoDetailScreenState extends State<YoutubeVideoDetailScreen> {
                 ),
               ],
             )
-          else if (video.hasTranscript)
+          else if (video.transcriptText != null && video.transcriptText!.isNotEmpty)
             Text(
               video.transcriptText!,
               style: const TextStyle(fontSize: 15, height: 1.6),
