@@ -19,8 +19,8 @@ class YoutubeHttpTranscriptService {
   Future<String?> fetchTranscript(String videoId) async {
     debugPrint('[YoutubeHttp] fetchTranscript 진입 - videoId: $videoId');
     try {
-      // 0단계: ANDROID 클라이언트로 get_transcript (BotGuard 우회)
-      final androidResult = await _fetchViaAndroidClient(videoId);
+      // 0단계: ANDROID player API로 캡션 URL 획득 후 직접 fetch
+      final androidResult = await _fetchViaAndroidPlayer(videoId);
       if (androidResult != null) return androidResult;
 
       // 1단계: YouTube 페이지 HTML 가져오기
@@ -293,8 +293,77 @@ class YoutubeHttpTranscriptService {
     return result.length > 10 ? result : null;
   }
 
-  // ── ANDROID 클라이언트로 get_transcript (BotGuard 우회) ─────────────
-  // youtube-transcript-api 라이브러리와 동일한 방식
+  // ── ANDROID player API로 캡션 URL 획득 → 직접 fetch ───────────────
+  // watch 페이지 HTML의 captionTracks URL은 exp=xpe(POT필요)이지만
+  // ANDROID player API 응답의 URL은 다를 수 있음
+  Future<String?> _fetchViaAndroidPlayer(String videoId) async {
+    try {
+      debugPrint('[YoutubeHttp] ANDROID player API 시도 - videoId: $videoId');
+      final body = jsonEncode({
+        'context': {
+          'client': {
+            'clientName': 'ANDROID',
+            'clientVersion': '17.31.35',
+            'androidSdkVersion': 30,
+            'hl': 'ko',
+            'gl': 'KR',
+            'utcOffsetMinutes': 540,
+          }
+        },
+        'videoId': videoId,
+        'params': 'CgIQBg==', // 기본 player params
+      });
+
+      final resp = await http.post(
+        Uri.parse('https://www.youtube.com/youtubei/v1/player'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-YouTube-Client-Name': '3',
+          'X-YouTube-Client-Version': '17.31.35',
+          'User-Agent': 'com.google.android.youtube/17.31.35 (Linux; U; Android 11) gzip',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 15));
+
+      debugPrint('[YoutubeHttp] ANDROID player status=${resp.statusCode} len=${resp.body.length}');
+      if (resp.statusCode != 200) return null;
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tracks = _tracksFromPlayerResponse(data);
+      if (tracks == null || tracks.isEmpty) {
+        debugPrint('[YoutubeHttp] ANDROID player: captionTracks 없음');
+        return null;
+      }
+      debugPrint('[YoutubeHttp] ANDROID player: tracks=${tracks.length}개');
+
+      final track = _selectTrack(tracks);
+      if (track == null) return null;
+      final baseUrl = track['baseUrl'] as String? ?? '';
+      debugPrint('[YoutubeHttp] ANDROID player baseUrl preview=${baseUrl.substring(0, baseUrl.length.clamp(0, 100))}');
+
+      // ANDROID player API URL에서 exp=xpe 제거 후 시도
+      final simpleUrl = baseUrl.replaceAll(RegExp(r'[&?]exp=[^&]*'), '');
+      final r1 = await _fetchAndParseXml(simpleUrl);
+      if (r1 != null) return r1;
+
+      // json3 포맷 시도
+      final json3Url = simpleUrl.contains('fmt=')
+          ? simpleUrl.replaceAll(RegExp(r'fmt=[^&]*'), 'fmt=json3')
+          : '$simpleUrl&fmt=json3';
+      final r2 = await _fetchAndParseJson3(json3Url);
+      if (r2 != null) return r2;
+
+      // 원본 URL 시도
+      final r3 = await _fetchAndParseXml(baseUrl);
+      return r3;
+    } catch (e) {
+      debugPrint('[YoutubeHttp] ANDROID player 오류: $e');
+      return null;
+    }
+  }
+
+  // get_transcript (ANDROID) - 참고용으로 유지
   Future<String?> _fetchViaAndroidClient(String videoId) async {
     try {
       debugPrint('[YoutubeHttp] ANDROID client get_transcript 시도 - videoId: $videoId');
@@ -325,27 +394,19 @@ class YoutubeHttpTranscriptService {
         body: body,
       ).timeout(const Duration(seconds: 15));
 
-      debugPrint('[YoutubeHttp] ANDROID status=${resp.statusCode} len=${resp.body.length}');
-      if (resp.statusCode != 200) {
-        debugPrint('[YoutubeHttp] ANDROID 실패: ${resp.body.substring(0, resp.body.length.clamp(0, 200))}');
-        return null;
-      }
+      debugPrint('[YoutubeHttp] ANDROID get_transcript status=${resp.statusCode}');
+      if (resp.statusCode != 200) return null;
 
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final segs = <String>[];
       _findSegs(data, segs);
-      debugPrint('[YoutubeHttp] ANDROID segs=${segs.length}');
       if (segs.isEmpty) return null;
-
       final buf = StringBuffer();
-      for (final s in segs) {
-        buf.write('$s ');
-        if (buf.length >= 8000) break;
-      }
+      for (final s in segs) { buf.write('$s '); if (buf.length >= 8000) break; }
       final result = buf.toString().trim();
       return result.length > 10 ? result : null;
     } catch (e) {
-      debugPrint('[YoutubeHttp] ANDROID 오류: $e');
+      debugPrint('[YoutubeHttp] ANDROID get_transcript 오류: $e');
       return null;
     }
   }

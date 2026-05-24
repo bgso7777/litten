@@ -20,6 +20,7 @@ import 'youtube_video_detail_dialog.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/youtube_http_transcript_service.dart';
+import 'youtube_transcript_sheet.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
 import '../models/remind_item.dart';
@@ -337,13 +338,37 @@ class _AllFilesTabState extends State<AllFilesTab> {
           token: _youtubeToken!, videoId: video.videoId, transcript: transcript,
         );
       } else {
-        debugPrint('[AllFilesTab] 자막 수집 실패 - videoId: ${video.videoId}');
-        if (mounted) setState(() => _loadingYoutubeVideoDetails.remove(videoId));
+        debugPrint('[AllFilesTab] 자막 자동 수집 실패 → 수동 시트 표시 - videoId: ${video.videoId}');
+        if (mounted) {
+          setState(() => _loadingYoutubeVideoDetails.remove(videoId));
+          _showManualTranscriptSheet(video);
+        }
       }
     } catch (e) {
       debugPrint('[AllFilesTab] ❌ 영상 상세 로드 실패: $e');
       if (mounted) setState(() => _loadingYoutubeVideoDetails.remove(videoId));
     }
+  }
+
+  void _showManualTranscriptSheet(YoutubeVideo video) {
+    YoutubeTranscriptSheet.show(
+      context,
+      videoId: video.videoId,
+      videoTitle: video.title,
+      onTranscriptFound: (transcript) async {
+        debugPrint('[AllFilesTab] 수동 자막 수집 성공 - videoId: ${video.videoId}');
+        final syntheticVideo = YoutubeVideo(
+          id: video.id, channelId: video.channelId, videoId: video.videoId,
+          title: video.title, publishedAt: video.publishedAt,
+          transcriptText: transcript, summary: video.summary, status: 'done',
+          hasTranscript: true,
+        );
+        if (mounted) setState(() => _youtubeVideoDetailCache[video.id] = syntheticVideo);
+        _apiService.saveYoutubeTranscript(
+          token: _youtubeToken!, videoId: video.videoId, transcript: transcript,
+        );
+      },
+    );
   }
 
 
