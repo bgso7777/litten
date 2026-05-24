@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/youtube_channel.dart';
 import '../services/api_service.dart';
 import '../services/app_state_provider.dart';
+import '../services/youtube_transcript_service.dart';
+import '../services/youtube_webview_transcript_service.dart';
 import 'youtube_video_detail_dialog.dart';
 
 // ── 채널 구독 관리 시트 (탭 FAB + 스피드다이얼 공용) ─────────────────────────
@@ -756,6 +758,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
   final Map<int, YoutubeVideo> _videoDetailCache = {};
   final Set<int> _loadingVideoDetails = {};
+  final _transcriptService = YoutubeTranscriptService();
+  final _webViewTranscriptService = YoutubeWebViewTranscriptService();
   bool _loading = true;
   String? _token;
   String _lastTabId = '';
@@ -827,22 +831,53 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     }
   }
 
-  Future<void> _loadVideoDetail(int videoId) async {
+  Future<void> _loadVideoDetail(YoutubeVideo video) async {
+    final videoId = video.id;
     if (_loadingVideoDetails.contains(videoId)) return;
     setState(() => _loadingVideoDetails.add(videoId));
+    debugPrint('[YoutubeTab] _loadVideoDetail - videoId: $videoId, hasTranscript: ${video.hasTranscript}');
     try {
-      final detail = await _apiService.getYoutubeVideoDetail(
-        token: _token!,
-        videoId: videoId,
-      );
-      if (mounted) {
+      if (video.hasTranscript) {
+        // 서버 DB에 자막 있음 → 상세 조회
+        final detail = await _apiService.getYoutubeVideoDetail(token: _token!, videoId: videoId);
+        final storedText = detail?.transcriptText ?? '';
+        final isInvalidTranscript = storedText.startsWith('DIAG:') || storedText.startsWith('ERROR:');
+        if (detail != null && !isInvalidTranscript) {
+          if (mounted) setState(() {
+            _videoDetailCache[videoId] = detail;
+            _loadingVideoDetails.remove(videoId);
+          });
+          return;
+        }
+        debugPrint('[YoutubeTab] 잘못 저장된 자막 감지 - WebView 재수집: $storedText');
+        // hasTranscript=true지만 내용 무효 → 아래 WebView 재수집으로 계속
+      }
+
+      // 자막 없음 or 잘못된 자막 → WebView로 YouTube 자막 수집
+      debugPrint('[YoutubeTab] WebView 자막 수집 시작 - videoId: ${video.videoId}');
+      final transcript = await _webViewTranscriptService.fetchTranscript(context, video.videoId);
+      if (!mounted) return;
+      if (transcript != null && transcript.isNotEmpty) {
+        final syntheticVideo = YoutubeVideo(
+          id: video.id, channelId: video.channelId, videoId: video.videoId,
+          title: video.title, publishedAt: video.publishedAt,
+          transcriptText: transcript, summary: video.summary, status: 'done',
+          hasTranscript: true,
+        );
         setState(() {
-          if (detail != null) _videoDetailCache[videoId] = detail;
+          _videoDetailCache[videoId] = syntheticVideo;
           _loadingVideoDetails.remove(videoId);
         });
+        debugPrint('[YoutubeTab] 자막 수집 성공 - videoId: ${video.videoId}');
+        _apiService.saveYoutubeTranscript(
+          token: _token!, videoId: video.videoId, transcript: transcript,
+        );
+      } else {
+        debugPrint('[YoutubeTab] 자막 수집 실패 - videoId: ${video.videoId}');
+        if (mounted) setState(() => _loadingVideoDetails.remove(videoId));
       }
     } catch (e) {
-      debugPrint('❌ 영상 상세 로드 실패: $e');
+      debugPrint('[YoutubeTab] ❌ 영상 상세 로드 실패: $e');
       if (mounted) setState(() => _loadingVideoDetails.remove(videoId));
     }
   }
@@ -1164,7 +1199,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   void _showVideoDetailDialog(YoutubeVideo video, YoutubeChannel ch) {
     if (_token == null) return;
     if (!_videoDetailCache.containsKey(video.id)) {
-      _loadVideoDetail(video.id);
+      _loadVideoDetail(video);
     }
     showModalBottomSheet(
       context: context,

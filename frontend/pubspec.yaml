@@ -68,6 +68,7 @@ dependencies:
   # Network & HTTP
   http: ^1.1.2
   webview_flutter: ^4.9.0
+  webview_flutter_android: ^4.11.0
   url_launcher: ^6.2.2
 
   # Ads

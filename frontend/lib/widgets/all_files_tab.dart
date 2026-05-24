@@ -17,6 +17,9 @@ import 'text_tab.dart';
 import 'handwriting_tab.dart';
 import 'syncfusion_pdf_editor.dart';
 import 'youtube_video_detail_dialog.dart';
+import '../services/youtube_transcript_service.dart';
+import '../services/youtube_webview_transcript_service.dart';
+import '../services/youtube_http_transcript_service.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
 import '../models/remind_item.dart';
@@ -68,6 +71,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
   final Map<int, YoutubeVideo> _youtubeVideoDetailCache = {};
   final Set<int> _loadingYoutubeVideoDetails = {};
+  final _transcriptService = YoutubeTranscriptService();
+  final _webViewTranscriptService = YoutubeWebViewTranscriptService();
+  final _httpTranscriptService = YoutubeHttpTranscriptService();
   String? _youtubeToken;
   final _apiService = ApiService();
   bool _loading = false;
@@ -285,22 +291,57 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
-  Future<void> _loadYoutubeVideoDetail(int videoId) async {
+  Future<void> _loadYoutubeVideoDetail(YoutubeVideo video) async {
+    final videoId = video.id;
     if (_loadingYoutubeVideoDetails.contains(videoId)) return;
     setState(() => _loadingYoutubeVideoDetails.add(videoId));
+    debugPrint('[AllFilesTab] _loadYoutubeVideoDetail - videoId: $videoId, hasTranscript: ${video.hasTranscript}');
     try {
-      final detail = await _apiService.getYoutubeVideoDetail(
-        token: _youtubeToken!,
-        videoId: videoId,
-      );
-      if (mounted) {
+      if (video.hasTranscript) {
+        // 서버 DB에 자막 있음 → 상세 조회
+        final detail = await _apiService.getYoutubeVideoDetail(token: _youtubeToken!, videoId: videoId);
+        final storedText = detail?.transcriptText ?? '';
+        final isInvalidTranscript = storedText.startsWith('DIAG:') || storedText.startsWith('ERROR:');
+        if (detail != null && !isInvalidTranscript) {
+          if (mounted) setState(() {
+            _youtubeVideoDetailCache[videoId] = detail;
+            _loadingYoutubeVideoDetails.remove(videoId);
+          });
+          return;
+        }
+        debugPrint('[AllFilesTab] 잘못 저장된 자막 감지 - WebView 재수집: $storedText');
+        // hasTranscript=true지만 내용 무효 → 아래 WebView 재수집으로 계속
+      }
+
+      // 자막 없음 or 잘못된 자막 → HTTP 직접 요청 먼저, 실패 시 WebView 폴백
+      debugPrint('[AllFilesTab] HTTP 자막 수집 시작 - videoId: ${video.videoId}');
+      String? transcript = await _httpTranscriptService.fetchTranscript(video.videoId);
+      if (transcript == null || transcript.isEmpty) {
+        debugPrint('[AllFilesTab] HTTP 실패 → WebView 폴백 - videoId: ${video.videoId}');
+        transcript = await _webViewTranscriptService.fetchTranscript(context, video.videoId);
+      }
+      if (!mounted) return;
+      if (transcript != null && transcript.isNotEmpty) {
+        final syntheticVideo = YoutubeVideo(
+          id: video.id, channelId: video.channelId, videoId: video.videoId,
+          title: video.title, publishedAt: video.publishedAt,
+          transcriptText: transcript, summary: video.summary, status: 'done',
+          hasTranscript: true,
+        );
         setState(() {
-          if (detail != null) _youtubeVideoDetailCache[videoId] = detail;
+          _youtubeVideoDetailCache[videoId] = syntheticVideo;
           _loadingYoutubeVideoDetails.remove(videoId);
         });
+        debugPrint('[AllFilesTab] 자막 수집 성공 - videoId: ${video.videoId}');
+        _apiService.saveYoutubeTranscript(
+          token: _youtubeToken!, videoId: video.videoId, transcript: transcript,
+        );
+      } else {
+        debugPrint('[AllFilesTab] 자막 수집 실패 - videoId: ${video.videoId}');
+        if (mounted) setState(() => _loadingYoutubeVideoDetails.remove(videoId));
       }
     } catch (e) {
-      debugPrint('❌ 영상 상세 로드 실패: $e');
+      debugPrint('[AllFilesTab] ❌ 영상 상세 로드 실패: $e');
       if (mounted) setState(() => _loadingYoutubeVideoDetails.remove(videoId));
     }
   }
@@ -408,7 +449,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (_youtubeToken == null) return;
     // 캐시에 없으면 lazy 로드
     if (!_youtubeVideoDetailCache.containsKey(video.id)) {
-      _loadYoutubeVideoDetail(video.id);
+      _loadYoutubeVideoDetail(video);
     }
     showModalBottomSheet(
       context: context,
