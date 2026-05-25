@@ -17,6 +17,7 @@ import 'text_tab.dart';
 import 'handwriting_tab.dart';
 import 'syncfusion_pdf_editor.dart';
 import 'youtube_video_detail_dialog.dart';
+import 'youtube_video_player_sheet.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/youtube_http_transcript_service.dart';
@@ -450,8 +451,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
             ? Colors.orange
             : Colors.blue;
     return InkWell(
-      // ⭐ 흐릿하든 아니든 항상 클릭 가능 — 팝업으로 상세 내용 표시
-      onTap: () => _showVideoDetailDialog(video, ch),
+      onTap: () => showYoutubeVideoPlayerSheet(
+        context: context,
+        video: video,
+        channel: ch,
+        token: _youtubeToken,
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(56, 7, 12, 7),
         child: Row(

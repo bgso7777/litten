@@ -9,6 +9,7 @@ import '../services/app_state_provider.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import 'youtube_video_detail_dialog.dart';
+import 'youtube_video_player_sheet.dart';
 
 // ── 채널 구독 관리 시트 (탭 FAB + 스피드다이얼 공용) ─────────────────────────
 
@@ -1161,8 +1162,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
             : Colors.blue;
 
     return InkWell(
-      // ⭐ 흐릿한 항목도 클릭 가능 — 팝업으로 상세 내용/안내 표시
-      onTap: () => _showVideoDetailDialog(video, ch),
+      // ⭐ 흐릿한 항목도 클릭 가능 — YouTube 플레이어 시트 표시
+      onTap: () => _showVideoPlayerSheet(video, ch),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(56, 7, 12, 7),
         child: Row(
@@ -1192,6 +1193,16 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
           ],
         ),
       ),
+    );
+  }
+
+  /// YouTube IFrame 임베드 + 요약 버튼 시트
+  void _showVideoPlayerSheet(YoutubeVideo video, YoutubeChannel ch) {
+    showYoutubeVideoPlayerSheet(
+      context: context,
+      video: video,
+      channel: ch,
+      token: _token,
     );
   }
 
