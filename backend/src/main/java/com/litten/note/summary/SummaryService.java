@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.litten.common.config.ApiKeyProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,13 +26,11 @@ public class SummaryService {
     private String aiProvider;
 
     private final OpenAiSummaryService openAiSummaryService;
+    private final ApiKeyProperties apiKeyProperties;
 
     // ── Claude 전용 필드 (ai.provider=claude 일 때 사용) ──────────────
     private static final String CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
-
-    @Value("${claude.api.key:}")
-    private String apiKey;
 
     @Value("${claude.api.model:claude-haiku-4-5-20251001}")
     private String model;
@@ -56,6 +55,7 @@ public class SummaryService {
         // provider=claude (기본 유지)
         log.info("[SummaryService] Claude로 요약 처리");
 
+        String apiKey = apiKeyProperties.getClaudeKey();
         if (apiKey == null || apiKey.isBlank()) {
             log.error("[SummaryService] Claude API 키가 설정되지 않음");
             return SummaryResponseVo.fail("Claude API 키가 설정되지 않았습니다. 서버 환경변수 CLAUDE_API_KEY를 확인하세요.");

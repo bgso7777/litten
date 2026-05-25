@@ -205,15 +205,15 @@ public class YoutubeController {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        log.info("[YoutubeController] yt-dlp 자막 추출 요청 - videoId: {}", videoId);
-        String transcript = youtubeService.extractTranscriptViaYtDlp(videoId);
+        log.info("[YoutubeController] 자막 추출 요청 (yt-dlp/Supadata 라운드로빈) - videoId: {}", videoId);
+        String transcript = youtubeService.extractTranscriptAuto(videoId);
         if (transcript == null || transcript.isBlank()) {
-            log.warn("[YoutubeController] yt-dlp 자막 추출 실패 - videoId: {}", videoId);
+            log.warn("[YoutubeController] 자막 추출 실패 (yt-dlp + Supadata 모두 실패) - videoId: {}", videoId);
             return badRequest("자막을 가져올 수 없습니다.");
         }
 
         youtubeService.saveTranscript(videoId, transcript);
-        log.info("[YoutubeController] yt-dlp 자막 추출 성공 및 저장 - videoId: {}, length: {}", videoId, transcript.length());
+        log.info("[YoutubeController] 자막 추출 성공 및 저장 - videoId: {}, length: {}", videoId, transcript.length());
         return ok(Map.of("transcript", transcript));
     }
 

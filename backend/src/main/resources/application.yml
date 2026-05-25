@@ -181,3 +181,8 @@ file:
 
 youtube:
   cookies-path: ${YOUTUBE_COOKIES_PATH:/home/backend/litten/youtube-cookies.txt}
+  ytdlp-enabled: ${YOUTUBE_YTDLP_ENABLED:true}
+
+supadata:
+  api-key: ${SUPADATA_API_KEY:}
+  only: ${SUPADATA_ONLY:false}

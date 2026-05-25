@@ -1,5 +1,8 @@
 package com.litten.note.youtube;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.litten.common.config.ApiKeyProperties;
 import com.litten.note.summary.SummaryRequestVo;
 import com.litten.note.summary.SummaryResponseVo;
 import com.litten.note.summary.SummaryService;
@@ -35,9 +38,22 @@ public class YoutubeService {
     private static final String RSS_BASE_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=";
     private static final int TRANSCRIPT_TIMEOUT_SECONDS = 60;
     private static final int MAX_TRANSCRIPT_CHARS = 8000;
+    private static final String SUPADATA_TRANSCRIPT_URL = "https://api.supadata.ai/v1/youtube/transcript";
 
     @Value("${youtube.cookies-path:}")
     private String cookiesPath;
+
+    @Value("${youtube.ytdlp-enabled:true}")
+    private boolean ytdlpEnabled;
+
+    @Value("${supadata.only:false}")
+    private boolean supadataOnly;
+
+    private final ApiKeyProperties apiKeyProperties;
+    private final ObjectMapper objectMapper;
+
+    // 1:1 번갈아 호출하기 위한 카운터 (짝수=yt-dlp 먼저, 홀수=Supadata 먼저)
+    private final java.util.concurrent.atomic.AtomicInteger transcriptRequestCounter = new java.util.concurrent.atomic.AtomicInteger(0);
 
     private final YoutubeChannelRepository channelRepository;
     private final YoutubeVideoRepository videoRepository;
@@ -450,6 +466,94 @@ public class YoutubeService {
         }
     }
 
+    // ── 자막 추출 오케스트레이션 (yt-dlp : Supadata = 1:1 라운드로빈) ─────────────
+    // supadataOnly=true 이면 Supadata 전용. 평시엔 번갈아 호출하여 yt-dlp 응답 지연 시 즉시 감지 가능.
+
+    public String extractTranscriptAuto(String videoId) {
+        // yt-dlp 비활성화 또는 Supadata 전용 모드
+        if (!ytdlpEnabled || supadataOnly) {
+            log.info("[YoutubeService] Supadata 전용 모드 (ytdlpEnabled={}, supadataOnly={}) - videoId: {}", ytdlpEnabled, supadataOnly, videoId);
+            String result = extractTranscriptViaSupadata(videoId);
+            if (result != null && !result.isBlank()) return result;
+            if (ytdlpEnabled) {
+                log.warn("[YoutubeService] Supadata 실패 → yt-dlp 폴백 - videoId: {}", videoId);
+                return extractTranscriptViaYtDlp(videoId);
+            }
+            return null;
+        }
+
+        // 1:1 라운드로빈 (짝수=yt-dlp 먼저, 홀수=Supadata 먼저)
+        int count = transcriptRequestCounter.getAndIncrement();
+        boolean ytDlpFirst = (count % 2) == 0;
+        log.info("[YoutubeService] 자막 추출 라운드로빈 - videoId: {}, count: {}, ytDlpFirst: {}", videoId, count, ytDlpFirst);
+
+        if (ytDlpFirst) {
+            String result = extractTranscriptViaYtDlp(videoId);
+            if (result != null && !result.isBlank()) return result;
+            log.info("[YoutubeService] yt-dlp 실패 → Supadata 폴백 - videoId: {}", videoId);
+            return extractTranscriptViaSupadata(videoId);
+        } else {
+            String result = extractTranscriptViaSupadata(videoId);
+            if (result != null && !result.isBlank()) return result;
+            log.info("[YoutubeService] Supadata 실패 → yt-dlp 폴백 - videoId: {}", videoId);
+            return extractTranscriptViaYtDlp(videoId);
+        }
+    }
+
+    // ── Supadata API 자막 추출 ────────────────────────────────────────────────
+
+    public String extractTranscriptViaSupadata(String videoId) {
+        String supadataApiKey = apiKeyProperties.getSupadataKey();
+        if (supadataApiKey == null || supadataApiKey.isBlank()) {
+            log.warn("[YoutubeService] Supadata API 키 미설정 - videoId: {}", videoId);
+            return null;
+        }
+        log.info("[YoutubeService] extractTranscriptViaSupadata 진입 - videoId: {}", videoId);
+        try {
+            String urlStr = SUPADATA_TRANSCRIPT_URL + "?videoId=" + videoId + "&lang=ko&text=true";
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("x-api-key", supadataApiKey);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+
+            int status = conn.getResponseCode();
+            log.info("[YoutubeService] Supadata 응답 - videoId: {}, status: {}", videoId, status);
+
+            if (status != 200) {
+                log.warn("[YoutubeService] Supadata 실패 - videoId: {}, status: {}", videoId, status);
+                return null;
+            }
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                String body = sb.toString();
+                // {"content":"자막 텍스트","lang":"ko","availableLangs":["ko"]}
+                // ObjectMapper로 파싱 (regex 사용 시 긴 텍스트에서 StackOverflowError 발생)
+                try {
+                    Map<String, Object> parsed = objectMapper.readValue(body, new TypeReference<Map<String, Object>>() {});
+                    Object contentObj = parsed.get("content");
+                    if (contentObj != null) {
+                        String text = contentObj.toString().trim();
+                        text = unescapeUnicode(text);
+                        if (!text.isBlank()) {
+                            log.info("[YoutubeService] Supadata 자막 성공 - videoId: {}, length: {}", videoId, text.length());
+                            return text.length() > MAX_TRANSCRIPT_CHARS ? text.substring(0, MAX_TRANSCRIPT_CHARS) : text;
+                        }
+                    }
+                } catch (Exception parseEx) {
+                    log.warn("[YoutubeService] Supadata 응답 JSON 파싱 실패 - videoId: {}, error: {}", videoId, parseEx.getMessage());
+                }
+                log.warn("[YoutubeService] Supadata 자막 파싱 실패 - videoId: {}, body: {}", videoId, body.substring(0, Math.min(200, body.length())));
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("[YoutubeService] Supadata 오류 - videoId: {}, error: {}", videoId, e.getMessage());
+            return null;
+        }
+    }
+
     // ── yt-dlp 기반 자막 추출 (신규) ─────────────────────────────────────────
     // downsub.com도 내부적으로 yt-dlp 사용. yt-dlp는 PoToken을 자체 처리하여 YouTube 차단 우회.
 
@@ -611,11 +715,27 @@ public class YoutubeService {
         while (m.find() && sb.length() < MAX_TRANSCRIPT_CHARS) {
             String text = m.group(1)
                     .replace("\\n", " ").replace("\\\"", "\"").replace("\\\\", "\\").trim();
+            text = unescapeUnicode(text);
             if (!text.isEmpty() && !text.equals("\\n")) {
                 sb.append(text).append(" ");
             }
         }
         return sb.toString().trim();
+    }
+
+    private String unescapeUnicode(String s) {
+        // Unicode escape 변환 (예: > → >)
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\\\\u([0-9a-fA-F]{4})")
+                .matcher(s);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            char ch = (char) Integer.parseInt(m.group(1), 16);
+            // appendReplacement에서 $와 \가 특수문자로 처리되므로 quoteReplacement 사용
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(String.valueOf(ch)));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private void cleanupYtDlpTempFiles(String videoId) {

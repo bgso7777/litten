@@ -330,11 +330,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
         }
       }
 
-      // 3단계: WebView 폴백
-      if (transcript == null || transcript.isEmpty) {
-        debugPrint('[AllFilesTab] yt-dlp 실패 → WebView 폴백 - videoId: ${video.videoId}');
-        transcript = await _webViewTranscriptService.fetchTranscript(context, video.videoId);
-      }
+      // 3단계: WebView 폴백 (일시 비활성화)
+      // if (transcript == null || transcript.isEmpty) {
+      //   debugPrint('[AllFilesTab] yt-dlp 실패 → WebView 폴백 - videoId: ${video.videoId}');
+      //   transcript = await _webViewTranscriptService.fetchTranscript(context, video.videoId);
+      // }
 
       if (!mounted) return;
       if (transcript != null && transcript.isNotEmpty) {
@@ -353,10 +353,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
           token: _youtubeToken!, videoId: video.videoId, transcript: transcript,
         );
       } else {
-        debugPrint('[AllFilesTab] 자막 자동 수집 실패 → 수동 시트 표시 - videoId: ${video.videoId}');
+        debugPrint('[AllFilesTab] 자막 자동 수집 실패 - videoId: ${video.videoId}');
         if (mounted) {
           setState(() => _loadingYoutubeVideoDetails.remove(videoId));
-          _showManualTranscriptSheet(video);
+          // _showManualTranscriptSheet(video); // 수동 WebView 시트 비활성화
         }
       }
     } catch (e) {

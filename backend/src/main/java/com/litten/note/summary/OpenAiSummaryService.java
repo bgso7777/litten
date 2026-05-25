@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.litten.common.config.ApiKeyProperties;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -20,8 +22,8 @@ public class OpenAiSummaryService {
 
     private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-    @Value("${openai.api.key:}")
-    private String apiKey;
+    @Autowired
+    private ApiKeyProperties apiKeyProperties;
 
     @Value("${openai.api.model:gpt-4o-mini}")
     private String model;
@@ -42,6 +44,7 @@ public class OpenAiSummaryService {
     public SummaryResponseVo summarize(SummaryRequestVo request) {
         log.debug("[OpenAiSummaryService] summarize() 진입 - fileId: {}", request.getFileId());
 
+        String apiKey = apiKeyProperties.getOpenaiKey();
         if (apiKey == null || apiKey.isBlank()) {
             log.error("[OpenAiSummaryService] OpenAI API 키가 설정되지 않음");
             return SummaryResponseVo.fail("OpenAI API 키가 설정되지 않았습니다. 서버 환경변수 OPENAI_API_KEY를 확인하세요.");

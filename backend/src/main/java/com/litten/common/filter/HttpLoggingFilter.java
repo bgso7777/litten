@@ -224,7 +224,7 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
         try {
             return OBJECT_MAPPER.readValue(jsonBody,new TypeReference<Map<String,Object>>() {});
         }catch(Exception e1) {
-            log.error("convToMap",e1);
+            log.debug("[HttpLoggingFilter] convToMap 파싱 실패 (body가 잘렸을 수 있음): {}", e1.getMessage());
         }
         return null;
     }
