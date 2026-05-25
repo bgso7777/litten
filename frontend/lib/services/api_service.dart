@@ -1040,4 +1040,34 @@ class ApiService {
       return false;
     }
   }
+
+  /// 백엔드 yt-dlp로 YouTube 자막 추출 (신규)
+  /// downsub.com과 동일한 방식 — yt-dlp가 PoToken 자체 처리
+  Future<String?> extractYoutubeTranscriptViaYtDlp({
+    required String token,
+    required String videoId,
+  }) async {
+    debugPrint('[ApiService] extractYoutubeTranscriptViaYtDlp 진입 - videoId: $videoId');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/youtube/videos/$videoId/transcript-ytdlp');
+      final response = await http.post(
+        url,
+        headers: _getHeaders(token: token),
+      ).timeout(const Duration(seconds: 90)); // yt-dlp는 시간이 더 필요
+      debugPrint('[ApiService] extractYoutubeTranscriptViaYtDlp - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['transcript'] != null) {
+          final transcript = data['transcript'] as String;
+          debugPrint('[ApiService] extractYoutubeTranscriptViaYtDlp - 성공, length: ${transcript.length}');
+          return transcript;
+        }
+      }
+      debugPrint('[ApiService] extractYoutubeTranscriptViaYtDlp - 실패: ${response.body}');
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] extractYoutubeTranscriptViaYtDlp - 오류: $e');
+      return null;
+    }
+  }
 }

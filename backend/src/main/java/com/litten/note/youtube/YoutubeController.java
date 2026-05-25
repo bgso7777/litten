@@ -197,6 +197,26 @@ public class YoutubeController {
         return ok(Map.of("message", "자막 저장 완료"));
     }
 
+    // ── yt-dlp 자막 추출 (신규) ────────────────────────────────────────────────
+
+    @PostMapping("/note/v1/youtube/videos/{videoId}/transcript-ytdlp")
+    public ResponseEntity<Map<String, Object>> extractTranscriptYtDlp(@PathVariable String videoId) {
+        log.debug("[YoutubeController] POST /note/v1/youtube/videos/{}/transcript-ytdlp 진입", videoId);
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+
+        log.info("[YoutubeController] yt-dlp 자막 추출 요청 - videoId: {}", videoId);
+        String transcript = youtubeService.extractTranscriptViaYtDlp(videoId);
+        if (transcript == null || transcript.isBlank()) {
+            log.warn("[YoutubeController] yt-dlp 자막 추출 실패 - videoId: {}", videoId);
+            return badRequest("자막을 가져올 수 없습니다.");
+        }
+
+        youtubeService.saveTranscript(videoId, transcript);
+        log.info("[YoutubeController] yt-dlp 자막 추출 성공 및 저장 - videoId: {}, length: {}", videoId, transcript.length());
+        return ok(Map.of("transcript", transcript));
+    }
+
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────
 
     private ResponseEntity<Map<String, Object>> ok(Map<String, Object> data) {

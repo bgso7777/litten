@@ -314,13 +314,28 @@ class _AllFilesTabState extends State<AllFilesTab> {
         // hasTranscript=true지만 내용 무효 → 아래 WebView 재수집으로 계속
       }
 
-      // 자막 없음 or 잘못된 자막 → HTTP 직접 요청 먼저, 실패 시 WebView 폴백
+      // 자막 없음 or 잘못된 자막 → 3단계 순차 시도
+      // 1단계: 프론트 직접 HTTP
       debugPrint('[AllFilesTab] HTTP 자막 수집 시작 - videoId: ${video.videoId}');
       String? transcript = await _httpTranscriptService.fetchTranscript(video.videoId);
+
+      // 2단계: 백엔드 yt-dlp (downsub.com과 동일 기술, PoToken 자체 처리)
+      if ((transcript == null || transcript.isEmpty) && _youtubeToken != null) {
+        debugPrint('[AllFilesTab] HTTP 실패 → 백엔드 yt-dlp 시도 - videoId: ${video.videoId}');
+        transcript = await _apiService.extractYoutubeTranscriptViaYtDlp(
+          token: _youtubeToken!, videoId: video.videoId,
+        );
+        if (transcript != null && transcript.isNotEmpty) {
+          debugPrint('[AllFilesTab] yt-dlp 자막 수집 성공 - videoId: ${video.videoId}');
+        }
+      }
+
+      // 3단계: WebView 폴백
       if (transcript == null || transcript.isEmpty) {
-        debugPrint('[AllFilesTab] HTTP 실패 → WebView 폴백 - videoId: ${video.videoId}');
+        debugPrint('[AllFilesTab] yt-dlp 실패 → WebView 폴백 - videoId: ${video.videoId}');
         transcript = await _webViewTranscriptService.fetchTranscript(context, video.videoId);
       }
+
       if (!mounted) return;
       if (transcript != null && transcript.isNotEmpty) {
         final syntheticVideo = YoutubeVideo(

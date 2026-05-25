@@ -450,6 +450,189 @@ public class YoutubeService {
         }
     }
 
+    // ── yt-dlp 기반 자막 추출 (신규) ─────────────────────────────────────────
+    // downsub.com도 내부적으로 yt-dlp 사용. yt-dlp는 PoToken을 자체 처리하여 YouTube 차단 우회.
+
+    public String extractTranscriptViaYtDlp(String videoId) {
+        log.info("[YoutubeService] extractTranscriptViaYtDlp 진입 - videoId: {}", videoId);
+
+        String tmpDir = System.getProperty("java.io.tmpdir");
+        String prefix = tmpDir + "/ytdlp_" + videoId;
+        String videoUrl = "https://www.youtube.com/watch?v=" + videoId;
+
+        List<String> cmd = new ArrayList<>(List.of(
+            "yt-dlp",
+            "--skip-download",
+            "--write-auto-sub",
+            "--write-sub",
+            "--sub-langs", "ko.*,en.*,ja.*,zh-Hans.*,zh-Hant.*",
+            "--sub-format", "json3/vtt/ttml",
+            "--no-playlist",
+            "--no-warnings",
+            "-q",
+            "-o", prefix
+        ));
+        // 쿠키 파일이 있으면 로그인된 사용자처럼 인식 → IP 차단 우회 효과
+        if (cookiesPath != null && !cookiesPath.isBlank()) {
+            java.io.File cookieFile = new java.io.File(cookiesPath);
+            if (cookieFile.exists()) {
+                cmd.add("--cookies");
+                cmd.add(cookiesPath);
+                log.info("[YoutubeService] yt-dlp 쿠키 사용 - path: {}", cookiesPath);
+            } else {
+                log.warn("[YoutubeService] yt-dlp 쿠키 파일 없음 - path: {}", cookiesPath);
+            }
+        }
+        cmd.add(videoUrl);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.redirectErrorStream(false);
+
+        Process process = null;
+        try {
+            log.info("[YoutubeService] yt-dlp subprocess 시작 - videoId: {}", videoId);
+            process = pb.start();
+
+            // stderr 읽기 (비동기)
+            StringBuilder stderr = new StringBuilder();
+            final Process fp = process;
+            Thread stderrThread = new Thread(() -> {
+                try (BufferedReader er = new BufferedReader(new InputStreamReader(fp.getErrorStream()))) {
+                    String line;
+                    while ((line = er.readLine()) != null && stderr.length() < 2048) {
+                        stderr.append(line).append("\n");
+                    }
+                } catch (Exception ignored) {}
+            });
+            stderrThread.setDaemon(true);
+            stderrThread.start();
+
+            boolean finished = process.waitFor(TRANSCRIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                log.error("[YoutubeService] yt-dlp 타임아웃({}s) - videoId: {}", TRANSCRIPT_TIMEOUT_SECONDS, videoId);
+                return null;
+            }
+
+            int exitCode = process.exitValue();
+            stderrThread.join(2000);
+            log.info("[YoutubeService] yt-dlp 종료 - videoId: {}, exitCode: {}, stderr: {}",
+                    videoId, exitCode, stderr.length() > 0 ? stderr.substring(0, Math.min(200, stderr.length())) : "(없음)");
+
+            if (exitCode != 0 && stderr.length() > 0) {
+                log.warn("[YoutubeService] yt-dlp 오류 - videoId: {}, stderr: {}", videoId, stderr);
+            }
+
+            String transcript = readYtDlpSubtitleFile(prefix, videoId);
+            if (transcript != null && !transcript.isBlank()) {
+                log.info("[YoutubeService] yt-dlp 자막 추출 성공 - videoId: {}, length: {}", videoId, transcript.length());
+                return transcript;
+            }
+
+            log.warn("[YoutubeService] yt-dlp 자막 파일 없음 - videoId: {}", videoId);
+            return null;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (process != null && process.isAlive()) process.destroyForcibly();
+            log.error("[YoutubeService] yt-dlp 인터럽트 - videoId: {}", videoId);
+            return null;
+        } catch (Exception e) {
+            if (process != null && process.isAlive()) process.destroyForcibly();
+            log.error("[YoutubeService] yt-dlp 오류 - videoId: {}, error: {}", videoId, e.getMessage());
+            return null;
+        } finally {
+            cleanupYtDlpTempFiles(videoId);
+        }
+    }
+
+    private String readYtDlpSubtitleFile(String prefix, String videoId) {
+        String[] langs = {"ko", "ko-KR", "ko-Latn", "en", "en-US", "ja", "zh-Hans", "zh-Hant"};
+        String[] exts  = {"json3", "vtt", "ttml"};
+        for (String lang : langs) {
+            for (String ext : exts) {
+                java.io.File f = new java.io.File(prefix + "." + lang + "." + ext);
+                if (!f.exists()) continue;
+                try {
+                    String content = java.nio.file.Files.readString(f.toPath());
+                    String text = "json3".equals(ext) ? parseJson3Subtitle(content) : parseVttSubtitle(content);
+                    if (text != null && !text.isBlank()) {
+                        log.info("[YoutubeService] 자막 파일 읽기 성공 - lang: {}, ext: {}, length: {}", lang, ext, text.length());
+                        return text.length() > MAX_TRANSCRIPT_CHARS ? text.substring(0, MAX_TRANSCRIPT_CHARS) : text;
+                    }
+                } catch (Exception e) {
+                    log.warn("[YoutubeService] 자막 파일 읽기 실패 - lang: {}, ext: {}, error: {}", lang, ext, e.getMessage());
+                }
+            }
+        }
+        // 언어 코드 매칭 실패 시 glob 탐색 (json3, vtt 모두)
+        java.io.File tmpDirFile = new java.io.File(System.getProperty("java.io.tmpdir"));
+        java.io.File[] files = tmpDirFile.listFiles((dir, name) ->
+                name.startsWith("ytdlp_" + videoId) && (name.endsWith(".json3") || name.endsWith(".vtt")));
+        if (files != null) {
+            for (java.io.File f : files) {
+                try {
+                    String content = java.nio.file.Files.readString(f.toPath());
+                    String text = f.getName().endsWith(".json3") ? parseJson3Subtitle(content) : parseVttSubtitle(content);
+                    if (text != null && !text.isBlank()) {
+                        log.info("[YoutubeService] 자막 파일(fallback) 읽기 성공 - file: {}", f.getName());
+                        return text.length() > MAX_TRANSCRIPT_CHARS ? text.substring(0, MAX_TRANSCRIPT_CHARS) : text;
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private String parseVttSubtitle(String vttContent) {
+        // VTT: WEBVTT 헤더, 타임스탬프 라인(-->), 텍스트 순서
+        StringBuilder sb = new StringBuilder();
+        for (String line : vttContent.split("\n")) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("WEBVTT") || line.contains("-->")
+                    || line.startsWith("NOTE") || line.startsWith("STYLE")
+                    || line.matches("\\d+") || line.startsWith("align:") || line.startsWith("position:")) {
+                continue;
+            }
+            // HTML 태그 제거 (<c>, <b>, <i>, 타임스탬프 태그 등)
+            line = line.replaceAll("<[^>]+>", "").trim();
+            if (!line.isEmpty()) {
+                sb.append(line).append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private String parseJson3Subtitle(String json3Content) {
+        // json3: {"events":[{"segs":[{"utf8":"text"}],"tStartMs":0,"dDurationMs":3000},...]}
+        StringBuilder sb = new StringBuilder();
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\"utf8\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+                .matcher(json3Content);
+        while (m.find() && sb.length() < MAX_TRANSCRIPT_CHARS) {
+            String text = m.group(1)
+                    .replace("\\n", " ").replace("\\\"", "\"").replace("\\\\", "\\").trim();
+            if (!text.isEmpty() && !text.equals("\\n")) {
+                sb.append(text).append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private void cleanupYtDlpTempFiles(String videoId) {
+        try {
+            java.io.File tmpDirFile = new java.io.File(System.getProperty("java.io.tmpdir"));
+            java.io.File[] files = tmpDirFile.listFiles((dir, name) -> name.startsWith("ytdlp_" + videoId));
+            if (files != null) {
+                for (java.io.File f : files) {
+                    f.delete();
+                    log.debug("[YoutubeService] 임시파일 삭제 - {}", f.getName());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[YoutubeService] 임시파일 정리 실패 - videoId: {}", videoId);
+        }
+    }
+
     // ── no_transcript 재시도 — 스케줄러에서 호출 ─────────────────────────────
 
     private static final int RETRY_BATCH_SIZE = 20;
