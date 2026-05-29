@@ -804,10 +804,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
               final l10n = AppLocalizations.of(ctx);
               return Text(
                 widget.showOnlySTT
-                    ? (l10n?.noVoiceMemos ?? '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.')
+                    ? (l10n?.noVoiceMemos ?? '녹음 메모가 없습니다.\n아래 버튼으로 시작하세요.')
                     : widget.showOnlyAttachments
                         ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
-                        : (l10n?.noFilesPrompt ?? '파일이 없습니다.\n아래 버튼으로 추가하세요.'),
+                        : (l10n?.noFilesPrompt ?? '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500]),
               );
@@ -1221,7 +1221,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     Text(
                       file.title.isNotEmpty
                           ? file.title
-                          : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+                          : '${AppLocalizations.of(context)?.memoLabel ?? '메모'} ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2484,7 +2484,26 @@ class _BottomFabRowState extends State<_BottomFabRow> {
 
     final dialItems = <Widget>[];
     final l10n = AppLocalizations.of(context);
-    // ⭐ 순서: 필기 → 메모 → 녹음 → 파일 → 음성메모
+    // ⭐ 순서(위→아래): 영상 → 파일 → 필기 → 음성 메모 → 녹음 → 메모
+    if (fabVis.contains('youtube') && widget.onYoutube != null) {
+      dialItems.addAll([
+        _SpeedDialItem(
+          label: '영상',
+          customChild: YoutubeSpeedDialIcon(),
+          color: color,
+          onTap: () => _handleAction(widget.onYoutube!),
+        ),
+        const SizedBox(height: 8),
+      ]);
+    }
+    // ⭐ 파일: 임의의 파일 첨부 (PDF면 Syncfusion 에디터로 자동 분기)
+    if (fabVis.contains('files')) {
+      dialItems.addAll([
+        _SpeedDialItem(label: '파일', icon: Icons.drive_folder_upload, color: color,
+            onTap: () => _handleAction(widget.onFiles)),
+        const SizedBox(height: 8),
+      ]);
+    }
     if (fabVis.contains('canvas')) {
       dialItems.addAll([
         _SpeedDialItem(label: l10n?.handwritingTab ?? '필기', icon: Icons.draw, color: color,
@@ -2492,10 +2511,17 @@ class _BottomFabRowState extends State<_BottomFabRow> {
         const SizedBox(height: 8),
       ]);
     }
-    if (fabVis.contains('text')) {
+    if (fabVis.contains('stt')) {
       dialItems.addAll([
-        _SpeedDialItem(label: l10n?.memoLabel ?? '메모', icon: Icons.notes, color: color,
-            onTap: () => _handleAction(widget.onText)),
+        _SpeedDialItem(
+          label: l10n?.voiceMemoLabel ?? '녹음 메모',
+          // 녹음(마이크)+메모를 한꺼번에 추가함을 나타내는 합성 아이콘.
+          // icon은 표시용이 아니라 Hero 태그 식별용(다른 항목과 겹치지 않는 값).
+          icon: Icons.record_voice_over,
+          customChild: const RecordMemoSpeedDialIcon(),
+          color: color,
+          onTap: () => _handleAction(widget.onTextWithSTT),
+        ),
         const SizedBox(height: 8),
       ]);
     }
@@ -2512,33 +2538,10 @@ class _BottomFabRowState extends State<_BottomFabRow> {
         const SizedBox(height: 8),
       ]);
     }
-    // ⭐ 파일: 임의의 파일 첨부 (PDF면 Syncfusion 에디터로 자동 분기)
-    if (fabVis.contains('files')) {
+    if (fabVis.contains('text')) {
       dialItems.addAll([
-        _SpeedDialItem(label: '파일', icon: Icons.drive_folder_upload, color: color,
-            onTap: () => _handleAction(widget.onFiles)),
-        const SizedBox(height: 8),
-      ]);
-    }
-    if (fabVis.contains('stt')) {
-      dialItems.addAll([
-        _SpeedDialItem(
-          label: l10n?.voiceMemoLabel ?? '음성 메모',
-          icon: Icons.record_voice_over,
-          color: color,
-          onTap: () => _handleAction(widget.onTextWithSTT),
-        ),
-        const SizedBox(height: 8),
-      ]);
-    }
-    if (fabVis.contains('youtube') && widget.onYoutube != null) {
-      dialItems.addAll([
-        _SpeedDialItem(
-          label: '영상',
-          customChild: YoutubeSpeedDialIcon(),
-          color: color,
-          onTap: () => _handleAction(widget.onYoutube!),
-        ),
+        _SpeedDialItem(label: l10n?.memoLabel ?? '메모', icon: Icons.notes, color: color,
+            onTap: () => _handleAction(widget.onText)),
         const SizedBox(height: 8),
       ]);
     }
@@ -2671,6 +2674,34 @@ class _FabBtn extends StatelessWidget {
   }
 }
 
+/// 녹음 메모용 스피드다이얼 아이콘 — 마이크(녹음) + 메모 배지를 겹쳐 표시.
+/// 녹음과 메모가 한꺼번에 추가됨을 시각적으로 나타낸다.
+class RecordMemoSpeedDialIcon extends StatelessWidget {
+  const RecordMemoSpeedDialIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.mic, size: 20, color: Colors.white),
+        Positioned(
+          right: -5, bottom: -4,
+          child: Container(
+            width: 13, height: 13,
+            decoration: BoxDecoration(
+              color: color, shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1),
+            ),
+            child: const Center(child: Icon(Icons.edit_note, size: 9, color: Colors.white)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ───────────────────────────── 탭 버튼 위젯 ─────────────────────────────
 
 /// DraggableTabLayout 탭 버튼에 표시할 일정명 + 3개 아이콘 + 파일수 위젯
@@ -2710,7 +2741,9 @@ class AllFilesTabButton extends StatelessWidget {
         maybeAdd('canvas', Icons.draw, canvasCount);
         maybeAdd('audio', Icons.mic, audioCount);
         maybeAdd('text', Icons.notes, textCount);
-        maybeAdd('pdf', Icons.picture_as_pdf, pdfCount);
+        // PDF 카운트는 빠른추가 설정에서 제거됐지만 타이틀바에는 항상 표시
+        if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
+        visItems.add(_iconCount(Icons.picture_as_pdf, pdfCount));
         maybeAdd('files', Icons.description, attachmentCount);
 
         return Row(

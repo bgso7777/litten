@@ -2237,12 +2237,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final bottomNavBarHeight = 80.0; // 하단 네비게이션 바 높이
 
     // 전체 화면 높이 (초기 상태)
-    // 광고 유무에 따라 캘린더 크기 조정
-    // - 광고 있을 때 (무료): 95% + 광고 배너 50px 차지 → PageView 공간 감소
-    // - 광고 없을 때 (유료): 95% + 광고 영역 없음 → PageView 공간 50px 추가 확보
+    // 광고 표시 여부에 따라 캘린더 크기 조정
+    // - 광고 ON: 95% + 광고 배너 50px 차지 → PageView 공간 감소
+    // - 광고 OFF: 95% + 광고 영역 없음 → PageView 공간 50px 추가 확보
     const double adBannerHeight = 50.0;
     final availableHeight = screenHeight - statusBarHeight - bottomNavHeight - bottomNavBarHeight;
-    final effectiveHeight = appState.isPremiumUser ? availableHeight : availableHeight - adBannerHeight;
+    final effectiveHeight = appState.adsEnabled ? availableHeight - adBannerHeight : availableHeight;
     final maxHeightRatio = 0.95;
     final maxHeight = effectiveHeight * maxHeightRatio;
 

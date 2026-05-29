@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.bar_chart,
                 title: l10n?.usageStatistics ?? '사용량 통계',
                 subtitle:
-                    '${appState.littens.length}${l10n?.littensCount ?? '개 리튼'}, ${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개 파일'}',
+                    '${appState.littens.where((l) => l.title != 'undefined').length}${l10n?.littensCount ?? '개 일정'}, ${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개 파일'}',
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showUsageDialog(context, appState),
               ),
@@ -237,14 +237,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildSettingsItem(
                 icon: Icons.tab,
-                title: l10n?.noteTabView ?? '노트탭 보기',
+                title: l10n?.noteTabView ?? '노트 탭 표시',
                 subtitle: _getNoteTabVisibilityText(appState.noteTabVisibility, l10n),
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showNoteTabVisibilityDialog(context, appState),
               ),
               _buildSettingsItem(
                 icon: Icons.add_circle_outline,
-                title: l10n?.allTabFab ?? '전체탭 버튼',
+                title: l10n?.allTabFab ?? '전체탭 빠른 추가',
                 subtitle: _getAllTabFabText(appState.allTabFabVisibility, l10n),
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showAllTabFabVisibilityDialog(context, appState),
@@ -260,16 +260,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingsSwitchItem(
                 icon: Icons.campaign_outlined,
                 title: l10n?.showAds ?? '광고 표시',
-                subtitle: appState.subscriptionType == SubscriptionType.free
-                    ? (l10n?.freeShowAds ?? '무료 플랜 - 광고 항상 ON')
-                    : (l10n?.paidPlanNoAds ?? '유료 플랜 - 기본 광고 OFF'),
-                iconColor: appState.subscriptionType == SubscriptionType.free
-                    ? Colors.grey
-                    : Theme.of(context).primaryColor,
+                subtitle: appState.adsEnabled ? '광고 표시 ON' : '광고 표시 OFF',
+                iconColor: Theme.of(context).primaryColor,
                 value: appState.adsEnabled,
-                onChanged: appState.subscriptionType == SubscriptionType.free
-                    ? null
-                    : (v) => appState.setAdsEnabled(v),
+                onChanged: (v) => appState.setAdsEnabled(v),
               ),
             ]),
             AppSpacing.verticalSpaceM,
@@ -594,8 +588,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildUsageRow(
-              l10n?.createLitten ?? '리튼 수',
-              '${appState.littens.length}${l10n?.littensCount ?? '개'}',
+              l10n?.createLitten ?? '일정 수',
+              '${appState.littens.where((l) => l.title != 'undefined').length}${l10n?.littensCount ?? '개'}',
               appState.subscriptionType == SubscriptionType.free
                   ? ' / ${l10n?.maxLittensLimit ?? '최대 5개'}'
                   : '',
@@ -839,14 +833,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _getAllTabFabText(Set<String> visibility, AppLocalizations? l10n) {
     if (visibility.isEmpty) return l10n?.noneLabel ?? '없음';
     final labels = {
-      'canvas': l10n?.handwritingTab ?? '필기',
-      'pdf': 'PDF',
-      'text': l10n?.memoLabel ?? '메모',
-      'audio': l10n?.audioTab ?? '녹음',
-      'files': '파일',
       'youtube': '영상',
+      'files': '파일',
+      'canvas': l10n?.handwritingTab ?? '필기',
+      'stt': l10n?.voiceMemoLabel ?? '녹음 메모',
+      'audio': l10n?.audioTab ?? '녹음',
+      'text': l10n?.memoLabel ?? '메모',
     };
-    final order = ['canvas', 'audio', 'text', 'pdf', 'files', 'youtube'];
+    final order = ['youtube', 'files', 'canvas', 'stt', 'audio', 'text'];
     final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
     return result.isEmpty ? (l10n?.noneLabel ?? '없음') : result.join(', ');
   }
@@ -1724,7 +1718,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
     {'id': 'audio', 'label': l10n?.audioTab ?? '녹음', 'icon': Icons.mic},
     {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
-    {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
+    {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '녹음메모', 'icon': Icons.record_voice_over},
     {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
     {'id': 'youtube', 'label': '영상', 'icon': Icons.subscriptions_outlined},
   ];
@@ -1735,7 +1729,7 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     final tabs = _buildTabs(l10n);
     final themeColor = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: Text(l10n?.noteTabView ?? '노트탭 보기'),
+      title: Text(l10n?.noteTabView ?? '노트 탭 표시'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1807,13 +1801,38 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
   }
 
   List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
-    {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기',  'icon': Icons.draw},
-    {'id': 'text',   'label': l10n?.memoLabel ?? '메모',       'icon': Icons.notes},
-    {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',         'icon': Icons.mic},
-    {'id': 'files',  'label': '파일',                           'icon': Icons.attach_file},
-    {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '음성메모', 'icon': Icons.record_voice_over},
+    // 순서: 노트 "+" 빠른추가 메뉴와 동일 (영상 → 파일 → 필기 → 음성 메모 → 녹음 → 메모)
     {'id': 'youtube', 'label': '영상',                          'icon': Icons.subscriptions_outlined},
+    {'id': 'files',  'label': '파일',                           'icon': Icons.attach_file},
+    {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기',  'icon': Icons.draw},
+    {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '녹음 메모', 'icon': Icons.record_voice_over},
+    {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',         'icon': Icons.mic},
+    {'id': 'text',   'label': l10n?.memoLabel ?? '메모',       'icon': Icons.notes},
   ];
+
+  /// 녹음+메모 합성 아이콘 (단색 컨텍스트용 — 마이크 + 흰 배경 메모 배지)
+  Widget _recordMemoIcon(Color color) {
+    return SizedBox(
+      width: 20, height: 20,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(Icons.mic, size: 20, color: color),
+          Positioned(
+            right: -3, bottom: -3,
+            child: Container(
+              width: 12, height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white, shape: BoxShape.circle,
+                border: Border.all(color: color, width: 1),
+              ),
+              child: Center(child: Icon(Icons.edit_note, size: 8, color: color)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1821,7 +1840,7 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
     final buttons = _buildButtons(l10n);
     final color = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: Text(l10n?.allTabFab ?? '전체탭 버튼'),
+      title: Text(l10n?.allTabFab ?? '전체탭 빠른 추가'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: buttons.map((btn) {
@@ -1829,9 +1848,13 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
           final label = btn['label'] as String;
           final icon = btn['icon'] as IconData;
           final isChecked = _selected.contains(id);
+          final iconColor = isChecked ? color : Colors.grey;
           return CheckboxListTile(
             dense: true,
-            secondary: Icon(icon, size: 20, color: isChecked ? color : Colors.grey),
+            // 녹음 메모(stt)는 녹음+메모 합성 아이콘으로 표시 (노트 "+" 메뉴와 일치)
+            secondary: id == 'stt'
+                ? _recordMemoIcon(iconColor)
+                : Icon(icon, size: 20, color: iconColor),
             title: Text(label),
             value: isChecked,
             activeColor: color,

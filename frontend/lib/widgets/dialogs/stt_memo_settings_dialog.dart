@@ -99,7 +99,7 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
       title: Row(children: [
         Icon(Icons.record_voice_over, color: color, size: 20),
         const SizedBox(width: 8),
-        Text(l10n?.voiceMemoSettings ?? '음성 메모 설정', style: const TextStyle(fontSize: 15)),
+        Text(l10n?.voiceMemoSettings ?? '녹음 메모 설정', style: const TextStyle(fontSize: 15)),
       ]),
       content: SizedBox(
         width: double.maxFinite,

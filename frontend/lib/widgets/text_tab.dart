@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:printing/printing.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../l10n/app_localizations.dart';
@@ -541,7 +546,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
-      final littenName = selectedLitten.title == 'undefined' ? (AppLocalizations.of(context)?.textTab ?? '텍스트') : selectedLitten.title;
+      final littenName = selectedLitten.title == 'undefined' ? (AppLocalizations.of(context)?.memoLabel ?? '메모') : selectedLitten.title;
       final defaultTitle =
           '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
 
@@ -603,7 +608,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final TextEditingController controller = TextEditingController(
       text: file.title.isNotEmpty
           ? file.title
-          : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+          : '${AppLocalizations.of(context)?.memoLabel ?? '메모'} ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
     );
 
     final l10n = AppLocalizations.of(context);
@@ -1785,7 +1790,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         title: Text(
           file.title.isNotEmpty
               ? file.title
-              : '텍스트 ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
+              : '${AppLocalizations.of(context)?.memoLabel ?? '메모'} ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
           style: const TextStyle(fontWeight: FontWeight.w500),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -1869,6 +1874,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           children: [
             // 서식 버튼들 (일반 메모 모드에서만 표시)
             if (!_isSttMode) ...[
+            // 1. 파일 열기 (PDF/사진/카메라) — 메모에 이미지 삽입
+            _buildInsertMenuButton(),
+            const SizedBox(width: 4),
+            // 구분선
+            Container(
+              width: 1,
+              height: 24,
+              color: Colors.grey.shade400,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
             // 2. 굵게 (Bold)
             _buildToolbarButton(
               icon: Icons.format_bold,
@@ -2182,6 +2197,178 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           child: Icon(icon, size: 20, color: Colors.grey.shade800),
         ),
       ),
+    );
+  }
+
+  /// 파일 열기 메뉴 버튼 (PDF/사진/카메라) — 메모에 이미지 삽입
+  Widget _buildInsertMenuButton() {
+    return PopupMenuButton<String>(
+      tooltip: '파일 열기',
+      position: PopupMenuPosition.under,
+      padding: EdgeInsets.zero,
+      splashRadius: 18,
+      icon: Icon(Icons.folder_open, size: 20, color: Colors.grey.shade800),
+      onSelected: (value) {
+        debugPrint('📂 파일 열기 메뉴 선택: $value');
+        switch (value) {
+          case 'pdf':
+            _insertPdfAsImages();
+            break;
+          case 'gallery':
+            _insertImageFromSource(ImageSource.gallery);
+            break;
+          case 'camera':
+            _insertImageFromSource(ImageSource.camera);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'pdf',
+          child: Row(children: [
+            Icon(Icons.picture_as_pdf, size: 20, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 12),
+            const Text('PDF'),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'gallery',
+          child: Row(children: [
+            Icon(Icons.image, size: 20, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 12),
+            const Text('사진'),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'camera',
+          child: Row(children: [
+            Icon(Icons.photo_camera, size: 20, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 12),
+            const Text('카메라'),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  /// 선택한 이미지(갤러리/카메라)를 메모 본문에 삽입
+  Future<void> _insertImageFromSource(ImageSource source) async {
+    debugPrint('🖼️ 메모 이미지 삽입 시작 - source: $source');
+    final XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1600,
+        imageQuality: 80,
+      );
+    } catch (e) {
+      debugPrint('❌ 이미지 선택 실패: $e');
+      _showInsertError('이미지를 가져오지 못했습니다: $e');
+      return;
+    }
+    if (picked == null) {
+      debugPrint('ℹ️ 사용자가 이미지 선택을 취소함');
+      return;
+    }
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext = picked.path.split('.').last.toLowerCase();
+      final mime = (ext == 'png')
+          ? 'image/png'
+          : (ext == 'webp')
+              ? 'image/webp'
+              : 'image/jpeg';
+      _insertImageBytes(bytes, mime: mime);
+      debugPrint('✅ 메모 이미지 삽입 완료 (${bytes.length} bytes, $mime)');
+    } catch (e) {
+      debugPrint('❌ 이미지 삽입 실패: $e');
+      _showInsertError('이미지 삽입에 실패했습니다: $e');
+    }
+  }
+
+  /// PDF를 페이지별 PNG 이미지로 변환하여 메모 본문에 삽입
+  Future<void> _insertPdfAsImages() async {
+    debugPrint('📄 메모 PDF 삽입 시작');
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+    } catch (e) {
+      debugPrint('❌ PDF 선택 실패: $e');
+      _showInsertError('PDF를 가져오지 못했습니다: $e');
+      return;
+    }
+    if (result == null || result.files.isEmpty) {
+      debugPrint('ℹ️ 사용자가 PDF 선택을 취소함');
+      return;
+    }
+
+    final file = result.files.single;
+    Uint8List? pdfBytes = file.bytes;
+    if (pdfBytes == null && file.path != null) {
+      pdfBytes = await File(file.path!).readAsBytes();
+    }
+    if (pdfBytes == null) {
+      _showInsertError('PDF 파일을 읽을 수 없습니다.');
+      return;
+    }
+    debugPrint('📄 PDF 읽기 완료 - ${pdfBytes.length} bytes');
+
+    // 변환 진행 다이얼로그
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: Row(children: [
+            SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 16),
+            Expanded(child: Text('PDF를 이미지로 변환 중...')),
+          ]),
+        ),
+      );
+    }
+
+    int pageCount = 0;
+    try {
+      await for (final page in Printing.raster(pdfBytes, dpi: 120)) {
+        final png = await page.toPng();
+        _insertImageBytes(png, mime: 'image/png');
+        pageCount++;
+        debugPrint('✅ PDF 페이지 $pageCount 삽입 완료');
+      }
+    } catch (e) {
+      debugPrint('❌ PDF 변환 실패: $e');
+      if (mounted) Navigator.of(context, rootNavigator: true).pop(); // 다이얼로그 닫기
+      _showInsertError('PDF 변환에 실패했습니다: $e');
+      return;
+    }
+
+    if (mounted) Navigator.of(context, rootNavigator: true).pop(); // 다이얼로그 닫기
+
+    if (pageCount == 0) {
+      _showInsertError('PDF에서 페이지를 찾을 수 없습니다.');
+    } else {
+      debugPrint('✅ PDF 삽입 완료 - 총 $pageCount 페이지');
+    }
+  }
+
+  /// 이미지 바이트를 base64 data URI 형태로 메모 본문(HTML)에 삽입
+  void _insertImageBytes(Uint8List bytes, {required String mime}) {
+    final b64 = base64Encode(bytes);
+    _htmlController.insertHtml(
+      '<img src="data:$mime;base64,$b64" style="max-width:100%;height:auto;"/><br>',
+    );
+  }
+
+  /// 삽입 실패 안내 스낵바
+  void _showInsertError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 

@@ -132,7 +132,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get premiumMonthly => '프리미엄 (₩9.99/월)';
 
   @override
-  String get littensCount => '개 리튼';
+  String get littensCount => '개 일정';
 
   @override
   String get filesCount => '개 파일';
@@ -216,7 +216,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get freeUserLimits => '무료 사용자 제한:';
 
   @override
-  String get maxLittens => '• 리튼';
+  String get maxLittens => '• 일정';
 
   @override
   String get maxRecordingFiles => '• 녹음 파일';
@@ -895,10 +895,10 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get noVoiceMemos => '음성 메모가 없습니다.\n아래 버튼으로 시작하세요.';
+  String get noVoiceMemos => '녹음 메모가 없습니다.\n아래 버튼으로 시작하세요.';
 
   @override
-  String get noFilesPrompt => '파일이 없습니다.\n아래 버튼으로 추가하세요.';
+  String get noFilesPrompt => '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요';
 
   @override
   String get notSynced => '동기화 안 됨';
@@ -940,13 +940,13 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get voiceMemoLabel => '음성 메모';
+  String get voiceMemoLabel => '녹음 메모';
 
   @override
   String get allFilesLabel => '전체';
 
   @override
-  String get sttMemoLabel => '음성메모';
+  String get sttMemoLabel => '녹음메모';
 
   @override
   String get noneLabel => '없음';
@@ -955,10 +955,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get visibleAreas => '영역 보기';
 
   @override
-  String get noteTabView => '노트탭 보기';
+  String get noteTabView => '노트 탭 표시';
 
   @override
-  String get allTabFab => '전체탭 버튼';
+  String get allTabFab => '전체탭 빠른 추가';
 
   @override
   String get showAds => '광고 표시';
@@ -1105,7 +1105,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get voiceMemoSettings => '음성 메모 설정';
+  String get voiceMemoSettings => '녹음 메모 설정';
 
   @override
   String get transcriptionLanguage => '전사 언어';

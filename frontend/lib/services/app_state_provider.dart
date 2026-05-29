@@ -256,7 +256,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> _noteTabVisibility = {'all'};
 
   // ⭐ 전체탭 FAB 버튼 가시성 (기본: 모두 표시)
-  Set<String> _allTabFabVisibility = {'canvas', 'text', 'audio', 'files', 'stt', 'youtube'};
+  Set<String> _allTabFabVisibility = {'youtube', 'files', 'canvas', 'stt', 'audio', 'text'};
 
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
@@ -327,8 +327,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
   Set<String> get visibleAreas => _visibleAreas;
-  // 무료 플랜은 항상 광고 ON; 유료 플랜은 사용자 설정값
-  bool get adsEnabled => _subscriptionType == SubscriptionType.free ? true : _adsEnabled;
+  // 모든 플랜에서 사용자 설정값 사용 (기본 false)
+  bool get adsEnabled => _adsEnabled;
   bool get showYoutubeInAllTab => _showYoutubeInAllTab;
 
   // 알림 서비스 관련 Getters
@@ -550,10 +550,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _saveThemeType(_themeType);
     }
 
-    // TODO: 개발 중 — 구독 플랜 강제 프리미엄 (출시 전 제거)
-    _subscriptionType = SubscriptionType.premium;
-    await prefs.setString('subscription_type', _subscriptionType.name);
-    debugPrint('💰 [AppStateProvider] 개발 모드 — 구독 상태 강제 프리미엄: $_subscriptionType');
+    // 구독 플랜 복원 (저장된 값 우선, 없으면 무료 — 첫 설치 시 무료 플랜)
+    final savedPlanName = prefs.getString('subscription_type');
+    if (savedPlanName != null) {
+      _subscriptionType = SubscriptionType.values.firstWhere(
+        (t) => t.name == savedPlanName,
+        orElse: () => SubscriptionType.free,
+      );
+    }
+    debugPrint('✅ [AppStateProvider] 구독 플랜 복원: $_subscriptionType');
 
     // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';
@@ -584,14 +589,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // ⭐ 전체탭 FAB 버튼 가시성 복원 (기본: 모두 표시)
     final savedFabVisibility = prefs.getStringList('all_tab_fab_visibility');
     if (savedFabVisibility != null) {
-      _allTabFabVisibility = savedFabVisibility.toSet();
-      // 사용자가 'pdf'를 끄지 않았는데 메뉴에서 빠진 경우 → 'files'로 자동 마이그레이션
-      if (_allTabFabVisibility.contains('pdf')) {
-        _allTabFabVisibility.remove('pdf');
-        _allTabFabVisibility.add('files');
-      }
+      // 'pdf'는 빠른추가 항목에서 제외됨(타이틀바 카운트는 설정과 무관하게 항상 표시) → 복원 시 제거
+      _allTabFabVisibility = savedFabVisibility.toSet()..remove('pdf');
     } else {
-      _allTabFabVisibility = {'canvas', 'text', 'audio', 'files', 'stt', 'youtube'};
+      _allTabFabVisibility = {'youtube', 'files', 'canvas', 'stt', 'audio', 'text'};
     }
     debugPrint('✅ [AppStateProvider] 전체탭 FAB 가시성 복원: $_allTabFabVisibility');
 
@@ -647,10 +648,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     debugPrint('✅ [AppStateProvider] 영역 보기 복원: $_visibleAreas');
 
-    // 유료 플랜: 저장된 값 우선, 없으면 false(광고 OFF)
-    // 무료 플랜: _adsEnabled 값은 무관 (getter에서 항상 true 반환)
-    final adsDefault = _subscriptionType == SubscriptionType.free ? true : false;
-    _adsEnabled = prefs.getBool('ads_enabled') ?? adsDefault;
+    // 모든 플랜: 저장된 값 우선, 없으면 false(광고 OFF)
+    _adsEnabled = prefs.getBool('ads_enabled') ?? false;
     debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled (플랜: $_subscriptionType)');
 
     _showYoutubeInAllTab = prefs.getBool('show_youtube_in_all_tab') ?? false;
@@ -814,16 +813,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 구독 상태 변경
   Future<void> changeSubscriptionType(SubscriptionType subscriptionType) async {
-    final wasFreePlan = _subscriptionType == SubscriptionType.free;
     _subscriptionType = subscriptionType;
     await _saveSubscriptionType(subscriptionType);
-    // 무료 → 유료 전환 시 광고 기본 OFF
-    if (wasFreePlan && subscriptionType != SubscriptionType.free) {
-      _adsEnabled = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('ads_enabled', false);
-      debugPrint('💾 [AppStateProvider] 유료 플랜 전환 — 광고 기본 비활성화');
-    }
+    // 광고 표시 설정(_adsEnabled)은 플랜 변경과 무관하게 사용자 설정값을 유지
     // AuthService.currentUser 동기화 (SyncService._canSync 체크용)
     if (_authService.authStatus == AuthStatus.authenticated) {
       final plan = _subscriptionTypeToPlan(subscriptionType);
@@ -1666,10 +1658,6 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> setAdsEnabled(bool enabled) async {
-    if (_subscriptionType == SubscriptionType.free) {
-      debugPrint('🚫 [AppStateProvider] 무료 플랜은 광고 비활성화 불가');
-      return;
-    }
     if (_adsEnabled == enabled) return;
     _adsEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
