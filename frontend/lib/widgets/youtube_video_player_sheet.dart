@@ -126,14 +126,21 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
       } catch(e){}
     }
   }
-  // 자동재생 차단 (초기 6초간 영상이 시작되면 즉시 일시정지)
+  // 자동재생 차단: 사용자가 플레이어를 직접 누르기 전까지 계속 정지 유지
   var killAutoplay = true;
-  setTimeout(function(){ killAutoplay = false; }, 6000);
   function pauseVideo(){
     var vs = document.querySelectorAll('video');
     for (var i=0;i<vs.length;i++){ try { if (!vs[i].paused) vs[i].pause(); } catch(e){} }
   }
   function quiet(){ forceInline(); if (killAutoplay) pauseVideo(); }
+  // 사용자가 플레이어 영역을 직접 누르면 자동정지 해제 (그때부터 재생 허용)
+  document.addEventListener('click', function(e){
+    if (e.target && e.target.closest && e.target.closest('#player, #movie_player, .html5-video-player, ytd-player')) {
+      if (killAutoplay) { killAutoplay = false; diag('사용자 재생 허용'); }
+    }
+  }, true);
+  // 자동정지 유지 루프 (사용자가 누르기 전까지)
+  setInterval(function(){ if (killAutoplay) pauseVideo(); }, 300);
   // 초기 전체화면 방지 + 자동재생 차단: 즉시 + video 생성 즉시(Observer) + 빠른 초기 루프
   quiet();
   try {
