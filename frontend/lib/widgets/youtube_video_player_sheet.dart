@@ -126,16 +126,47 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
       } catch(e){}
     }
   }
-  // 초기 전체화면 방지: 즉시 + video 생성 즉시(Observer) + 빠른 초기 루프로 playsinline 설정
-  forceInline();
+  // 자동재생 차단 (초기 6초간 영상이 시작되면 즉시 일시정지)
+  var killAutoplay = true;
+  setTimeout(function(){ killAutoplay = false; }, 6000);
+  function pauseVideo(){
+    var vs = document.querySelectorAll('video');
+    for (var i=0;i<vs.length;i++){ try { if (!vs[i].paused) vs[i].pause(); } catch(e){} }
+  }
+  function quiet(){ forceInline(); if (killAutoplay) pauseVideo(); }
+  // 초기 전체화면 방지 + 자동재생 차단: 즉시 + video 생성 즉시(Observer) + 빠른 초기 루프
+  quiet();
   try {
-    var mo = new MutationObserver(function(){ forceInline(); });
+    var mo = new MutationObserver(function(){ quiet(); });
     mo.observe(document.documentElement, {childList: true, subtree: true});
     setTimeout(function(){ try { mo.disconnect(); } catch(e){} }, 8000);
   } catch(e){}
   var fast = 0;
-  (function fastLoop(){ forceInline(); if (++fast < 25) setTimeout(fastLoop, 150); })();
+  (function fastLoop(){ quiet(); if (++fast < 45) setTimeout(fastLoop, 150); })();
   function diag(m){ try { LittenDiag.postMessage(m); } catch(e){} }
+  // 유튜브 상단바 숨김 (공간 확보). sticky는 레이아웃을 꼬이게 해서 사용하지 않음.
+  function hideMasthead(){
+    if (document.getElementById('litten-pin-style')) return;
+    var s = document.createElement('style');
+    s.id = 'litten-pin-style';
+    s.textContent = '#masthead-container, ytd-masthead { display:none !important; }';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  // 영상이 상단에 보이도록 모든 스크롤 컨테이너를 0으로
+  function scrollPlayerToTop(){
+    var p = document.querySelector('#player, #movie_player, ytd-player');
+    if (!p) { diag('player 못찾음'); return; }
+    var el = p.parentElement;
+    while (el) {
+      try { if (el.scrollHeight > el.clientHeight + 4) el.scrollTop = 0; } catch(e){}
+      el = el.parentElement;
+    }
+    try { window.scrollTo(0,0); } catch(e){}
+    try { if (document.scrollingElement) document.scrollingElement.scrollTop = 0; } catch(e){}
+    p.scrollIntoView({block:'start'});
+    var pr = p.getBoundingClientRect();
+    diag('scrollPlayerToTop → player top='+Math.round(pr.top)+' h='+Math.round(pr.height));
+  }
   function visible(el){
     if (!el || !el.offsetParent) return false;
     var r = el.getBoundingClientRect();
@@ -179,11 +210,16 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   }
   function step(){
     tries++;
-    forceInline();
+    quiet();
+    hideMasthead();
     if (!opened) {
       var ex = ensureExpanded();
       if (tries % 5 === 1) diag('step '+tries+' expanded='+ex);
-      if (clickTranscript()) { opened = true; diag('완료'); }
+      if (clickTranscript()) {
+        opened = true; diag('완료');
+        // 스크립트 열리면 유튜브가 스크립트 위치로 스크롤 → 여러 번 영상 상단 정렬
+        [400, 900, 1500, 2500].forEach(function(t){ setTimeout(scrollPlayerToTop, t); });
+      }
     }
     if (!opened && tries < 60) setTimeout(step, 600);
     else if (!opened) diag('포기 (tries='+tries+')');
