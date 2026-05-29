@@ -2865,8 +2865,9 @@ class AllFilesTabButton extends StatelessWidget {
         final fabVis = appState.allTabFabVisibility;
 
         final visItems = <Widget>[];
+        // 카운트가 0이면 아이콘/카운트 숨김 — 1개 이상일 때만 표시
         void maybeAdd(String id, IconData icon, int count) {
-          if (fabVis.contains(id)) {
+          if (fabVis.contains(id) && count > 0) {
             if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
             visItems.add(_iconCount(icon, count));
           }
@@ -2874,9 +2875,11 @@ class AllFilesTabButton extends StatelessWidget {
         maybeAdd('canvas', Icons.draw, canvasCount);
         maybeAdd('audio', Icons.mic, audioCount);
         maybeAdd('text', Icons.notes, textCount);
-        // PDF 카운트는 빠른추가 설정에서 제거됐지만 타이틀바에는 항상 표시
-        if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
-        visItems.add(_iconCount(Icons.picture_as_pdf, pdfCount));
+        // PDF 카운트: 1개 이상일 때만 표시 (설정과 무관)
+        if (pdfCount > 0) {
+          if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
+          visItems.add(_iconCount(Icons.picture_as_pdf, pdfCount));
+        }
         maybeAdd('files', Icons.description, attachmentCount);
 
         return Row(

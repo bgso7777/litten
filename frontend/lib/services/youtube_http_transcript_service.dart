@@ -437,4 +437,165 @@ class YoutubeHttpTranscriptService {
       for (final v in obj.values) _findSegs(v, segs);
     }
   }
+
+  // ── 타임스탬프 포함 세그먼트 수집 (스크립트 패널용) ─────────────────────
+  Future<List<TranscriptSegment>> fetchTimedSegments(String videoId) async {
+    debugPrint('[YoutubeHttp] fetchTimedSegments 진입 - videoId: $videoId');
+    try {
+      // 0단계: ANDROID player API (PoToken 우회 — 평문 fetchTranscript와 동일 전략)
+      final android = await _fetchTimedViaAndroidPlayer(videoId);
+      if (android.isNotEmpty) return android;
+
+      final html = await _fetchPage(videoId);
+      if (html == null) return [];
+      final tracks = _extractCaptionTracks(html);
+      if (tracks == null || tracks.isEmpty) return [];
+      final track = _selectTrack(tracks);
+      if (track == null) return [];
+      final lang = (track['languageCode'] as String? ?? 'ko').split('-')[0];
+      final kind = track['kind'] as String? ?? '';
+      final baseUrl = track['baseUrl'] as String? ?? '';
+
+      if (baseUrl.isNotEmpty) {
+        final simpleUrl = baseUrl.replaceAll(RegExp(r'[&?]exp=[^&]*'), '');
+        final json3Url = simpleUrl.contains('fmt=')
+            ? simpleUrl.replaceAll(RegExp(r'fmt=[^&]*'), 'fmt=json3')
+            : '$simpleUrl&fmt=json3';
+        final segs = await _fetchTimedJson3(json3Url);
+        if (segs.isNotEmpty) return segs;
+        final xmlSegs = await _fetchTimedXml(simpleUrl);
+        if (xmlSegs.isNotEmpty) return xmlSegs;
+      }
+      final freshJson3 = 'https://www.youtube.com/api/timedtext'
+          '?v=$videoId&lang=$lang&fmt=json3${kind.isNotEmpty ? '&kind=$kind' : ''}';
+      return await _fetchTimedJson3(freshJson3);
+    } catch (e) {
+      debugPrint('[YoutubeHttp] fetchTimedSegments 오류: $e');
+      return [];
+    }
+  }
+
+  Future<List<TranscriptSegment>> _fetchTimedViaAndroidPlayer(String videoId) async {
+    try {
+      final body = jsonEncode({
+        'context': {
+          'client': {
+            'clientName': 'ANDROID',
+            'clientVersion': '17.31.35',
+            'androidSdkVersion': 30,
+            'hl': 'ko',
+            'gl': 'KR',
+            'utcOffsetMinutes': 540,
+          }
+        },
+        'videoId': videoId,
+        'params': 'CgIQBg==',
+      });
+      final resp = await http.post(
+        Uri.parse('https://www.youtube.com/youtubei/v1/player'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-YouTube-Client-Name': '3',
+          'X-YouTube-Client-Version': '17.31.35',
+          'User-Agent': 'com.google.android.youtube/17.31.35 (Linux; U; Android 11) gzip',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 15));
+      if (resp.statusCode != 200) return [];
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tracks = _tracksFromPlayerResponse(data);
+      if (tracks == null || tracks.isEmpty) return [];
+      final track = _selectTrack(tracks);
+      if (track == null) return [];
+      final baseUrl = track['baseUrl'] as String? ?? '';
+      if (baseUrl.isEmpty) return [];
+      final simpleUrl = baseUrl.replaceAll(RegExp(r'[&?]exp=[^&]*'), '');
+      final json3Url = simpleUrl.contains('fmt=')
+          ? simpleUrl.replaceAll(RegExp(r'fmt=[^&]*'), 'fmt=json3')
+          : '$simpleUrl&fmt=json3';
+      var segs = await _fetchTimedJson3(json3Url);
+      if (segs.isNotEmpty) return segs;
+      segs = await _fetchTimedXml(simpleUrl);
+      if (segs.isNotEmpty) return segs;
+      return await _fetchTimedXml(baseUrl);
+    } catch (e) {
+      debugPrint('[YoutubeHttp] _fetchTimedViaAndroidPlayer 오류: $e');
+      return [];
+    }
+  }
+
+  Future<List<TranscriptSegment>> _fetchTimedJson3(String url) async {
+    try {
+      final resp = await http.get(Uri.parse(url),
+          headers: {..._headers, 'Referer': 'https://www.youtube.com/'})
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return [];
+      final body = resp.body;
+      if (body.length < 20 || body.startsWith('<')) return [];
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      final events = data['events'] as List<dynamic>? ?? [];
+      final out = <TranscriptSegment>[];
+      for (final e in events) {
+        final segs = e['segs'] as List<dynamic>?;
+        if (segs == null) continue;
+        final startMs = (e['tStartMs'] as num?)?.toInt() ?? 0;
+        final text = segs
+            .map((s) => s['utf8'] as String? ?? '')
+            .join('')
+            .replaceAll('\n', ' ')
+            .trim();
+        if (text.isEmpty) continue;
+        out.add(TranscriptSegment(startMs: startMs, text: text));
+      }
+      return out;
+    } catch (e) {
+      debugPrint('[YoutubeHttp] _fetchTimedJson3 오류: $e');
+      return [];
+    }
+  }
+
+  Future<List<TranscriptSegment>> _fetchTimedXml(String url) async {
+    try {
+      final resp = await http.get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return [];
+      final body = resp.body;
+      if (!body.contains('<text')) return [];
+      final out = <TranscriptSegment>[];
+      final matches = RegExp(r'<text start="([\d.]+)"[^>]*>([\s\S]*?)<\/text>')
+          .allMatches(body);
+      for (final m in matches) {
+        final start = double.tryParse(m.group(1) ?? '0') ?? 0;
+        final t = (m.group(2) ?? '')
+            .replaceAll('&amp;', '&')
+            .replaceAll('&lt;', '<')
+            .replaceAll('&gt;', '>')
+            .replaceAll('&#39;', "'")
+            .replaceAll('&quot;', '"')
+            .replaceAll('\n', ' ')
+            .trim();
+        if (t.isEmpty) continue;
+        out.add(TranscriptSegment(startMs: (start * 1000).round(), text: t));
+      }
+      return out;
+    } catch (e) {
+      debugPrint('[YoutubeHttp] _fetchTimedXml 오류: $e');
+      return [];
+    }
+  }
+}
+
+/// 타임스탬프 포함 자막 세그먼트
+class TranscriptSegment {
+  final int startMs;
+  final String text;
+  const TranscriptSegment({required this.startMs, required this.text});
+
+  String get timeLabel {
+    final totalSec = startMs ~/ 1000;
+    final m = totalSec ~/ 60;
+    final s = totalSec % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
 }
