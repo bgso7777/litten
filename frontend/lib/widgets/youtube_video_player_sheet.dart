@@ -1,7 +1,9 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../models/youtube_channel.dart';
 import '../services/api_service.dart';
 
@@ -86,14 +88,107 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
     // 데스크톱 유튜브 페이지를 그대로 로드 (스크래핑 X).
     // '스크립트 표시(Show transcript)'는 데스크톱 웹에만 있으므로 데스크톱 UA 사용.
     // 사용자가 네이티브 '더보기 → 스크립트 표시'로 자막을 보고 직접 복사한다.
-    _webViewController = WebViewController()
+    // iOS: 인라인 재생 허용 (없으면 영상이 자동 전체화면으로 재생됨)
+    final params = Platform.isIOS
+        ? WebKitWebViewControllerCreationParams(allowsInlineMediaPlayback: true)
+        : const PlatformWebViewControllerCreationParams();
+    _webViewController = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setUserAgent(
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
           '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+      ..addJavaScriptChannel('LittenDiag',
+          onMessageReceived: (m) => debugPrint('[TranscriptAuto] ${m.message}'))
+      ..setNavigationDelegate(NavigationDelegate(
+        // 페이지 로드 후 '더보기' 펼치고 '스크립트 표시'를 자동 클릭
+        onPageFinished: (_) => _webViewController.runJavaScript(_autoOpenTranscriptScript),
+      ))
       ..loadRequest(Uri.parse('https://www.youtube.com/watch?v=${widget.video.videoId}'));
   }
+
+  /// 데스크톱 유튜브 페이지에서 '더보기 → 스크립트 표시'를 자동으로 클릭하는 스크립트.
+  /// 콘텐츠가 비동기로 로드되므로 재시도 폴링한다.
+  static const String _autoOpenTranscriptScript = r'''
+(function(){
+  if (window.__littenTranscriptAuto) return;
+  window.__littenTranscriptAuto = true;
+  var tries = 0;
+  var opened = false;
+  var re = /스크립트 표시|show transcript/i;
+  function forceInline(){
+    var vs = document.querySelectorAll('video');
+    for (var i=0;i<vs.length;i++){
+      try {
+        vs[i].setAttribute('playsinline','');
+        vs[i].setAttribute('webkit-playsinline','');
+        vs[i].playsInline = true;
+      } catch(e){}
+    }
+  }
+  // 초기 전체화면 방지: 즉시 + video 생성 즉시(Observer) + 빠른 초기 루프로 playsinline 설정
+  forceInline();
+  try {
+    var mo = new MutationObserver(function(){ forceInline(); });
+    mo.observe(document.documentElement, {childList: true, subtree: true});
+    setTimeout(function(){ try { mo.disconnect(); } catch(e){} }, 8000);
+  } catch(e){}
+  var fast = 0;
+  (function fastLoop(){ forceInline(); if (++fast < 25) setTimeout(fastLoop, 150); })();
+  function diag(m){ try { LittenDiag.postMessage(m); } catch(e){} }
+  function visible(el){
+    if (!el || !el.offsetParent) return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 4 && r.height > 4;
+  }
+  // 1) 설명 '더보기' 펼치기 — 보이는 expander만, 이미 펼쳐졌으면 건드리지 않음(토글 방지)
+  function ensureExpanded(){
+    var exps = document.querySelectorAll('ytd-text-inline-expander');
+    for (var i=0;i<exps.length;i++){
+      var exp = exps[i];
+      if (!visible(exp)) continue;
+      if (exp.hasAttribute('is-expanded')) return true;
+      var b = exp.querySelector('#expand, tp-yt-paper-button#expand');
+      if (b && visible(b)) { b.click(); diag('expand 클릭(visible)'); return exp.hasAttribute('is-expanded'); }
+    }
+    return false;
+  }
+  // 2) '스크립트 표시' 버튼 클릭 — 보이는 버튼 중 텍스트/aria-label 매칭만
+  function clickTranscript(){
+    var sec = document.querySelector('ytd-video-description-transcript-section-renderer');
+    if (sec && visible(sec)) { sec.scrollIntoView({block:'center'}); }
+    var cand = document.querySelectorAll('button, tp-yt-paper-button, ytd-button-renderer, a, yt-button-shape');
+    var vis = 0, match = 0;
+    for (var i=0;i<cand.length;i++){
+      var el = cand[i];
+      var lbl = (el.getAttribute && el.getAttribute('aria-label')) || '';
+      var txt = (el.textContent || '').trim();
+      if (!(re.test(lbl) || re.test(txt))) continue;
+      match++;
+      if (!visible(el)) continue;
+      vis++;
+      var target = (el.closest && el.closest('button, tp-yt-paper-button, ytd-button-renderer, a')) || el;
+      target.click();
+      diag('스크립트 표시 클릭 (matched='+match+', visible)');
+      return true;
+    }
+    if (match > 0) diag('스크립트 버튼 '+match+'개 매칭됐으나 visible=0');
+    return false;
+  }
+  function step(){
+    tries++;
+    forceInline();
+    if (!opened) {
+      var ex = ensureExpanded();
+      if (tries % 5 === 1) diag('step '+tries+' expanded='+ex);
+      if (clickTranscript()) { opened = true; diag('완료'); }
+    }
+    if (!opened && tries < 60) setTimeout(step, 600);
+    else if (!opened) diag('포기 (tries='+tries+')');
+  }
+  setTimeout(step, 1500);
+})();
+''';
 
   @override
   void dispose() {
