@@ -958,7 +958,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteTabView => '노트 탭 표시';
 
   @override
-  String get allTabFab => '전체탭 빠른 추가';
+  String get allTabFab => '전체탭 빠른 추가 표시';
 
   @override
   String get showAds => '광고 표시';

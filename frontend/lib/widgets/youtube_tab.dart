@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/app_state_provider.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
+import '../services/local_youtube_channel_service.dart';
 import 'youtube_video_detail_dialog.dart';
 import 'youtube_video_player_sheet.dart';
 
@@ -94,8 +95,23 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
     }
   }
 
+  /// 비로그인(토큰 없음) = 로컬 모드. 채널을 단말 로컬에만 저장한다.
+  bool get _localMode => widget.token == null || widget.token!.isEmpty;
+
+  /// 로컬 모드에서 등록 가능한 채널 수 (무료=1, 그 외=무제한)
+  int _localChannelLimit(BuildContext context) {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    return appState.subscriptionType == SubscriptionType.free ? 1 : -1;
+  }
+
   Future<void> _loadChannels({bool loadMore = false}) async {
-    debugPrint('[_YoutubeChannelSheet] _loadChannels 진입 - loadMore: $loadMore');
+    debugPrint('[_YoutubeChannelSheet] _loadChannels 진입 - loadMore: $loadMore, localMode: $_localMode');
+    // 로컬 모드: 단말 저장소에서 로드
+    if (_localMode) {
+      final locals = await LocalYoutubeChannelService.load();
+      if (mounted) setState(() { _channels = locals; _hasMoreChannels = false; });
+      return;
+    }
     if (widget.token == null || widget.token!.isEmpty) return;
     if (!loadMore) {
       _channelPage = 0;
@@ -231,9 +247,52 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
   }
 
   Future<void> _subscribe() async {
-    if (_validated == null || widget.token == null) return;
+    if (_validated == null) return;
     final channelId = _resolvedChannelId ?? _channelIdCtrl.text.trim();
     final channelName = _validated!['channelName'] ?? channelId;
+
+    // ── 로컬 모드(비로그인): 단말에 저장, 플랜별 개수 제한 ──
+    if (_localMode) {
+      final limit = _localChannelLimit(context);
+      if (limit != -1 && _channels.length >= limit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('무료 플랜은 채널 $limit개까지 등록할 수 있어요. 더 추가하려면 로그인하세요.')),
+        );
+        return;
+      }
+      debugPrint('[_YoutubeChannelSheet] _subscribe(local) - channelId: $channelId');
+      setState(() => _subscribing = true);
+      final localChannel = YoutubeChannel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        memberId: 'local',
+        channelId: channelId,
+        channelName: channelName,
+        channelThumbnail: _validated!['channelThumbnail'] ?? '',
+        isActive: true,
+      );
+      final updated = await LocalYoutubeChannelService.add(localChannel);
+      if (mounted) {
+        // 전체탭 영상 섹션이 바로 보이도록 설정 자동 활성화
+        await Provider.of<AppStateProvider>(context, listen: false)
+            .setShowYoutubeInAllTab(true);
+      }
+      if (mounted) {
+        setState(() {
+          _subscribing = false;
+          _channels = updated;
+          _channelIdCtrl.clear();
+          _validated = null;
+          _validateError = null;
+          _resolvedChannelId = null;
+          _searchResults = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"$channelName" 구독이 완료되었습니다.')),
+        );
+      }
+      return;
+    }
+
     final remindCustomCount = _remindType == RemindTypes.custom
         ? int.tryParse(_remindCustomCtrl.text.trim())
         : null;
@@ -310,7 +369,19 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
         ],
       ),
     );
-    if (confirmed != true || widget.token == null) return;
+    if (confirmed != true) return;
+    // 로컬 모드: 단말 저장소에서 제거
+    if (_localMode) {
+      final updated = await LocalYoutubeChannelService.removeByChannelId(ch.channelId);
+      if (mounted) {
+        setState(() => _channels = updated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${ch.channelName}" 구독이 해제되었습니다.')),
+        );
+      }
+      return;
+    }
+    if (widget.token == null) return;
     final ok = await _apiService.unsubscribeYoutubeChannel(token: widget.token!, channelPk: ch.id);
     if (ok && mounted) {
       await _loadChannels();
@@ -322,10 +393,13 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final hasToken = widget.token != null && widget.token!.isNotEmpty;
     final color = Theme.of(context).primaryColor;
     final canSearch = _channelIdCtrl.text.trim().isNotEmpty && !_searching && !_subscribing && _validated == null;
     final canSubscribe = _validated != null && !_subscribing;
+    // 로컬 모드 한도 계산
+    final limit = _localMode ? _localChannelLimit(context) : -1;
+    final localLimitReached = _localMode && limit != -1 && _channels.length >= limit;
+    final showAddArea = !localLimitReached;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -357,22 +431,26 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (!hasToken) ...[
-                    // 로그인 필요
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Icon(Icons.lock_outline, size: 36, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('로그인이 필요합니다.', style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
+                  // 로컬 모드(비로그인) 안내 배너
+                  if (_localMode) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        limit == -1
+                            ? '로그인 없이 채널을 등록할 수 있어요.\n자동 요약·리마인드는 로그인 후 사용 가능합니다.'
+                            : '로그인 없이 채널 $limit개를 등록할 수 있어요.\n자동 요약·리마인드는 로그인 후 사용 가능합니다.',
+                        style: TextStyle(fontSize: 12, color: color, height: 1.4),
                       ),
                     ),
-                  ] else ...[
-                    // ── 채널 추가 영역 ──
+                    const SizedBox(height: 16),
+                  ],
+                  // ── 채널 추가 영역 (로컬 한도 도달 시 숨김) ──
+                  if (showAddArea) ...[
                     const Text('채널 추가', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey)),
                     const SizedBox(height: 8),
 
@@ -428,6 +506,8 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                                   ? const Icon(Icons.check_circle, color: Colors.green)
                                   : null,
                             ),
+                            // 입력 즉시 검색 버튼 활성/비활성 갱신
+                            onChanged: (_) => setState(() {}),
                             onSubmitted: (_) => canSearch ? _searchChannels() : null,
                           ),
                         ),
@@ -488,7 +568,8 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
 
                     const SizedBox(height: 16),
 
-                    // 자동화 옵션
+                    // 자동화 옵션 (로그인 시에만 제공 — 서버 자동 처리)
+                    if (!_localMode) ...[
                     const Text('자동화 설정', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey)),
                     const SizedBox(height: 4),
                     _OptionCheckbox(
@@ -549,6 +630,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                               )
                             : null,
                       ),
+                    ], // end if (!_localMode) 자동화 옵션
 
                     const SizedBox(height: 12),
 
@@ -567,9 +649,26 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                         ),
                       ),
                     ),
+                  ], // end if (showAddArea)
 
-                    // ── 구독 중인 채널 목록 ──
-                    const SizedBox(height: 20),
+                  // 로컬 한도 도달 안내 (무료 1개 제한)
+                  if (localLimitReached) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '무료 플랜은 채널 1개까지 등록할 수 있어요.\n더 추가하려면 로그인 후 이용하세요.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                      ),
+                    ),
+                  ],
+
+                  // ── 구독 중인 채널 목록 ──
+                  const SizedBox(height: 20),
                     Row(
                       children: [
                         const Text('구독 중인 채널', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey)),
@@ -599,7 +698,6 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                           ),
                         ),
                     ],
-                  ],
                 ],
               ),
             ),
@@ -707,13 +805,12 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.play_circle_outline, color: Colors.red, size: 20),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(ch.channelName,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis),
               ),
+              // 제일 오른쪽: 구독 삭제 아이콘만
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
                 onPressed: () => _unsubscribe(ch),
@@ -722,16 +819,19 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 6,
-            children: [
-              YoutubeToggleChip(label: '제목',   color: Colors.teal,   active: ch.autoTitle,   onTap: () => _toggleChannelOption(ch, 'title')),
-              YoutubeToggleChip(label: '메모',   color: Colors.indigo, active: ch.autoMemo,    onTap: () => _toggleChannelOption(ch, 'memo')),
-              YoutubeToggleChip(label: '요약',   color: Colors.blue,   active: ch.autoSummary, onTap: () => _toggleChannelOption(ch, 'summary')),
-              YoutubeToggleChip(label: '리마인드', color: Colors.orange, active: ch.autoRemind,  onTap: () => _toggleChannelOption(ch, 'remind')),
-            ],
-          ),
+          // 자동화 토글은 로그인(서버) 채널에서만 — 로컬 채널은 미지원
+          if (!_localMode) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              children: [
+                YoutubeToggleChip(label: '제목',   color: Colors.teal,   active: ch.autoTitle,   onTap: () => _toggleChannelOption(ch, 'title')),
+                YoutubeToggleChip(label: '메모',   color: Colors.indigo, active: ch.autoMemo,    onTap: () => _toggleChannelOption(ch, 'memo')),
+                YoutubeToggleChip(label: '요약',   color: Colors.blue,   active: ch.autoSummary, onTap: () => _toggleChannelOption(ch, 'summary')),
+                YoutubeToggleChip(label: '리마인드', color: Colors.orange, active: ch.autoRemind,  onTap: () => _toggleChannelOption(ch, 'remind')),
+              ],
+            ),
+          ],
         ],
       ),
     );

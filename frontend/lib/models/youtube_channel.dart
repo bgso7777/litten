@@ -95,6 +95,22 @@ class YoutubeChannel {
         remindCustomCount: (json['remindCustomCount'] as num?)?.toInt(),
       );
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'memberId': memberId,
+        'channelId': channelId,
+        'channelName': channelName,
+        'channelThumbnail': channelThumbnail,
+        'isActive': isActive,
+        'autoTitle': autoTitle,
+        'autoMemo': autoMemo,
+        'autoSummary': autoSummary,
+        'summaryType': summaryType,
+        'autoRemind': autoRemind,
+        'remindType': remindType,
+        'remindCustomCount': remindCustomCount,
+      };
+
   YoutubeChannel copyWith({
     bool? autoTitle,
     bool? autoMemo,

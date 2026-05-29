@@ -271,7 +271,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _adsEnabled = false;
 
   // ⭐ 전체탭에 구독 영상 채널 목록 표시 여부 (기본: false)
-  bool _showYoutubeInAllTab = false;
+  bool _showYoutubeInAllTab = true;
 
   // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, pdf, sttMemo, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
@@ -652,7 +652,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _adsEnabled = prefs.getBool('ads_enabled') ?? false;
     debugPrint('✅ [AppStateProvider] 광고 표시 여부 복원: $_adsEnabled (플랜: $_subscriptionType)');
 
-    _showYoutubeInAllTab = prefs.getBool('show_youtube_in_all_tab') ?? false;
+    _showYoutubeInAllTab = prefs.getBool('show_youtube_in_all_tab') ?? true;
     debugPrint('✅ [AppStateProvider] 전체탭 영상 채널 표시 복원: $_showYoutubeInAllTab');
   }
 

@@ -19,6 +19,7 @@ import 'syncfusion_pdf_editor.dart';
 import 'youtube_video_detail_dialog.dart';
 import 'youtube_video_player_sheet.dart';
 import '../services/youtube_transcript_service.dart';
+import '../services/local_youtube_channel_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/youtube_http_transcript_service.dart';
 import 'youtube_transcript_sheet.dart';
@@ -65,6 +66,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
   List<AttachmentFile> _attachmentFiles = [];
   List<YoutubeChannel> _youtubeChannels = [];
   bool _loadingChannels = false;
+  // 영상 채널 표시 ON 시 자동 로드를 1회만 트리거하기 위한 플래그 (무한 리로드 방지)
+  bool _youtubeAutoLoadRequested = false;
+  // 영상 구독 섹션 ↔ 파일 목록 분할 비율 (상단 영상 영역 비율, 드래그로 조절)
+  double _youtubeSplitRatio = 0.5;
+  // 영상 섹션 자연 높이가 영역의 50%를 넘는지 (넘을 때만 분할+구분선 표시)
+  bool _youtubeContentOverflow = false;
+  final GlobalKey _youtubeAreaKey = GlobalKey();
   final Map<String, Map<int, List<YoutubeVideo>>> _videoPageData = {};
   final Map<String, int> _videoTotalPages = {};
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
@@ -238,7 +246,22 @@ class _AllFilesTabState extends State<AllFilesTab> {
     debugPrint('[AllFilesTab] _loadYoutubeChannels 진입');
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      // 비로그인(로컬 모드): 단말 저장소의 로컬 채널 로드
+      _youtubeToken = null;
+      final locals = await LocalYoutubeChannelService.load();
+      debugPrint('[AllFilesTab] 로컬 채널 수: ${locals.length}');
+      if (mounted) setState(() {
+        _youtubeChannels = locals;
+        _loadingChannels = false;
+        _videoPageData.clear();
+        _videoTotalPages.clear();
+        _loadingVideoKeys.clear();
+        _expandedChannels.clear();
+        _channelVideoPage.clear();
+      });
+      return;
+    }
     _youtubeToken = token;
     if (mounted) setState(() => _loadingChannels = true);
     try {
@@ -290,6 +313,39 @@ class _AllFilesTabState extends State<AllFilesTab> {
     } else {
       setState(() => _expandedChannels.add(id));
       _loadVideoPage(id, _channelVideoPage[id] ?? 0);
+    }
+  }
+
+  /// 영상 구독 채널 삭제 (로컬/서버 자동 분기)
+  Future<void> _unsubscribeYoutubeChannel(YoutubeChannel ch) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('구독 삭제'),
+        content: Text('"${ch.channelName}"\n구독을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    debugPrint('[AllFilesTab] 채널 구독 삭제 - ${ch.channelName} (token: ${_youtubeToken != null})');
+    if (_youtubeToken == null) {
+      // 로컬(비로그인) 채널 삭제
+      await LocalYoutubeChannelService.removeByChannelId(ch.channelId);
+    } else {
+      await _apiService.unsubscribeYoutubeChannel(token: _youtubeToken!, channelPk: ch.id);
+    }
+    if (mounted) await _loadYoutubeChannels();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${ch.channelName}" 구독을 삭제했습니다.')),
+      );
     }
   }
 
@@ -663,13 +719,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
         }
 
         // 전체탭 영상 채널 표시 설정이 변경된 경우 채널 목록 재로드
+        // ⚠️ 결과가 0개여도 한 번만 로드하도록 플래그로 가드 (무한 리로드 방지)
         final showYoutube = appState.showYoutubeInAllTab;
-        if (showYoutube && _youtubeChannels.isEmpty && !_loadingChannels) {
+        if (showYoutube && !_youtubeAutoLoadRequested) {
+          _youtubeAutoLoadRequested = true;
           WidgetsBinding.instance.addPostFrameCallback((_) => _loadYoutubeChannels());
-        } else if (!showYoutube && _youtubeChannels.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _youtubeChannels = []);
-          });
+        } else if (!showYoutube) {
+          _youtubeAutoLoadRequested = false;
+          if (_youtubeChannels.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _youtubeChannels = []);
+            });
+          }
         }
 
         // 에디터가 열려있으면 전체 화면으로 표시
@@ -700,7 +761,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                                 onFiles: _addAttachmentFromFiles,
                                 onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
                                 onAudio: _toggleRecording,
-                                onYoutube: () => showYoutubeChannelSheet(context),
+                                onYoutube: () async {
+                                  await showYoutubeChannelSheet(context);
+                                  // 시트에서 채널 등록 시 전체탭 영상 섹션 즉시 반영
+                                  if (mounted) await _loadYoutubeChannels();
+                                },
                                 isRecording: _isRecording,
                                 recordingDuration: _recordingDuration,
                               ),
@@ -817,56 +882,122 @@ class _AllFilesTabState extends State<AllFilesTab> {
       );
     }
 
-    return CustomScrollView(
-      slivers: [
-        // ── 영상 구독 섹션 ──
-        if (showYoutubeSection) ...[
-          SliverToBoxAdapter(child: _buildYoutubeSectionHeader()),
-          if (_loadingChannels)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildListDelegate(
-                _youtubeChannels.map(_buildYoutubeChannelCard).toList(),
+    // 파일 목록 슬리버 (결합/분할 양쪽에서 재사용)
+    final fileSliver = SliverPadding(
+      padding: const EdgeInsets.only(bottom: 80),
+      sliver: SliverList.builder(
+        itemCount: merged.length,
+        itemBuilder: (context, index) {
+          final entry = merged[index];
+          final currentDate = DateTime(entry.createdAt.year, entry.createdAt.month, entry.createdAt.day);
+          final showDateHeader = index == 0 ||
+              DateTime(merged[index - 1].createdAt.year, merged[index - 1].createdAt.month, merged[index - 1].createdAt.day) != currentDate;
+
+          final card = switch (entry.type) {
+            _FileType.text => _buildTextCard(entry.file as TextFile),
+            _FileType.handwriting => _buildHandwritingCard(entry.file as HandwritingFile),
+            _FileType.audio => _buildAudioCard(entry.file as AudioFile),
+            _FileType.attachment => _buildAttachmentCard(entry.file as AttachmentFile),
+          };
+
+          if (showDateHeader) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [_buildDateHeader(currentDate), card],
+            );
+          }
+          return card;
+        },
+      ),
+    );
+
+    // 영상 섹션 미표시: 파일 목록만 (단일 스크롤)
+    if (!showYoutubeSection) return CustomScrollView(slivers: [fileSliver]);
+
+    // 영상 구독 섹션 콘텐츠 (Column으로 구성 → 자연 높이 측정 가능, 분할/결합 공용)
+    final youtubeColumn = Column(
+      key: _youtubeAreaKey,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildYoutubeSectionHeader(),
+        if (_loadingChannels)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          )
+        else
+          ..._youtubeChannels.map(_buildYoutubeChannelCard),
+        const SizedBox(height: 4),
+      ],
+    );
+
+    final color = Theme.of(context).primaryColor;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        // 영상 섹션 자연 높이를 측정해 50% 초과 여부 갱신 (값이 바뀔 때만 setState → 루프 방지)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = _youtubeAreaKey.currentContext;
+          if (ctx == null || !mounted) return;
+          final natural = ctx.size?.height ?? 0;
+          final over = natural > h * 0.5;
+          if (over != _youtubeContentOverflow) {
+            setState(() => _youtubeContentOverflow = over);
+          }
+        });
+
+        // 분할(구분선) 조건: 영상 섹션이 50% 초과 + 채널 ≥1 + 파일 ≥1
+        final showSplit = _youtubeContentOverflow && _youtubeChannels.isNotEmpty && merged.isNotEmpty;
+
+        if (!showSplit) {
+          // 결합: 영상 섹션 + 파일 목록을 한 스크롤로 (구분선 없음)
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: youtubeColumn),
+              fileSliver,
+            ],
+          );
+        }
+
+        // 분할: 상단 영상(드래그 비율) + 구분선 핸들 + 하단 파일
+        final topHeight = (h * _youtubeSplitRatio).clamp(h * 0.2, h * 0.8);
+        return Column(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: topHeight),
+              child: SingleChildScrollView(child: youtubeColumn),
+            ),
+            // 드래그로 상/하 영역 비율 조절하는 분할 핸들
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeRow,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (details) {
+                  setState(() {
+                    _youtubeSplitRatio =
+                        ((topHeight + details.delta.dy) / h).clamp(0.2, 0.8);
+                  });
+                },
+                child: Container(
+                  height: 14,
+                  color: color.withValues(alpha: 0.12),
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 4)),
-        ],
-
-        // ── 파일 목록 ──
-        SliverPadding(
-          padding: const EdgeInsets.only(bottom: 80),
-          sliver: SliverList.builder(
-            itemCount: merged.length,
-            itemBuilder: (context, index) {
-              final entry = merged[index];
-              final currentDate = DateTime(entry.createdAt.year, entry.createdAt.month, entry.createdAt.day);
-              final showDateHeader = index == 0 ||
-                  DateTime(merged[index - 1].createdAt.year, merged[index - 1].createdAt.month, merged[index - 1].createdAt.day) != currentDate;
-
-              final card = switch (entry.type) {
-                _FileType.text => _buildTextCard(entry.file as TextFile),
-                _FileType.handwriting => _buildHandwritingCard(entry.file as HandwritingFile),
-                _FileType.audio => _buildAudioCard(entry.file as AudioFile),
-                _FileType.attachment => _buildAttachmentCard(entry.file as AttachmentFile),
-              };
-
-              if (showDateHeader) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [_buildDateHeader(currentDate), card],
-                );
-              }
-              return card;
-            },
-          ),
-        ),
-      ],
+            Expanded(child: CustomScrollView(slivers: [fileSliver])),
+          ],
+        );
+      },
     );
   }
 
@@ -906,36 +1037,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 32, height: 32,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: color.withValues(alpha: 0.1),
-                        child: Icon(Icons.notes, color: color, size: 18),
-                      ),
-                      Positioned(
-                        right: -1, bottom: -1,
-                        child: Container(
-                          width: 13, height: 13,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          child: const Center(child: Icon(Icons.play_arrow, size: 8, color: Colors.white)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
                 // 채널명 (탭 시 영상 리스트 펼침/접힘)
                 Expanded(
-                  flex: 3,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => _toggleChannel(ch),
                     child: Text(
                       ch.channelName,
@@ -945,27 +1050,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     ),
                   ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _youtubeAutoSettingIcon(Icons.title, ch.autoTitle, '제목', () => _toggleYoutubeChannelOption(ch, 'title')),
-                      _youtubeAutoSettingIcon(Icons.notes, ch.autoMemo, '메모', ch.autoTitle ? () => _toggleYoutubeChannelOption(ch, 'memo') : null),
-                      _youtubeAutoSettingIcon(Icons.auto_awesome, ch.autoSummary, '요약', ch.autoTitle ? () => _toggleYoutubeChannelOption(ch, 'summary') : null),
-                      _youtubeAutoSettingIcon(Icons.notifications_none, ch.autoRemind, '리마인드', ch.autoTitle ? () => _toggleYoutubeChannelOption(ch, 'remind') : null),
-                      // 펼치기 아이콘
-                      GestureDetector(
-                        onTap: () => _toggleChannel(ch),
-                        child: isLoadingVideos
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Icon(
-                                isExpanded ? Icons.expand_less : Icons.expand_more,
-                                color: Colors.grey, size: 20,
-                              ),
-                      ),
-                    ],
+                if (isLoadingVideos)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
+                // 제일 우측: 구독 삭제 아이콘
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
+                  onPressed: () => _unsubscribeYoutubeChannel(ch),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  tooltip: '구독 삭제',
                 ),
               ],
             ),

@@ -244,14 +244,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildSettingsItem(
                 icon: Icons.add_circle_outline,
-                title: l10n?.allTabFab ?? '전체탭 빠른 추가',
+                title: l10n?.allTabFab ?? '전체탭 빠른 추가 표시',
                 subtitle: _getAllTabFabText(appState.allTabFabVisibility, l10n),
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showAllTabFabVisibilityDialog(context, appState),
               ),
               _buildSettingsSwitchItem(
                 icon: Icons.subscriptions_outlined,
-                title: '전체탭 영상 채널',
+                title: '전체탭 영상 구독 표시',
                 subtitle: appState.showYoutubeInAllTab ? '전체탭에 구독 채널 표시' : '전체탭에 구독 채널 숨김',
                 iconColor: Theme.of(context).primaryColor,
                 value: appState.showYoutubeInAllTab,
@@ -1840,7 +1840,7 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
     final buttons = _buildButtons(l10n);
     final color = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: Text(l10n?.allTabFab ?? '전체탭 빠른 추가'),
+      title: Text(l10n?.allTabFab ?? '전체탭 빠른 추가 표시'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: buttons.map((btn) {
