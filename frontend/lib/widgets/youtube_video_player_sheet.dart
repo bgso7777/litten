@@ -153,26 +153,28 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
     }
     return false;
   }
-  // 2) '스크립트 표시' 버튼 클릭 — 보이는 버튼 중 텍스트/aria-label 매칭만
+  // 2) '스크립트 표시' 버튼 클릭 — 매칭 후보를 진단 로그로 출력하고 클릭 가능한 버튼만 클릭
   function clickTranscript(){
-    var sec = document.querySelector('ytd-video-description-transcript-section-renderer');
-    if (sec && visible(sec)) { sec.scrollIntoView({block:'center'}); }
-    var cand = document.querySelectorAll('button, tp-yt-paper-button, ytd-button-renderer, a, yt-button-shape');
-    var vis = 0, match = 0;
+    var cand = document.querySelectorAll('button, tp-yt-paper-button, ytd-button-renderer, yt-button-shape, a, yt-formatted-string, span');
+    var match = 0;
     for (var i=0;i<cand.length;i++){
       var el = cand[i];
       var lbl = (el.getAttribute && el.getAttribute('aria-label')) || '';
       var txt = (el.textContent || '').trim();
       if (!(re.test(lbl) || re.test(txt))) continue;
       match++;
-      if (!visible(el)) continue;
-      vis++;
-      var target = (el.closest && el.closest('button, tp-yt-paper-button, ytd-button-renderer, a')) || el;
-      target.click();
-      diag('스크립트 표시 클릭 (matched='+match+', visible)');
+      var clickable = (el.closest && el.closest('button, tp-yt-paper-button, ytd-button-renderer, yt-button-shape, a')) || el;
+      var vis = visible(clickable);
+      var top = Math.round(clickable.getBoundingClientRect().top);
+      diag('cand#'+match+' '+clickable.tagName+' vis='+vis+' top='+top+' txt="'+txt.slice(0,16)+'" lbl="'+lbl.slice(0,16)+'"');
+      if (!vis) continue;
+      clickable.scrollIntoView({block:'center'});
+      var btn = clickable.querySelector('button') || clickable;
+      btn.click();
+      diag('클릭 실행 → '+clickable.tagName);
       return true;
     }
-    if (match > 0) diag('스크립트 버튼 '+match+'개 매칭됐으나 visible=0');
+    if (match === 0) diag('매칭 0');
     return false;
   }
   function step(){
