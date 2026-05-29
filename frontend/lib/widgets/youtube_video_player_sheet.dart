@@ -83,15 +83,16 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   @override
   void initState() {
     super.initState();
-    // 유튜브 watch 페이지 전체를 그대로 로드 (스크래핑 X).
-    // 사용자가 페이지 내 네이티브 '더보기 → 스크립트 표시'로 자막을 보고 직접 복사한다.
+    // 데스크톱 유튜브 페이지를 그대로 로드 (스크래핑 X).
+    // '스크립트 표시(Show transcript)'는 데스크톱 웹에만 있으므로 데스크톱 UA 사용.
+    // 사용자가 네이티브 '더보기 → 스크립트 표시'로 자막을 보고 직접 복사한다.
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setUserAgent(
-          'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 '
-          '(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36')
-      ..loadRequest(Uri.parse('https://m.youtube.com/watch?v=${widget.video.videoId}'));
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+      ..loadRequest(Uri.parse('https://www.youtube.com/watch?v=${widget.video.videoId}'));
   }
 
   @override
@@ -102,9 +103,13 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
-    return FractionallySizedBox(
-      heightFactor: 0.95,
-      child: ClipRRect(
+    // 높이 보장을 위해 DraggableScrollableSheet 사용 (05-25 검증된 구조)
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.92,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context2, sc) => ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: Stack(
           children: [
