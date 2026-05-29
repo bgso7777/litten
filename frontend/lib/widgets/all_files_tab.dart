@@ -20,6 +20,7 @@ import 'youtube_video_detail_dialog.dart';
 import 'youtube_video_player_sheet.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/local_youtube_channel_service.dart';
+import '../services/youtube_rss_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/youtube_http_transcript_service.dart';
 import 'youtube_transcript_sheet.dart';
@@ -84,6 +85,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   final _transcriptService = YoutubeTranscriptService();
   final _webViewTranscriptService = YoutubeWebViewTranscriptService();
   final _httpTranscriptService = YoutubeHttpTranscriptService();
+  final _youtubeRssService = YoutubeRssService();
   String? _youtubeToken;
   final _apiService = ApiService();
   bool _loading = false;
@@ -284,10 +286,33 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   Future<void> _loadVideoPage(String channelId, int page) async {
-    if (_youtubeToken == null) return;
     final key = '${channelId}_$page';
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
+
+    // 로컬(비로그인): RSS 피드로 최근 영상 목록 (페이지네이션 없음)
+    if (_youtubeToken == null) {
+      if (page != 0) return;
+      setState(() => _loadingVideoKeys.add(key));
+      try {
+        final all = await _youtubeRssService.fetchChannelVideos(channelId);
+        // 무료 체험: 최근 3개만, 페이지네이션 없음
+        final videos = all.take(3).toList();
+        if (mounted) setState(() {
+          _videoPageData.putIfAbsent(channelId, () => {})[0] = videos;
+          _videoTotalPages[channelId] = 1;
+          _loadingVideoKeys.remove(key);
+        });
+      } catch (e) {
+        debugPrint('❌ [AllFilesTab] 로컬 RSS 영상 로드 실패 ($channelId): $e');
+        if (mounted) setState(() {
+          _videoPageData.putIfAbsent(channelId, () => {})[0] = [];
+          _loadingVideoKeys.remove(key);
+        });
+      }
+      return;
+    }
+
     setState(() => _loadingVideoKeys.add(key));
     try {
       final result = await _apiService.getYoutubeVideos(token: _youtubeToken!, channelId: channelId, page: page, size: 3);
@@ -647,14 +672,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
     });
   }
 
-  void _closeEditor() {
+  Future<void> _closeEditor() async {
     setState(() {
       _openEditor = null;
       _initialPdfPath = null;
       _initialPdfFileName = null;
     });
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    _loadFiles(appState);
+    // 타이틀 카운트(필기/메모 등) 갱신 — 에디터에서 추가/삭제된 파일 반영
+    await appState.updateFileCount();
+    if (mounted) await _loadFiles(appState);
   }
 
   @override
@@ -1026,17 +1053,27 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isExpanded = _expandedChannels.contains(ch.channelId);
     final currentPage = _channelVideoPage[ch.channelId] ?? 0;
     final isLoadingVideos = _loadingVideoKeys.contains('${ch.channelId}_$currentPage');
-    final videos = _videoPageData[ch.channelId]?[currentPage] ?? [];
+    final allVideos = _videoPageData[ch.channelId]?[currentPage] ?? [];
+    // 무료(로컬, 비로그인)는 최근 3개만 노출 (캐시에 더 많아도 표시 단계에서 캡)
+    final videos = _youtubeToken == null ? allVideos.take(3).toList() : allVideos;
 
     return Card(
+      // 상하 높이 추가 축소 (margin v5→4, padding v5→3)
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // 채널명 앞 구독 아이콘 (파일 카드 leading과 동일한 32px 슬롯 + 12 간격으로 정렬)
+                SizedBox(
+                  width: 32,
+                  height: 21,
+                  child: Center(child: Icon(Icons.subscriptions, color: color, size: 18)),
+                ),
+                const SizedBox(width: 12),
                 // 채널명 (탭 시 영상 리스트 펼침/접힘)
                 Expanded(
                   child: GestureDetector(
@@ -1060,7 +1097,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
                   onPressed: () => _unsubscribeYoutubeChannel(ch),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 20),
                   tooltip: '구독 삭제',
                 ),
               ],
