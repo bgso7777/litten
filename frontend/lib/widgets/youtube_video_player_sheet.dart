@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../models/youtube_channel.dart';
 import '../services/api_service.dart';
-import '../services/youtube_http_transcript_service.dart';
 
 // 앱 지원 30개 언어 목록
 const _kLanguages = [
@@ -80,16 +79,12 @@ class YoutubeVideoPlayerSheet extends StatefulWidget {
 
 class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   late final WebViewController _webViewController;
-  final _httpTranscript = YoutubeHttpTranscriptService();
-  final _searchCtrl = TextEditingController();
-
-  List<TranscriptSegment>? _segments; // null=로딩중
-  String _query = '';
 
   @override
   void initState() {
     super.initState();
-    // 모바일 유튜브 watch 페이지 로드 (재생 안정성 우선). 16:9 영역으로 상단 플레이어 노출.
+    // 유튜브 watch 페이지 전체를 그대로 로드 (스크래핑 X).
+    // 사용자가 페이지 내 네이티브 '더보기 → 스크립트 표시'로 자막을 보고 직접 복사한다.
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
@@ -97,182 +92,64 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
           'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 '
           '(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36')
       ..loadRequest(Uri.parse('https://m.youtube.com/watch?v=${widget.video.videoId}'));
-    _loadScript();
   }
-
-  Future<void> _loadScript() async {
-    final segs = await _httpTranscript.fetchTimedSegments(widget.video.videoId);
-    if (mounted) setState(() => _segments = segs);
-  }
-
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
     return FractionallySizedBox(
       heightFactor: 0.95,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Container(
-          color: Colors.white,
-          child: Column(
-            children: [
-              // 드래그 핸들
-              Center(
+        child: Stack(
+          children: [
+            // 유튜브 watch 페이지 전체 (영상 재생 + 더보기 → 스크립트 표시 등 네이티브 UI)
+            Positioned.fill(
+              child: WebViewWidget(
+                controller: _webViewController,
+                gestureRecognizers: {
+                  Factory<VerticalDragGestureRecognizer>(
+                    () => VerticalDragGestureRecognizer(),
+                  ),
+                },
+              ),
+            ),
+            // 드래그 핸들 (상단)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                alignment: Alignment.topCenter,
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
                 child: Container(
-                  margin: const EdgeInsets.only(top: 8, bottom: 4),
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: Colors.white70,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              // ── 상단 50%: 영상 (제목은 유튜브 페이지가 자체 표시) ──
-              Expanded(
-                child: WebViewWidget(
-                  controller: _webViewController,
-                  gestureRecognizers: {
-                    Factory<VerticalDragGestureRecognizer>(
-                      () => VerticalDragGestureRecognizer(),
-                    ),
-                  },
-                ),
-              ),
-              const Divider(height: 1),
-              // ── 하단 50%: 스크립트(검색+자막) + 요약하기 ──
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(child: _buildScriptPanel()),
-                    _buildSummaryButton(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── 스크립트 패널 ──────────────────────────────────────────────────────
-  Widget _buildScriptPanel() {
-    final segments = _segments;
-    final filtered = (segments ?? []).where((s) {
-      if (_query.isEmpty) return true;
-      return s.text.toLowerCase().contains(_query.toLowerCase());
-    }).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 헤더
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              const Text('스크립트', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close, size: 22),
-                onPressed: () => Navigator.of(context).maybePop(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-            ],
-          ),
-        ),
-        // 검색
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(
-            controller: _searchCtrl,
-            onChanged: (v) => setState(() => _query = v),
-            decoration: InputDecoration(
-              hintText: '스크립트 검색',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              isDense: true,
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
+            ),
+            // 요약하기 버튼 (우하단)
+            Positioned(
+              bottom: 24,
+              right: 16,
+              child: FloatingActionButton.extended(
+                onPressed: () => _onSummaryTap(context),
+                backgroundColor: color,
+                icon: const Icon(Icons.auto_awesome, size: 18),
+                label: const Text('요약하기'),
+                elevation: 4,
               ),
             ),
-          ),
-        ),
-        // 본문
-        Expanded(
-          child: segments == null
-              ? const Center(child: CircularProgressIndicator())
-              : segments.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('이 영상은 자막(스크립트)을 제공하지 않습니다.',
-                            textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) => _buildSegmentRow(filtered[i]),
-                    ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSegmentRow(TranscriptSegment seg) {
-    final color = Theme.of(context).primaryColor;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 1, right: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(seg.timeLabel,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-          ),
-          Expanded(
-            child: Text(seg.text, style: const TextStyle(fontSize: 14, height: 1.5)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryButton() {
-    final color = Theme.of(context).primaryColor;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () => _onSummaryTap(context),
-            style: FilledButton.styleFrom(
-              backgroundColor: color,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            icon: const Icon(Icons.auto_awesome, size: 18),
-            label: const Text('요약하기'),
-          ),
+          ],
         ),
       ),
     );
