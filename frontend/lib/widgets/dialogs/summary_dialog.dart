@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/app_state_provider.dart';
+import '../../services/free_summary_quota.dart';
 import '../../models/text_file.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -55,11 +58,22 @@ class _SummaryDialogState extends State<SummaryDialog> {
 
   SummaryRecord? _selectedHistory;
 
+  // 무료 플랜 요약 체험 카운트
+  bool _isFree = false;
+  int _freeUsed = 0;
+
   @override
   void initState() {
     super.initState();
     if (widget.file.summaryHistory.isNotEmpty) {
       _selectedHistory = widget.file.summaryHistory.first;
+    }
+    // 무료 플랜 여부 + 사용 횟수 로드
+    _isFree = Provider.of<AppStateProvider>(context, listen: false).subscriptionType == SubscriptionType.free;
+    if (_isFree) {
+      FreeSummaryQuota.used().then((u) {
+        if (mounted) setState(() => _freeUsed = u);
+      });
     }
   }
 
@@ -214,17 +228,32 @@ class _SummaryDialogState extends State<SummaryDialog> {
           ),
         ),
       ),
+      // 닫기(좌) · 요약하기(우)를 항상 가로 한 줄로 유지 (라벨이 길어도 줄바꿈 방지)
       actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: Text(l10n?.close ?? '닫기'),
-        ),
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : _onSummarize,
-          icon: const Icon(Icons.auto_awesome, size: 16),
-          label: Text(history.isNotEmpty
-              ? (l10n?.summarizeAgain ?? '다시 요약')
-              : (l10n?.summarize ?? '요약하기')),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _isLoading ? null : () => Navigator.pop(context),
+              child: Text(l10n?.close ?? '닫기'),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Builder(builder: (context) {
+                final limitReached = _isFree && _freeUsed >= FreeSummaryQuota.limit;
+                final base = history.isNotEmpty
+                    ? (l10n?.summarizeAgain ?? '다시 요약')
+                    : (l10n?.summarize ?? '요약하기');
+                // 무료 플랜이면 모든 요약 버튼에 (무료 체험 실행/전체) 표시
+                final label = _isFree ? '$base ${FreeSummaryQuota.label(_freeUsed)}' : base;
+                return ElevatedButton.icon(
+                  onPressed: (_isLoading || limitReached) ? null : _onSummarize,
+                  icon: const Icon(Icons.auto_awesome, size: 16),
+                  label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                );
+              }),
+            ),
+          ],
         ),
       ],
     );
@@ -403,6 +432,16 @@ class _SummaryDialogState extends State<SummaryDialog> {
 
   Future<void> _onSummarize() async {
     debugPrint('✨ [SummaryDialog] 요약 시작 - textLang: $_textLanguage, summaryLang: $_summaryLanguage, level: $_summaryLevel');
+    // 무료 플랜: 체험 횟수 제한
+    if (_isFree && !await FreeSummaryQuota.canUse()) {
+      if (mounted) {
+        setState(() {
+          _freeUsed = FreeSummaryQuota.limit;
+          _errorMessage = '무료 체험 요약은 최대 ${FreeSummaryQuota.limit}회입니다. 구독 후 계속 이용하세요.';
+        });
+      }
+      return;
+    }
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -422,6 +461,9 @@ class _SummaryDialogState extends State<SummaryDialog> {
       );
 
       debugPrint('✨ [SummaryDialog] 요약 완료 - 길이: ${summary.length}');
+
+      // 무료 플랜: 성공 시 체험 횟수 증가
+      if (_isFree) await FreeSummaryQuota.increment();
 
       if (mounted) {
         Navigator.pop(context, SummaryResult(

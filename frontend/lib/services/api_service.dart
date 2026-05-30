@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/youtube_channel.dart';
+import '../models/summary_result.dart';
 
 /// API 서비스
 /// 백엔드 API와의 통신을 담당합니다.
@@ -23,7 +24,6 @@ class ApiService {
       '/litten/note/v1/members/password-url';
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
   static const String _membersEndpoint = '/litten/note/v1/members';
-  static const String _summaryEndpoint = '/litten/note/v1/summary';
   static const String _myInfoEndpoint = '/litten/note/v1/members/me';
   static const String _planEndpoint = '/litten/note/v1/members/plan';
   static const String _filesEndpoint = '/litten/note/v1/files';
@@ -422,8 +422,8 @@ class ApiService {
   /// POST /litten/note/v1/summary
   ///
   /// [_useMock] = true 이면 백엔드 없이 목 응답을 반환 (개발/테스트용)
-  /// TODO: 백엔드 요약 API 배포 후 false로 변경
-  static const bool _useMock = true;
+  /// 백엔드 요약 API 배포되어 실제 서버 호출 사용
+  static const bool _useMock = false;
 
   Future<String> summarizeText({
     required String text,
@@ -431,6 +431,7 @@ class ApiService {
     required String summaryLanguage,
     required int summaryLevel,
     String? fileId,
+    String? token,
   }) async {
     debugPrint('[ApiService] summarizeText - fileId: $fileId, level: $summaryLevel, mock: $_useMock');
 
@@ -439,43 +440,24 @@ class ApiService {
       return _buildMockSummary(text, summaryLanguage, summaryLevel);
     }
 
+    // 신 통합 엔드포인트(/summary/process, fileType:'text')로 위임.
+    // 구 엔드포인트(/summary)는 백엔드 시스템 프롬프트 미설정으로 실패함.
     try {
-      final url = Uri.parse('$baseUrl$_summaryEndpoint');
-      final body = jsonEncode({
-        'text': text,
-        'textLanguage': textLanguage,
-        'summaryLanguage': summaryLanguage,
-        'summaryLevel': summaryLevel,
-        'fileId': fileId,
-      });
-
-      debugPrint('[ApiService] summarizeText - URL: $url');
-
-      final response = await http
-          .post(url, headers: _getHeaders(), body: body)
-          .timeout(const Duration(seconds: 300)); // 5분 (Lv.5 거의 전체 요약 시 긴 출력 대비)
-
-      debugPrint('[ApiService] summarizeText - Response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final success = data['success'] as bool? ?? false;
-
-        if (success) {
-          final summary = data['summary'] as String? ?? '';
-          debugPrint('[ApiService] summarizeText - Success, length: ${summary.length}');
-          return summary;
-        } else {
-          final error = data['error'] as String? ?? '요약 실패';
-          debugPrint('[ApiService] summarizeText - Failed: $error');
-          throw Exception(error);
-        }
-      } else {
-        debugPrint('[ApiService] summarizeText - Failed: ${response.statusCode}');
-        throw Exception('서버 오류: ${response.statusCode}');
-      }
+      final result = await processSummary(
+        fileType: 'text',
+        fileUuid: fileId,
+        text: text,
+        summaryLevel: summaryLevel,
+        textLanguage: textLanguage,
+        summaryLanguage: summaryLanguage,
+        token: token,
+      );
+      // 전체 텍스트(summary) 우선 — 기존 RemindParser 호환. 없으면 순수 요약.
+      final summary = result.summary.isNotEmpty ? result.summary : result.displaySummary;
+      debugPrint('[ApiService] summarizeText(process) - Success, length: ${summary.length}');
+      return summary;
     } catch (e) {
-      debugPrint('[ApiService] summarizeText - Error: $e');
+      debugPrint('[ApiService] summarizeText(process) - Error: $e');
       rethrow;
     }
   }
@@ -497,6 +479,67 @@ class ApiService {
 
     debugPrint('[ApiService] _buildMockSummary - level: $clampedLevel ($labelStr), lang: $lang');
     return lines.join('\n\n');
+  }
+
+  /// 통합 요약 처리 (요약 + 리마인드 + 캐시/저장)
+  /// POST /litten/note/v1/summary/process
+  /// 유튜브: youtubeVideoId 기준 DB 캐시 확인 후 없으면 생성·저장
+  Future<SummaryResult> processSummary({
+    required String fileType, // 'youtube' | 'text' | 'pdf' ...
+    String? youtubeVideoId,
+    String? fileUuid,
+    String? memberUuid,
+    String? text,
+    required int summaryLevel,
+    required String textLanguage,
+    required String summaryLanguage,
+    bool forceRegenerate = false,
+    String? token,
+  }) async {
+    debugPrint('[ApiService] processSummary - fileType: $fileType, videoId: $youtubeVideoId, level: $summaryLevel');
+    final url = Uri.parse('$baseUrl/litten/note/v1/summary/process');
+    final body = jsonEncode({
+      'fileType': fileType,
+      'youtubeVideoId': youtubeVideoId,
+      'fileUuid': fileUuid,
+      'memberUuid': memberUuid,
+      'text': text,
+      'summaryLevel': summaryLevel,
+      'textLanguage': textLanguage,
+      'summaryLanguage': summaryLanguage,
+      'forceRegenerate': forceRegenerate,
+    });
+    final response = await http
+        .post(url, headers: _getHeaders(token: token), body: body)
+        .timeout(const Duration(seconds: 300));
+    debugPrint('[ApiService] processSummary - status: ${response.statusCode}');
+    if (response.statusCode == 200) {
+      final result = SummaryResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      debugPrint('[ApiService] processSummary - success: ${result.success}, remind: ${result.totalRemindCount}');
+      if (!result.success) throw Exception(result.error ?? '요약 실패');
+      return result;
+    }
+    debugPrint('[ApiService] processSummary - 실패 body: ${response.body}');
+    throw Exception('서버 오류: ${response.statusCode} ${response.body}');
+  }
+
+  /// 유튜브 영상 요약 캐시 조회 (없으면 null)
+  /// GET /litten/note/v1/summary/youtube/{videoId}?summaryLevel=N
+  /// summaryLevel=0 이면 저장된 가장 높은 레벨 반환
+  Future<SummaryResult?> getYoutubeSummaryCache({required String videoId, int summaryLevel = 0, String? token}) async {
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/summary/youtube/$videoId?summaryLevel=$summaryLevel');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] getYoutubeSummaryCache - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final result = SummaryResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        return result.success ? result : null;
+      }
+      return null; // 404 = 캐시 없음
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeSummaryCache - 오류: $e');
+      return null;
+    }
   }
 
   /// 내 구독 플랜 조회

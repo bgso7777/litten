@@ -79,6 +79,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
   final Set<String> _expandedChannels = {};
   final Map<String, int> _channelVideoPage = {};
+  // ⭐ 영상별 요약 존재 여부 (videoId → 요약 1개 이상 있으면 true)
+  final Map<String, bool> _videoHasSummary = {};
   // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
   final Map<int, YoutubeVideo> _youtubeVideoDetailCache = {};
   final Set<int> _loadingYoutubeVideoDetails = {};
@@ -303,6 +305,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
           _videoTotalPages[channelId] = 1;
           _loadingVideoKeys.remove(key);
         });
+        _loadVideoSummaryFlags(videos); // 요약 존재 여부 비동기 조회
       } catch (e) {
         debugPrint('❌ [AllFilesTab] 로컬 RSS 영상 로드 실패 ($channelId): $e');
         if (mounted) setState(() {
@@ -322,6 +325,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _videoTotalPages[channelId] = result.totalPages;
         _loadingVideoKeys.remove(key);
       });
+      _loadVideoSummaryFlags(result.videos); // 요약 존재 여부 비동기 조회
     } catch (e) {
       debugPrint('❌ [AllFilesTab] 영상 로드 실패 ($channelId, page $page): $e');
       if (mounted) setState(() {
@@ -329,6 +333,26 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _loadingVideoKeys.remove(key);
       });
     }
+  }
+
+  /// 영상 목록의 각 영상에 대해 요약 존재 여부를 조회해 _videoHasSummary 갱신
+  /// (summaryLevel:0 → 저장된 최고 레벨 반환, null이면 요약 없음)
+  Future<void> _loadVideoSummaryFlags(List<YoutubeVideo> videos) async {
+    for (final v in videos) {
+      final vid = v.videoId;
+      if (vid.isEmpty || _videoHasSummary.containsKey(vid)) continue;
+      final cache = await _apiService.getYoutubeSummaryCache(videoId: vid, token: _youtubeToken);
+      if (!mounted) return;
+      setState(() => _videoHasSummary[vid] = cache != null);
+    }
+  }
+
+  /// 단일 영상의 요약 존재 여부 재조회 (요약 팝업을 닫은 직후 아이콘 갱신용)
+  Future<void> _refreshVideoSummaryFlag(String videoId) async {
+    if (videoId.isEmpty) return;
+    final cache = await _apiService.getYoutubeSummaryCache(videoId: videoId, token: _youtubeToken);
+    if (!mounted) return;
+    setState(() => _videoHasSummary[videoId] = cache != null);
   }
 
   void _toggleChannel(YoutubeChannel ch) {
@@ -531,13 +555,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
         : video.hasNoTranscript
             ? Colors.orange
             : Colors.blue;
+    final hasSummary = _videoHasSummary[video.videoId] == true;
     return InkWell(
-      onTap: () => showYoutubeVideoPlayerSheet(
-        context: context,
-        video: video,
-        channel: ch,
-        token: _youtubeToken,
-      ),
+      onTap: () async {
+        await showYoutubeVideoPlayerSheet(
+          context: context,
+          video: video,
+          channel: ch,
+          token: _youtubeToken,
+        );
+        // 팝업에서 요약했을 수 있으니 아이콘 상태 재조회
+        _refreshVideoSummaryFlag(video.videoId);
+      },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(56, 7, 12, 7),
         child: Row(
@@ -556,6 +585,27 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 style: TextStyle(fontSize: 13, color: canOpen ? null : Colors.grey),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // 요약 아이콘: 요약이 1개라도 있으면 활성(테마색·탭하면 요약 보기), 없으면 비활성(연회색)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasSummary
+                  ? () => showYoutubeSummarySheet(
+                        context: context,
+                        videoId: video.videoId,
+                        channelName: ch.channelName,
+                        videoTitle: video.title,
+                        token: _youtubeToken,
+                      )
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 18,
+                  color: hasSummary ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                ),
               ),
             ),
             if (video.publishedAt != null)
