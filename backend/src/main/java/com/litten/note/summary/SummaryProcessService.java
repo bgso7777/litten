@@ -26,6 +26,8 @@ import java.util.Optional;
 public class SummaryProcessService {
 
     private final SummaryConfigRepository  configRepository;
+    private final RemindConfigRepository   remindConfigRepository;
+    private final PromptConfigRepository   promptConfigRepository;
     private final SummaryResultRepository  resultRepository;
     private final RemindResultRepository   remindResultRepository;
     private final SummaryService           summaryService;
@@ -103,7 +105,9 @@ public class SummaryProcessService {
                                             SummaryRequestVo aiReq,
                                             SummaryResponseVo resp) {
         SummaryResult entity = findOrCreate(req);
-        entity.setConfigId(config.getSequence());
+        if (config.getSequence() != null && config.getSequence() > 0) {
+            entity.setConfigId(config.getSequence());
+        }
         entity.setFileType(req.getFileType());
         entity.setSourceText(req.getText());
         entity.setSummaryLevel(aiReq.getSummaryLevel());
@@ -266,13 +270,68 @@ public class SummaryProcessService {
         SummaryRequestVo ar = new SummaryRequestVo();
         ar.setText(req.getText());
         ar.setFileId(req.getFileUuid() != null ? req.getFileUuid() : req.getYoutubeVideoId());
-        ar.setSummaryLevel(req.getSummaryLevel() > 0
-                ? req.getSummaryLevel() : config.getSummaryLevel());
-        ar.setTextLanguage(isBlank(req.getTextLanguage())
-                ? config.getTextLanguage() : req.getTextLanguage());
-        ar.setSummaryLanguage(isBlank(req.getSummaryLanguage())
-                ? config.getSummaryLanguage() : req.getSummaryLanguage());
+
+        int level = req.getSummaryLevel() > 0 ? req.getSummaryLevel() : config.getSummaryLevel();
+        ar.setSummaryLevel(level);
+
+        String sourceLang = isBlank(req.getTextLanguage())
+                ? config.getTextLanguage() : req.getTextLanguage();
+        String outputLang = isBlank(req.getSummaryLanguage())
+                ? config.getSummaryLanguage() : req.getSummaryLanguage();
+        ar.setTextLanguage(sourceLang);
+        ar.setSummaryLanguage(outputLang);
+
+        // DB 프롬프트 조합 (note_summary_config + note_remind_config)
+        String combinedPrompt = buildSystemPromptFromDb(
+                config, sourceLang, outputLang, req.getFileType());
+        if (combinedPrompt != null) {
+            ar.setSystemPrompt(combinedPrompt);
+        }
+
         return ar;
+    }
+
+    /**
+     * note_system_prompt_config 에서 요약+리마인드 프롬프트를 조합.
+     * 플레이스홀더 치환 후 반환. DB에 없으면 null 반환 (코드 hardcoded fallback).
+     */
+    private String buildSystemPromptFromDb(SummaryConfig config,
+                                           String sourceLang, String outputLang,
+                                           String fileType) {
+        // 요약 system 프롬프트 조회 (type='summary', prompt_role='system')
+        String summaryRaw = promptConfigRepository
+                .findByTypeAndPromptRoleAndFileTypeAndSummaryLevelAndIsActiveTrue(
+                        "summary", "system", fileType, config.getSummaryLevel())
+                .map(PromptConfig::getPrompt)
+                .orElse(null);
+
+        if (isBlank(summaryRaw)) {
+            log.debug("[SummaryProcessService] summary system 프롬프트 미설정 - 코드 fallback 사용");
+            return null;
+        }
+
+        // 플레이스홀더 치환
+        String levelDetail = config.getLevelDescription() != null ? config.getLevelDescription() : "";
+        String summaryPrompt = summaryRaw
+                .replace("{{LEVEL_DETAIL}}", levelDetail)
+                .replace("{{SOURCE_LANG}}", sourceLang)
+                .replace("{{OUTPUT_LANG}}", outputLang);
+
+        // 리마인드 system 프롬프트 조회 (type='remind', prompt_role='system', summary_level=NULL)
+        String remindPrompt = promptConfigRepository
+                .findByTypeAndPromptRoleAndFileTypeAndSummaryLevelIsNullAndIsActiveTrue(
+                        "remind", "system", fileType)
+                .map(PromptConfig::getPrompt)
+                .orElse(null);
+
+        if (!isBlank(remindPrompt)) {
+            summaryPrompt = summaryPrompt + "\n\n" + remindPrompt;
+        }
+
+        log.info("[SummaryProcessService] DB 프롬프트 조합 완료 - summaryLen: {}, remindLen: {}",
+                summaryRaw.length(), remindPrompt != null ? remindPrompt.length() : 0);
+
+        return summaryPrompt;
     }
 
     private SummaryConfig defaultConfig(String fileType) {

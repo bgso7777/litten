@@ -39,8 +39,8 @@ public class SummaryResult extends BaseEntity implements Serializable {
     private Long sequence;
 
     // ── 파라미터 연결 ───────────────────────────────────────────────
-    @Column(name = "config_id", nullable = false,
-            columnDefinition = "BIGINT(20) NOT NULL COMMENT 'note_summary_config FK'")
+    @Column(name = "config_id",
+            columnDefinition = "BIGINT(20) NULL COMMENT 'note_summary_config FK (NULL=config 없음)'")
     private Long configId;
 
     // ── 파일 식별 ───────────────────────────────────────────────────
