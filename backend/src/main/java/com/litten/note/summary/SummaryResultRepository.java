@@ -8,13 +8,19 @@ import java.util.Optional;
 @Repository
 public interface SummaryResultRepository extends JpaRepository<SummaryResult, Long> {
 
-    /** YouTube 영상 ID로 공통 결과 조회 (없으면 생성 필요) */
-    Optional<SummaryResult> findByYoutubeVideoIdAndIsDeletedFalse(String youtubeVideoId);
+    /** YouTube 영상 ID + level 로 공통 결과 조회 */
+    Optional<SummaryResult> findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(
+            String youtubeVideoId, int summaryLevel);
 
-    /** 개인 파일 UUID + 회원 UUID로 결과 조회 */
-    Optional<SummaryResult> findByFileUuidAndMemberUuidAndIsDeletedFalse(
+    /** 개인 파일 UUID + 회원 UUID + level 로 결과 조회 */
+    Optional<SummaryResult> findByFileUuidAndMemberUuidAndSummaryLevelAndIsDeletedFalse(
+            String fileUuid, String memberUuid, int summaryLevel);
+
+    /** YouTube level 무관 최신 결과 조회 (level 미지정 시 fallback) */
+    Optional<SummaryResult> findTopByYoutubeVideoIdAndIsDeletedFalseOrderBySummaryLevelDesc(
+            String youtubeVideoId);
+
+    /** 개인 파일 level 무관 최신 결과 조회 (level 미지정 시 fallback) */
+    Optional<SummaryResult> findTopByFileUuidAndMemberUuidAndIsDeletedFalseOrderBySummaryLevelDesc(
             String fileUuid, String memberUuid);
-
-    /** 파일 UUID만으로 조회 (member_uuid 무관) */
-    Optional<SummaryResult> findByFileUuidAndIsDeletedFalse(String fileUuid);
 }

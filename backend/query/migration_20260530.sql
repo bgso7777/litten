@@ -9,30 +9,36 @@
 -- ────────────────────────────────────────────────────────────────────────────────
 DROP TABLE IF EXISTS `note_summary_config`;
 CREATE TABLE `note_summary_config` (
-  `sequence`         BIGINT(20)   NOT NULL AUTO_INCREMENT  COMMENT '설정 PK',
-  `file_type`        VARCHAR(50)  NOT NULL                  COMMENT '파일 유형 (youtube|text|pdf|xls|doc|ppt|audio|handwriting)',
-  `config_name`      VARCHAR(100) NOT NULL                  COMMENT '설정 이름',
-  `ai_provider`      VARCHAR(20)  NOT NULL DEFAULT 'openai' COMMENT 'AI 제공자 (openai|claude)',
-  `ai_model`         VARCHAR(100) NULL                      COMMENT 'AI 모델명 (NULL=서버 기본값 사용)',
+  `sequence`           BIGINT(20)    NOT NULL AUTO_INCREMENT  COMMENT '설정 PK',
+  `file_type`          VARCHAR(50)   NOT NULL                  COMMENT '파일 유형 (youtube|text|pdf|xls|doc|ppt|audio|handwriting)',
+  `config_name`        VARCHAR(100)  NOT NULL                  COMMENT '설정 이름',
+  `ai_provider`        VARCHAR(20)   NOT NULL DEFAULT 'openai' COMMENT 'AI 제공자 (openai|claude)',
+  `ai_model`           VARCHAR(100)  NULL                      COMMENT 'AI 모델명 (NULL=서버 기본값)',
 
-  -- 요약 파라미터 (리마인드는 note_remind_config 별도 테이블)
-  `summary_enabled`  TINYINT(1)   NOT NULL DEFAULT 1         COMMENT '요약 활성 여부',
-  `summary_level`    TINYINT      NOT NULL DEFAULT 3         COMMENT '요약 수준 1~5 (1=한줄/2=간단/3=일반/4=상세/5=전체)',
-  `text_language`    VARCHAR(10)  NOT NULL DEFAULT 'ko'      COMMENT '입력 텍스트 언어 (ko, en, ja 등)',
-  `summary_language` VARCHAR(10)  NOT NULL DEFAULT 'ko'      COMMENT '출력 요약 언어',
-  `max_tokens`       INT          NULL                       COMMENT '최대 토큰 수 (NULL=서버 기본값)',
+  -- 요약 파라미터 (리마인드는 note_remind_config 별도)
+  `summary_enabled`    TINYINT(1)    NOT NULL DEFAULT 1         COMMENT '요약 활성 여부',
+  `summary_level`      TINYINT       NOT NULL DEFAULT 3         COMMENT '요약 수준 1~5',
+  `text_language`      VARCHAR(10)   NOT NULL DEFAULT 'ko'      COMMENT '입력 텍스트 언어',
+  `summary_language`   VARCHAR(10)   NOT NULL DEFAULT 'ko'      COMMENT '출력 요약 언어',
+  `max_tokens`         INT           NULL                       COMMENT '최대 토큰 수 (NULL=서버 기본값)',
 
-  `is_active`        TINYINT(1)   NOT NULL DEFAULT 1         COMMENT '설정 활성 여부',
-  `description`      VARCHAR(500) NULL                       COMMENT '설정 설명',
-  `insert_pk`        BIGINT(20)   NULL                       COMMENT '등록자 FK',
-  `update_pk`        BIGINT(20)   NULL                       COMMENT '수정자 FK',
-  `insert_date_time` TIMESTAMP    NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
-  `update_date_time` TIMESTAMP    NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
+  -- 소스 buildSystemPrompt / computeMaxTokens 에서 추출한 level별 값
+  `level_name`         VARCHAR(20)   NULL COMMENT '수준 코드명 (소스: VERY_SHORT|SHORT|MEDIUM|LONG|FULL)',
+  `level_description`  VARCHAR(300)  NULL COMMENT '수준 설명 (소스: buildSystemPrompt levelDetail)',
+  `level_ratio`        DECIMAL(4,2)  NULL COMMENT '토큰 계산 비율 (소스: computeMaxTokens ratio)',
+
+  `is_active`          TINYINT(1)    NOT NULL DEFAULT 1         COMMENT '설정 활성 여부',
+  `description`        VARCHAR(500)  NULL                       COMMENT '설정 설명',
+  `insert_pk`          BIGINT(20)    NULL                       COMMENT '등록자 FK',
+  `update_pk`          BIGINT(20)    NULL                       COMMENT '수정자 FK',
+  `insert_date_time`   TIMESTAMP     NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
+  `update_date_time`   TIMESTAMP     NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
   PRIMARY KEY (`sequence`) USING BTREE,
-  UNIQUE INDEX `unique_file_type` (`file_type`) USING BTREE,
+  -- 파일유형 + 수준 조합 UNIQUE (8 유형 × 5 수준 = 40행)
+  UNIQUE INDEX `unique_file_type_level` (`file_type`, `summary_level`) USING BTREE,
   INDEX `idx_is_active` (`is_active`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='요약 처리 파라미터 설정';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='요약 처리 파라미터 설정 (파일유형+수준별)';
 
 
 -- ────────────────────────────────────────────────────────────────────────────────
@@ -110,8 +116,9 @@ CREATE TABLE `note_summary_result` (
   `update_date_time`   TIMESTAMP     NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
   PRIMARY KEY (`sequence`) USING BTREE,
-  UNIQUE INDEX `unique_youtube_video` (`youtube_video_id`) USING BTREE,
-  UNIQUE INDEX `unique_file_member`   (`file_uuid`, `member_uuid`) USING BTREE,
+  -- level별 구분 저장 (같은 파일이라도 level 1~5 각각 별도 저장)
+  UNIQUE INDEX `unique_youtube_video` (`youtube_video_id`, `summary_level`) USING BTREE,
+  UNIQUE INDEX `unique_file_member`   (`file_uuid`, `member_uuid`, `summary_level`) USING BTREE,
   INDEX `idx_file_type_status` (`file_type`, `status`) USING BTREE,
   INDEX `idx_member_uuid`      (`member_uuid`) USING BTREE,
   INDEX `idx_is_shared`        (`is_shared`) USING BTREE,
@@ -183,51 +190,113 @@ CREATE TABLE `note_remind_result` (
 -- 리마인드 그룹 권장 2~5개 ("일반적으로 항목은 2~5개 사이가 적절하다")
 -- ────────────────────────────────────────────────────────────────────────────────
 
--- 요약 파라미터 (note_summary_config)
+-- ── 요약 파라미터: 8 유형 × 5 수준 = 40행 ─────────────────────────────────
+-- 소스 추출값:
+--   level_name        : buildSystemPrompt switch(level) 코드명
+--   level_description : buildSystemPrompt levelDetail 문자열
+--   level_ratio       : computeMaxTokens ratio 값
+--   max_tokens        : level5=16384(OpenAI hardLimit), 그 외 level별 실용 상한
+-- ─────────────────────────────────────────────────────────────────────────────
 INSERT INTO `note_summary_config`
   (`file_type`, `config_name`, `ai_provider`, `ai_model`,
-   `summary_enabled`, `summary_level`, `text_language`, `summary_language`,
-   `max_tokens`, `description`)
+   `summary_enabled`, `summary_level`, `text_language`, `summary_language`, `max_tokens`,
+   `level_name`, `level_description`, `level_ratio`, `description`)
 VALUES
-  ('youtube', '유튜브 영상 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 8192,
-   '유튜브 자막(STT) 기반. 공통 저장. level3=MEDIUM(40~50%). max_tokens:8192(긴 자막 대비)'),
+-- ── youtube ──
+('youtube','유튜브 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'유튜브 자막. 공통 저장. 빠른 확인용'),
+('youtube','유튜브 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'유튜브 자막. 공통 저장. 공유용'),
+('youtube','유튜브 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'유튜브 자막. 공통 저장. 기본값'),
+('youtube','유튜브 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'유튜브 자막. 공통 저장. 상세 검토용'),
+('youtube','유튜브 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'유튜브 자막. 공통 저장. 복기/문서화용. OpenAI hardLimit=16384'),
 
-  ('text', '텍스트 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 4096,
-   'html-editor-enhanced 텍스트. level3=MEDIUM(40~50%). max_tokens:4096'),
+-- ── text ──
+('text','텍스트 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'html-editor 텍스트. 빠른 확인용'),
+('text','텍스트 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'html-editor 텍스트. 공유용'),
+('text','텍스트 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'html-editor 텍스트. 기본값'),
+('text','텍스트 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'html-editor 텍스트. 상세'),
+('text','텍스트 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'html-editor 텍스트. 전체 정제본. OpenAI hardLimit=16384'),
 
-  ('pdf', 'PDF 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 4096,
-   'PDF 텍스트 추출 후 요약. level3=MEDIUM(40~50%). max_tokens:4096'),
+-- ── pdf ──
+('pdf','PDF 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'PDF 텍스트 추출. 빠른 확인용'),
+('pdf','PDF 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'PDF 텍스트 추출. 공유용'),
+('pdf','PDF 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'PDF 텍스트 추출. 기본값'),
+('pdf','PDF 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'PDF 텍스트 추출. 상세'),
+('pdf','PDF 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'PDF 텍스트 추출. 전체 정제본. OpenAI hardLimit=16384'),
 
-  ('xls', 'Excel 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 2, 'ko', 'ko', 2048,
-   'Excel 데이터 텍스트화. level2=SHORT(25%, 데이터 중심). max_tokens:2048'),
+-- ── xls ──
+('xls','Excel 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko',  512,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'Excel 데이터. 데이터 중심, 짧게'),
+('xls','Excel 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 1024,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'Excel 데이터. 기본값(데이터는 간단 요약으로 충분)'),
+('xls','Excel 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 2048,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'Excel 데이터.'),
+('xls','Excel 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 4096,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'Excel 데이터.'),
+('xls','Excel 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko', 8192,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'Excel 데이터. 전체 정제본'),
 
-  ('doc', 'Word 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 4096,
-   'Word 문서 텍스트 추출. level3=MEDIUM(40~50%). max_tokens:4096'),
+-- ── doc ──
+('doc','Word 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'Word 문서 텍스트 추출. 빠른 확인용'),
+('doc','Word 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'Word 문서 텍스트 추출. 공유용'),
+('doc','Word 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'Word 문서 텍스트 추출. 기본값'),
+('doc','Word 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'Word 문서 텍스트 추출. 상세'),
+('doc','Word 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'Word 문서 텍스트 추출. 전체 정제본. OpenAI hardLimit=16384'),
 
-  ('ppt', 'PPT 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 2, 'ko', 'ko', 2048,
-   'PPT 슬라이드 텍스트 추출. level2=SHORT(25%, 발표 요점 중심). max_tokens:2048'),
+-- ── ppt ──
+('ppt','PPT 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko',  512,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'PPT 슬라이드. 발표 요점, 짧게'),
+('ppt','PPT 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 1024,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'PPT 슬라이드. 기본값(슬라이드는 간단 요약으로 충분)'),
+('ppt','PPT 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 2048,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'PPT 슬라이드.'),
+('ppt','PPT 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 4096,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'PPT 슬라이드.'),
+('ppt','PPT 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko', 8192,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'PPT 슬라이드. 전체 정제본'),
 
-  ('audio', '녹음 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 8192,
-   'STT 변환 결과 요약. STT 오인식 보정 포함. level3=MEDIUM(40~50%). max_tokens:8192(긴 녹음 대비)'),
+-- ── audio ──
+('audio','녹음 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'STT 변환 결과. STT 오인식 보정 포함. 빠른 확인용'),
+('audio','녹음 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'STT 변환 결과. STT 오인식 보정 포함. 공유용'),
+('audio','녹음 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'STT 변환 결과. STT 오인식 보정 포함. 기본값'),
+('audio','녹음 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'STT 변환 결과. STT 오인식 보정 포함. 상세'),
+('audio','녹음 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'STT 변환 결과. 전체 정제본. OpenAI hardLimit=16384'),
 
-  ('handwriting', '필기 파일 요약',
-   'openai', 'gpt-4o-mini',
-   1, 3, 'ko', 'ko', 4096,
-   'OCR 변환 결과 요약. level3=MEDIUM(40~50%). max_tokens:4096');
+-- ── handwriting ──
+('handwriting','필기 요약 Lv1','openai','gpt-4o-mini',1,1,'ko','ko', 1024,
+ 'VERY_SHORT','핵심 주제·결론 1~2문장. 최소 분량 유지.',0.15,'OCR 변환 결과. 빠른 확인용'),
+('handwriting','필기 요약 Lv2','openai','gpt-4o-mini',1,2,'ko','ko', 2048,
+ 'SHORT','전체 목적·핵심 포인트·결론을 각 2~4문장으로 작성.',0.30,'OCR 변환 결과. 공유용'),
+('handwriting','필기 요약 Lv3','openai','gpt-4o-mini',1,3,'ko','ko', 4096,
+ 'MEDIUM','각 섹션을 3~6문장의 실질적 내용으로 작성. 원본의 40~50% 분량 목표.',0.55,'OCR 변환 결과. 기본값'),
+('handwriting','필기 요약 Lv4','openai','gpt-4o-mini',1,4,'ko','ko', 8192,
+ 'LONG','각 섹션을 5~10문장으로 상세히 작성. 원본의 70% 분량 목표.',0.80,'OCR 변환 결과. 상세'),
+('handwriting','필기 요약 Lv5','openai','gpt-4o-mini',1,5,'ko','ko',16384,
+ 'FULL','STT 오류·추임새만 제거하고 거의 전체 내용 유지. 원본의 90% 분량 목표.',1.10,'OCR 변환 결과. 전체 정제본. OpenAI hardLimit=16384');
 
 
 -- 리마인드 파라미터 (note_remind_config)
@@ -294,17 +363,32 @@ ORDER BY sc.sequence;
 -- ALTER: insert_pk / update_pk 컬럼 추가 (테이블이 이미 존재할 경우 실행)
 -- ================================================================================
 ALTER TABLE `note_summary_config`
-  ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `description`,
-  ADD COLUMN `update_pk`  BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+  ADD COLUMN `level_name`        VARCHAR(20)  NULL COMMENT '수준 코드명 (VERY_SHORT|SHORT|MEDIUM|LONG|FULL)' AFTER `max_tokens`,
+  ADD COLUMN `level_description` VARCHAR(300) NULL COMMENT '수준 설명 (소스 buildSystemPrompt levelDetail)' AFTER `level_name`,
+  ADD COLUMN `level_ratio`       DECIMAL(4,2) NULL COMMENT '토큰 계산 비율 (소스 computeMaxTokens ratio)' AFTER `level_description`,
+  ADD COLUMN `insert_pk`         BIGINT(20)   NULL COMMENT '등록자 FK' AFTER `description`,
+  ADD COLUMN `update_pk`         BIGINT(20)   NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+
+-- UNIQUE 인덱스를 file_type → (file_type, summary_level) 로 변경
+ALTER TABLE `note_summary_config`
+  DROP INDEX `unique_file_type`,
+  ADD UNIQUE INDEX `unique_file_type_level` (`file_type`, `summary_level`) USING BTREE;
 
 ALTER TABLE `note_remind_config`
   ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `description`,
   ADD COLUMN `update_pk`  BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
 
 ALTER TABLE `note_summary_result`
-  ADD COLUMN `summary_level` TINYINT   NOT NULL DEFAULT 3 COMMENT '실제 적용된 요약 수준 1~5' AFTER `source_text`,
+  ADD COLUMN `summary_level` TINYINT    NOT NULL DEFAULT 3 COMMENT '실제 적용된 요약 수준 1~5' AFTER `source_text`,
   ADD COLUMN `insert_pk`     BIGINT(20) NULL COMMENT '등록자 FK' AFTER `deleted_date_time`,
   ADD COLUMN `update_pk`     BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+
+-- UNIQUE 인덱스에 summary_level 추가 (level별 구분 저장)
+ALTER TABLE `note_summary_result`
+  DROP INDEX `unique_youtube_video`,
+  DROP INDEX `unique_file_member`,
+  ADD UNIQUE INDEX `unique_youtube_video` (`youtube_video_id`, `summary_level`) USING BTREE,
+  ADD UNIQUE INDEX `unique_file_member`   (`file_uuid`, `member_uuid`, `summary_level`) USING BTREE;
 
 ALTER TABLE `note_remind_result`
   ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `is_deleted`,

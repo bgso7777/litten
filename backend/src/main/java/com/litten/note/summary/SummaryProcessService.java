@@ -37,9 +37,10 @@ public class SummaryProcessService {
         log.debug("[SummaryProcessService] process() - fileType: {}, videoId: {}, fileUuid: {}",
                 req.getFileType(), req.getYoutubeVideoId(), req.getFileUuid());
 
-        // 1) 파라미터 설정 조회
+        // 1) 파라미터 설정 조회 (파일유형 + 요약수준)
+        int level = req.getSummaryLevel() > 0 ? req.getSummaryLevel() : 3;
         SummaryConfig config = configRepository
-                .findByFileTypeAndIsActiveTrue(req.getFileType())
+                .findByFileTypeAndSummaryLevelAndIsActiveTrue(req.getFileType(), level)
                 .orElseGet(() -> defaultConfig(req.getFileType()));
 
         // 2) 캐시 조회 (YouTube / 개인 파일)
@@ -79,20 +80,20 @@ public class SummaryProcessService {
         return aiResp;
     }
 
-    public SummaryResponseVo getYoutubeSummary(String youtubeVideoId) {
-        log.debug("[SummaryProcessService] getYoutubeSummary() - videoId: {}", youtubeVideoId);
-        return resultRepository.findByYoutubeVideoIdAndIsDeletedFalse(youtubeVideoId)
-                .filter(r -> "done".equals(r.getStatus()))
-                .map(this::toResponseVo)
-                .orElse(null);
+    public SummaryResponseVo getYoutubeSummary(String youtubeVideoId, int summaryLevel) {
+        log.debug("[SummaryProcessService] getYoutubeSummary() - videoId: {}, level: {}", youtubeVideoId, summaryLevel);
+        Optional<SummaryResult> result = summaryLevel > 0
+                ? resultRepository.findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(youtubeVideoId, summaryLevel)
+                : resultRepository.findTopByYoutubeVideoIdAndIsDeletedFalseOrderBySummaryLevelDesc(youtubeVideoId);
+        return result.filter(r -> "done".equals(r.getStatus())).map(this::toResponseVo).orElse(null);
     }
 
-    public SummaryResponseVo getFileSummary(String fileUuid, String memberUuid) {
-        log.debug("[SummaryProcessService] getFileSummary() - fileUuid: {}", fileUuid);
-        return resultRepository.findByFileUuidAndMemberUuidAndIsDeletedFalse(fileUuid, memberUuid)
-                .filter(r -> "done".equals(r.getStatus()))
-                .map(this::toResponseVo)
-                .orElse(null);
+    public SummaryResponseVo getFileSummary(String fileUuid, String memberUuid, int summaryLevel) {
+        log.debug("[SummaryProcessService] getFileSummary() - fileUuid: {}, level: {}", fileUuid, summaryLevel);
+        Optional<SummaryResult> result = summaryLevel > 0
+                ? resultRepository.findByFileUuidAndMemberUuidAndSummaryLevelAndIsDeletedFalse(fileUuid, memberUuid, summaryLevel)
+                : resultRepository.findTopByFileUuidAndMemberUuidAndIsDeletedFalseOrderBySummaryLevelDesc(fileUuid, memberUuid);
+        return result.filter(r -> "done".equals(r.getStatus())).map(this::toResponseVo).orElse(null);
     }
 
     // ── 내부: 저장 ───────────────────────────────────────────────────────────
@@ -171,19 +172,23 @@ public class SummaryProcessService {
     // ── 내부: 조회/변환 ──────────────────────────────────────────────────────
 
     private Optional<SummaryResult> findCached(SummaryProcessRequestVo req) {
+        int level = resolveLevel(req);
         if ("youtube".equalsIgnoreCase(req.getFileType()) && req.getYoutubeVideoId() != null) {
-            return resultRepository.findByYoutubeVideoIdAndIsDeletedFalse(req.getYoutubeVideoId());
+            return resultRepository.findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(
+                    req.getYoutubeVideoId(), level);
         }
         if (req.getFileUuid() != null) {
-            return resultRepository.findByFileUuidAndMemberUuidAndIsDeletedFalse(
-                    req.getFileUuid(), req.getMemberUuid());
+            return resultRepository.findByFileUuidAndMemberUuidAndSummaryLevelAndIsDeletedFalse(
+                    req.getFileUuid(), req.getMemberUuid(), level);
         }
         return Optional.empty();
     }
 
     private SummaryResult findOrCreate(SummaryProcessRequestVo req) {
+        int level = resolveLevel(req);
         if ("youtube".equalsIgnoreCase(req.getFileType()) && req.getYoutubeVideoId() != null) {
-            return resultRepository.findByYoutubeVideoIdAndIsDeletedFalse(req.getYoutubeVideoId())
+            return resultRepository.findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(
+                            req.getYoutubeVideoId(), level)
                     .orElseGet(() -> {
                         SummaryResult r = new SummaryResult();
                         r.setYoutubeVideoId(req.getYoutubeVideoId());
@@ -192,8 +197,8 @@ public class SummaryProcessService {
                     });
         }
         if (req.getFileUuid() != null) {
-            return resultRepository.findByFileUuidAndMemberUuidAndIsDeletedFalse(
-                            req.getFileUuid(), req.getMemberUuid())
+            return resultRepository.findByFileUuidAndMemberUuidAndSummaryLevelAndIsDeletedFalse(
+                            req.getFileUuid(), req.getMemberUuid(), level)
                     .orElseGet(() -> {
                         SummaryResult r = new SummaryResult();
                         r.setFileUuid(req.getFileUuid());
@@ -203,6 +208,10 @@ public class SummaryProcessService {
                     });
         }
         return new SummaryResult();
+    }
+
+    private int resolveLevel(SummaryProcessRequestVo req) {
+        return req.getSummaryLevel() > 0 ? req.getSummaryLevel() : 3;
     }
 
     /**

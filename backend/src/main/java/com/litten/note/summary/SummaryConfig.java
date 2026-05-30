@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import jakarta.persistence.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 
 /**
  * 요약/리마인드 처리 파라미터 설정 엔티티.
@@ -17,9 +18,15 @@ import java.io.Serializable;
 @Setter
 @NoArgsConstructor
 @Entity(name = "SummaryConfig")
-@Table(name = "note_summary_config", indexes = {
-    @Index(name = "idx_is_active", columnList = "is_active")
-})
+@Table(name = "note_summary_config",
+    uniqueConstraints = @UniqueConstraint(
+        name = "unique_file_type_level",
+        columnNames = {"file_type", "summary_level"}
+    ),
+    indexes = {
+        @Index(name = "idx_is_active", columnList = "is_active")
+    }
+)
 public class SummaryConfig extends BaseEntity implements Serializable {
 
     @Id
@@ -27,7 +34,7 @@ public class SummaryConfig extends BaseEntity implements Serializable {
     @Column(name = "sequence", columnDefinition = "BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '설정 PK'")
     private Long sequence;
 
-    @Column(name = "file_type", nullable = false, unique = true,
+    @Column(name = "file_type", nullable = false,
             columnDefinition = "VARCHAR(50) NOT NULL COMMENT '파일 유형 (youtube|text|pdf|xls|doc|ppt|audio|handwriting)'")
     private String fileType;
 
@@ -51,6 +58,21 @@ public class SummaryConfig extends BaseEntity implements Serializable {
     @Column(name = "summary_level", nullable = false,
             columnDefinition = "TINYINT NOT NULL DEFAULT 3 COMMENT '요약 수준 1~5 (1=한줄/2=간단/3=일반/4=상세/5=전체)'")
     private Integer summaryLevel = 3;
+
+    /** 소스 buildSystemPrompt levelDetail 값 (VERY_SHORT|SHORT|MEDIUM|LONG|FULL) */
+    @Column(name = "level_name",
+            columnDefinition = "VARCHAR(20) NULL COMMENT '수준 코드명 (VERY_SHORT|SHORT|MEDIUM|LONG|FULL)'")
+    private String levelName;
+
+    /** 소스 buildSystemPrompt levelDetail 설명 문자열 */
+    @Column(name = "level_description",
+            columnDefinition = "VARCHAR(300) NULL COMMENT '수준 설명 (소스 buildSystemPrompt levelDetail)'")
+    private String levelDescription;
+
+    /** 소스 computeMaxTokens ratio 값 (0.15|0.30|0.55|0.80|1.10) */
+    @Column(name = "level_ratio",
+            columnDefinition = "DECIMAL(4,2) NULL COMMENT '토큰 계산 비율 (소스 computeMaxTokens ratio)'")
+    private Double levelRatio;
 
     @Column(name = "text_language", nullable = false,
             columnDefinition = "VARCHAR(10) NOT NULL DEFAULT 'ko' COMMENT '입력 텍스트 언어'")

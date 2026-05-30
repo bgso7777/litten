@@ -94,11 +94,12 @@ public class SummaryController {
      */
     @GetMapping("/youtube/{videoId}")
     public ResponseEntity<SummaryResponseVo> getYoutubeSummary(
-            @PathVariable String videoId) {
+            @PathVariable String videoId,
+            @RequestParam(defaultValue = "0") int summaryLevel) {
 
-        log.debug("[SummaryController] GET /note/v1/summary/youtube/{}", videoId);
+        log.debug("[SummaryController] GET /note/v1/summary/youtube/{} level: {}", videoId, summaryLevel);
 
-        SummaryResponseVo result = processService.getYoutubeSummary(videoId);
+        SummaryResponseVo result = processService.getYoutubeSummary(videoId, summaryLevel);
         if (result == null) {
             log.info("[SummaryController] YouTube 요약 없음 - videoId: {}", videoId);
             return ResponseEntity.notFound().build();
@@ -117,11 +118,12 @@ public class SummaryController {
     @GetMapping("/file/{fileUuid}")
     public ResponseEntity<SummaryResponseVo> getFileSummary(
             @PathVariable String fileUuid,
-            @RequestParam(required = false) String memberUuid) {
+            @RequestParam(required = false) String memberUuid,
+            @RequestParam(defaultValue = "0") int summaryLevel) {
 
-        log.debug("[SummaryController] GET /note/v1/summary/file/{} memberUuid: {}", fileUuid, memberUuid);
+        log.debug("[SummaryController] GET /note/v1/summary/file/{} memberUuid: {}, level: {}", fileUuid, memberUuid, summaryLevel);
 
-        SummaryResponseVo result = processService.getFileSummary(fileUuid, memberUuid);
+        SummaryResponseVo result = processService.getFileSummary(fileUuid, memberUuid, summaryLevel);
         if (result == null) {
             log.info("[SummaryController] 파일 요약 없음 - fileUuid: {}", fileUuid);
             return ResponseEntity.notFound().build();
