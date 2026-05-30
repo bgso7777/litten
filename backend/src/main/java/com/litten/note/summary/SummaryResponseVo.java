@@ -12,6 +12,9 @@ import java.util.List;
 public class SummaryResponseVo {
     private boolean success;
 
+    /** 실제 적용된 요약 수준 1~5 */
+    private int summaryLevel;
+
     /** AI 응답 전체 텍스트 (요약 + 리마인드 섹션 포함) - 기존 호환 유지 */
     private String summary;
 
@@ -33,10 +36,15 @@ public class SummaryResponseVo {
      * 성공 응답 생성. AI 응답 텍스트를 파싱하여 리마인드를 구조화한다.
      */
     public static SummaryResponseVo ok(String fullText) {
+        return ok(fullText, 0);
+    }
+
+    public static SummaryResponseVo ok(String fullText, int summaryLevel) {
         RemindParser.ParseResult result = RemindParser.parse(fullText);
 
         SummaryResponseVo vo = new SummaryResponseVo();
         vo.success          = true;
+        vo.summaryLevel     = summaryLevel;
         vo.summary          = fullText;                  // 원본 전체 텍스트 (기존 호환)
         vo.summaryOnly      = result.getSummaryText();   // 리마인드 제거된 순수 요약
         vo.summarySections  = result.getSections();      // 요약 섹션 구조화

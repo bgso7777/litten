@@ -64,6 +64,9 @@ public class SummaryProcessService {
             return aiResp;
         }
 
+        // AI 응답에 실제 적용된 level 설정
+        aiResp.setSummaryLevel(aiReq.getSummaryLevel());
+
         // 4) 요약 결과 → note_summary_result 저장
         SummaryResult saved = saveSummaryResult(req, config, aiReq, aiResp);
 
@@ -207,9 +210,10 @@ public class SummaryProcessService {
      * 리마인드 항목은 note_remind_result 에서 조회하여 구조화.
      */
     private SummaryResponseVo toResponseVo(SummaryResult entity) {
-        // 요약 텍스트 기반 파싱 (섹션 구조화)
+        // 요약 텍스트 기반 파싱 (섹션 구조화) + 요약 수준 포함
         SummaryResponseVo vo = SummaryResponseVo.ok(
-                entity.getSummaryFull() != null ? entity.getSummaryFull() : "");
+                entity.getSummaryFull() != null ? entity.getSummaryFull() : "",
+                entity.getSummaryLevel() != null ? entity.getSummaryLevel() : 0);
 
         // 리마인드 항목 DB 조회로 재구성
         List<RemindResult> rows = remindResultRepository
