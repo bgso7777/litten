@@ -70,6 +70,11 @@ public class SummaryResult extends BaseEntity implements Serializable {
             columnDefinition = "LONGTEXT NULL COMMENT '원본 텍스트 (자막/OCR/STT 결과)'")
     private String sourceText;
 
+    // ── 요약 파라미터 (실제 적용된 값) ───────────────────────────────
+    @Column(name = "summary_level", nullable = false,
+            columnDefinition = "TINYINT NOT NULL DEFAULT 3 COMMENT '실제 적용된 요약 수준 1~5'")
+    private Integer summaryLevel = 3;
+
     // ── 요약 결과 ───────────────────────────────────────────────────
     @Lob
     @Column(name = "summary_full",

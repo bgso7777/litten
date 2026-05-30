@@ -24,6 +24,8 @@ CREATE TABLE `note_summary_config` (
 
   `is_active`        TINYINT(1)   NOT NULL DEFAULT 1         COMMENT '설정 활성 여부',
   `description`      VARCHAR(500) NULL                       COMMENT '설정 설명',
+  `insert_pk`        BIGINT(20)   NULL                       COMMENT '등록자 FK',
+  `update_pk`        BIGINT(20)   NULL                       COMMENT '수정자 FK',
   `insert_date_time` TIMESTAMP    NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
   `update_date_time` TIMESTAMP    NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
@@ -51,6 +53,8 @@ CREATE TABLE `note_remind_config` (
 
   `is_active`          TINYINT(1)   NOT NULL DEFAULT 1          COMMENT '설정 활성 여부',
   `description`        VARCHAR(500) NULL                        COMMENT '설정 설명',
+  `insert_pk`          BIGINT(20)   NULL                        COMMENT '등록자 FK',
+  `update_pk`          BIGINT(20)   NULL                        COMMENT '수정자 FK',
   `insert_date_time`   TIMESTAMP    NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
   `update_date_time`   TIMESTAMP    NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
@@ -85,6 +89,9 @@ CREATE TABLE `note_summary_result` (
   `summary_full`       LONGTEXT      NULL                      COMMENT 'AI 응답 전체 텍스트 (요약+리마인드)',
   `summary_only`       LONGTEXT      NULL                      COMMENT '순수 요약 텍스트 (리마인드 구분선 이전)',
 
+  -- 요약 파라미터 (실제 적용된 값 보존)
+  `summary_level`      TINYINT       NOT NULL DEFAULT 3         COMMENT '실제 적용된 요약 수준 1~5',
+
   -- 리마인드 집계 (상세는 note_remind_result 별도 테이블)
   `total_remind_count` INT           NOT NULL DEFAULT 0         COMMENT '리마인드 총 세부항목 수 (빠른 조회용)',
 
@@ -97,6 +104,8 @@ CREATE TABLE `note_summary_result` (
   `is_deleted`         TINYINT(1)    NOT NULL DEFAULT 0         COMMENT '삭제 여부',
   `deleted_date_time`  TIMESTAMP     NULL                      COMMENT '삭제 일시',
 
+  `insert_pk`          BIGINT(20)    NULL                      COMMENT '등록자 FK',
+  `update_pk`          BIGINT(20)    NULL                      COMMENT '수정자 FK',
   `insert_date_time`   TIMESTAMP     NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
   `update_date_time`   TIMESTAMP     NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
@@ -138,6 +147,8 @@ CREATE TABLE `note_remind_result` (
 
   `sort_order`        INT          NOT NULL DEFAULT 0         COMMENT '그룹 내 항목 정렬 순서',
   `is_deleted`        TINYINT(1)   NOT NULL DEFAULT 0         COMMENT '삭제 여부',
+  `insert_pk`         BIGINT(20)   NULL                      COMMENT '등록자 FK',
+  `update_pk`         BIGINT(20)   NULL                      COMMENT '수정자 FK',
   `insert_date_time`  TIMESTAMP    NOT NULL DEFAULT current_timestamp() COMMENT '등록일시',
   `update_date_time`  TIMESTAMP    NULL     ON UPDATE current_timestamp() COMMENT '수정일시',
 
@@ -277,3 +288,24 @@ SELECT
 FROM note_summary_config sc
 JOIN note_remind_config  rc ON sc.file_type = rc.file_type
 ORDER BY sc.sequence;
+
+
+-- ================================================================================
+-- ALTER: insert_pk / update_pk 컬럼 추가 (테이블이 이미 존재할 경우 실행)
+-- ================================================================================
+ALTER TABLE `note_summary_config`
+  ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `description`,
+  ADD COLUMN `update_pk`  BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+
+ALTER TABLE `note_remind_config`
+  ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `description`,
+  ADD COLUMN `update_pk`  BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+
+ALTER TABLE `note_summary_result`
+  ADD COLUMN `summary_level` TINYINT   NOT NULL DEFAULT 3 COMMENT '실제 적용된 요약 수준 1~5' AFTER `source_text`,
+  ADD COLUMN `insert_pk`     BIGINT(20) NULL COMMENT '등록자 FK' AFTER `deleted_date_time`,
+  ADD COLUMN `update_pk`     BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;
+
+ALTER TABLE `note_remind_result`
+  ADD COLUMN `insert_pk` BIGINT(20) NULL COMMENT '등록자 FK' AFTER `is_deleted`,
+  ADD COLUMN `update_pk`  BIGINT(20) NULL COMMENT '수정자 FK' AFTER `insert_pk`;

@@ -65,7 +65,7 @@ public class SummaryProcessService {
         }
 
         // 4) 요약 결과 → note_summary_result 저장
-        SummaryResult saved = saveSummaryResult(req, config, aiResp);
+        SummaryResult saved = saveSummaryResult(req, config, aiReq, aiResp);
 
         // 5) 리마인드 항목 → note_remind_result 행별 저장
         saveRemindResults(saved.getSequence(), aiResp.getReminds());
@@ -96,11 +96,13 @@ public class SummaryProcessService {
 
     private SummaryResult saveSummaryResult(SummaryProcessRequestVo req,
                                             SummaryConfig config,
+                                            SummaryRequestVo aiReq,
                                             SummaryResponseVo resp) {
         SummaryResult entity = findOrCreate(req);
         entity.setConfigId(config.getSequence());
         entity.setFileType(req.getFileType());
         entity.setSourceText(req.getText());
+        entity.setSummaryLevel(aiReq.getSummaryLevel());
         entity.setSummaryFull(resp.getSummary());
         entity.setSummaryOnly(resp.getSummaryOnly());
         entity.setTotalRemindCount(resp.getTotalRemindCount());
