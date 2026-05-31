@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../models/summary_result.dart';
 import '../models/youtube_channel.dart';
 import '../models/text_file.dart';
 import '../services/api_service.dart';
 import '../services/app_state_provider.dart';
-import '../services/free_summary_quota.dart';
+import '../config/plan_limits.dart';
+import '../services/usage_quota.dart';
 import '../services/file_storage_service.dart';
 
 // 앱 지원 30개 언어 목록
@@ -72,6 +72,28 @@ Future<void> showYoutubeVideoPlayerSheet({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ iOS 자막(스크립트) 미지원 — 알려진 한계 (2026-05-31 조사 완료)
+//
+// 이 시트는 데스크톱 YouTube watch 페이지를 WebView로 띄우고, '더보기 → 스크립트
+// 표시'를 JS로 자동 클릭해 자막 패널을 연 뒤 그 DOM을 긁는다.
+//
+// ▸ Android(WebView): 정상 동작. 패널이 자막으로 채워지고 스크래핑 성공.
+// ▸ iOS(WKWebView): 자막 패널이 열리지만 내용이 안 채워지고 로딩 스피너만 무한
+//   회전한다(="뺑뺑이"). 이는 우리 코드 버그가 아니라 YouTube의 자막 봇 차단이다.
+//
+// 조사로 확인한 사실(진단 로그 기반):
+//   - 패널은 열림(vis=EXPANDED)이나 세그먼트 0개 + 스피너 active.
+//   - WebView JS에서 captionTracks[].baseUrl 을 직접 fetch → HTTP 200이지만 본문이
+//     0바이트(빈 응답). get_transcript(InnerTube) 직접 호출은 400.
+//   - 즉 PoToken(봇 토큰)/디바이스 검증 없이는 YouTube가 WKWebView 환경에 자막
+//     데이터를 내려주지 않는다. 쿠키(CONSENT/SOCS) 사전 주입·fmt 변경으로 우회 불가.
+//
+// 결론: WebView 스크래핑/클라이언트 직접 fetch 방식은 iOS에서 구조적으로 막힘.
+//   해결하려면 서버 추출(백엔드 yt-dlp: extractYoutubeTranscriptViaYtDlp)로 폴백해야
+//   한다. 사용자 결정으로 현재는 iOS를 그대로 둠(자막 미표시). 같은 증상으로 다시
+//   조사하지 말 것 — 위 경로들은 이미 모두 실패가 확인됐다.
+// ─────────────────────────────────────────────────────────────────────────────
 class YoutubeVideoPlayerSheet extends StatefulWidget {
   final YoutubeVideo video;
   final YoutubeChannel channel;
@@ -90,6 +112,10 @@ class YoutubeVideoPlayerSheet extends StatefulWidget {
 
 class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   late final WebViewController _webViewController;
+  // YouTube watch는 SPA라 onPageFinished가 여러 번 발생한다. 매번 재주입하면
+  // '스크립트 표시'가 토글로 재클릭되어 자막 패널이 로딩 중 닫혔다 열렸다 하며
+  // 내용이 안 채워지고 무한 로딩(뺑뺑이)된다. 최초 1회만 주입해 패널을 안정 유지한다.
+  bool _transcriptScriptInjected = false;
 
   @override
   void initState() {
@@ -110,9 +136,21 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
       ..addJavaScriptChannel('LittenDiag',
           onMessageReceived: (m) => debugPrint('[TranscriptAuto] ${m.message}'))
       ..setNavigationDelegate(NavigationDelegate(
-        // 페이지 로드 후 '더보기' 펼치고 '스크립트 표시'를 자동 클릭
-        onPageFinished: (_) => _webViewController.runJavaScript(_autoOpenTranscriptScript),
+        // 페이지 로드 후 '더보기' 펼치고 '스크립트 표시'를 자동 클릭.
+        // onPageFinished가 여러 번 발생해도 최초 1회만 주입(중복 클릭→토글로 패널 로딩 방해 방지).
+        onPageFinished: (_) {
+          if (_transcriptScriptInjected) {
+            debugPrint('[TranscriptAuto] onPageFinished 재발생 - 주입 생략');
+            return;
+          }
+          _transcriptScriptInjected = true;
+          debugPrint('[TranscriptAuto] onPageFinished 최초 1회 - 스크립트 주입');
+          _webViewController.runJavaScript(_autoOpenTranscriptScript);
+        },
       ))
+      // 주의: hl=ko 등 언어 강제 시 한국어 자막 트랙 로딩이 차단되어 패널이 빈 채로
+      // 무한 로딩(segs=0)되는 회귀가 있었다(2026-05-31 검증). 언어 미지정(영문 로드)이
+      // 기본 자막을 정상 로드하므로 그대로 둔다.
       ..loadRequest(Uri.parse('https://www.youtube.com/watch?v=${widget.video.videoId}'));
   }
 
@@ -184,6 +222,14 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
     var pr = p.getBoundingClientRect();
     diag('scrollPlayerToTop → player top='+Math.round(pr.top)+' h='+Math.round(pr.height));
   }
+  // 진단: 클릭 후 자막 패널이 실제로 채워지는지(세그먼트 수·스피너) 폴링 로깅
+  function diagPanel(t){
+    var p = document.querySelector('ytd-transcript-renderer, ytd-transcript-search-panel-renderer, [target-id="engagement-panel-searchable-transcript"]');
+    var segs = document.querySelectorAll('ytd-transcript-segment-renderer, .segment-text');
+    var spinner = document.querySelector('tp-yt-paper-spinner[active], .ytd-transcript-renderer tp-yt-paper-spinner[active], yt-spinner');
+    var vis = (p && p.getAttribute) ? (p.getAttribute('visibility')||'') : '';
+    diag('PANEL t='+t+' panel='+(p?'found':'none')+' vis='+vis+' segs='+segs.length+' spinner='+(spinner?'active':'no'));
+  }
   function visible(el){
     if (!el || !el.offsetParent) return false;
     var r = el.getBoundingClientRect();
@@ -201,8 +247,17 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
     }
     return false;
   }
+  // 이미 열린 transcript 패널이 있으면 '스크립트 표시'는 토글이라 재클릭 시 닫힌다 → 클릭 생략
+  function transcriptPanelOpen(){
+    var p = document.querySelector('ytd-transcript-renderer, ytd-transcript-search-panel-renderer, [target-id="engagement-panel-searchable-transcript"]');
+    if (!p) return false;
+    var vis = (p.getAttribute && p.getAttribute('visibility')) || '';
+    if (vis) return vis.indexOf('EXPANDED') !== -1;
+    return visible(p);
+  }
   // 2) '스크립트 표시' 버튼 클릭 — 매칭 후보를 진단 로그로 출력하고 클릭 가능한 버튼만 클릭
   function clickTranscript(){
+    if (transcriptPanelOpen()){ diag('패널 이미 열림 - 재클릭 생략'); return true; }
     var cand = document.querySelectorAll('button, tp-yt-paper-button, ytd-button-renderer, yt-button-shape, a, yt-formatted-string, span');
     var match = 0;
     for (var i=0;i<cand.length;i++){
@@ -236,6 +291,7 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
         opened = true; diag('완료');
         // 스크립트 열리면 유튜브가 스크립트 위치로 스크롤 → 여러 번 영상 상단 정렬
         [400, 900, 1500, 2500].forEach(function(t){ setTimeout(scrollPlayerToTop, t); });
+        [1500, 3000, 6000, 10000].forEach(function(t){ setTimeout(function(){ diagPanel(t); }, t); });
       }
     }
     if (!opened && tries < 60) setTimeout(step, 600);
@@ -247,6 +303,11 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
 
   @override
   void dispose() {
+    // 닫기 버튼뿐 아니라 드래그·바깥 탭으로 닫을 때도 재생 중인 영상을 정지한다.
+    try {
+      _webViewController.runJavaScript(
+        "document.querySelectorAll('video').forEach(function(v){try{v.pause();}catch(e){}});");
+    } catch (_) {}
     super.dispose();
   }
 
@@ -1108,12 +1169,10 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
   final ScrollController _scriptScrollCtrl = ScrollController();
   final ScrollController _summaryScrollCtrl = ScrollController();
 
-  // 무료(비로그인) 요약 횟수 제한
-  static const int _freeSummaryLimit = FreeSummaryQuota.limit;
-  static const String _freeSummaryCountKey = 'free_summary_count';
-  // 무료 플랜(구독 기준)이면 요약 체험 횟수 제한 — 모든 요약과 카운트 공유
-  bool _isFree = false;
-  int _freeUsed = 0;
+  // 요약 사용 제한 (무료 2회 누적 / 스탠다드 10회 월별 / 프리미엄 무제한, 메모 요약과 카운트 공유). -1=무제한
+  int _summaryLimit = -1;
+  int _summaryUsed = 0;
+  bool _summaryIsFree = false; // 무료=누적, 그 외=월별
 
   bool _checkingCache = true;
   final Set<int> _savedLevels = {}; // 서버에 저장된 요약 수준들
@@ -1122,10 +1181,12 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
   @override
   void initState() {
     super.initState();
-    _isFree = Provider.of<AppStateProvider>(context, listen: false).subscriptionType == SubscriptionType.free;
-    if (_isFree) {
-      SharedPreferences.getInstance().then((p) {
-        if (mounted) setState(() => _freeUsed = p.getInt(_freeSummaryCountKey) ?? 0);
+    final subType = Provider.of<AppStateProvider>(context, listen: false).subscriptionType;
+    _summaryLimit = PlanLimits.summaryPerMonth(subType);
+    _summaryIsFree = subType == SubscriptionType.free;
+    if (_summaryLimit >= 0) {
+      UsageQuota.usedBy(UsageQuota.summary, cumulative: _summaryIsFree).then((u) {
+        if (mounted) setState(() => _summaryUsed = u);
       });
     }
     _loadCachedSummary();
@@ -1192,17 +1253,15 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
   Future<void> _summarize() async {
     // 이 레벨이 이미 저장돼 있으면 새로 생성하지 않음(캐시 재사용 → 무료 횟수/비용 미차감)
     final generating = !_savedLevels.contains(_summaryLevel);
-    // 무료(비로그인): 신규 생성 시에만 최대 3회 제한
-    if (_isFree && generating) {
-      final prefs = await SharedPreferences.getInstance();
-      final used = prefs.getInt(_freeSummaryCountKey) ?? 0;
-      if (used >= _freeSummaryLimit) {
-        if (mounted) setState(() {
-          _freeUsed = used;
-          _error = '무료 체험 요약은 최대 $_freeSummaryLimit회입니다. 로그인 후 계속 이용하세요.';
-        });
-        return;
-      }
+    // 플랜별 월 요약 제한 — 신규 생성 시에만 차감(캐시 재사용은 무료)
+    if (_summaryLimit >= 0 && generating && !await UsageQuota.canUseBy(UsageQuota.summary, _summaryLimit, cumulative: _summaryIsFree)) {
+      if (mounted) setState(() {
+        _summaryUsed = _summaryLimit;
+        _error = _summaryIsFree
+            ? '무료 요약 $_summaryLimit회를 모두 사용했습니다. 상위 플랜으로 업그레이드하면 계속 이용할 수 있어요.'
+            : '이번 달 요약 $_summaryLimit회를 모두 사용했습니다. 다음 달에 다시 이용하거나 상위 플랜으로 업그레이드하세요.';
+      });
+      return;
     }
     setState(() { _loading = true; _error = null; _summary = null; _result = null; _memoSaved = false; });
     try {
@@ -1218,12 +1277,10 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         token: widget.token,
       );
       if (!mounted) return;
-      // 무료: 신규 생성 성공 시에만 사용 횟수 증가
-      if (_isFree && generating) {
-        final prefs = await SharedPreferences.getInstance();
-        final next = (prefs.getInt(_freeSummaryCountKey) ?? 0) + 1;
-        await prefs.setInt(_freeSummaryCountKey, next);
-        if (mounted) _freeUsed = next;
+      // 신규 생성 성공 시에만 사용 횟수 증가 (무료=누적 / 그 외=월별)
+      if (_summaryLimit >= 0 && generating) {
+        await UsageQuota.incrementBy(UsageQuota.summary, cumulative: _summaryIsFree);
+        if (mounted) _summaryUsed += 1;
       }
       if (!mounted) return;
       setState(() {
@@ -1237,7 +1294,10 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     }
   }
 
-  /// 요약된 부분만 메모(텍스트 파일)로 저장. 제목 = 채널명 앞 5자 + "-" + 제목 7자
+  /// 원본 스크립트(상단) + 요약(하단)을 메모(텍스트 파일)로 저장.
+  /// 텍스트 메모에서 요약 후 저장하는 것과 동일한 형식:
+  ///   상단 = 원본 스크립트 본문, 하단 = SUMMARY_START 마커 + 구분선 + 📋 AI 요약 + 요약.
+  /// 제목 = 채널명 앞 5자 + "-" + 제목 7자
   Future<void> _saveSummaryAsMemo(SummaryResult result) async {
     try {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1257,10 +1317,41 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
 
       String esc(String s) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
       String html(String s) => esc(s).replaceAll('\n', '<br>');
-      // 요약된 부분만 저장 (스크립트 제외)
-      final content = '<p><b>[요약]</b></p><p>${html(result.displaySummary)}</p>';
+      // 상단: 원본 스크립트 본문
+      final scriptHtml = '<p>${html(widget.transcript)}</p>';
+      // 하단: 요약 블록 (text_tab._summaryToHtml과 동일한 마커/구분선 형식 → 재요약 시 호환)
+      final summaryBuf = StringBuffer()
+        ..write('<!-- SUMMARY_START --><hr/><p><strong>📋 AI 요약</strong></p>');
+      for (final line in result.displaySummary.split('\n')) {
+        final t = line.trim();
+        if (t.isEmpty) continue;
+        if (t.startsWith('# ')) {
+          summaryBuf.write('<p><strong>${esc(t.substring(2))}</strong></p>');
+        } else {
+          summaryBuf.write('<p>${esc(t)}</p>');
+        }
+      }
+      summaryBuf.write('<!-- SUMMARY_END -->');
+      final content = '$scriptHtml$summaryBuf';
 
-      final memo = TextFile(littenId: litten.id, title: title, content: content);
+      // 요약 메타데이터(summary/summaryHistory)를 채워야 파일리스트에서 요약 아이콘이
+      // 활성(테마색)으로 보이고, 요약 보기/재요약(SummaryDialog)이 정상 동작한다.
+      // (TextFile.hasSummary = summary != null && summary.isNotEmpty)
+      final memo = TextFile(
+        littenId: litten.id,
+        title: title,
+        content: content,
+        summary: result.displaySummary,
+        summaryHistory: [
+          SummaryRecord(
+            summary: result.displaySummary,
+            createdAt: DateTime.now(),
+            level: _summaryLevel,
+            summaryLanguage: _summaryLanguage,
+            textLanguage: _textLanguage,
+          ),
+        ],
+      );
       final storage = FileStorageService.instance;
       await storage.saveTextFileContent(memo);
       final list = await storage.loadTextFiles(litten.id);
@@ -1608,7 +1699,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Builder(builder: (context) {
-                final limitReached = _isFree && _freeUsed >= _freeSummaryLimit;
+                final limitReached = _summaryLimit >= 0 && _summaryUsed >= _summaryLimit;
                 // 현재 레벨이 이미 요약(저장)돼 있으면 '다시 요약' 비활성화
                 final alreadySummarized = _savedLevels.contains(_summaryLevel);
                 final canSaveMemo = _result != null && !_loading && !_memoSaved;
@@ -1645,10 +1736,9 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                         label: Text(
                           () {
                             final base = _summary == null ? '요약하기' : '다시 요약';
-                            if (!_isFree) return base;
-                            // 사용한 횟수 표시 (0/3 → 1/3 → 2/3 → 3/3, 3/3이면 소진)
-                            final used = _freeUsed.clamp(0, _freeSummaryLimit);
-                            return '$base (무료 $used/$_freeSummaryLimit)';
+                            if (_summaryLimit < 0) return base; // 무제한 플랜
+                            final used = _summaryUsed.clamp(0, _summaryLimit);
+                            return '$base (${_summaryIsFree ? "무료 " : "이번달 "}$used/$_summaryLimit)';
                           }(),
                         ),
                       ),

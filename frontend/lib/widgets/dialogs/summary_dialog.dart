@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/app_state_provider.dart';
-import '../../services/free_summary_quota.dart';
+import '../../config/plan_limits.dart';
+import '../../services/usage_quota.dart';
 import '../../models/text_file.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -42,8 +43,11 @@ const _kLanguages = [
 
 class SummaryDialog extends StatefulWidget {
   final TextFile file;
+  /// 요약 완료 시 호출 — 호출측이 파일에 요약을 저장한다.
+  /// 콜백을 제공하면 다이얼로그는 닫히지 않고 새 요약을 이력에 추가·표시한다.
+  final void Function(SummaryResult result)? onSummarized;
 
-  const SummaryDialog({super.key, required this.file});
+  const SummaryDialog({super.key, required this.file, this.onSummarized});
 
   @override
   State<SummaryDialog> createState() => _SummaryDialogState();
@@ -57,22 +61,28 @@ class _SummaryDialogState extends State<SummaryDialog> {
   String? _errorMessage;
 
   SummaryRecord? _selectedHistory;
+  // 로컬 요약 이력 — 요약 시 즉시 추가/선택하여 다이얼로그를 닫지 않고 갱신한다.
+  late List<SummaryRecord> _history;
 
-  // 무료 플랜 요약 체험 카운트
-  bool _isFree = false;
-  int _freeUsed = 0;
+  // 요약 사용 제한 (무료 2회 누적 / 스탠다드 10회 월별 / 프리미엄 무제한). -1 = 무제한
+  int _summaryLimit = -1;
+  int _summaryUsed = 0;
+  bool _summaryIsFree = false; // 무료=누적, 그 외=월별
 
   @override
   void initState() {
     super.initState();
-    if (widget.file.summaryHistory.isNotEmpty) {
-      _selectedHistory = widget.file.summaryHistory.first;
+    _history = List<SummaryRecord>.of(widget.file.summaryHistory);
+    if (_history.isNotEmpty) {
+      _selectedHistory = _history.first;
     }
-    // 무료 플랜 여부 + 사용 횟수 로드
-    _isFree = Provider.of<AppStateProvider>(context, listen: false).subscriptionType == SubscriptionType.free;
-    if (_isFree) {
-      FreeSummaryQuota.used().then((u) {
-        if (mounted) setState(() => _freeUsed = u);
+    // 플랜별 월 한도 + 이번 달 사용 횟수 로드
+    final subType = Provider.of<AppStateProvider>(context, listen: false).subscriptionType;
+    _summaryLimit = PlanLimits.summaryPerMonth(subType);
+    _summaryIsFree = subType == SubscriptionType.free;
+    if (_summaryLimit >= 0) {
+      UsageQuota.usedBy(UsageQuota.summary, cumulative: _summaryIsFree).then((u) {
+        if (mounted) setState(() => _summaryUsed = u);
       });
     }
   }
@@ -90,7 +100,7 @@ class _SummaryDialogState extends State<SummaryDialog> {
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
     final l10n = AppLocalizations.of(context);
-    final history = widget.file.summaryHistory;
+    final history = _history;
 
     final levelItems = [
       (1, l10n?.summaryLevelOneLiner  ?? '한줄 요약'),
@@ -240,12 +250,12 @@ class _SummaryDialogState extends State<SummaryDialog> {
             const SizedBox(width: 8),
             Flexible(
               child: Builder(builder: (context) {
-                final limitReached = _isFree && _freeUsed >= FreeSummaryQuota.limit;
+                final limitReached = _summaryLimit >= 0 && _summaryUsed >= _summaryLimit;
                 final base = history.isNotEmpty
                     ? (l10n?.summarizeAgain ?? '다시 요약')
                     : (l10n?.summarize ?? '요약하기');
-                // 무료 플랜이면 모든 요약 버튼에 (무료 체험 실행/전체) 표시
-                final label = _isFree ? '$base ${FreeSummaryQuota.label(_freeUsed)}' : base;
+                // 제한 플랜이면 이번 달 사용량 표시 (무제한이면 표시 없음)
+                final label = _summaryLimit >= 0 ? '$base (${_summaryIsFree ? "무료 " : "이번달 "}${_summaryUsed.clamp(0, _summaryLimit)}/$_summaryLimit)' : base;
                 return ElevatedButton.icon(
                   onPressed: (_isLoading || limitReached) ? null : _onSummarize,
                   icon: const Icon(Icons.auto_awesome, size: 16),
@@ -432,12 +442,14 @@ class _SummaryDialogState extends State<SummaryDialog> {
 
   Future<void> _onSummarize() async {
     debugPrint('✨ [SummaryDialog] 요약 시작 - textLang: $_textLanguage, summaryLang: $_summaryLanguage, level: $_summaryLevel');
-    // 무료 플랜: 체험 횟수 제한
-    if (_isFree && !await FreeSummaryQuota.canUse()) {
+    // 플랜별 월 요약 횟수 제한 (무제한이면 통과)
+    if (_summaryLimit >= 0 && !await UsageQuota.canUseBy(UsageQuota.summary, _summaryLimit, cumulative: _summaryIsFree)) {
       if (mounted) {
         setState(() {
-          _freeUsed = FreeSummaryQuota.limit;
-          _errorMessage = '무료 체험 요약은 최대 ${FreeSummaryQuota.limit}회입니다. 구독 후 계속 이용하세요.';
+          _summaryUsed = _summaryLimit;
+          _errorMessage = _summaryIsFree
+              ? '무료 요약 $_summaryLimit회를 모두 사용했습니다. 상위 플랜으로 업그레이드하면 계속 이용할 수 있어요.'
+              : '이번 달 요약 $_summaryLimit회를 모두 사용했습니다. 다음 달에 다시 이용하거나 상위 플랜으로 업그레이드하세요.';
         });
       }
       return;
@@ -462,16 +474,37 @@ class _SummaryDialogState extends State<SummaryDialog> {
 
       debugPrint('✨ [SummaryDialog] 요약 완료 - 길이: ${summary.length}');
 
-      // 무료 플랜: 성공 시 체험 횟수 증가
-      if (_isFree) await FreeSummaryQuota.increment();
+      // 제한 플랜: 성공 시 사용 횟수 증가 (무료=누적 / 그 외=월별)
+      if (_summaryLimit >= 0) await UsageQuota.incrementBy(UsageQuota.summary, cumulative: _summaryIsFree);
 
-      if (mounted) {
-        Navigator.pop(context, SummaryResult(
+      final result = SummaryResult(
+        summary: summary,
+        textLanguage: _textLanguage,
+        summaryLanguage: _summaryLanguage,
+        summaryLevel: _summaryLevel,
+      );
+      // 호출측에 저장 위임 (콜백이 있으면 다이얼로그를 닫지 않고 이력만 갱신)
+      if (widget.onSummarized != null) {
+        widget.onSummarized!(result);
+        // 새 요약을 이력 맨 앞에 추가하고 선택 → 미리보기 박스도 새 요약으로 갱신
+        final record = SummaryRecord(
           summary: summary,
-          textLanguage: _textLanguage,
+          createdAt: DateTime.now(),
+          level: _summaryLevel,
           summaryLanguage: _summaryLanguage,
-          summaryLevel: _summaryLevel,
-        ));
+          textLanguage: _textLanguage,
+        );
+        if (mounted) {
+          setState(() {
+            _history.insert(0, record);
+            _selectedHistory = record;
+            _isLoading = false;
+            if (_summaryLimit >= 0) _summaryUsed += 1;
+          });
+        }
+      } else if (mounted) {
+        // 콜백 미제공 시(구 동작): 결과를 반환하며 닫는다
+        Navigator.pop(context, result);
       }
     } catch (e) {
       debugPrint('❌ [SummaryDialog] 요약 실패: $e');

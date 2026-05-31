@@ -543,6 +543,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
 
+    // 플랜별 개수 제한 (메모/녹음메모) — 초과 시 안내 후 중단 (실시간 정확 카운트)
+    final block = await appState.createBlockReason(isFromSTT ? 'stt' : 'text');
+    if (block != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return;
+    }
+
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();

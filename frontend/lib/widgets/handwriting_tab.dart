@@ -14,6 +14,8 @@ import 'package:flutter/foundation.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../config/plan_limits.dart';
+import '../services/usage_quota.dart';
 import '../widgets/common/empty_state.dart';
 import '../config/themes.dart';
 import '../models/handwriting_file.dart';
@@ -620,6 +622,13 @@ class _HandwritingTabState extends State<HandwritingTab>
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
 
+    // 플랜별 필기 개수 제한 — 초과 시 안내 후 중단 (동기 캐시 기반 → 캔버스 즉시 진입 유지)
+    final block = appState.createBlockReasonSync('handwriting');
+    if (block != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return;
+    }
+
     if (selectedLitten != null) {
       // 현재 시간 기반 제목 생성
       final now = DateTime.now();
@@ -970,6 +979,17 @@ class _HandwritingTabState extends State<HandwritingTab>
       final pdfPath = result.files.single.path!;
       final fileName = result.files.single.name;
 
+      // 플랜별 파일변환 누적 제한 (무료 4회) — 변환 다이얼로그 표시 전 체크
+      final convLimit = PlanLimits.fileConvertTotal(
+          Provider.of<AppStateProvider>(context, listen: false).subscriptionType);
+      if (convLimit >= 0 && !await UsageQuota.totalCanUse(UsageQuota.fileConvert, convLimit)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('파일 변환은 무료 플랜에서 누적 $convLimit회까지 가능합니다.\n상위 플랜으로 업그레이드하면 무제한입니다.')));
+        }
+        return;
+      }
+
       // ✅ FilePicker 직후 AppStateProvider 참조 저장 (context가 유효할 때)
       AppStateProvider? appStateProvider;
 
@@ -1001,6 +1021,8 @@ class _HandwritingTabState extends State<HandwritingTab>
         selectedLitten,
         appStateProvider, // ✅ 저장된 Provider 참조 전달
       );
+      // 변환 1건 완료 → 누적 사용 횟수 증가 (제한 플랜만)
+      if (convLimit >= 0) await UsageQuota.totalIncrement(UsageQuota.fileConvert);
     } else {
       print('❌ PDF 파일 선택 실패 - result가 null이거나 파일 경로가 없음');
     }

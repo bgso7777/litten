@@ -456,6 +456,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       return;
     }
 
+    // 캘린더의 일정 추가(+) 버튼 — 다이얼로그를 열기 전에 일정 개수 제한을 먼저 체크
+    final scheduleBlock = appState.scheduleBlockReason();
+    if (scheduleBlock != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(scheduleBlock),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => CreateLittenDialog(

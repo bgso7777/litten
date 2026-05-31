@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
+import '../config/plan_limits.dart';
 import '../services/background_notification_service.dart';
 import '../services/api_service.dart';
 import '../config/themes.dart';
@@ -605,26 +606,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 l10n?.freeUserLimits ?? '무료 사용자 제한:',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              _buildUsageRow(
-                l10n?.maxLittens ?? '• 리튼',
-                l10n?.maxLittensLimit ?? '최대 5개',
-                '',
-              ),
-              _buildUsageRow(
-                l10n?.maxRecordingFiles ?? '• 녹음 파일',
-                l10n?.maxRecordingFilesLimit ?? '최대 10개',
-                '',
-              ),
-              _buildUsageRow(
-                l10n?.maxTextFiles ?? '• 텍스트 파일',
-                l10n?.maxTextFilesLimit ?? '최대 5개',
-                '',
-              ),
-              _buildUsageRow(
-                l10n?.maxHandwritingFiles ?? '• 필기 파일',
-                l10n?.maxHandwritingFilesLimit ?? '최대 5개',
-                '',
-              ),
+              _buildUsageRow('• 메모', '최대 ${PlanLimits.memos(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 녹음', '최대 ${PlanLimits.audios(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 녹음 메모', '최대 ${PlanLimits.sttMemos(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 필기', '최대 ${PlanLimits.handwritings(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 첨부파일', '최대 ${PlanLimits.attachments(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 영상 구독', '최대 ${PlanLimits.youtubeChannels(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 일정', '최대 ${PlanLimits.schedules(SubscriptionType.free)}개', ''),
+              _buildUsageRow('• 요약', '${PlanLimits.summaryPerMonth(SubscriptionType.free)}회 (누적)', ''),
+              _buildUsageRow('• 리마인드', '${PlanLimits.remindPerMonth(SubscriptionType.free)}회 (누적)', ''),
+              _buildUsageRow('• 파일 변환', '${PlanLimits.fileConvertTotal(SubscriptionType.free)}회 (누적)', ''),
             ],
           ],
         ),

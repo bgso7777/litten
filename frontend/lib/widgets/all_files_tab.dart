@@ -21,6 +21,8 @@ import 'youtube_video_player_sheet.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/local_youtube_channel_service.dart';
 import '../services/youtube_rss_service.dart';
+import '../services/channel_watch_service.dart';
+import '../models/channel_watch_state.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/youtube_http_transcript_service.dart';
 import 'youtube_transcript_sheet.dart';
@@ -79,6 +81,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
   final Set<String> _expandedChannels = {};
   final Map<String, int> _channelVideoPage = {};
+  // 채널별 확인 상태(로컬) + 최신 영상 게시일(RSS) — 새 영상 아이콘/정렬용
+  Map<String, ChannelWatchState> _watchStates = {};
+  final Map<String, DateTime?> _latestVideoAt = {};
+  // 클라우드 동기화·공유는 프리미엄(서버 보관) 전용 → 무료/스탠다드는 숨김
+  bool get _isPremiumPlus =>
+      Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser;
   // ⭐ 영상별 요약 존재 여부 (videoId → 요약 1개 이상 있으면 true)
   final Map<String, bool> _videoHasSummary = {};
   // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
@@ -255,6 +263,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _youtubeToken = null;
       final locals = await LocalYoutubeChannelService.load();
       debugPrint('[AllFilesTab] 로컬 채널 수: ${locals.length}');
+      await _applyNewVideoData(locals); // 새 영상 판단·정렬
       if (mounted) setState(() {
         _youtubeChannels = locals;
         _loadingChannels = false;
@@ -270,7 +279,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (mounted) setState(() => _loadingChannels = true);
     try {
       final channels = await _apiService.getYoutubeChannels(token: token, page: 0, size: 100);
-      channels.sort((a, b) => b.id.compareTo(a.id));
+      await _applyNewVideoData(channels); // 새 영상 판단·정렬(최신 영상 순)
       debugPrint('[AllFilesTab] 채널 수: ${channels.length}');
       if (mounted) setState(() {
         _youtubeChannels = channels;
@@ -285,6 +294,51 @@ class _AllFilesTabState extends State<AllFilesTab> {
       debugPrint('❌ [AllFilesTab] 채널 로드 실패: $e');
       if (mounted) setState(() => _loadingChannels = false);
     }
+  }
+
+  /// 채널 로드 후 공통 처리: 확인 상태 로드 + 각 채널 최신 영상 게시일(RSS) + 새 영상 순 정렬
+  Future<void> _applyNewVideoData(List<YoutubeChannel> channels) async {
+    _watchStates = await ChannelWatchService.loadAll();
+    await _loadLatestVideoTimes(channels);
+    channels.sort(_compareChannels);
+  }
+
+  /// 각 채널 최신 영상 게시일을 RSS로 병렬 조회 (무인증)
+  Future<void> _loadLatestVideoTimes(List<YoutubeChannel> channels) async {
+    await Future.wait(channels.map((ch) async {
+      final vids = await _youtubeRssService.fetchChannelVideos(ch.channelId);
+      if (vids.isNotEmpty && vids.first.publishedAt != null) {
+        _latestVideoAt[ch.channelId] = DateTime.tryParse(vids.first.publishedAt!);
+      }
+    }));
+  }
+
+  /// 채널에 아직 확인 안 한 새 영상이 있는지 (최신 영상 > 마지막 확인 시각, 확인 기록 없으면 새 영상)
+  bool _hasNewVideo(YoutubeChannel ch) {
+    final latest = _latestVideoAt[ch.channelId];
+    if (latest == null) return false;
+    final seen = _watchStates[ch.channelId]?.lastSeenAt;
+    if (seen == null) return true;
+    return latest.isAfter(seen);
+  }
+
+  /// 정렬: 새 영상 있는 채널 우선 → 최신 영상 게시일 내림차순 → id 내림차순
+  int _compareChannels(YoutubeChannel a, YoutubeChannel b) {
+    final an = _hasNewVideo(a), bn = _hasNewVideo(b);
+    if (an != bn) return an ? -1 : 1;
+    final at = _latestVideoAt[a.channelId], bt = _latestVideoAt[b.channelId];
+    if (at != null && bt != null) return bt.compareTo(at);
+    if (at != null) return -1;
+    if (bt != null) return 1;
+    return b.id.compareTo(a.id);
+  }
+
+  /// 채널을 펼쳐 영상을 확인한 것으로 처리 (최신 영상 시각 저장 → 새 영상 아이콘 끔)
+  Future<void> _markChannelSeen(YoutubeChannel ch) async {
+    if (!_hasNewVideo(ch)) return;
+    await ChannelWatchService.markSeen(ch.channelId, latestAt: _latestVideoAt[ch.channelId], now: DateTime.now());
+    _watchStates = await ChannelWatchService.loadAll();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadVideoPage(String channelId, int page) async {
@@ -362,6 +416,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     } else {
       setState(() => _expandedChannels.add(id));
       _loadVideoPage(id, _channelVideoPage[id] ?? 0);
+      _markChannelSeen(ch); // 채널을 펼쳐 확인 → 새 영상 아이콘 끔
     }
   }
 
@@ -833,11 +888,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         : widget.showOnlyAttachments
                             ? _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor)
                             : _BottomFabRow(
-                                onText: () => _openEditorView(_EditorType.text, autoCreate: true),
-                                onTextWithSTT: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
+                                onText: () async { if (await _blockedByLimit('text')) return; _openEditorView(_EditorType.text, autoCreate: true); },
+                                onTextWithSTT: () async { if (await _blockedByLimit('stt')) return; _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true); },
                                 onFiles: _addAttachmentFromFiles,
-                                onCanvas: () => _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas),
-                                onAudio: _toggleRecording,
+                                onCanvas: () async { if (await _blockedByLimit('handwriting')) return; _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas); },
+                                onAudio: () async { if (!_isRecording && await _blockedByLimit('audio')) return; _toggleRecording(); },
                                 onYoutube: () async {
                                   await showYoutubeChannelSheet(context);
                                   // 시트에서 채널 등록 시 전체탭 영상 섹션 즉시 반영
@@ -1137,18 +1192,25 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     ),
                   ),
                 ),
+                // 새 영상 아이콘 — 아직 확인 안 한 새 영상이 있으면 활성(빨강), 없으면 회색
+                Tooltip(
+                  message: _hasNewVideo(ch) ? '새 영상 있음' : '새 영상 없음',
+                  child: Icon(
+                    Icons.fiber_new,
+                    size: 20,
+                    color: _hasNewVideo(ch) ? Colors.red : Colors.grey.shade300,
+                  ),
+                ),
+                const SizedBox(width: 4),
                 if (isLoadingVideos)
                   const Padding(
                     padding: EdgeInsets.only(right: 8),
                     child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
-                // 제일 우측: 구독 삭제 아이콘
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
-                  onPressed: () => _unsubscribeYoutubeChannel(ch),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 20),
-                  tooltip: '구독 삭제',
+                // 제일 우측: 더보기(⋮) 메뉴 — 파일 카드와 일관(삭제만)
+                _moreMenuBtn(
+                  color: color,
+                  onDelete: () => _unsubscribeYoutubeChannel(ch),
                 ),
               ],
             ),
@@ -1216,6 +1278,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // ── 클라우드 동기화 상태 아이콘 (trailing용, 툴팁 포함) ──
   // 24x24 통일 동기화 아이콘 (모든 상태에 아이콘 표시)
   Widget _buildSyncIconUnified(SyncStatus status, {DateTime? cloudUpdatedAt, DateTime? updatedAt}) {
+    // 클라우드 동기화는 프리미엄(서버 보관) 전용 → 무료/스탠다드는 아이콘 숨김
+    if (!_isPremiumPlus) return const SizedBox.shrink();
     final timeStr = (cloudUpdatedAt ?? updatedAt)?.toString().substring(0, 16) ?? '';
     final primaryColor = Theme.of(context).primaryColor;
     Widget icon;
@@ -1248,7 +1312,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // 통일된 24x24 ⋮ 메뉴 (수정/삭제)
   Widget _moreMenuBtn({
     required Color color,
-    required VoidCallback onEdit,
+    VoidCallback? onEdit, // null이면 '수정' 항목 생략 (예: 영상 채널은 삭제만)
     required VoidCallback onDelete,
   }) {
     return SizedBox(
@@ -1260,22 +1324,23 @@ class _AllFilesTabState extends State<AllFilesTab> {
         icon: Icon(Icons.more_vert, color: color, size: 16),
         tooltip: AppLocalizations.of(context)?.menuTooltip ?? '메뉴',
         onSelected: (value) {
-          if (value == 'edit') onEdit();
+          if (value == 'edit') onEdit?.call();
           else if (value == 'delete') onDelete();
         },
         itemBuilder: (ctx) {
           final l10n = AppLocalizations.of(ctx);
           return [
-            PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  const Icon(Icons.edit_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(l10n?.editLabel ?? '수정'),
-                ],
+            if (onEdit != null)
+              PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Text(l10n?.editLabel ?? '수정'),
+                  ],
+                ),
               ),
-            ),
             PopupMenuItem(
               value: 'delete',
               child: Row(
@@ -1427,7 +1492,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
               Expanded(
                 flex: 2,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     _iconBtn(
@@ -1438,12 +1503,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                           : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
                       onPressed: () => _showSummaryDialog(file),
                     ),
-                    _iconBtn(
-                      icon: Icons.share_outlined,
-                      color: color,
-                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                      onPressed: () {},
-                    ),
+                    if (_isPremiumPlus)
+                      _iconBtn(
+                        icon: Icons.share_outlined,
+                        color: color,
+                        tooltip: AppLocalizations.of(context)?.share ?? '공유',
+                        onPressed: () {},
+                      ),
                     _moreMenuBtn(
                       color: color,
                       onEdit: () => _showRenameTextDialog(file),
@@ -1548,7 +1614,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
               Expanded(
                 flex: 2,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     _iconBtn(
@@ -1557,12 +1623,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
-                    _iconBtn(
-                      icon: Icons.share_outlined,
-                      color: color,
-                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                      onPressed: () {},
-                    ),
+                    if (_isPremiumPlus)
+                      _iconBtn(
+                        icon: Icons.share_outlined,
+                        color: color,
+                        tooltip: AppLocalizations.of(context)?.share ?? '공유',
+                        onPressed: () {},
+                      ),
                     _moreMenuBtn(
                       color: color,
                       onEdit: () => _showRenameHandwritingDialog(file),
@@ -1586,6 +1653,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
     dynamic selectedLitten,
     AppStateProvider appState,
   ) async {
+    // PDF 가져오기는 필기 파일(pdfConvert)로 등록되므로 필기 개수 제한을 적용한다.
+    final block = await appState.createBlockReason('handwriting');
+    if (block != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return;
+    }
     try {
       // 1) 리튼의 handwriting 폴더로 PDF 원본 복사
       final docDir = await getApplicationDocumentsDirectory();
@@ -1635,6 +1708,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   /// 임의의 파일을 선택해 노트에 첨부 (분석/보관/공유 용)
+  /// 전체 탭에서 에디터(메모/필기 등)를 열기 **전에** 개수 제한을 체크한다.
+  /// 초과 시 안내 스낵바를 띄우고 true(차단) 반환 → 탭 이동/에디터 진입을 막아 전체 탭에 머문다.
+  Future<bool> _blockedByLimit(String kind) async {
+    final block = await Provider.of<AppStateProvider>(context, listen: false).createBlockReason(kind);
+    if (block != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _addAttachmentFromFiles() async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
@@ -1644,6 +1728,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
           const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
         );
       }
+      return;
+    }
+
+    // 파일 가져오기 버튼 — 파일 선택기를 열기 전에 첨부 개수 제한을 먼저 체크
+    // (PDF는 필기로 등록되며, 필기 제한은 _registerPdfForSyncfusion 내부에서 추가로 체크)
+    final attachBlock = await appState.createBlockReason('attachment');
+    if (attachBlock != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(attachBlock)));
       return;
     }
 
@@ -1668,6 +1760,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (picked.path == null) return;
 
     // ⭐ PDF 파일이면 Syncfusion 에디터 흐름으로 등록 (첨부 파일 아닌 HandwritingFile)
+    // → 제한 체크는 _registerPdfForSyncfusion 내부에서 'handwriting'(필기) 기준으로 수행
     if (picked.name.toLowerCase().endsWith('.pdf')) {
       await _registerPdfForSyncfusion(
         picked.path!,
@@ -1794,7 +1887,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             Expanded(
               flex: 2,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                   _iconBtn(
@@ -1803,12 +1896,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     tooltip: '분석 (미지원)',
                     onPressed: () {},
                   ),
-                  _iconBtn(
-                    icon: Icons.share_outlined,
-                    color: color,
-                    tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                    onPressed: () => _shareAttachment(file),
-                  ),
+                  if (_isPremiumPlus)
+                    _iconBtn(
+                      icon: Icons.share_outlined,
+                      color: color,
+                      tooltip: AppLocalizations.of(context)?.share ?? '공유',
+                      onPressed: () => _shareAttachment(file),
+                    ),
                   // ... 더보기 메뉴
                   SizedBox(
                     width: 24,
@@ -2208,7 +2302,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
               Expanded(
                 flex: 2,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     _iconBtn(
@@ -2217,12 +2311,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
-                    _iconBtn(
-                      icon: Icons.share_outlined,
-                      color: color,
-                      tooltip: '공유',
-                      onPressed: () {},
-                    ),
+                    if (_isPremiumPlus)
+                      _iconBtn(
+                        icon: Icons.share_outlined,
+                        color: color,
+                        tooltip: '공유',
+                        onPressed: () {},
+                      ),
                     _moreMenuBtn(
                       color: color,
                       onEdit: () => _showRenameAudioDialog(file),
@@ -2294,21 +2389,28 @@ class _AllFilesTabState extends State<AllFilesTab> {
   void _showSummaryDialog(TextFile file) async {
     debugPrint('✨ [AllFilesTab] 요약 다이얼로그 열기 - 파일: ${file.displayTitle}');
 
-    final result = await showDialog<SummaryResult>(
+    // 다이얼로그를 닫지 않고 요약할 때마다 콜백으로 저장한다(이력에 누적·표시).
+    await showDialog<SummaryResult>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => SummaryDialog(file: file),
+      builder: (ctx) => SummaryDialog(
+        file: file,
+        onSummarized: (r) {
+          debugPrint('✨ [AllFilesTab] 요약 결과 수신(콜백) - 파일에 추가');
+          _appendSummaryToFile(file, r);
+        },
+      ),
     );
-
-    if (result == null || !mounted) return;
-
-    debugPrint('✨ [AllFilesTab] 요약 결과 수신 - 파일에 추가 시작');
-    await _appendSummaryToFile(file, result);
   }
 
   Future<void> _appendSummaryToFile(TextFile file, SummaryResult result) async {
     try {
-      debugPrint('✨ [AllFilesTab] 파일 저장 시작 - 원본 content 길이: ${file.content.length}');
+      // 다이얼로그를 닫지 않고 연속 요약할 수 있으므로, 매번 스토리지의 최신 파일 상태를
+      // 기준으로 누적한다(원본 file 기준이면 직전 요약이 누락됨).
+      final storage = FileStorageService.instance;
+      final allFiles = await storage.loadTextFiles(file.littenId);
+      final current = allFiles.firstWhere((f) => f.id == file.id, orElse: () => file);
+      debugPrint('✨ [AllFilesTab] 파일 저장 시작 - 최신 content 길이: ${current.content.length}');
 
       // 요약을 HTML 단락으로 변환 (hr·이모지·인라인스타일 제거 → html_editor_enhanced 호환)
       final summaryLines = result.summary
@@ -2325,7 +2427,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final levelName = levelNames[result.summaryLevel] ?? '일반 요약';
       final header = '<p><strong>[AI 요약] Lv.${result.summaryLevel} $levelName | ${result.summaryLanguage}</strong></p>';
 
-      final base = file.content.isEmpty ? '<p><br></p>' : file.content;
+      final base = current.content.isEmpty ? '<p><br></p>' : current.content;
       final appendedContent = '$base$separator$header$summaryHtml';
 
       debugPrint('✨ [AllFilesTab] appendedContent 길이: ${appendedContent.length}');
@@ -2338,17 +2440,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
         summaryLanguage: result.summaryLanguage,
         textLanguage: result.textLanguage,
       );
-      final newHistory = [newRecord, ...file.summaryHistory];
+      final newHistory = [newRecord, ...current.summaryHistory];
 
-      final updatedFile = file.copyWith(
+      final updatedFile = current.copyWith(
         content: appendedContent,
         summary: result.summary,
         summaryHistory: newHistory,
       );
 
-      // 스토리지 저장
-      final storage = FileStorageService.instance;
-      final allFiles = await storage.loadTextFiles(file.littenId);
       debugPrint('✨ [AllFilesTab] 기존 파일 수: ${allFiles.length}');
 
       final updated = allFiles.map((f) => f.id == file.id ? updatedFile : f).toList();

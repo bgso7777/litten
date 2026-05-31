@@ -138,6 +138,13 @@ class _RecordingTabState extends State<RecordingTab> {
     } else {
       print('[RecordingTab] 녹음 시작');
 
+      // 플랜별 녹음 개수 제한 — 초과 시 안내 후 중단 (실시간 정확 카운트)
+      final block = await appState.createBlockReason('audio');
+      if (block != null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+        return;
+      }
+
       // ⭐ STT 실행 중인지 확인 - STT 중이면 STT를 중단하고 녹음 시작
       if (appState.isSTTActive) {
         debugPrint('⚠️ STT가 진행 중 - STT를 중단하고 녹음 시작');

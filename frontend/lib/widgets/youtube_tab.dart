@@ -9,6 +9,10 @@ import '../services/app_state_provider.dart';
 import '../services/youtube_transcript_service.dart';
 import '../services/youtube_webview_transcript_service.dart';
 import '../services/local_youtube_channel_service.dart';
+import '../services/youtube_rss_service.dart';
+import '../services/channel_watch_service.dart';
+import '../models/channel_watch_state.dart';
+import '../config/plan_limits.dart';
 import 'youtube_video_detail_dialog.dart';
 import 'youtube_video_player_sheet.dart';
 
@@ -98,10 +102,10 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
   /// 비로그인(토큰 없음) = 로컬 모드. 채널을 단말 로컬에만 저장한다.
   bool get _localMode => widget.token == null || widget.token!.isEmpty;
 
-  /// 로컬 모드에서 등록 가능한 채널 수 (무료=1, 그 외=무제한)
+  /// 로컬 모드에서 등록 가능한 채널 수 (플랜별: 무료 2 / 그 외 무제한)
   int _localChannelLimit(BuildContext context) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    return appState.subscriptionType == SubscriptionType.free ? 1 : -1;
+    return PlanLimits.youtubeChannels(appState.subscriptionType);
   }
 
   Future<void> _loadChannels({bool loadMore = false}) async {
@@ -861,9 +865,18 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   final Set<int> _loadingVideoDetails = {};
   final _transcriptService = YoutubeTranscriptService();
   final _webViewTranscriptService = YoutubeWebViewTranscriptService();
+  final _rssService = YoutubeRssService();
   bool _loading = true;
   String? _token;
   String _lastTabId = '';
+  // 비로그인(스탠다드) = 로컬 모드. 채널/영상을 단말 로컬·RSS로 처리한다.
+  bool get _localMode => _token == null || _token!.isEmpty;
+  // 채널별 확인 상태(로컬 저장) + 채널별 최신 영상 게시일(RSS 조회) — 새 영상 판단/정렬용
+  Map<String, ChannelWatchState> _watchStates = {};
+  final Map<String, DateTime?> _latestVideoAt = {};
+  // 로컬 모드: RSS로 받은 전체 영상 캐시(채널별) → 3개씩 페이지로 슬라이스
+  final Map<String, List<YoutubeVideo>> _localRssCache = {};
+  static const int _localPageSize = 3;
 
   @override
   bool get wantKeepAlive => true;
@@ -878,23 +891,57 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     debugPrint('[YoutubeTab] _init 진입');
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
-    if (_token == null || _token!.isEmpty) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
+    // 로그인 여부와 무관하게 로드 (비로그인=로컬, 로그인=서버)
     await _loadChannels();
   }
 
   Future<void> _loadChannels() async {
-    if (_token == null) return;
     setState(() => _loading = true);
-    final channels = await _apiService.getYoutubeChannels(token: _token!, page: 0, size: 100);
-    channels.sort((a, b) => b.id.compareTo(a.id));
-    debugPrint('[YoutubeTab] 채널 수: ${channels.length}');
+    // 비로그인(스탠다드): 로컬 저장 채널 / 로그인: 서버 채널
+    final channels = _localMode
+        ? await LocalYoutubeChannelService.load()
+        : await _apiService.getYoutubeChannels(token: _token!, page: 0, size: 100);
+    // 확인 상태 로드 + 각 채널 최신 영상 게시일(RSS) 조회 → 새 영상 판단·정렬에 사용
+    _watchStates = await ChannelWatchService.loadAll();
+    await _loadLatestVideoTimes(channels);
+    channels.sort(_compareChannels); // 새 영상 있는 채널을 위로
+    debugPrint('[YoutubeTab] 채널 수: ${channels.length} (localMode: $_localMode)');
     if (mounted) {
       setState(() { _channels = channels; _loading = false; });
       Provider.of<AppStateProvider>(context, listen: false).setYoutubeChannelCount(channels.length);
     }
+  }
+
+  /// 각 채널의 최신 영상 게시일을 RSS로 병렬 조회해 _latestVideoAt를 채운다.
+  /// (RSS는 무인증이라 로그인/비로그인 모두 사용 가능)
+  Future<void> _loadLatestVideoTimes(List<YoutubeChannel> channels) async {
+    await Future.wait(channels.map((ch) async {
+      final vids = await _rssService.fetchChannelVideos(ch.channelId);
+      if (vids.isNotEmpty && vids.first.publishedAt != null) {
+        _latestVideoAt[ch.channelId] = DateTime.tryParse(vids.first.publishedAt!);
+      }
+    }));
+  }
+
+  /// 채널에 사용자가 아직 확인하지 않은 새 영상이 있는지 판단한다.
+  /// 최신 영상 게시일 > 마지막 확인 시각 → 새 영상. 확인 기록 없으면 새 영상으로 본다.
+  bool _hasNewVideo(YoutubeChannel ch) {
+    final latest = _latestVideoAt[ch.channelId];
+    if (latest == null) return false;
+    final seen = _watchStates[ch.channelId]?.lastSeenAt;
+    if (seen == null) return true;
+    return latest.isAfter(seen);
+  }
+
+  /// 정렬: 새 영상 있는 채널 우선 → 그다음 최신 영상 시각 내림차순 → 마지막 id 내림차순
+  int _compareChannels(YoutubeChannel a, YoutubeChannel b) {
+    final an = _hasNewVideo(a), bn = _hasNewVideo(b);
+    if (an != bn) return an ? -1 : 1;
+    final at = _latestVideoAt[a.channelId], bt = _latestVideoAt[b.channelId];
+    if (at != null && bt != null) return bt.compareTo(at);
+    if (at != null) return -1;
+    if (bt != null) return 1;
+    return b.id.compareTo(a.id);
   }
 
   Future<void> _refresh() async {
@@ -904,15 +951,31 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     _loadingVideoKeys.clear();
     _expandedChannels.clear();
     _channelVideoPage.clear();
+    _localRssCache.clear();
     await _loadChannels();
   }
 
   Future<void> _loadVideoPage(String channelId, int page) async {
-    if (_token == null) return;
     final key = '${channelId}_$page';
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
     setState(() => _loadingVideoKeys.add(key));
+    // 비로그인(스탠다드): RSS 전체를 캐시 후 3개씩 슬라이스해 서버 모드와 동일하게 페이지네이션
+    if (_localMode) {
+      var all = _localRssCache[channelId];
+      if (all == null) {
+        all = await _rssService.fetchChannelVideos(channelId);
+        _localRssCache[channelId] = all;
+      }
+      final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
+      debugPrint('[YoutubeTab] 로컬 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
+      if (mounted) setState(() {
+        _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
+        _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, 9999);
+        _loadingVideoKeys.remove(key);
+      });
+      return;
+    }
     final result = await _apiService.getYoutubeVideos(token: _token!, channelId: channelId, page: page, size: 3);
     debugPrint('[YoutubeTab] 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
     if (mounted) setState(() {
@@ -929,7 +992,48 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     } else {
       setState(() => _expandedChannels.add(id));
       _loadVideoPage(id, _channelVideoPage[id] ?? 0);
+      _markChannelSeen(ch); // 채널을 펼쳐 확인 → 새 영상 아이콘 끔
     }
+  }
+
+  /// 채널을 펼쳐 영상을 확인한 것으로 처리한다 (최신 영상 시각 저장 → 아이콘 비활성).
+  Future<void> _markChannelSeen(YoutubeChannel ch) async {
+    if (!_hasNewVideo(ch)) return; // 이미 확인됨
+    final latest = _latestVideoAt[ch.channelId];
+    await ChannelWatchService.markSeen(ch.channelId, latestAt: latest, now: DateTime.now());
+    _watchStates = await ChannelWatchService.loadAll();
+    if (mounted) setState(() {});
+  }
+
+  /// 채널 구독 삭제 (⋮ 메뉴) — 로컬/서버 자동 분기, 확인 다이얼로그 후 목록 재로드
+  Future<void> _deleteChannel(YoutubeChannel ch) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('구독 삭제'),
+        content: Text('"${ch.channelName}" 채널 구독을 삭제할까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      if (_localMode) {
+        await LocalYoutubeChannelService.removeByChannelId(ch.channelId);
+      } else {
+        await _apiService.unsubscribeYoutubeChannel(token: _token!, channelPk: ch.id);
+      }
+      await ChannelWatchService.remove(ch.channelId);
+    } catch (e) {
+      debugPrint('[YoutubeTab] 채널 삭제 실패: $e');
+    }
+    if (mounted) await _loadChannels();
   }
 
   Future<void> _loadVideoDetail(YoutubeVideo video) async {
@@ -1067,40 +1171,23 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     return Stack(
       children: [
         _buildBody(),
-        if (_token != null && _token!.isNotEmpty)
-          Positioned(
-            right: 16, bottom: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'youtube_tab_fab',
-              onPressed: _openManagementSheet,
-              tooltip: '채널 구독 관리',
-              backgroundColor: Theme.of(context).primaryColor,
-              child: const YoutubeSpeedDialIcon(),
-            ),
+        // 채널 관리 시트는 로컬 모드(비로그인)도 지원하므로 항상 노출
+        Positioned(
+          right: 16, bottom: 16,
+          child: FloatingActionButton.small(
+            heroTag: 'youtube_tab_fab',
+            onPressed: _openManagementSheet,
+            tooltip: '채널 구독 관리',
+            backgroundColor: Theme.of(context).primaryColor,
+            child: const YoutubeSpeedDialIcon(),
           ),
+        ),
       ],
     );
   }
 
   Widget _buildBody() {
-    if (_token == null || _token!.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 12),
-              const Text('로그인이 필요합니다.', style: TextStyle(fontSize: 15)),
-              const SizedBox(height: 6),
-              const Text('설정 > 계정에서 로그인 후 이용하세요.',
-                  textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
-            ],
-          ),
-        ),
-      );
-    }
+    // 스탠다드(비로그인)도 로컬 채널을 표시한다 — 로그인 요구 화면 제거.
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_channels.isEmpty) {
       return Center(
@@ -1142,43 +1229,21 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         children: [
-          // ── 채널 헤더 행 ──
+          // ── 채널 헤더 행 (전체 탭과 동일 구조: [구독아이콘][제목][새영상][⋮삭제]) ──
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Leading: 채널 아이콘 (속도 다이얼과 동일한 노트+배지 스타일)
                 SizedBox(
-                  width: 32, height: 32,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: color.withValues(alpha: 0.1),
-                        child: Icon(Icons.notes, color: color, size: 18),
-                      ),
-                      Positioned(
-                        right: -1, bottom: -1,
-                        child: Container(
-                          width: 13, height: 13,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          child: const Center(child: Icon(Icons.play_arrow, size: 8, color: Colors.white)),
-                        ),
-                      ),
-                    ],
-                  ),
+                  width: 32, height: 21,
+                  child: Center(child: Icon(Icons.subscriptions, color: color, size: 18)),
                 ),
                 const SizedBox(width: 12),
                 // 채널명 (탭 시 영상 리스트 펼침/접힘)
                 Expanded(
-                  flex: 3,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => _toggleChannel(ch),
                     child: Text(
                       ch.channelName,
@@ -1188,25 +1253,38 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
                     ),
                   ),
                 ),
-                // 자동화 설정 아이콘들
-                Expanded(
-                  flex: 2,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _autoSettingIcon(Icons.title, ch.autoTitle, '제목', () => _toggleChannelOption(ch, 'title')),
-                      _autoSettingIcon(Icons.notes, ch.autoMemo, '메모', ch.autoTitle ? () => _toggleChannelOption(ch, 'memo') : null),
-                      _autoSettingIcon(Icons.auto_awesome, ch.autoSummary, '요약', ch.autoTitle ? () => _toggleChannelOption(ch, 'summary') : null),
-                      _autoSettingIcon(Icons.notifications_none, ch.autoRemind, '리마인드', ch.autoTitle ? () => _toggleChannelOption(ch, 'remind') : null),
-                      // 펼치기 아이콘
-                      GestureDetector(
-                        onTap: () => _toggleChannel(ch),
-                        child: isLoadingVideos
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Icon(
-                                isExpanded ? Icons.expand_less : Icons.expand_more,
-                                color: Colors.grey, size: 20,
-                              ),
+                // 새 영상 아이콘 — 아직 확인 안 한 새 영상이 있으면 활성(빨강), 없으면 회색
+                Tooltip(
+                  message: _hasNewVideo(ch) ? '새 영상 있음' : '새 영상 없음',
+                  child: Icon(
+                    Icons.fiber_new,
+                    size: 20,
+                    color: _hasNewVideo(ch) ? Colors.red : Colors.grey.shade300,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                if (isLoadingVideos)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                // ⋮ 메뉴 (삭제) — 전체 탭과 동일
+                SizedBox(
+                  width: 24, height: 24,
+                  child: PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: Icon(Icons.more_vert, color: color, size: 16),
+                    tooltip: '메뉴',
+                    onSelected: (v) { if (v == 'delete') _deleteChannel(ch); },
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('삭제', style: TextStyle(color: Colors.red)),
+                        ]),
                       ),
                     ],
                   ),

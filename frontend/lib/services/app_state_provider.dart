@@ -11,6 +11,7 @@ import '../services/background_notification_service.dart';
 import '../services/app_icon_badge_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/audio_service.dart';
+import '../config/plan_limits.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../services/sync_service.dart';
@@ -72,6 +73,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _totalAudioCount = 0;
   int _totalTextCount = 0;
   int _totalHandwritingCount = 0;
+  // 앱 전체(모든 리튼 합산) 항목별 개수 캐시 — 생성 제한(createBlockReasonSync)용.
+  // getActualFileCounts()가 갱신한다. 메모=텍스트(STT 제외), stt=텍스트 isFromSTT, 녹음=오디오(STT 제외).
+  final Map<String, int> _appWideCounts = {};
 
   // WritingScreen 내부 탭 선택 상태
   String? _targetWritingTabId; // 'audio', 'text', 'handwriting', 'browser' 중 하나
@@ -2214,6 +2218,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     int totalAudio = 0, totalText = 0, totalHandwriting = 0;
     int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
     int selectedPdf = 0, selectedCanvas = 0, selectedSttMemo = 0, selectedAttachment = 0;
+    // 앱 전체 제한용 분리 카운트
+    int awMemo = 0, awStt = 0, awAudioOnly = 0, awHand = 0, awAttach = 0;
 
     for (final litten in _littens) {
       final audioFiles = await _audioService.getAudioFiles(litten);
@@ -2224,6 +2230,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       totalAudio += audioFiles.length;
       totalText += textFiles.length;
       totalHandwriting += handwritingFiles.length;
+      // 앱 전체 제한용 (메모/녹음메모/녹음 분리)
+      for (final t in textFiles) {
+        if (t.isFromSTT) { awStt++; } else { awMemo++; }
+      }
+      for (final a in audioFiles) {
+        if (!a.isFromSTT) awAudioOnly++;
+      }
+      awHand += handwritingFiles.length;
+      awAttach += attachmentFiles.length;
 
       if (littenId == null || litten.id == littenId) {
         // 녹음 = 일반 녹음 + 음성메모 녹음 모두 포함
@@ -2242,6 +2257,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _totalAudioCount = totalAudio;
     _totalTextCount = totalText;
     _totalHandwritingCount = totalHandwriting;
+    // 앱 전체 제한용 캐시 갱신
+    _appWideCounts['text'] = awMemo;
+    _appWideCounts['stt'] = awStt;
+    _appWideCounts['audio'] = awAudioOnly;
+    _appWideCounts['handwriting'] = awHand;
+    _appWideCounts['attachment'] = awAttach;
 
     // 선택 리튼 카운트 업데이트 (WritingScreen 헤더용)
     _actualAudioCount = selectedAudio;
@@ -2265,6 +2286,85 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       'text': selectedText,
       'handwriting': selectedHandwriting,
     };
+  }
+
+  /// 앱 전체(모든 리튼 합산) 타입별 개수를 **실시간으로** 계산한다(파일 직접 로드).
+  Future<Map<String, int>> _countAllForLimit() async {
+    final fs = FileStorageService.instance;
+    int text = 0, stt = 0, audio = 0, hand = 0, attach = 0;
+    for (final litten in _littens) {
+      final texts = await fs.loadTextFiles(litten.id);
+      for (final t in texts) {
+        if (t.isFromSTT) { stt++; } else { text++; }
+      }
+      final audios = await _audioService.getAudioFiles(litten);
+      for (final a in audios) {
+        if (!a.isFromSTT) audio++;
+      }
+      hand += (await fs.loadHandwritingFiles(litten.id)).length;
+      attach += (await fs.loadAttachmentFiles(litten.id)).length;
+    }
+    return {'text': text, 'stt': stt, 'audio': audio, 'handwriting': hand, 'attachment': attach};
+  }
+
+  /// 생성 제한 체크 **실시간**(정확) — 생성 트리거(전체 탭 버튼 등)에서 진입 전 사용.
+  Future<String?> createBlockReason(String kind) async {
+    final limit = switch (kind) {
+      'text' => PlanLimits.memos(_subscriptionType),
+      'stt' => PlanLimits.sttMemos(_subscriptionType),
+      'audio' => PlanLimits.audios(_subscriptionType),
+      'handwriting' => PlanLimits.handwritings(_subscriptionType),
+      'attachment' => PlanLimits.attachments(_subscriptionType),
+      _ => PlanLimits.unlimited,
+    };
+    if (limit < 0) return null;
+    final counts = await _countAllForLimit();
+    final count = counts[kind] ?? 0;
+    debugPrint('[제한체크-실시간] kind=$kind limit=$limit count=$count counts=$counts');
+    if (count < limit) return null;
+    final label = switch (kind) {
+      'text' => '메모', 'stt' => '녹음 메모', 'audio' => '녹음',
+      'handwriting' => '필기', 'attachment' => '첨부파일', _ => '항목',
+    };
+    return '$label는 무료 플랜에서 최대 $limit개까지 만들 수 있어요.\n상위 플랜으로 업그레이드하면 무제한입니다.';
+  }
+
+  /// 일정(날짜·알림 schedule) 생성 제한 체크 — schedule을 가진 리튼 개수 기준(앱 전체).
+  /// _littens는 메모리에 있으므로 동기·정확하다.
+  String? scheduleBlockReason() {
+    final limit = PlanLimits.schedules(_subscriptionType);
+    if (limit < 0) return null;
+    final count = _littens.where((l) => l.schedule != null).length;
+    debugPrint('[제한체크] kind=schedule limit=$limit count=$count');
+    if (count < limit) return null;
+    return '일정은 무료 플랜에서 최대 $limit개까지 만들 수 있어요.\n상위 플랜으로 업그레이드하면 무제한입니다.';
+  }
+
+  /// (보조) 동기 캐시 기반 제한 체크 — 캔버스 등 즉시 진입이 필요한 곳용.
+  /// 정확도가 떨어질 수 있으니 가능하면 createBlockReason(async)을 쓴다.
+  /// kind: 'text'(메모) | 'stt'(녹음메모) | 'audio'(녹음) | 'handwriting'(필기) | 'attachment'(첨부)
+  String? createBlockReasonSync(String kind) {
+    final limit = switch (kind) {
+      'text' => PlanLimits.memos(_subscriptionType),
+      'stt' => PlanLimits.sttMemos(_subscriptionType),
+      'audio' => PlanLimits.audios(_subscriptionType),
+      'handwriting' => PlanLimits.handwritings(_subscriptionType),
+      'attachment' => PlanLimits.attachments(_subscriptionType),
+      _ => PlanLimits.unlimited,
+    };
+    debugPrint('[제한체크] kind=$kind sub=$_subscriptionType limit=$limit count=${_appWideCounts[kind]} cache=$_appWideCounts');
+    if (limit < 0) return null; // 무제한
+    final count = _appWideCounts[kind] ?? 0;
+    if (count < limit) return null;
+    final label = switch (kind) {
+      'text' => '메모',
+      'stt' => '녹음 메모',
+      'audio' => '녹음',
+      'handwriting' => '필기',
+      'attachment' => '첨부파일',
+      _ => '항목',
+    };
+    return '$label는 무료 플랜에서 최대 $limit개까지 만들 수 있어요.\n상위 플랜으로 업그레이드하면 무제한입니다.';
   }
 
   // 파일 카운트 업데이트 (파일 추가/삭제 시 호출)

@@ -122,6 +122,15 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                 );
                 return;
               }
+
+              // 무료 플랜: 일정(날짜·알림) 개수 제한 — 초과 시 안내 후 중단
+              final scheduleBlock = widget.appState.scheduleBlockReason();
+              if (scheduleBlock != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(scheduleBlock)),
+                );
+                return;
+              }
             }
 
             final navigator = Navigator.of(context);
