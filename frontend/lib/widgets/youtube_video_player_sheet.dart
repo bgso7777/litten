@@ -164,9 +164,11 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
   var opened = false;
   var re = /스크립트 표시|show transcript/i;
   // 자동재생 차단(이벤트 기반 — 0.3초 루프 제거로 유튜브 자막 로딩 간섭 방지)
+  // 기본 음소거: 자동재생을 막아도 일시정지 직전 한순간 소리가 새는 것을 막기 위해
+  // 사용자가 직접 재생을 누르기 전까지는 모든 video를 muted=true 로 둔다.
   var killAutoplay = true;
   function onVidPlay(e){ if (killAutoplay){ try { e.target.pause(); } catch(_){} } }
-  // video에 playsinline + (자동재생 시 일시정지) play 리스너 1회 부착
+  // video에 playsinline + (자동재생 시 일시정지) play 리스너 1회 부착 + 기본 음소거
   function quiet(){
     var vs = document.querySelectorAll('video');
     for (var i=0;i<vs.length;i++){
@@ -176,6 +178,8 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
         v.setAttribute('webkit-playsinline','');
         v.playsInline = true;
       } catch(e){}
+      // 사용자 재생 전까지는 무음 유지 (자동재생 정책상으로도 muted가 안전)
+      if (killAutoplay) { try { v.muted = true; } catch(e){} }
       if (!v.__littenTagged) {
         v.__littenTagged = true;
         v.addEventListener('play', onVidPlay);
@@ -183,10 +187,15 @@ class _YoutubeVideoPlayerSheetState extends State<YoutubeVideoPlayerSheet> {
       }
     }
   }
-  // 사용자가 플레이어 영역을 직접 누르면 자동정지 해제 (그때부터 재생 허용)
+  // 사용자가 플레이어 영역을 직접 누르면 자동정지 해제 + 음소거 해제 (그때부터 소리 재생)
   document.addEventListener('click', function(e){
     if (e.target && e.target.closest && e.target.closest('#player, #movie_player, .html5-video-player, ytd-player')) {
-      if (killAutoplay) { killAutoplay = false; diag('사용자 재생 허용'); }
+      if (killAutoplay) {
+        killAutoplay = false;
+        var vs = document.querySelectorAll('video');
+        for (var i=0;i<vs.length;i++){ try { vs[i].muted = false; } catch(_){} }
+        diag('사용자 재생 허용 (음소거 해제)');
+      }
     }
   }, true);
   // 초기 전체화면 방지 + 자동재생 차단: 즉시 + video 생성 즉시(Observer) + 빠른 초기 루프

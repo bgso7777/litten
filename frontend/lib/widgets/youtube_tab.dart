@@ -1210,6 +1210,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView.builder(
+        // 채널이 적어 화면이 다 차지 않아도 아래로 당겨 새로고침이 되도록 항상 스크롤 허용
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 4, bottom: 80),
         itemCount: _channels.length,
         itemBuilder: (_, i) => _buildChannelCard(_channels[i]),
@@ -1230,8 +1232,9 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
       child: Column(
         children: [
           // ── 채널 헤더 행 (전체 탭과 동일 구조: [구독아이콘][제목][새영상][⋮삭제]) ──
+          // 항목 높이 1.5배: 헤더 세로 패딩 3→10
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

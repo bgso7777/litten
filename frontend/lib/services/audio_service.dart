@@ -375,7 +375,9 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
           // 경로로 먼저 조회, 경로 불일치 시 파일명으로 폴백 (isFromSTT 등 메타데이터 보존)
           final stored = storedByPath[file.path] ?? storedByName[fileName];
           final audioFile = stored != null
-              ? stored.copyWith(filePath: file.path)  // 경로 정규화
+              // 경로 정규화 — 단순 로드이므로 updatedAt(수정 시각)은 보존한다.
+              // (보존하지 않으면 로드할 때마다 now로 갱신되어 목록에서 항상 최상위로 올라온다)
+              ? stored.copyWith(filePath: file.path, updatedAt: stored.updatedAt)
               : AudioFile(
                   id: stat.modified.millisecondsSinceEpoch.toString(),
                   littenId: litten.id,
@@ -383,6 +385,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
                   filePath: file.path,
                   duration: Duration.zero,
                   createdAt: stat.modified,
+                  updatedAt: stat.modified, // 메타데이터 없는 파일도 시각 고정(now 방지)
                 );
           audioFiles.add(audioFile);
         }

@@ -51,8 +51,8 @@ class _RecordingTabState extends State<RecordingTab> {
       if (mounted) {
         setState(() {
           _audioFiles = files;
-          // 최신순으로 정렬 (createdAt 기준 내림차순)
-          _audioFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          // 최근 수정순으로 정렬 (updatedAt 기준 내림차순) — 다른 탭/전체 목록과 통일
+          _audioFiles.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         });
         debugPrint('[RecordingTab] UI 업데이트 완료 - 표시 파일 수: ${_audioFiles.length}');
       }

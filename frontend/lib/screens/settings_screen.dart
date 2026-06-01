@@ -702,52 +702,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return InkWell(
       onTap: isDisabled
           ? null
-          : () {
-              // 프리미엄 → 하위 플랜 다운그레이드 + 로그인 중: 강제 로그아웃 필요
-              if (type != SubscriptionType.premium &&
-                  appState.subscriptionType == SubscriptionType.premium &&
-                  appState.isLoggedIn) {
-                Navigator.of(context).pop();
-                _showDowngradeFromPremiumDialog(context, appState, type, title, l10n);
-                return;
-              }
-              // 스탠다드 또는 프리미엄 선택 시 클라우드 동기화 안내 팝업 표시
-              if (type == SubscriptionType.standard || type == SubscriptionType.premium) {
-                appState.changeSubscriptionType(type);
-                Navigator.of(context).pop();
-                debugPrint('[SettingsScreen] $type 선택 - 클라우드 서비스 안내 표시');
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Row(
-                      children: [
-                        const Icon(Icons.cloud_outlined, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Text(l10n?.cloudSync ?? '클라우드 동기화'),
-                      ],
-                    ),
-                    content: Text(
-                      l10n?.cloudSyncPlanChanged(title) ?? '$title 플랜으로 변경되었습니다.\n\n클라우드 동기화 서비스를 이용하려면 설정 > 계정에서 로그인하세요.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text(l10n?.confirm ?? '확인'),
-                      ),
-                    ],
-                  ),
-                );
-                return;
-              }
-              appState.changeSubscriptionType(type);
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n?.planChanged(title) ?? '$title 플랜으로 변경되었습니다'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
+          : () => _handlePlanSelection(context, appState, type, title, l10n),
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.all(12),
@@ -1309,6 +1264,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// 플랜 선택 처리 — 현재 플랜 → 대상 플랜 전환에 맞는 안내/확인 다이얼로그를 띄운다.
+  void _handlePlanSelection(
+    BuildContext context,
+    AppStateProvider appState,
+    SubscriptionType target,
+    String title,
+    AppLocalizations? l10n,
+  ) {
+    final from = appState.subscriptionType;
+    debugPrint('[SettingsScreen] 플랜 선택: $from → $target');
+    Navigator.of(context).pop(); // 플랜 선택 다이얼로그 닫기
+
+    if (from == target) return; // 동일 플랜 — 변경 없음
+
+    // 프리미엄 → 하위(스탠다드/무료): 클라우드 동기화 해지 + 로그아웃 확인 후 전환
+    if (from == SubscriptionType.premium && target != SubscriptionType.premium) {
+      _showDowngradeFromPremiumDialog(context, appState, target, title, l10n);
+      return;
+    }
+
+    // 그 외 전환(무료→스탠다드/프리미엄, 스탠다드→프리미엄/무료): 즉시 전환 + 안내
+    appState.changeSubscriptionType(target);
+    _showPlanChangeInfoDialog(context, target, _planChangeInfoMessage(from, target));
+  }
+
+  /// 업그레이드·스탠다드→무료 전환 시 보여줄 안내 문구 (전환별 차등)
+  String _planChangeInfoMessage(SubscriptionType from, SubscriptionType to) {
+    if (to == SubscriptionType.standard) {
+      // 무료 → 스탠다드: 개수 제한 해제, 요약·리마인드는 월별 제한
+      return '스탠다드 플랜으로 변경되었습니다.\n\n'
+          '• 리튼·파일 개수 제한이 모두 해제됩니다 (무제한).\n'
+          '• 광고가 제거됩니다.\n'
+          '• 영상 요약·리마인드는 매월 10회로 제한됩니다.';
+    }
+    if (to == SubscriptionType.premium) {
+      if (from == SubscriptionType.free) {
+        // 무료 → 프리미엄: 개수 제한 해제 + 클라우드 동기화
+        return '프리미엄 플랜으로 변경되었습니다.\n\n'
+            '• 리튼·파일 개수 제한이 모두 해제됩니다 (무제한).\n'
+            '• 광고가 제거됩니다.\n'
+            '• 영상 요약·리마인드가 무제한입니다.\n'
+            '• 설정 > 계정에서 로그인하면 클라우드 파일 동기화가 제공됩니다.';
+      }
+      // 스탠다드 → 프리미엄: 클라우드 동기화 추가
+      return '프리미엄 플랜으로 변경되었습니다.\n\n'
+          '• 영상 요약·리마인드가 무제한이 됩니다.\n'
+          '• 설정 > 계정에서 로그인하면 클라우드 파일 동기화가 제공됩니다.';
+    }
+    // 스탠다드 → 무료: 개수 제한 재적용, 광고, 요약·리마인드 월 2회
+    return '무료 플랜으로 변경되었습니다.\n\n'
+        '• 리튼·파일 개수 제한이 다시 적용됩니다.\n'
+        '• 광고가 표시됩니다.\n'
+        '• 영상 요약·리마인드는 매월 2회로 제한됩니다.';
+  }
+
+  void _showPlanChangeInfoDialog(
+    BuildContext context,
+    SubscriptionType target,
+    String message,
+  ) {
+    final isUpgrade = target != SubscriptionType.free;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(isUpgrade ? Icons.cloud_done_outlined : Icons.info_outline,
+                color: isUpgrade ? Colors.blue : Colors.grey),
+            const SizedBox(width: 8),
+            const Text('플랜 변경'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 프리미엄 → 하위 플랜 다운그레이드 시 보여줄 확인 문구 (대상별 차등)
+  String _downgradeMessage(SubscriptionType target) {
+    if (target == SubscriptionType.standard) {
+      // 프리미엄 → 스탠다드: 로그아웃 + 동기화 해지 (개수 제한은 없음)
+      return '프리미엄에서 스탠다드 플랜으로 변경합니다.\n\n'
+          '• 클라우드 파일 동기화가 해지되고 자동으로 로그아웃됩니다.\n'
+          '• 리튼·파일 개수 제한은 없습니다 (무제한 유지).\n'
+          '• 영상 요약·리마인드는 매월 10회로 제한됩니다.\n\n'
+          '계속하시겠습니까?';
+    }
+    // 프리미엄 → 무료: 개수 제한 재적용 + 로그아웃 + 동기화 해지
+    return '프리미엄에서 무료 플랜으로 변경합니다.\n\n'
+        '• 클라우드 파일 동기화가 해지되고 자동으로 로그아웃됩니다.\n'
+        '• 리튼·파일 개수 제한이 다시 적용됩니다.\n'
+        '• 광고가 표시됩니다.\n'
+        '• 영상 요약·리마인드는 매월 2회로 제한됩니다.\n\n'
+        '계속하시겠습니까?';
+  }
+
   void _showDowngradeFromPremiumDialog(
     BuildContext context,
     AppStateProvider appState,
@@ -1327,9 +1384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(l10n?.planChange ?? '플랜 변경'),
           ],
         ),
-        content: Text(
-          l10n?.downgradeFromPremiumMessage(planTitle) ?? '프리미엄 플랜에서 $planTitle 플랜으로 변경하면 클라우드 동기화가 중단되고 자동으로 로그아웃됩니다.\n\n계속하시겠습니까?',
-        ),
+        content: Text(_downgradeMessage(newType)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

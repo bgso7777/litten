@@ -101,20 +101,27 @@ class LittenSchedule {
     this.notificationEndTime,
   }) : notificationRules = notificationRules ?? [];
 
+  // 백엔드(MariaDB/Java) 동기화 호환 형식:
+  // - date/endDate: 타임존 비의존 "yyyy-MM-dd" (캘린더 일정은 벽시계 기준 floating)
+  // - 시각: zero-pad "HH:mm" (Java LocalTime/SQL TIME 파싱 가능, 기존 "H:m"도 읽기 호환)
+  static String _fmtTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  static String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Map<String, dynamic> toJson() {
     return {
-      'date': date.toIso8601String(),
-      'endDate': endDate?.toIso8601String(),
-      'startTime': '${startTime.hour}:${startTime.minute}',
-      'endTime': '${endTime.hour}:${endTime.minute}',
+      'version': 2, // 일정 데이터 스키마 버전 (백엔드 동기화/마이그레이션용)
+      'date': _fmtDate(date),
+      'endDate': endDate != null ? _fmtDate(endDate!) : null,
+      'startTime': _fmtTime(startTime),
+      'endTime': _fmtTime(endTime),
       'notes': notes,
       'notificationRules': notificationRules.map((rule) => rule.toJson()).toList(),
-      'notificationStartTime': notificationStartTime != null
-          ? '${notificationStartTime!.hour}:${notificationStartTime!.minute}'
-          : null,
-      'notificationEndTime': notificationEndTime != null
-          ? '${notificationEndTime!.hour}:${notificationEndTime!.minute}'
-          : null,
+      'notificationStartTime':
+          notificationStartTime != null ? _fmtTime(notificationStartTime!) : null,
+      'notificationEndTime':
+          notificationEndTime != null ? _fmtTime(notificationEndTime!) : null,
     };
   }
 

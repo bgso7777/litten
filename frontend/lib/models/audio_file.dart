@@ -55,6 +55,7 @@ class AudioFile {
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
     bool? isFromSTT,
+    DateTime? updatedAt,
   }) {
     return AudioFile(
       id: id,
@@ -63,7 +64,8 @@ class AudioFile {
       filePath: filePath ?? this.filePath,
       duration: duration ?? this.duration,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      // 명시적으로 넘기면 그 값을 유지(로드 시 경로 정규화 등), 아니면 수정 시각 갱신
+      updatedAt: updatedAt ?? DateTime.now(),
       fileSize: fileSize ?? this.fileSize,
       cloudId: cloudId ?? this.cloudId,
       cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,

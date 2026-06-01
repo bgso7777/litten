@@ -31,13 +31,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
   @override
   void initState() {
     super.initState();
-    // 1초 후 포커스 해제 (키보드 숨김)
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        _titleFocusNode.unfocus();
-        debugPrint('⌨️ 키보드 숨김 완료');
-      }
-    });
+    // 일정 생성 시 제목 입력에 커서를 유지한다 (autofocus 유지, 자동 포커스 해제 제거)
   }
 
   @override

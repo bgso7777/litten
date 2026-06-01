@@ -45,8 +45,9 @@ enum _FileType { text, handwriting, audio, attachment }
 class _MergedFile {
   final _FileType type;
   final dynamic file; // TextFile | HandwritingFile | AudioFile | AttachmentFile
-  final DateTime createdAt;
-  _MergedFile({required this.type, required this.file, required this.createdAt});
+  // 정렬·날짜그룹 기준 시각 = 파일의 최근 수정 시각(updatedAt). 최근 수정 파일이 상위로 온다.
+  final DateTime sortAt;
+  _MergedFile({required this.type, required this.file, required this.sortAt});
 }
 
 /// 텍스트 · 필기 · 녹음 파일을 하나의 탭에서 모두 보여주는 통합 뷰
@@ -81,6 +82,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
   final Set<String> _expandedChannels = {};
   final Map<String, int> _channelVideoPage = {};
+  // 로컬(비로그인) 모드: RSS로 받은 전체 영상 캐시(채널별) → 3개씩 페이지로 슬라이스
+  final Map<String, List<YoutubeVideo>> _localRssCache = {};
+  static const int _localPageSize = 3;
   // 채널별 확인 상태(로컬) + 최신 영상 게시일(RSS) — 새 영상 아이콘/정렬용
   Map<String, ChannelWatchState> _watchStates = {};
   final Map<String, DateTime?> _latestVideoAt = {};
@@ -117,27 +121,27 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
 
-  // 병합 정렬 파일 목록 (createdAt 내림차순)
+  // 병합 정렬 파일 목록 (updatedAt 내림차순 = 최근 수정 파일이 상위)
   List<_MergedFile> get _mergedFiles {
     if (widget.showOnlyAttachments) {
       final list = _attachmentFiles
-          .map((f) => _MergedFile(type: _FileType.attachment, file: f, createdAt: f.createdAt))
+          .map((f) => _MergedFile(type: _FileType.attachment, file: f, sortAt: f.updatedAt))
           .toList();
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      list.sort((a, b) => b.sortAt.compareTo(a.sortAt));
       return list;
     }
     final textSrc = widget.showOnlySTT ? _textFiles.where((f) => f.isFromSTT).toList() : _textFiles;
     final audioSrc = widget.showOnlySTT ? _audioFiles.where((f) => f.isFromSTT).toList() : _audioFiles;
     final list = <_MergedFile>[
-      ...textSrc.map((f) => _MergedFile(type: _FileType.text, file: f, createdAt: f.createdAt)),
+      ...textSrc.map((f) => _MergedFile(type: _FileType.text, file: f, sortAt: f.updatedAt)),
       if (!widget.showOnlySTT) ...[
-        ..._pdfFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
-        ..._canvasFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, createdAt: f.createdAt)),
-        ..._attachmentFiles.map((f) => _MergedFile(type: _FileType.attachment, file: f, createdAt: f.createdAt)),
+        ..._pdfFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, sortAt: f.updatedAt)),
+        ..._canvasFiles.map((f) => _MergedFile(type: _FileType.handwriting, file: f, sortAt: f.updatedAt)),
+        ..._attachmentFiles.map((f) => _MergedFile(type: _FileType.attachment, file: f, sortAt: f.updatedAt)),
       ],
-      ...audioSrc.map((f) => _MergedFile(type: _FileType.audio, file: f, createdAt: f.createdAt)),
+      ...audioSrc.map((f) => _MergedFile(type: _FileType.audio, file: f, sortAt: f.updatedAt)),
     ];
-    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    list.sort((a, b) => b.sortAt.compareTo(a.sortAt));
     return list;
   }
 
@@ -272,6 +276,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _loadingVideoKeys.clear();
         _expandedChannels.clear();
         _channelVideoPage.clear();
+        _localRssCache.clear();
       });
       return;
     }
@@ -289,6 +294,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _loadingVideoKeys.clear();
         _expandedChannels.clear();
         _channelVideoPage.clear();
+        _localRssCache.clear();
       });
     } catch (e) {
       debugPrint('❌ [AllFilesTab] 채널 로드 실패: $e');
@@ -346,24 +352,27 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
 
-    // 로컬(비로그인): RSS 피드로 최근 영상 목록 (페이지네이션 없음)
+    // 로컬(비로그인, 스탠다드): RSS 전체를 캐시 후 3개씩 슬라이스해 서버 모드와 동일하게 페이지네이션
     if (_youtubeToken == null) {
-      if (page != 0) return;
       setState(() => _loadingVideoKeys.add(key));
       try {
-        final all = await _youtubeRssService.fetchChannelVideos(channelId);
-        // 무료 체험: 최근 3개만, 페이지네이션 없음
-        final videos = all.take(3).toList();
+        var all = _localRssCache[channelId];
+        if (all == null) {
+          all = await _youtubeRssService.fetchChannelVideos(channelId);
+          _localRssCache[channelId] = all;
+        }
+        final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
+        debugPrint('[AllFilesTab] 로컬 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
         if (mounted) setState(() {
-          _videoPageData.putIfAbsent(channelId, () => {})[0] = videos;
-          _videoTotalPages[channelId] = 1;
+          _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
+          _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, 9999);
           _loadingVideoKeys.remove(key);
         });
-        _loadVideoSummaryFlags(videos); // 요약 존재 여부 비동기 조회
+        _loadVideoSummaryFlags(pageVids); // 요약 존재 여부 비동기 조회
       } catch (e) {
         debugPrint('❌ [AllFilesTab] 로컬 RSS 영상 로드 실패 ($channelId): $e');
         if (mounted) setState(() {
-          _videoPageData.putIfAbsent(channelId, () => {})[0] = [];
+          _videoPageData.putIfAbsent(channelId, () => {})[page] = [];
           _loadingVideoKeys.remove(key);
         });
       }
@@ -1021,9 +1030,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
         itemCount: merged.length,
         itemBuilder: (context, index) {
           final entry = merged[index];
-          final currentDate = DateTime(entry.createdAt.year, entry.createdAt.month, entry.createdAt.day);
+          final currentDate = DateTime(entry.sortAt.year, entry.sortAt.month, entry.sortAt.day);
           final showDateHeader = index == 0 ||
-              DateTime(merged[index - 1].createdAt.year, merged[index - 1].createdAt.month, merged[index - 1].createdAt.day) != currentDate;
+              DateTime(merged[index - 1].sortAt.year, merged[index - 1].sortAt.month, merged[index - 1].sortAt.day) != currentDate;
 
           final card = switch (entry.type) {
             _FileType.text => _buildTextCard(entry.file as TextFile),
@@ -1098,7 +1107,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: topHeight),
-              child: SingleChildScrollView(child: youtubeColumn),
+              // 채널 리스트를 아래로 당겨(상위 '영상 구독' 제목까지 끌어내려) 새로고침 → 채널 리스트 리프레시
+              child: RefreshIndicator(
+                onRefresh: _loadYoutubeChannels,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: youtubeColumn,
+                ),
+              ),
             ),
             // 드래그로 상/하 영역 비율 조절하는 분할 핸들
             MouseRegion(
@@ -1158,17 +1174,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isExpanded = _expandedChannels.contains(ch.channelId);
     final currentPage = _channelVideoPage[ch.channelId] ?? 0;
     final isLoadingVideos = _loadingVideoKeys.contains('${ch.channelId}_$currentPage');
-    final allVideos = _videoPageData[ch.channelId]?[currentPage] ?? [];
-    // 무료(로컬, 비로그인)는 최근 3개만 노출 (캐시에 더 많아도 표시 단계에서 캡)
-    final videos = _youtubeToken == null ? allVideos.take(3).toList() : allVideos;
+    // 로컬/서버 모두 페이지당 3개씩 (페이지네이션은 _buildVideoPagination에서 처리)
+    final videos = _videoPageData[ch.channelId]?[currentPage] ?? [];
 
     return Card(
-      // 상하 높이 추가 축소 (margin v5→4, padding v5→3)
+      // 항목 높이 1.5배: 헤더 세로 패딩 3→10
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1731,8 +1746,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       return;
     }
 
-    // 파일 가져오기 버튼 — 파일 선택기를 열기 전에 첨부 개수 제한을 먼저 체크
-    // (PDF는 필기로 등록되며, 필기 제한은 _registerPdfForSyncfusion 내부에서 추가로 체크)
+    // ⭐ "노트 > + > 파일"을 누른 즉시 첨부 개수 제한을 체크 — 한도 초과면 파일 선택기를 열기 전에 안내
     final attachBlock = await appState.createBlockReason('attachment');
     if (attachBlock != null) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(attachBlock)));
