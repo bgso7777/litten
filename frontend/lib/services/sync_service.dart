@@ -31,6 +31,40 @@ class SyncService {
     debugPrint('[SyncService] init 완료');
   }
 
+  /// 동기화 비활성화(프리미엄 해제/로그아웃) — 진행 중 동기화는 _canSync 게이트로 자연 중단되고,
+  /// 다음 활성화 시 전체 재동기화하도록 마지막 동기화 시각만 초기화한다. (로컬 데이터는 보존)
+  Future<void> onSyncDisabled() async {
+    debugPrint('[SyncService] onSyncDisabled - 동기화 비활성화');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyLastSyncTime);
+    _onSyncStatusChanged?.call();
+  }
+
+  /// 동기화 계정이 바뀌었을 때 로컬 파일의 클라우드 상태(cloudId/cloudUpdatedAt/syncStatus)를 초기화한다.
+  /// 서버는 (memberId, localId)로 멱등 업서트하므로, 초기화 후 재업로드하면 새 계정에 정상 등록된다.
+  /// 수정 시각(updatedAt)은 보존하여 파일 목록 정렬이 흐트러지지 않게 한다.
+  Future<void> resetLocalCloudState(List<String> littenIds) async {
+    debugPrint('[SyncService] resetLocalCloudState - ${littenIds.length}개 리튼');
+    for (final littenId in littenIds) {
+      final texts = await _fileStorage.loadTextFiles(littenId);
+      if (texts.any((f) => f.cloudId != null || f.syncStatus != SyncStatus.none)) {
+        await _fileStorage.saveTextFiles(littenId,
+            texts.map((f) => f.copyWith(clearCloud: true, updatedAt: f.updatedAt)).toList());
+      }
+      final audios = await _fileStorage.loadAudioFiles(littenId);
+      if (audios.any((f) => f.cloudId != null || f.syncStatus != SyncStatus.none)) {
+        await _fileStorage.saveAudioFiles(littenId,
+            audios.map((f) => f.copyWith(clearCloud: true, updatedAt: f.updatedAt)).toList());
+      }
+      final hws = await _fileStorage.loadHandwritingFiles(littenId);
+      if (hws.any((f) => f.cloudId != null || f.syncStatus != SyncStatus.none)) {
+        await _fileStorage.saveHandwritingFiles(littenId,
+            hws.map((f) => f.copyWith(clearCloud: true, updatedAt: f.updatedAt)).toList());
+      }
+    }
+    _onSyncStatusChanged?.call();
+  }
+
   bool get _canSync {
     final auth = _authService;
     if (auth == null) return false;

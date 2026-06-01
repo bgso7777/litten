@@ -114,6 +114,8 @@ class TextFile {
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
     bool? isFromSTT,
+    DateTime? updatedAt,
+    bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
   }) {
     return TextFile(
       id: id,
@@ -121,13 +123,14 @@ class TextFile {
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      // 명시하면 그 값 유지(클라우드 상태 초기화 등), 아니면 수정 시각 갱신
+      updatedAt: updatedAt ?? DateTime.now(),
       syncMarkers: syncMarkers ?? this.syncMarkers,
       summary: clearSummary ? null : (summary ?? this.summary),
       summaryHistory: summaryHistory ?? this.summaryHistory,
-      cloudId: cloudId ?? this.cloudId,
-      cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
+      cloudId: clearCloud ? null : (cloudId ?? this.cloudId),
+      cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
+      syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
       isFromSTT: isFromSTT ?? this.isFromSTT,
     );
   }

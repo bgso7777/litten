@@ -93,6 +93,8 @@ class HandwritingFile {
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
+    DateTime? updatedAt,
+    bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
   }) {
     return HandwritingFile(
       id: id,
@@ -104,12 +106,13 @@ class HandwritingFile {
       totalPages: totalPages ?? this.totalPages,
       currentPageIndex: currentPageIndex ?? this.currentPageIndex,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      // 명시하면 그 값 유지(클라우드 상태 초기화 등), 아니면 수정 시각 갱신
+      updatedAt: updatedAt ?? DateTime.now(),
       type: type ?? this.type,
       aspectRatio: aspectRatio ?? this.aspectRatio,
-      cloudId: cloudId ?? this.cloudId,
-      cloudUpdatedAt: cloudUpdatedAt ?? this.cloudUpdatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
+      cloudId: clearCloud ? null : (cloudId ?? this.cloudId),
+      cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
+      syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
     );
   }
 

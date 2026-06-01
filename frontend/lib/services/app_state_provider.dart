@@ -27,6 +27,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 로그인/플랜 전환 감지를 위한 이전 상태
   AuthStatus _previousAuthStatus = AuthStatus.unauthenticated;
   bool _previousIsPremium = false;
+  // 동기화 활성(로그인 && 프리미엄) 상태의 마지막 값 — OFF↔ON 전환을 한 곳에서 감지
+  bool _lastSyncEnabled = false;
 
   // 생성자: AuthService 리스너 등록 및 앱 생명주기 관찰자 등록
   AppStateProvider() {
@@ -485,6 +487,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 미동기화 로컬 파일 일괄 업로드 (프리미엄 여부는 내부에서 판단)
     final startLittenIds = _littens.map((l) => l.id).toList();
     SyncService.instance.uploadAllLocalFiles(startLittenIds);
+    // 동기화 생명주기 기준값 설정 — 시작 시점 상태를 기록해 이후 전환만 감지하도록 함
+    _lastSyncEnabled = isLoggedIn && isPremiumPlusUser;
+    if (_lastSyncEnabled) {
+      final mid = _authService.currentUser?.id;
+      if (mid != null) {
+        SharedPreferences.getInstance().then((p) => p.setString('synced_member_id', mid));
+      }
+    }
   }
 
   // 인증 상태 변경 핸들러
@@ -509,28 +519,58 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           // AuthService에도 로컬 플랜 동기화
           _authService.updateLocalSubscriptionPlan(_subscriptionTypeToPlan(_subscriptionType));
         }
-        SyncService.instance.syncOnLogin();
-        // 로그인 시 미동기화 로컬 파일 일괄 업로드
-        final littenIds = _littens.map((l) => l.id).toList();
-        SyncService.instance.uploadAllLocalFiles(littenIds);
       }
-      // 비프리미엄 → 프리미엄 업그레이드 시 일괄 업로드
+      // 비프리미엄 → 프리미엄 업그레이드 시 플랜 반영
       else if (newStatus == AuthStatus.authenticated &&
           !_previousIsPremium &&
           currentIsPremium) {
         _subscriptionType = SubscriptionType.premium;
         _saveSubscriptionType(_subscriptionType);
-        debugPrint('[AppStateProvider] 프리미엄 업그레이드 감지 - 로컬 파일 일괄 업로드');
-        SyncService.instance.syncOnLogin();
-        final littenIds = _littens.map((l) => l.id).toList();
-        SyncService.instance.uploadAllLocalFiles(littenIds);
+        debugPrint('[AppStateProvider] 프리미엄 업그레이드 감지');
       }
+
+      // 동기화 생명주기: 로그인/플랜 상태가 반영된 뒤 한 곳에서 시작/중단을 처리
+      _applySyncLifecycle('auth');
     }
 
     _previousAuthStatus = newStatus;
     _previousIsPremium = currentIsPremium;
     debugPrint('[AppStateProvider] 인증 상태 변경: $newStatus, isPremium: $currentIsPremium');
     notifyListeners();
+  }
+
+  /// 동기화 생명주기 중앙 관리.
+  /// 동기화 활성 조건 = 로그인 && 프리미엄. OFF↔ON 전환을 감지해
+  /// - OFF→ON: (계정 변경 가드 후) 전체 동기화 시작 + 미동기화 파일 업로드
+  /// - ON→OFF: 동기화 중단 처리 (로컬 데이터는 보존)
+  /// 로그인 이벤트(_onAuthStateChanged)와 플랜 변경(changeSubscriptionType) 양쪽에서 호출된다.
+  Future<void> _applySyncLifecycle(String trigger) async {
+    final enabled = isLoggedIn && isPremiumPlusUser;
+    if (enabled == _lastSyncEnabled) return; // 전환 없음 → 중복 호출 무시(멱등)
+    _lastSyncEnabled = enabled;
+    final littenIds = _littens.map((l) => l.id).toList();
+    debugPrint('[AppStateProvider] _applySyncLifecycle($trigger) → enabled=$enabled');
+    if (enabled) {
+      await _guardSyncedAccount(littenIds); // 계정이 바뀌었으면 로컬 cloud 상태 초기화
+      SyncService.instance.syncOnLogin();
+      SyncService.instance.uploadAllLocalFiles(littenIds);
+    } else {
+      await SyncService.instance.onSyncDisabled();
+    }
+  }
+
+  /// 동기화 계정 식별 가드: 직전 동기화 계정과 현재 계정이 다르면(다른 프리미엄 계정 로그인)
+  /// 로컬 파일의 stale cloudId를 초기화해 새 계정에 정상 재업로드되도록 한다.
+  Future<void> _guardSyncedAccount(List<String> littenIds) async {
+    final memberId = _authService.currentUser?.id;
+    if (memberId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getString('synced_member_id');
+    if (last != null && last != memberId) {
+      debugPrint('[AppStateProvider] 동기화 계정 변경: $last → $memberId, 로컬 cloud 상태 초기화');
+      await SyncService.instance.resetLocalCloudState(littenIds);
+    }
+    await prefs.setString('synced_member_id', memberId);
   }
 
   // 설정 로드
@@ -825,6 +865,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       final plan = _subscriptionTypeToPlan(subscriptionType);
       await _authService.updateLocalSubscriptionPlan(plan);
     }
+    // 플랜 변경으로 동기화 활성(프리미엄+로그인) 상태가 바뀌면 시작/중단을 반영
+    await _applySyncLifecycle('plan');
     notifyListeners();
   }
 
