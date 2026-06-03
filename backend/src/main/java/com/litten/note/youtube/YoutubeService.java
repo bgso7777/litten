@@ -57,6 +57,7 @@ public class YoutubeService {
 
     private final YoutubeChannelRepository        channelRepository;
     private final MemberYoutubeChannelRepository  memberChannelRepository;
+    private final ChannelWatchStateRepository     watchStateRepository;
     private final YoutubeVideoRepository          videoRepository;
     private final SummaryService                  summaryService;
 
@@ -199,6 +200,46 @@ public class YoutubeService {
                 .stream()
                 .map(YoutubeSubscriptionDto::of)
                 .toList();
+    }
+
+    // ── 채널 확인 상태 (new 표시) — 프리미엄 동기화 ────────────────────────────
+
+    /** 회원의 전체 채널 확인 상태 조회 */
+    public List<ChannelWatchStateDto> getWatchStates(String memberId) {
+        return watchStateRepository.findByMemberId(memberId)
+                .stream()
+                .map(ChannelWatchStateDto::of)
+                .toList();
+    }
+
+    /**
+     * 채널 확인 상태 upsert (동기화).
+     * 프론트 updatedAt(=syncedAt)이 서버보다 최신일 때만 갱신한다 (Last-Write-Wins).
+     */
+    @Transactional
+    public ChannelWatchStateDto upsertWatchState(String memberId, ChannelWatchStateDto dto) {
+        log.debug("[YoutubeService] upsertWatchState - memberId: {}, channelId: {}", memberId, dto.getChannelId());
+
+        ChannelWatchState entity = watchStateRepository
+                .findByMemberIdAndChannelId(memberId, dto.getChannelId())
+                .orElseGet(() -> {
+                    ChannelWatchState e = new ChannelWatchState();
+                    e.setMemberId(memberId);
+                    e.setChannelId(dto.getChannelId());
+                    return e;
+                });
+
+        // 충돌 해결: 들어온 updatedAt 이 서버 syncedAt 보다 과거면 무시(서버 값 유지)
+        LocalDateTime incoming = dto.getUpdatedAt() != null ? dto.getUpdatedAt() : LocalDateTime.now();
+        if (entity.getSyncedAt() != null && incoming.isBefore(entity.getSyncedAt())) {
+            log.info("[YoutubeService] upsertWatchState - 서버 값이 더 최신, 갱신 생략 - channelId: {}", dto.getChannelId());
+            return ChannelWatchStateDto.of(entity);
+        }
+
+        entity.setLastSeenAt(dto.getLastSeenAt());
+        entity.setLastSeenVideoId(dto.getLastSeenVideoId());
+        entity.setSyncedAt(incoming);
+        return ChannelWatchStateDto.of(watchStateRepository.save(entity));
     }
 
     // ── 채널 영상 목록 조회 (제목만, 페이징) ───────────────────────────────────

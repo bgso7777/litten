@@ -15,6 +15,7 @@ import com.litten.common.util.DateUtil;
 import com.litten.common.util.Mailer;
 import com.litten.note.summary.SummaryResultRepository;
 import com.litten.note.youtube.MemberYoutubeChannelRepository;
+import com.litten.note.youtube.ChannelWatchStateRepository;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -500,11 +501,17 @@ public class NoteMemberService extends CustomHttpService {
         int channelMigrated = memberChannelRepository.migrateGuestToMember(guestId, memberId);
         int channelRemoved  = memberChannelRepository.deleteByMemberId(guestId);
 
-        log.info("[NoteMemberService] migrateDeviceData 완료 - memberId: {}, deviceUuid: {}, summaryMigrated: {}, channelMigrated: {}, channelRemoved(중복): {}",
-                memberId, deviceUuid, summaryMigrated, channelMigrated, channelRemoved);
+        // 3) note_channel_watch_state 이관 (new 표시 확인 상태)
+        ChannelWatchStateRepository watchStateRepository = BeanUtil.getBean2(ChannelWatchStateRepository.class);
+        int watchMigrated = watchStateRepository.migrateGuestToMember(guestId, memberId);
+        int watchRemoved  = watchStateRepository.deleteByMemberId(guestId);
+
+        log.info("[NoteMemberService] migrateDeviceData 완료 - memberId: {}, deviceUuid: {}, summaryMigrated: {}, channelMigrated: {}, channelRemoved(중복): {}, watchMigrated: {}, watchRemoved(중복): {}",
+                memberId, deviceUuid, summaryMigrated, channelMigrated, channelRemoved, watchMigrated, watchRemoved);
 
         result.put("migratedCount", summaryMigrated);
         result.put("channelMigratedCount", channelMigrated);
+        result.put("watchStateMigratedCount", watchMigrated);
         result.put("memberUuid", memberUuid);
         return result;
     }

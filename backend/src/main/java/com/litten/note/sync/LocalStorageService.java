@@ -89,7 +89,12 @@ public class LocalStorageService implements StorageService {
         return backupFilePath.toString();
     }
 
-    public String buildFilePath(String memberId, String littenId, String fileType, String fileName) {
-        return memberId + File.separator + littenId + File.separator + fileType + File.separator + fileName;
+    /**
+     * 저장 경로 생성: {memberId}/{fileType}/{fileName}
+     * fileName 자체가 UUID라 littenId 없이도 파일 충돌이 없으므로 경로에서 제외한다.
+     * (littenId는 DB cloud_file.litten_id 컬럼으로만 관리)
+     */
+    public String buildFilePath(String memberId, String fileType, String fileName) {
+        return memberId + File.separator + fileType + File.separator + fileName;
     }
 }

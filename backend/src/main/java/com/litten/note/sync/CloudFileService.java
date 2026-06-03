@@ -84,7 +84,7 @@ public class CloudFileService {
             if (existing.isPresent()) {
                 result = updateFileInternal(existing.get(), file, localUpdatedAt);
             } else {
-                String filePath = localStorageService.buildFilePath(memberId, littenId, fileType, fileName);
+                String filePath = localStorageService.buildFilePath(memberId, fileType, fileName);
                 String savedPath = localStorageService.save(file, filePath);
 
                 CloudFile cloudFile = new CloudFile();
@@ -150,7 +150,7 @@ public class CloudFileService {
 
             // 신규 파일 저장
             String savedPath = localStorageService.save(file,
-                    localStorageService.buildFilePath(cloudFile.getMemberId(), cloudFile.getLittenId(),
+                    localStorageService.buildFilePath(cloudFile.getMemberId(),
                             cloudFile.getFileType(), cloudFile.getFileName()));
             cloudFile.setFilePath(savedPath);
             cloudFile.setFileSize(file.getSize());

@@ -189,6 +189,42 @@ public class YoutubeController {
         return ok(Map.of("transcript", transcript));
     }
 
+    // ── 채널 확인 상태(new 표시) 동기화 — 프리미엄 전용 ───────────────────────
+
+    /**
+     * GET /note/v1/youtube/watch-states
+     * 회원의 전체 채널 확인 상태 목록 조회.
+     * Response: { success, watchStates: [ { channelId, lastSeenAt, lastSeenVideoId, updatedAt }, ... ] }
+     */
+    @GetMapping("/note/v1/youtube/watch-states")
+    public ResponseEntity<Map<String, Object>> getWatchStates() {
+        log.debug("[YoutubeController] GET /note/v1/youtube/watch-states 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+
+        List<ChannelWatchStateDto> states = youtubeService.getWatchStates(memberId);
+        log.info("[YoutubeController] 확인 상태 조회 - memberId: {}, count: {}", memberId, states.size());
+        return ok(Map.of("watchStates", states));
+    }
+
+    /**
+     * PUT /note/v1/youtube/watch-states
+     * 채널 확인 상태 upsert (단건). 프론트 markSeen 시 호출.
+     * Request Body: { channelId, lastSeenAt, lastSeenVideoId, updatedAt }
+     */
+    @PutMapping("/note/v1/youtube/watch-states")
+    public ResponseEntity<Map<String, Object>> upsertWatchState(@RequestBody ChannelWatchStateDto request) {
+        log.debug("[YoutubeController] PUT /note/v1/youtube/watch-states 진입 - channelId: {}", request.getChannelId());
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        if (request.getChannelId() == null || request.getChannelId().isBlank()) {
+            return badRequest("channelId는 필수입니다.");
+        }
+
+        ChannelWatchStateDto saved = youtubeService.upsertWatchState(memberId, request);
+        return ok(Map.of("watchState", saved));
+    }
+
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────
 
     private ResponseEntity<Map<String, Object>> ok(Map<String, Object> data) {

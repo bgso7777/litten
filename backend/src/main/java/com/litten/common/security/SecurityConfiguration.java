@@ -226,8 +226,8 @@ public class SecurityConfiguration {
         // 유튜브 — 게스트(device-uuid) + 로그인 모두 허용 (채널 등록/조회/해제, 영상 조회, 자막)
         .requestMatchers("/note/v1/youtube/**").authenticated()
 
-        // 파일 동기화 API (프리미엄 전용 — 로그인 필요)
-        .requestMatchers("/note/v1/files/**").hasAnyAuthority(
+        // 파일 동기화 + 리튼 메타 동기화 API (프리미엄 전용 — 로그인 필요, 게스트 차단)
+        .requestMatchers("/note/v1/files/**", "/note/v1/littens", "/note/v1/littens/**").hasAnyAuthority(
                 AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
                 AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
                 AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
