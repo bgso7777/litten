@@ -1276,7 +1276,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     try {
       // 통합 처리 API — 레벨별 캐시 재사용(forceRegenerate:false) + 저장 + 리마인드
       final r = await ApiService().processSummary(
-        fileType: 'youtube',
+        fileType: 'text',
         youtubeVideoId: widget.videoId,
         text: widget.transcript,
         textLanguage: _textLanguage,

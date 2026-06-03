@@ -29,12 +29,22 @@ class ApiService {
   static const String _filesEndpoint = '/litten/note/v1/files';
   static const String _convertToPdfEndpoint = '/litten/note/v1/convert/to-pdf';
   static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
+  static const String _littensEndpoint = '/litten/note/v1/littens';
 
   /// HTTP 헤더 생성
+  /// 비로그인(게스트) 식별용 디바이스 UUID.
+  /// 앱 시작 시 AuthService.getDeviceUuid() 값으로 1회 세팅되며, 인스턴스와 무관하게
+  /// 공유되도록 static으로 둔다. 로그인(JWT)이 있으면 백엔드가 JWT를 우선 처리하므로
+  /// device-uuid 헤더는 비로그인(token 없음) 요청에만 붙인다.
+  static String? deviceUuid;
+
   Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       headers['auth-token'] = token;
+    } else if (deviceUuid != null && deviceUuid!.isNotEmpty) {
+      // 비로그인 게스트: device-uuid 헤더로 식별 (백엔드 principal = "guest:<uuid>")
+      headers['device-uuid'] = deviceUuid!;
     }
     return headers;
   }
@@ -84,6 +94,29 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] registerUuid - Error: $e');
       rethrow;
+    }
+  }
+
+  /// 게스트(device-uuid) 데이터를 로그인 회원으로 이관
+  /// POST /litten/note/v1/members/migrate  (JWT 헤더 필요)
+  /// Body: `{"deviceUuid": "<기존 device-uuid>"}`
+  /// 서버가 요약결과(member_uuid)와 유튜브 구독(`guest:uuid` → 회원 id)을 자동 이관한다.
+  Future<bool> migrateGuestData({required String token, required String deviceUuid}) async {
+    debugPrint('[ApiService] migrateGuestData 진입 - deviceUuid: $deviceUuid');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/members/migrate');
+      final body = jsonEncode({'deviceUuid': deviceUuid});
+      final response = await http.post(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] migrateGuestData - status: ${response.statusCode}, body: ${response.body}');
+      // 백엔드 응답: {result:1, migratedCount, channelMigratedCount, watchStateMigratedCount, memberUuid} — result=1이 성공
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] migrateGuestData - 오류: $e');
+      return false;
     }
   }
 
@@ -627,6 +660,64 @@ class ApiService {
     }
   }
 
+  // ── 리튼(노트 공간) 메타 동기화 (프리미엄 JWT 전용) ──────────────────────
+
+  /// 회원의 리튼 목록 조회 (pull). 응답: {success, littens:[Litten.toJson...]}
+  Future<List<Map<String, dynamic>>> getLittens({required String token}) async {
+    debugPrint('[ApiService] getLittens 진입');
+    try {
+      final url = Uri.parse('$baseUrl$_littensEndpoint');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] getLittens - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['littens'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getLittens - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 리튼 업서트 (id 기준 생성/수정). body = Litten.toJson
+  Future<bool> upsertLitten({required String token, required Map<String, dynamic> littenJson}) async {
+    debugPrint('[ApiService] upsertLitten 진입 - id: ${littenJson['id']}');
+    try {
+      final url = Uri.parse('$baseUrl$_littensEndpoint');
+      final response = await http.post(url, headers: _getHeaders(token: token), body: jsonEncode(littenJson)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] upsertLitten - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] upsertLitten - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 리튼 삭제
+  Future<bool> deleteLittenRemote({required String token, required String littenId}) async {
+    debugPrint('[ApiService] deleteLittenRemote 진입 - littenId: $littenId');
+    try {
+      final url = Uri.parse('$baseUrl$_littensEndpoint/$littenId');
+      final response = await http.delete(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] deleteLittenRemote - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] deleteLittenRemote - 오류: $e');
+      return false;
+    }
+  }
+
   /// 파일 업로드
   Future<Map<String, dynamic>?> uploadFile({
     required String token,
@@ -882,7 +973,7 @@ class ApiService {
 
   /// 유튜브 채널 구독 등록
   Future<YoutubeChannel?> subscribeYoutubeChannel({
-    required String token,
+    String? token,
     required String channelId,
     required String channelName,
     String channelThumbnail = '',
@@ -976,7 +1067,7 @@ class ApiService {
   }
 
   /// 유튜브 채널 구독 해제
-  Future<bool> unsubscribeYoutubeChannel({required String token, required int channelPk}) async {
+  Future<bool> unsubscribeYoutubeChannel({String? token, required int channelPk}) async {
     debugPrint('[ApiService] unsubscribeYoutubeChannel 진입 - channelPk: $channelPk');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelPk');
@@ -1016,7 +1107,7 @@ class ApiService {
 
   /// 채널의 영상 목록 조회 (제목만, 페이징)
   Future<YoutubeVideosResult> getYoutubeVideos({
-    required String token,
+    String? token,
     required String channelId,
     int page = 0,
     int size = 3,

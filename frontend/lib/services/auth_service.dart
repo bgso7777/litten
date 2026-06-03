@@ -172,6 +172,7 @@ class AuthServiceImpl extends AuthService {
   static const String _keyDeviceUuid = 'device_uuid';
   static const String _keyRegisteredEmail = 'registered_email'; // 최초 회원가입한 이메일
   static const String _keySubscriptionPlan = 'subscription_type';
+  static const String _keyGuestMigrated = 'guest_migrated'; // 게스트→회원 데이터 이관 완료 여부
 
   @override
   AuthStatus get authStatus => _authStatus;
@@ -204,6 +205,7 @@ class AuthServiceImpl extends AuthService {
     }
 
     _deviceUuid = uuid;
+    ApiService.deviceUuid = uuid; // 비로그인 게스트 식별 헤더용으로 ApiService에 공유
     return uuid;
   }
 
@@ -356,6 +358,9 @@ class AuthServiceImpl extends AuthService {
 
       // 서버에서 구독 플랜 조회 후 저장
       await _fetchAndSaveSubscriptionPlan(token: token);
+
+      // 게스트(device-uuid) 데이터를 회원으로 이관 (최초 로그인 시 1회)
+      await _migrateGuestDataOnce(token);
 
       notifyListeners();
       debugPrint('🔐 AuthService: 로그인 성공 - $email');
@@ -627,6 +632,25 @@ class AuthServiceImpl extends AuthService {
       debugPrint('✅ AuthService: 구독 플랜 저장 완료 - $planStr');
     } catch (e) {
       debugPrint('⚠️ AuthService: 구독 플랜 조회 실패 (free 유지) - $e');
+    }
+  }
+
+  /// 게스트(device-uuid) 데이터를 로그인 회원으로 이관 (최초 로그인 시 1회).
+  /// 성공해야 플래그를 세우므로, 실패 시 다음 로그인에서 자동 재시도된다.
+  Future<void> _migrateGuestDataOnce(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_keyGuestMigrated) == true) {
+      debugPrint('🔐 AuthService: 게스트 데이터 이관 이미 완료 - 스킵');
+      return;
+    }
+    final uuid = await getDeviceUuid();
+    debugPrint('🔐 AuthService: 게스트 데이터 이관 시작 - uuid: $uuid');
+    final ok = await _apiService.migrateGuestData(token: token, deviceUuid: uuid);
+    if (ok) {
+      await prefs.setBool(_keyGuestMigrated, true);
+      debugPrint('🔐 AuthService: 게스트 데이터 이관 완료');
+    } else {
+      debugPrint('🔐 AuthService: 게스트 데이터 이관 실패 (다음 로그인 시 재시도)');
     }
   }
 

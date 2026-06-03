@@ -8,15 +8,29 @@ import '../models/youtube_channel.dart';
 /// 공개 제공하는 채널 RSS 피드(최근 ~15개)를 파싱해 영상 제목/ID/게시일을 얻는다.
 /// 피드: `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID`
 class YoutubeRssService {
+  /// YouTube가 기본(Dart) User-Agent 요청을 봇으로 보고 차단/빈 응답을 주는 경우가
+  /// 있어, 채널 검색과 동일하게 브라우저 User-Agent + Accept-Language 헤더를 붙인다.
+  static const Map<String, String> _browserHeaders = {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+  };
+
   Future<List<YoutubeVideo>> fetchChannelVideos(String channelId) async {
     debugPrint('[YoutubeRssService] fetchChannelVideos 진입 - channelId: $channelId');
     try {
       final url = Uri.parse('https://www.youtube.com/feeds/videos.xml?channel_id=$channelId');
-      final res = await http.get(url).timeout(const Duration(seconds: 15));
-      debugPrint('[YoutubeRssService] status: ${res.statusCode}');
-      if (res.statusCode != 200) return [];
+      final res = await http.get(url, headers: _browserHeaders).timeout(const Duration(seconds: 15));
+      debugPrint('[YoutubeRssService] status: ${res.statusCode}, bodyLen: ${res.body.length}');
+      if (res.statusCode != 200) {
+        debugPrint('[YoutubeRssService] 비정상 응답 본문 일부: ${res.body.substring(0, res.body.length < 200 ? res.body.length : 200)}');
+        return [];
+      }
       final videos = _parse(res.body, channelId);
       debugPrint('[YoutubeRssService] 파싱된 영상 수: ${videos.length}');
+      if (videos.isEmpty) {
+        debugPrint('[YoutubeRssService] 영상 0개 - entry 포함 여부: ${res.body.contains('<entry>')}');
+      }
       return videos;
     } catch (e) {
       debugPrint('[YoutubeRssService] 오류: $e');

@@ -266,9 +266,22 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       }
       debugPrint('[_YoutubeChannelSheet] _subscribe(local) - channelId: $channelId');
       setState(() => _subscribing = true);
+      // 비로그인 게스트도 서버에 채널을 등록한다 (device-uuid 헤더 인증 → 백엔드 스케줄러가 영상 수집).
+      // 자동 요약/리마인드는 프리미엄 전용이므로 false로 강제한다.
+      final serverChannel = await _apiService.subscribeYoutubeChannel(
+        channelId: channelId,
+        channelName: channelName,
+        channelThumbnail: _validated!['channelThumbnail'] ?? '',
+        autoTitle: true,
+        autoMemo: false,
+        autoSummary: false,
+        autoRemind: false,
+      );
+      debugPrint('[_YoutubeChannelSheet] _subscribe(local) - 서버 등록 결과 PK: ${serverChannel?.id}');
+      // 서버 PK가 있으면 그대로 로컬에 저장(해제 시 unsubscribe 가능). 서버 실패 시 로컬 합성 ID로 폴백.
       final localChannel = YoutubeChannel(
-        id: DateTime.now().millisecondsSinceEpoch,
-        memberId: 'local',
+        id: serverChannel?.id ?? DateTime.now().millisecondsSinceEpoch,
+        memberId: serverChannel?.memberId ?? 'local',
         channelId: channelId,
         channelName: channelName,
         channelThumbnail: _validated!['channelThumbnail'] ?? '',
@@ -891,6 +904,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     debugPrint('[YoutubeTab] _init 진입');
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
+    // 비로그인 게스트 식별용 device-uuid 보장 (앱 다른 경로에서 미설정 시 폴백)
+    ApiService.deviceUuid ??= prefs.getString('device_uuid');
     // 로그인 여부와 무관하게 로드 (비로그인=로컬, 로그인=서버)
     await _loadChannels();
   }
@@ -907,16 +922,31 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     channels.sort(_compareChannels); // 새 영상 있는 채널을 위로
     debugPrint('[YoutubeTab] 채널 수: ${channels.length} (localMode: $_localMode)');
     if (mounted) {
-      setState(() { _channels = channels; _loading = false; });
+      setState(() {
+        _channels = channels;
+        _loading = false;
+        // 영상 리스트 자동 표시: 모든 채널을 펼친 상태로 둔다 (등록·새로고침 직후 바로 영상이 보이도록)
+        _expandedChannels
+          ..clear()
+          ..addAll(channels.map((c) => c.channelId));
+      });
       Provider.of<AppStateProvider>(context, listen: false).setYoutubeChannelCount(channels.length);
+      // 각 채널의 첫 페이지 영상을 로드한다.
+      // 로컬 모드는 _loadLatestVideoTimes에서 채운 _localRssCache를 재활용하므로 추가 네트워크가 없다.
+      for (final ch in channels) {
+        _loadVideoPage(ch.channelId, _channelVideoPage[ch.channelId] ?? 0);
+      }
     }
   }
 
   /// 각 채널의 최신 영상 게시일을 RSS로 병렬 조회해 _latestVideoAt를 채운다.
   /// (RSS는 무인증이라 로그인/비로그인 모두 사용 가능)
+  /// 로컬 모드에서는 여기서 받은 영상 리스트를 그대로 _localRssCache에 저장해,
+  /// 채널을 펼칠 때 추가 네트워크 요청 없이 즉시 영상 목록을 보여준다.
   Future<void> _loadLatestVideoTimes(List<YoutubeChannel> channels) async {
     await Future.wait(channels.map((ch) async {
       final vids = await _rssService.fetchChannelVideos(ch.channelId);
+      if (_localMode) _localRssCache[ch.channelId] = vids; // 영상 리스트 재활용
       if (vids.isNotEmpty && vids.first.publishedAt != null) {
         _latestVideoAt[ch.channelId] = DateTime.tryParse(vids.first.publishedAt!);
       }
@@ -960,15 +990,27 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
     setState(() => _loadingVideoKeys.add(key));
-    // 비로그인(스탠다드): RSS 전체를 캐시 후 3개씩 슬라이스해 서버 모드와 동일하게 페이지네이션
+    // 비로그인(스탠다드): 서버 우선(백엔드가 수집한 영상) → 없으면 RSS 폴백
     if (_localMode) {
+      // 1) 서버 우선: device-uuid 헤더로 인증해 백엔드가 수집·요약한 영상을 가져온다.
+      final serverResult = await _apiService.getYoutubeVideos(channelId: channelId, page: page, size: _localPageSize);
+      if (serverResult.videos.isNotEmpty) {
+        debugPrint('[YoutubeTab] 로컬-서버 영상 로드 ($channelId) page $page: ${serverResult.videos.length}개, 총 ${serverResult.totalPages}페이지');
+        if (mounted) setState(() {
+          _videoPageData.putIfAbsent(channelId, () => {})[page] = serverResult.videos;
+          _videoTotalPages[channelId] = serverResult.totalPages;
+          _loadingVideoKeys.remove(key);
+        });
+        return;
+      }
+      // 2) RSS 폴백: 서버에 아직 영상이 없으면(스케줄러 미수집 등) RSS로 즉시 표시
       var all = _localRssCache[channelId];
       if (all == null) {
         all = await _rssService.fetchChannelVideos(channelId);
         _localRssCache[channelId] = all;
       }
       final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
-      debugPrint('[YoutubeTab] 로컬 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
+      debugPrint('[YoutubeTab] 로컬-RSS 폴백 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
       if (mounted) setState(() {
         _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
         _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, 9999);
@@ -1025,6 +1067,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     if (ok != true) return;
     try {
       if (_localMode) {
+        // 서버에 등록돼 있던 채널이면 해제(수집 중단). 서버 PK가 아니면 서버에서 무시되므로 안전.
+        await _apiService.unsubscribeYoutubeChannel(channelPk: ch.id);
         await LocalYoutubeChannelService.removeByChannelId(ch.channelId);
       } else {
         await _apiService.unsubscribeYoutubeChannel(token: _token!, channelPk: ch.id);

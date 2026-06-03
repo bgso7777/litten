@@ -10,6 +10,8 @@ import '../models/handwriting_file.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 import 'file_storage_service.dart';
+import 'litten_service.dart';
+import '../models/litten.dart';
 
 class SyncService {
   static const String _keyLastSyncTime = 'sync_last_time';
@@ -21,13 +23,16 @@ class SyncService {
   SyncService._();
 
   final ApiService _api = ApiService();
+  final LittenService _littenService = LittenService();
   AuthServiceImpl? _authService;
   VoidCallback? _onSyncStatusChanged;
+  VoidCallback? _onLittenChanged; // 리튼 목록이 바뀌었을 때만 호출(무거운 리튼 리로드용)
   FileStorageService get _fileStorage => FileStorageService.instance;
 
-  void init(AuthServiceImpl authService, {VoidCallback? onSyncStatusChanged}) {
+  void init(AuthServiceImpl authService, {VoidCallback? onSyncStatusChanged, VoidCallback? onLittenChanged}) {
     _authService = authService;
     _onSyncStatusChanged = onSyncStatusChanged;
+    _onLittenChanged = onLittenChanged;
     debugPrint('[SyncService] init 완료');
   }
 
@@ -495,11 +500,53 @@ class SyncService {
   }
 
   // 양방향 전체 동기화
+  /// 리튼(노트 공간) 메타 양방향 동기화. 파일보다 먼저 호출해 파일이 담길 공간을 확보한다.
+  /// LWW: updatedAt 최신 우선. 삭제 동기화는 tombstone 부재로 보류(추가/수정만).
+  Future<void> _syncLittens(String token) async {
+    try {
+      final serverList = await _api.getLittens(token: token);
+      final localList = await _littenService.getAllLittens();
+      final localById = {for (final l in localList) l.id: l};
+      final serverIds = <String>{};
+      var localChanged = false; // 로컬 리튼 목록이 바뀌면 UI 리로드 트리거
+
+      // 서버 → 로컬: 로컬에 없거나 서버가 더 최신이면 로컬 반영, 로컬이 더 최신이면 서버로 push
+      for (final sj in serverList) {
+        Litten serverLitten;
+        try {
+          serverLitten = Litten.fromJson(sj);
+        } catch (e) {
+          debugPrint('[SyncService] 리튼 파싱 실패, 스킵: $e');
+          continue;
+        }
+        serverIds.add(serverLitten.id);
+        final local = localById[serverLitten.id];
+        if (local == null || serverLitten.updatedAt.isAfter(local.updatedAt)) {
+          await _littenService.saveLitten(serverLitten);
+          localChanged = true;
+        } else if (local.updatedAt.isAfter(serverLitten.updatedAt)) {
+          await _api.upsertLitten(token: token, littenJson: local.toJson());
+        }
+      }
+      // 서버에 없는 로컬 리튼 → 서버로 push
+      for (final local in localList) {
+        if (!serverIds.contains(local.id)) {
+          await _api.upsertLitten(token: token, littenJson: local.toJson());
+        }
+      }
+      debugPrint('[SyncService] _syncLittens 완료 - 서버 ${serverList.length} / 로컬 ${localList.length}, localChanged=$localChanged');
+      if (localChanged) _onLittenChanged?.call(); // 새로 받은 리튼이 있으면 UI 목록 리로드
+    } catch (e) {
+      debugPrint('[SyncService] _syncLittens 오류: $e');
+    }
+  }
+
   Future<void> _bidirectionalSync(String token) async {
     debugPrint('[SyncService] _bidirectionalSync 시작');
     // 오프라인 큐 먼저 처리: 보류 중인 삭제가 클라우드에 반영된 후 파일 목록을 조회해야
     // 삭제된 파일이 다시 다운로드되는 현상을 방지
     await processOfflineQueue();
+    await _syncLittens(token); // 리튼 메타 먼저 동기화 (파일이 담길 공간 확보)
     final cloudFiles = await _api.getCloudFiles(token: token);
     debugPrint('[SyncService] 클라우드 파일 ${cloudFiles.length}개');
 

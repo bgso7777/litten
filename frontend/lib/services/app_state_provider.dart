@@ -33,7 +33,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 생성자: AuthService 리스너 등록 및 앱 생명주기 관찰자 등록
   AppStateProvider() {
     // SyncService에 AuthService 주입 (동기화 완료 시 UI 갱신 콜백 포함)
-    SyncService.instance.init(_authService, onSyncStatusChanged: notifyFileListChanged);
+    // onLittenChanged: 서버에서 리튼을 새로 받았을 때 리튼 목록 리로드(새 폰 첫 로그인 등)
+    SyncService.instance.init(
+      _authService,
+      onSyncStatusChanged: notifyFileListChanged,
+      onLittenChanged: () { refreshLittens(); },
+    );
 
     // AuthService의 상태 변경을 감지하여 UI 업데이트
     _authService.addListener(_onAuthStateChanged);

@@ -134,16 +134,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ]),
             AppSpacing.verticalSpaceM,
 
-            // 계정 섹션 - 무료 플랜만 비활성화, 스탠다드/프리미엄은 로그인 가능
+            // 계정 섹션 - 로그인은 프리미엄 전용. 무료/스탠다드는 비활성화.
             _buildSettingsSection(l10n?.account ?? '계정', [
-              if (appState.subscriptionType == SubscriptionType.free)
-                // 무료 플랜: 잠금 안내 항목만 표시
+              if (appState.subscriptionType != SubscriptionType.premium)
+                // 무료/스탠다드 플랜: 잠금 안내 항목만 표시
                 _buildSettingsItemDisabled(
                   icon: Icons.lock_outline,
                   title: l10n?.account ?? '계정',
-                  subtitle: l10n?.availableInPaidPlans ?? '스탠다드 프리미엄 플랜에서 사용 가능합니다',
+                  subtitle: '프리미엄 플랜에서 사용 가능합니다',
                 ),
-              if (appState.subscriptionType != SubscriptionType.free) ...[
+              if (appState.subscriptionType == SubscriptionType.premium) ...[
                 _buildSettingsItem(
                   icon: Icons.person,
                   title: l10n?.userStatus ?? '사용자 상태',
