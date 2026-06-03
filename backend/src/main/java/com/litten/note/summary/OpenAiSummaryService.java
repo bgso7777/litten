@@ -180,6 +180,46 @@ public class OpenAiSummaryService {
         throw new RuntimeException("OpenAI API 응답에서 텍스트를 찾을 수 없음: " + responseBody);
     }
 
+    /**
+     * 리마인드 전용 OpenAI 호출.
+     * systemPrompt는 RemindService에서 조합하여 전달.
+     * 성공 시 AI 원본 응답 텍스트 반환, 실패 시 null.
+     */
+    public String generateRemind(String systemPrompt, String userContent) {
+        log.debug("[OpenAiSummaryService] generateRemind() 진입");
+
+        String apiKey = apiKeyProperties.getOpenaiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            log.error("[OpenAiSummaryService] OpenAI API 키 미설정");
+            return null;
+        }
+
+        try {
+            int computedMaxTokens = Math.min(maxTokens, Math.max(512, 1200));
+            String requestBody = buildRequestBody(systemPrompt, userContent, computedMaxTokens);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            log.debug("[OpenAiSummaryService] OpenAI remind API 호출 - model: {}", model);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    OPENAI_API_URL, HttpMethod.POST, entity, String.class);
+            log.info("[OpenAiSummaryService] OpenAI remind 응답 - status: {}", response.getStatusCode());
+
+            return extractSummary(response.getBody());
+
+        } catch (HttpClientErrorException e) {
+            log.error("[OpenAiSummaryService] OpenAI remind 오류 - status: {}, body: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            return null;
+        } catch (Exception e) {
+            log.error("[OpenAiSummaryService] OpenAI remind 처리 중 오류", e);
+            return null;
+        }
+    }
+
     private boolean isBlank(String s) {
         return s == null || s.isBlank();
     }

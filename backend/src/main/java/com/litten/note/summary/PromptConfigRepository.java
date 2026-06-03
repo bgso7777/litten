@@ -8,15 +8,7 @@ import java.util.Optional;
 @Repository
 public interface PromptConfigRepository extends JpaRepository<PromptConfig, Long> {
 
-    /**
-     * type + prompt_role + file_type + summary_level 조합으로 조회.
-     * summary system: findBy("summary", "system", "youtube", 3)
-     * remind  system: findBy("remind",  "system", "youtube", null)
-     */
-    Optional<PromptConfig> findByTypeAndPromptRoleAndFileTypeAndSummaryLevelAndIsActiveTrue(
-            String type, String promptRole, String fileType, Integer summaryLevel);
-
-    /** summary_level이 NULL인 경우 (remind용) */
-    Optional<PromptConfig> findByTypeAndPromptRoleAndFileTypeAndSummaryLevelIsNullAndIsActiveTrue(
-            String type, String promptRole, String fileType);
+    /** type + file_type + level 조합으로 활성 설정 조회 (통합 단일 쿼리) */
+    Optional<PromptConfig> findByTypeAndFileTypeAndLevelAndIsActiveTrue(
+            String type, String fileType, Integer level);
 }

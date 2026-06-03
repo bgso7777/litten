@@ -3,17 +3,20 @@ package com.litten.note.youtube;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface YoutubeChannelRepository extends JpaRepository<YoutubeChannel, Long> {
 
-    List<YoutubeChannel> findByMemberIdAndIsActiveTrue(String memberId);
+    Optional<YoutubeChannel> findByChannelId(String channelId);
 
-    Page<YoutubeChannel> findByIsActiveTrue(Pageable pageable);
+    boolean existsByChannelId(String channelId);
 
-    Optional<YoutubeChannel> findByMemberIdAndChannelId(String memberId, String channelId);
-
-    boolean existsByMemberIdAndChannelId(String memberId, String channelId);
+    /** 활성 구독자가 1명 이상인 채널만 페이징 조회 (스케줄러 폴링용) */
+    @Query("SELECT c FROM YoutubeChannel c WHERE EXISTS " +
+           "(SELECT m FROM MemberYoutubeChannel m WHERE m.channelId = c.channelId AND m.isActive = true)")
+    Page<YoutubeChannel> findChannelsWithActiveSubscribers(Pageable pageable);
 }

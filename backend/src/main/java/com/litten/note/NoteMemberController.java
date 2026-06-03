@@ -299,6 +299,38 @@ public class NoteMemberController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * POST /note/v1/members/migrate
+     * 프리미엄 전환 시 무료/스탠다드 시절 디바이스 UUID → 회원 UUID 데이터 이관.
+     * 로그인 필수 (JWT 토큰).
+     *
+     * Request Body: { "deviceUuid": "앱-디바이스-UUID" }
+     * Response: { "result": 1, "migratedCount": N, "memberUuid": "회원UUID" }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/migrate")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> migrateDeviceData(@RequestBody JsonNode requestBody) {
+        log.info("[NoteMemberController] POST /note/v1/members/migrate 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+
+        if (memberId == null) {
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put(com.litten.Constants.TAG_RESULT, com.litten.Constants.RESULT_NOT_FOUND);
+            result.put(com.litten.Constants.TAG_RESULT_MESSAGE, "인증 정보가 없습니다.");
+            return ResponseEntity.ok(result);
+        }
+
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "post";
+        String serviceMethodName = "migrateDeviceData";
+        String deviceUuid = requestBody.has("deviceUuid") ? requestBody.get("deviceUuid").asText() : null;
+        Map<String, Object> result = controllerDynamicServiceBridge
+                .processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, deviceUuid, memberId);
+        return ResponseEntity.ok(result);
+    }
+
     @DeleteMapping("/note/v1/members/{id}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> deleteNoteMember(@PathVariable(value="id", required=false) String id) {

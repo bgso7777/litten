@@ -26,7 +26,7 @@ public class YoutubeController {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        List<YoutubeChannel> channels = youtubeService.getSubscribedChannels(memberId);
+        List<YoutubeSubscriptionDto> channels = youtubeService.getSubscribedChannels(memberId);
         log.info("[YoutubeController] 채널 목록 조회 - memberId: {}, count: {}", memberId, channels.size());
         return ok(Map.of("channels", channels));
     }
@@ -39,27 +39,28 @@ public class YoutubeController {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        String channelId = asString(body.get("channelId"));
-        String channelName = asString(body.get("channelName"));
+        String channelId        = asString(body.get("channelId"));
+        String channelName      = asString(body.get("channelName"));
         String channelThumbnail = asString(body.getOrDefault("channelThumbnail", ""));
-        Boolean autoTitle = asBool(body.get("autoTitle"), true);
-        Boolean autoMemo = asBool(body.get("autoMemo"), false);
-        Boolean autoSummary = asBool(body.get("autoSummary"), false);
-        Boolean autoRemind = asBool(body.get("autoRemind"), false);
-        String summaryType = asString(body.get("summaryType"));
-        String remindType  = asString(body.get("remindType"));
+        Boolean autoTitle       = asBool(body.get("autoTitle"), true);
+        Boolean autoMemo        = asBool(body.get("autoMemo"), false);
+        Boolean autoSummary     = asBool(body.get("autoSummary"), false);
+        Boolean autoRemind      = asBool(body.get("autoRemind"), false);
+        String summaryType      = asString(body.get("summaryType"));
+        String remindType       = asString(body.get("remindType"));
         Integer remindCustomCount = asInt(body.get("remindCustomCount"));
 
         if (channelId == null || channelId.isBlank()) {
             return badRequest("channelId는 필수입니다.");
         }
 
-        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoTitle: {}, autoMemo: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
-                memberId, channelId, autoTitle, autoMemo, autoSummary, summaryType, autoRemind, remindType,
+        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
+                memberId, channelId, autoSummary, summaryType, autoRemind, remindType,
                 "CUSTOM".equals(remindType) && remindCustomCount != null ? "=" + remindCustomCount : "");
-        YoutubeChannel channel = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail,
+
+        MemberYoutubeChannel sub = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail,
                 autoTitle, autoMemo, autoSummary, autoRemind, summaryType, remindType, remindCustomCount);
-        return ok(Map.of("channel", channel));
+        return ok(Map.of("channel", YoutubeSubscriptionDto.of(sub)));
     }
 
     // ── 채널 자동화 설정 업데이트 ──────────────────────────────────────────────
@@ -77,38 +78,16 @@ public class YoutubeController {
         Boolean autoRemind  = body.get("autoRemind")  instanceof Boolean b ? b : null;
         String  summaryType = body.containsKey("summaryType") ? asString(body.get("summaryType")) : null;
         String  remindType  = body.containsKey("remindType")  ? asString(body.get("remindType"))  : null;
-        Integer remindCustomCount = body.containsKey("remindCustomCount") ? asInt(body.get("remindCustomCount")) : null;
-        boolean clearSummaryType = body.containsKey("summaryType") && body.get("summaryType") == null;
-        boolean clearRemindType  = body.containsKey("remindType")  && body.get("remindType")  == null;
+        Integer remindCustomCount     = body.containsKey("remindCustomCount") ? asInt(body.get("remindCustomCount")) : null;
+        boolean clearSummaryType      = body.containsKey("summaryType") && body.get("summaryType") == null;
+        boolean clearRemindType       = body.containsKey("remindType")  && body.get("remindType")  == null;
         boolean clearRemindCustomCount = body.containsKey("remindCustomCount") && body.get("remindCustomCount") == null;
 
-        log.info("[YoutubeController] 설정 업데이트 - memberId: {}, channelPk: {}, autoTitle: {}, autoMemo: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
-                memberId, id, autoTitle, autoMemo, autoSummary, summaryType, autoRemind, remindType,
-                "CUSTOM".equals(remindType) && remindCustomCount != null ? "=" + remindCustomCount : "");
+        log.info("[YoutubeController] 설정 업데이트 - memberId: {}, subscriptionId: {}", memberId, id);
         boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoRemind,
                 summaryType, clearSummaryType, remindType, clearRemindType, remindCustomCount, clearRemindCustomCount);
-        if (!updated) return badRequest("채널을 찾을 수 없습니다.");
+        if (!updated) return badRequest("구독 정보를 찾을 수 없습니다.");
         return ok(Map.of("message", "설정 업데이트 완료"));
-    }
-
-    private String asString(Object v) {
-        return v == null ? null : v.toString();
-    }
-
-    private Boolean asBool(Object v, boolean defaultValue) {
-        if (v == null) return defaultValue;
-        if (v instanceof Boolean b) return b;
-        return Boolean.parseBoolean(v.toString());
-    }
-
-    private Integer asInt(Object v) {
-        if (v == null) return null;
-        if (v instanceof Number n) return n.intValue();
-        try {
-            return Integer.parseInt(v.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     // ── 채널 구독 해제 ─────────────────────────────────────────────────────────
@@ -120,7 +99,7 @@ public class YoutubeController {
         if (memberId == null) return unauthorized();
 
         youtubeService.unsubscribe(memberId, id);
-        log.info("[YoutubeController] 채널 구독 해제 완료 - memberId: {}, channelPk: {}", memberId, id);
+        log.info("[YoutubeController] 채널 구독 해제 완료 - memberId: {}, subscriptionId: {}", memberId, id);
         return ok(Map.of("message", "구독 해제 완료"));
     }
 
@@ -139,7 +118,7 @@ public class YoutubeController {
         return ok(Map.of("channel", info));
     }
 
-    // ── 채널별 영상 목록 조회 (제목만, 페이징) ───────────────────────────────
+    // ── 채널별 영상 목록 조회 (페이징) ───────────────────────────────────────
 
     @GetMapping("/note/v1/youtube/channels/{channelId}/videos")
     public ResponseEntity<Map<String, Object>> getVideos(
@@ -151,8 +130,7 @@ public class YoutubeController {
         if (memberId == null) return unauthorized();
 
         Page<YoutubeVideoSummaryDto> videoPage = youtubeService.getChannelVideoSummaries(channelId, page, size);
-        log.info("[YoutubeController] 영상 목록 조회 - channelId: {}, page: {}, totalPages: {}, count: {}",
-                channelId, page, videoPage.getTotalPages(), videoPage.getContent().size());
+        log.info("[YoutubeController] 영상 목록 조회 - channelId: {}, totalElements: {}", channelId, videoPage.getTotalElements());
         return ok(Map.of(
                 "videos", videoPage.getContent(),
                 "totalPages", videoPage.getTotalPages(),
@@ -160,7 +138,7 @@ public class YoutubeController {
         ));
     }
 
-    // ── 영상 상세 조회 (자막/요약 포함) ───────────────────────────────────────
+    // ── 영상 상세 조회 ─────────────────────────────────────────────────────────
 
     @GetMapping("/note/v1/youtube/videos/{id}")
     public ResponseEntity<Map<String, Object>> getVideoDetail(@PathVariable Long id) {
@@ -169,15 +147,11 @@ public class YoutubeController {
         if (memberId == null) return unauthorized();
 
         return youtubeService.findVideoById(id)
-                .map(v -> {
-                    log.info("[YoutubeController] 영상 상세 조회 - id: {}, title: {}, hasTranscript: {}",
-                            v.getId(), v.getTitle(), v.getTranscriptText() != null && !v.getTranscriptText().isBlank());
-                    return ok(Map.of("video", v));
-                })
+                .map(v -> ok(Map.of("video", v)))
                 .orElse(badRequest("영상을 찾을 수 없습니다."));
     }
 
-    // ── 클라이언트 자막 저장 (앱에서 YouTube 직접 수집 후 서버에 저장) ──────────
+    // ── 자막 저장 ──────────────────────────────────────────────────────────────
 
     @PostMapping("/note/v1/youtube/videos/{videoId}/transcript")
     public ResponseEntity<Map<String, Object>> saveTranscript(
@@ -187,9 +161,7 @@ public class YoutubeController {
         if (memberId == null) return unauthorized();
 
         String transcript = asString(body.get("transcript"));
-        if (transcript == null || transcript.isBlank()) {
-            return badRequest("transcript는 필수입니다.");
-        }
+        if (transcript == null || transcript.isBlank()) return badRequest("transcript는 필수입니다.");
 
         log.info("[YoutubeController] 자막 저장 요청 - videoId: {}, length: {}", videoId, transcript.length());
         boolean saved = youtubeService.saveTranscript(videoId, transcript);
@@ -197,7 +169,7 @@ public class YoutubeController {
         return ok(Map.of("message", "자막 저장 완료"));
     }
 
-    // ── yt-dlp 자막 추출 (신규) ────────────────────────────────────────────────
+    // ── yt-dlp 자막 추출 ──────────────────────────────────────────────────────
 
     @PostMapping("/note/v1/youtube/videos/{videoId}/transcript-ytdlp")
     public ResponseEntity<Map<String, Object>> extractTranscriptYtDlp(@PathVariable String videoId) {
@@ -205,10 +177,10 @@ public class YoutubeController {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
 
-        log.info("[YoutubeController] 자막 추출 요청 (yt-dlp/Supadata 라운드로빈) - videoId: {}", videoId);
+        log.info("[YoutubeController] 자막 추출 요청 (yt-dlp/Supadata) - videoId: {}", videoId);
         String transcript = youtubeService.extractTranscriptAuto(videoId);
         if (transcript == null || transcript.isBlank()) {
-            log.warn("[YoutubeController] 자막 추출 실패 (yt-dlp + Supadata 모두 실패) - videoId: {}", videoId);
+            log.warn("[YoutubeController] 자막 추출 실패 - videoId: {}", videoId);
             return badRequest("자막을 가져올 수 없습니다.");
         }
 
@@ -232,5 +204,19 @@ public class YoutubeController {
 
     private ResponseEntity<Map<String, Object>> badRequest(String message) {
         return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
+    }
+
+    private String asString(Object v) { return v == null ? null : v.toString(); }
+
+    private Boolean asBool(Object v, boolean defaultValue) {
+        if (v == null) return defaultValue;
+        if (v instanceof Boolean b) return b;
+        return Boolean.parseBoolean(v.toString());
+    }
+
+    private Integer asInt(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.intValue();
+        try { return Integer.parseInt(v.toString()); } catch (NumberFormatException e) { return null; }
     }
 }

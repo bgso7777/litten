@@ -55,136 +55,139 @@ public class YoutubeService {
     // 1:1 번갈아 호출하기 위한 카운터 (짝수=yt-dlp 먼저, 홀수=Supadata 먼저)
     private final java.util.concurrent.atomic.AtomicInteger transcriptRequestCounter = new java.util.concurrent.atomic.AtomicInteger(0);
 
-    private final YoutubeChannelRepository channelRepository;
-    private final YoutubeVideoRepository videoRepository;
-    private final SummaryService summaryService;
+    private final YoutubeChannelRepository        channelRepository;
+    private final MemberYoutubeChannelRepository  memberChannelRepository;
+    private final YoutubeVideoRepository          videoRepository;
+    private final SummaryService                  summaryService;
 
     // ── 채널 구독 ──────────────────────────────────────────────────────────────
 
     @Transactional
-    public YoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
-                                    Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
-                                    String summaryType, String remindType, Integer remindCustomCount) {
+    public MemberYoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
+                                          Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
+                                          String summaryType, String remindType, Integer remindCustomCount) {
         log.debug("[YoutubeService] subscribe 진입 - memberId: {}, channelId: {}", memberId, channelId);
 
         boolean useSummary = autoSummary != null && autoSummary;
         boolean useRemind  = autoRemind  != null && autoRemind;
-        String normalizedSummaryType = useSummary ? (summaryType == null || summaryType.isBlank() ? "NORMAL" : summaryType) : null;
-        String normalizedRemindType  = useRemind  ? (remindType  == null || remindType.isBlank()  ? "FIVE"   : remindType)  : null;
+        String normalizedSummaryType  = useSummary ? (summaryType == null || summaryType.isBlank() ? "NORMAL" : summaryType) : null;
+        String normalizedRemindType   = useRemind  ? (remindType  == null || remindType.isBlank()  ? "FIVE"   : remindType)  : null;
         Integer normalizedRemindCount = "CUSTOM".equals(normalizedRemindType) ? remindCustomCount : null;
 
-        if (channelRepository.existsByMemberIdAndChannelId(memberId, channelId)) {
-            YoutubeChannel existing = channelRepository.findByMemberIdAndChannelId(memberId, channelId).orElseThrow();
-            existing.setIsActive(true);
-            existing.setChannelName(channelName);
-            existing.setChannelThumbnail(channelThumbnail);
-            existing.setAutoTitle(autoTitle != null ? autoTitle : true);
-            existing.setAutoMemo(autoMemo != null ? autoMemo : false);
-            existing.setAutoSummary(useSummary);
-            existing.setAutoRemind(useRemind);
-            existing.setSummaryType(normalizedSummaryType);
-            existing.setRemindType(normalizedRemindType);
-            existing.setRemindCustomCount(normalizedRemindCount);
-            log.info("[YoutubeService] 기존 채널 구독 재활성화 - channelId: {}", channelId);
-            return channelRepository.save(existing);
-        }
-
-        YoutubeChannel channel = new YoutubeChannel();
-        channel.setMemberId(memberId);
-        channel.setChannelId(channelId);
+        // 1) youtube_channel 없으면 생성, 있으면 채널 정보 갱신
+        YoutubeChannel channel = channelRepository.findByChannelId(channelId).orElseGet(() -> {
+            YoutubeChannel c = new YoutubeChannel();
+            c.setChannelId(channelId);
+            return c;
+        });
         channel.setChannelName(channelName);
         channel.setChannelThumbnail(channelThumbnail);
-        channel.setIsActive(true);
-        channel.setAutoTitle(autoTitle != null ? autoTitle : true);
-        channel.setAutoMemo(autoMemo != null ? autoMemo : false);
-        channel.setAutoSummary(useSummary);
-        channel.setAutoRemind(useRemind);
-        channel.setSummaryType(normalizedSummaryType);
-        channel.setRemindType(normalizedRemindType);
-        channel.setRemindCustomCount(normalizedRemindCount);
-        log.info("[YoutubeService] 채널 구독 등록 - memberId: {}, channelId: {}, autoTitle: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
-                memberId, channelId, autoTitle, useSummary, normalizedSummaryType, useRemind, normalizedRemindType,
+        channelRepository.save(channel);
+
+        // 2) note_member_youtube_channel 생성 또는 갱신
+        MemberYoutubeChannel sub = memberChannelRepository
+                .findByMemberIdAndChannelId(memberId, channelId)
+                .orElseGet(() -> {
+                    MemberYoutubeChannel s = new MemberYoutubeChannel();
+                    s.setMemberId(memberId);
+                    s.setChannelId(channelId);
+                    return s;
+                });
+        sub.setIsActive(true);
+        sub.setAutoTitle(autoTitle != null ? autoTitle : true);
+        sub.setAutoMemo(autoMemo != null ? autoMemo : false);
+        sub.setAutoSummary(useSummary);
+        sub.setAutoRemind(useRemind);
+        sub.setSummaryType(normalizedSummaryType);
+        sub.setRemindType(normalizedRemindType);
+        sub.setRemindCustomCount(normalizedRemindCount);
+
+        log.info("[YoutubeService] 채널 구독 등록/갱신 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
+                memberId, channelId, useSummary, normalizedSummaryType, useRemind, normalizedRemindType,
                 normalizedRemindCount != null ? "=" + normalizedRemindCount : "");
-        return channelRepository.save(channel);
+        return memberChannelRepository.save(sub);
     }
 
     @Transactional
-    public boolean updateSettings(String memberId, Long channelPk,
+    public boolean updateSettings(String memberId, Long subscriptionId,
                                   Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
                                   String summaryType, boolean clearSummaryType,
                                   String remindType, boolean clearRemindType,
                                   Integer remindCustomCount, boolean clearRemindCustomCount) {
-        log.debug("[YoutubeService] updateSettings 진입 - memberId: {}, channelPk: {}", memberId, channelPk);
-        return channelRepository.findById(channelPk).map(ch -> {
-            if (!ch.getMemberId().equals(memberId)) return false;
-            if (autoTitle   != null) ch.setAutoTitle(autoTitle);
-            if (autoMemo    != null) ch.setAutoMemo(autoMemo);
+        log.debug("[YoutubeService] updateSettings 진입 - memberId: {}, subscriptionId: {}", memberId, subscriptionId);
+        return memberChannelRepository.findById(subscriptionId).map(sub -> {
+            if (!sub.getMemberId().equals(memberId)) return false;
+            if (autoTitle != null) sub.setAutoTitle(autoTitle);
+            if (autoMemo  != null) sub.setAutoMemo(autoMemo);
             if (autoSummary != null) {
-                ch.setAutoSummary(autoSummary);
+                sub.setAutoSummary(autoSummary);
                 if (autoSummary) {
                     String t = summaryType != null && !summaryType.isBlank()
                             ? summaryType
-                            : (ch.getSummaryType() != null ? ch.getSummaryType() : "NORMAL");
-                    ch.setSummaryType(t);
+                            : (sub.getSummaryType() != null ? sub.getSummaryType() : "NORMAL");
+                    sub.setSummaryType(t);
                 } else {
-                    ch.setSummaryType(null);
+                    sub.setSummaryType(null);
                 }
             } else if (summaryType != null && !summaryType.isBlank()) {
-                ch.setSummaryType(summaryType);
+                sub.setSummaryType(summaryType);
             } else if (clearSummaryType) {
-                ch.setSummaryType(null);
+                sub.setSummaryType(null);
             }
             if (autoRemind != null) {
-                ch.setAutoRemind(autoRemind);
+                sub.setAutoRemind(autoRemind);
                 if (autoRemind) {
                     String t = remindType != null && !remindType.isBlank()
                             ? remindType
-                            : (ch.getRemindType() != null ? ch.getRemindType() : "FIVE");
-                    ch.setRemindType(t);
+                            : (sub.getRemindType() != null ? sub.getRemindType() : "FIVE");
+                    sub.setRemindType(t);
                     if ("CUSTOM".equals(t)) {
-                        if (remindCustomCount != null) ch.setRemindCustomCount(remindCustomCount);
+                        if (remindCustomCount != null) sub.setRemindCustomCount(remindCustomCount);
                     } else {
-                        ch.setRemindCustomCount(null);
+                        sub.setRemindCustomCount(null);
                     }
                 } else {
-                    ch.setRemindType(null);
-                    ch.setRemindCustomCount(null);
+                    sub.setRemindType(null);
+                    sub.setRemindCustomCount(null);
                 }
             } else {
                 if (remindType != null && !remindType.isBlank()) {
-                    ch.setRemindType(remindType);
-                    if (!"CUSTOM".equals(remindType)) ch.setRemindCustomCount(null);
+                    sub.setRemindType(remindType);
+                    if (!"CUSTOM".equals(remindType)) sub.setRemindCustomCount(null);
                 } else if (clearRemindType) {
-                    ch.setRemindType(null);
-                    ch.setRemindCustomCount(null);
+                    sub.setRemindType(null);
+                    sub.setRemindCustomCount(null);
                 }
                 if (remindCustomCount != null) {
-                    ch.setRemindCustomCount(remindCustomCount);
+                    sub.setRemindCustomCount(remindCustomCount);
                 } else if (clearRemindCustomCount) {
-                    ch.setRemindCustomCount(null);
+                    sub.setRemindCustomCount(null);
                 }
             }
-            channelRepository.save(ch);
-            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}, summaryType: {}, remindType: {}, remindCustomCount: {}",
-                    ch.getChannelId(), ch.getSummaryType(), ch.getRemindType(), ch.getRemindCustomCount());
+            memberChannelRepository.save(sub);
+            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}, summaryType: {}, remindType: {}",
+                    sub.getChannelId(), sub.getSummaryType(), sub.getRemindType());
             return true;
         }).orElse(false);
     }
 
     @Transactional
-    public void unsubscribe(String memberId, Long channelPk) {
-        log.debug("[YoutubeService] unsubscribe 진입 - memberId: {}, channelPk: {}", memberId, channelPk);
-        channelRepository.findById(channelPk).ifPresent(ch -> {
-            if (ch.getMemberId().equals(memberId)) {
-                ch.setIsActive(false);
-                channelRepository.save(ch);
-                log.info("[YoutubeService] 채널 구독 해제 - channelId: {}", ch.getChannelId());
+    public void unsubscribe(String memberId, Long subscriptionId) {
+        log.debug("[YoutubeService] unsubscribe 진입 - memberId: {}, subscriptionId: {}", memberId, subscriptionId);
+        memberChannelRepository.findById(subscriptionId).ifPresent(sub -> {
+            if (sub.getMemberId().equals(memberId)) {
+                sub.setIsActive(false);
+                memberChannelRepository.save(sub);
+                log.info("[YoutubeService] 채널 구독 해제 - channelId: {}", sub.getChannelId());
             }
         });
     }
 
-    public List<YoutubeChannel> getSubscribedChannels(String memberId) {
-        return channelRepository.findByMemberIdAndIsActiveTrue(memberId);
+    public List<YoutubeSubscriptionDto> getSubscribedChannels(String memberId) {
+        return memberChannelRepository.findByMemberIdAndIsActiveTrue(memberId)
+                .stream()
+                .map(YoutubeSubscriptionDto::of)
+                .toList();
     }
 
     // ── 채널 영상 목록 조회 (제목만, 페이징) ───────────────────────────────────
@@ -208,10 +211,11 @@ public class YoutubeService {
     public void pollAllChannels() {
         log.debug("[YoutubeService] pollAllChannels 진입");
         int pageNum = 0;
-        int total = 0;
+        int total   = 0;
         Page<YoutubeChannel> page;
         do {
-            page = channelRepository.findByIsActiveTrue(PageRequest.of(pageNum++, POLL_BATCH_SIZE));
+            page = channelRepository.findChannelsWithActiveSubscribers(
+                    PageRequest.of(pageNum++, POLL_BATCH_SIZE));
             log.info("[YoutubeService] 채널 배치 처리 - batch: {}/{}, count: {}",
                     pageNum, page.getTotalPages(), page.getContent().size());
             for (YoutubeChannel channel : page.getContent()) {

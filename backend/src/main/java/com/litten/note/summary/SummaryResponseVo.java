@@ -12,6 +12,9 @@ import java.util.List;
 public class SummaryResponseVo {
     private boolean success;
 
+    /** note_summary_result PK — 클라이언트가 리마인드 요청(POST /note/v1/remind/process)에 사용 */
+    private Long summaryResultId;
+
     /** 실제 적용된 요약 수준 1~5 */
     private int summaryLevel;
 

@@ -13,6 +13,7 @@ import com.litten.common.security.jwt.TokenProvider;
 import com.litten.common.util.Crypto;
 import com.litten.common.util.DateUtil;
 import com.litten.common.util.Mailer;
+import com.litten.note.summary.SummaryResultRepository;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -443,6 +444,59 @@ public class NoteMemberService extends CustomHttpService {
             result.put(Constants.TAG_RESULT,Constants.RESULT_SUCCESS);
             result.put(Constants.TAG_RESULT_MESSAGE,"회원탈퇴 성공");
         }
+        return result;
+    }
+
+    /**
+     * 프리미엄 전환 시 디바이스 UUID → 회원 UUID 데이터 이관.
+     *
+     * 무료/스탠다드 시절 note_summary_result 에 저장된 member_uuid(=디바이스UUID)를
+     * 로그인 회원의 uuid로 일괄 업데이트한다.
+     *
+     * @param deviceUuid 앱 디바이스 UUID (무료/스탠다드 시절 사용)
+     * @param memberId   현재 로그인한 회원 ID
+     */
+    @Transactional
+    public Map<String, Object> migrateDeviceData(String deviceUuid, String memberId) throws Exception {
+        log.debug("[NoteMemberService] migrateDeviceData 진입 - memberId: {}, deviceUuid: {}", memberId, deviceUuid);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        if (deviceUuid == null || deviceUuid.isBlank()) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "deviceUuid는 필수입니다.");
+            return result;
+        }
+
+        // 로그인 회원의 uuid 조회
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(memberId, "signup");
+        if (noteMember == null || noteMember.getUuid() == null) {
+            log.warn("[NoteMemberService] migrateDeviceData - 회원 없음 또는 uuid 없음: {}", memberId);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "회원 정보를 찾을 수 없습니다.");
+            return result;
+        }
+
+        String memberUuid = noteMember.getUuid();
+
+        // deviceUuid와 memberUuid가 같으면 이관 불필요
+        if (deviceUuid.equals(memberUuid)) {
+            log.info("[NoteMemberService] migrateDeviceData - deviceUuid와 memberUuid 동일, 이관 불필요");
+            result.put("migratedCount", 0);
+            return result;
+        }
+
+        // note_summary_result 이관 (member_uuid = deviceUuid → memberUuid)
+        SummaryResultRepository summaryResultRepository = BeanUtil.getBean2(SummaryResultRepository.class);
+        int migratedCount = summaryResultRepository.migrateMemberUuid(deviceUuid, memberUuid);
+
+        log.info("[NoteMemberService] migrateDeviceData 완료 - memberId: {}, deviceUuid: {}, memberUuid: {}, migratedCount: {}",
+                memberId, deviceUuid, memberUuid, migratedCount);
+
+        result.put("migratedCount", migratedCount);
+        result.put("memberUuid", memberUuid);
         return result;
     }
 

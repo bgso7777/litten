@@ -6,30 +6,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 /**
- * 요약/리마인드 처리 통합 서비스.
+ * 요약 처리 서비스.
  *
  * 처리 흐름:
- *   1) note_summary_config 에서 fileType 기준 파라미터 조회
+ *   1) note_prompt_config 에서 (type=summary, fileType, level) 기준 설정+프롬프트 조회
  *   2) YouTube/개인 파일: DB 캐시 조회 → 있으면 반환
  *   3) AI 요약 생성 (SummaryService)
  *   4) 요약 → note_summary_result 저장
- *   5) 리마인드 항목 → note_remind_result 에 행별 저장
+ *
+ * 리마인드는 RemindProcessService 에서 별도 처리.
  */
 @Log4j2
 @Service
 @RequiredArgsConstructor
 public class SummaryProcessService {
 
-    private final SummaryConfigRepository  configRepository;
-    private final RemindConfigRepository   remindConfigRepository;
+    private static final int DEFAULT_SUMMARY_LEVEL = 3;
+
     private final PromptConfigRepository   promptConfigRepository;
     private final SummaryResultRepository  resultRepository;
-    private final RemindResultRepository   remindResultRepository;
     private final SummaryService           summaryService;
 
     // ── 공개 메서드 ──────────────────────────────────────────────────────────
@@ -39,46 +37,42 @@ public class SummaryProcessService {
         log.debug("[SummaryProcessService] process() - fileType: {}, videoId: {}, fileUuid: {}",
                 req.getFileType(), req.getYoutubeVideoId(), req.getFileUuid());
 
-        // 1) 파라미터 설정 조회 (파일유형 + 요약수준)
-        int level = req.getSummaryLevel() > 0 ? req.getSummaryLevel() : 3;
-        SummaryConfig config = configRepository
-                .findByFileTypeAndSummaryLevelAndIsActiveTrue(req.getFileType(), level)
-                .orElseGet(() -> defaultConfig(req.getFileType()));
+        int level = req.getSummaryLevel() > 0 ? req.getSummaryLevel() : DEFAULT_SUMMARY_LEVEL;
+        String fileType = req.getFileType();
+
+        // 1) note_prompt_config 에서 설정+프롬프트 단일 조회
+        PromptConfig config = promptConfigRepository
+                .findByTypeAndFileTypeAndLevelAndIsActiveTrue("summary", fileType, level)
+                .orElseGet(() -> defaultConfig(fileType, level));
 
         // 2) 캐시 조회 (YouTube / 개인 파일)
         if (!req.isForceRegenerate()) {
-            Optional<SummaryResult> cached = findCached(req);
+            Optional<SummaryResult> cached = findCached(req, level);
             if (cached.isPresent() && "done".equals(cached.get().getStatus())) {
-                log.info("[SummaryProcessService] 캐시 히트 - fileType: {}", req.getFileType());
+                log.info("[SummaryProcessService] 캐시 히트 - fileType: {}", fileType);
                 return toResponseVo(cached.get());
             }
         }
 
         // 3) AI 요약 생성
-        SummaryRequestVo aiReq = buildAiRequest(req, config);
+        SummaryRequestVo aiReq = buildAiRequest(req, config, level);
         log.info("[SummaryProcessService] AI 요약 요청 - provider: {}, level: {}",
-                config.getAiProvider(), aiReq.getSummaryLevel());
+                config.getAiProvider(), level);
 
         SummaryResponseVo aiResp = summaryService.summarize(aiReq);
-
         if (!aiResp.isSuccess()) {
             log.error("[SummaryProcessService] AI 요약 실패: {}", aiResp.getError());
             saveErrorResult(req, config, aiResp.getError());
             return aiResp;
         }
 
-        // AI 응답에 실제 적용된 level 설정
-        aiResp.setSummaryLevel(aiReq.getSummaryLevel());
+        aiResp.setSummaryLevel(level);
 
         // 4) 요약 결과 → note_summary_result 저장
         SummaryResult saved = saveSummaryResult(req, config, aiReq, aiResp);
+        aiResp.setSummaryResultId(saved.getSequence());
 
-        // 5) 리마인드 항목 → note_remind_result 행별 저장
-        saveRemindResults(saved.getSequence(), aiResp.getReminds());
-
-        log.info("[SummaryProcessService] 처리 완료 - summaryResultId: {}, remindCount: {}",
-                saved.getSequence(), aiResp.getTotalRemindCount());
-
+        log.info("[SummaryProcessService] 처리 완료 - summaryResultId: {}", saved.getSequence());
         return aiResp;
     }
 
@@ -101,10 +95,10 @@ public class SummaryProcessService {
     // ── 내부: 저장 ───────────────────────────────────────────────────────────
 
     private SummaryResult saveSummaryResult(SummaryProcessRequestVo req,
-                                            SummaryConfig config,
+                                            PromptConfig config,
                                             SummaryRequestVo aiReq,
                                             SummaryResponseVo resp) {
-        SummaryResult entity = findOrCreate(req);
+        SummaryResult entity = findOrCreate(req, aiReq.getSummaryLevel());
         if (config.getSequence() != null && config.getSequence() > 0) {
             entity.setConfigId(config.getSequence());
         }
@@ -123,49 +117,11 @@ public class SummaryProcessService {
         return saved;
     }
 
-    /**
-     * 리마인드 그룹/항목을 note_remind_result 에 행별로 저장.
-     * 재생성 시 기존 항목 삭제 후 재삽입.
-     */
-    private void saveRemindResults(Long summaryResultId, List<RemindGroup> groups) {
-        if (groups == null || groups.isEmpty()) {
-            log.debug("[SummaryProcessService] 리마인드 항목 없음 - summaryResultId: {}", summaryResultId);
-            return;
+    private void saveErrorResult(SummaryProcessRequestVo req, PromptConfig config, String errorMsg) {
+        SummaryResult entity = findOrCreate(req, req.getSummaryLevel() > 0 ? req.getSummaryLevel() : DEFAULT_SUMMARY_LEVEL);
+        if (config.getSequence() != null && config.getSequence() > 0) {
+            entity.setConfigId(config.getSequence());
         }
-
-        // 기존 항목 삭제 (재생성 대비)
-        remindResultRepository.deleteBySummaryResultId(summaryResultId);
-
-        List<RemindResult> rows = new ArrayList<>();
-        int groupOrder = 0;
-
-        for (RemindGroup group : groups) {
-            int sortOrder = 0;
-            for (RemindItem item : group.getItems()) {
-                RemindResult row = new RemindResult();
-                row.setSummaryResultId(summaryResultId);
-                row.setGroupName(group.getGroupName());
-                row.setGroupOrder(groupOrder);
-                row.setItemType(item.getType() != null ? item.getType() : "기타");
-                row.setItemContent(item.getContent() != null ? item.getContent() : "");
-                row.setAssignee(item.getAssignee());
-                row.setDeadline(item.getDeadline());
-                row.setDetailText(item.getDetails() != null
-                        ? String.join("\n", item.getDetails()) : null);
-                row.setSortOrder(sortOrder);
-                rows.add(row);
-                sortOrder++;
-            }
-            groupOrder++;
-        }
-
-        remindResultRepository.saveAll(rows);
-        log.info("[SummaryProcessService] note_remind_result 저장 - {}행", rows.size());
-    }
-
-    private void saveErrorResult(SummaryProcessRequestVo req, SummaryConfig config, String errorMsg) {
-        SummaryResult entity = findOrCreate(req);
-        entity.setConfigId(config.getSequence());
         entity.setFileType(req.getFileType());
         entity.setStatus("error");
         entity.setErrorMessage(errorMsg);
@@ -175,8 +131,7 @@ public class SummaryProcessService {
 
     // ── 내부: 조회/변환 ──────────────────────────────────────────────────────
 
-    private Optional<SummaryResult> findCached(SummaryProcessRequestVo req) {
-        int level = resolveLevel(req);
+    private Optional<SummaryResult> findCached(SummaryProcessRequestVo req, int level) {
         if ("youtube".equalsIgnoreCase(req.getFileType()) && req.getYoutubeVideoId() != null) {
             return resultRepository.findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(
                     req.getYoutubeVideoId(), level);
@@ -188,8 +143,7 @@ public class SummaryProcessService {
         return Optional.empty();
     }
 
-    private SummaryResult findOrCreate(SummaryProcessRequestVo req) {
-        int level = resolveLevel(req);
+    private SummaryResult findOrCreate(SummaryProcessRequestVo req, int level) {
         if ("youtube".equalsIgnoreCase(req.getFileType()) && req.getYoutubeVideoId() != null) {
             return resultRepository.findByYoutubeVideoIdAndSummaryLevelAndIsDeletedFalse(
                             req.getYoutubeVideoId(), level)
@@ -214,135 +168,53 @@ public class SummaryProcessService {
         return new SummaryResult();
     }
 
-    private int resolveLevel(SummaryProcessRequestVo req) {
-        return req.getSummaryLevel() > 0 ? req.getSummaryLevel() : 3;
-    }
-
-    /**
-     * DB 결과를 응답 VO로 변환.
-     * 리마인드 항목은 note_remind_result 에서 조회하여 구조화.
-     */
     private SummaryResponseVo toResponseVo(SummaryResult entity) {
-        // 요약 텍스트 기반 파싱 (섹션 구조화) + 요약 수준 포함
         SummaryResponseVo vo = SummaryResponseVo.ok(
                 entity.getSummaryFull() != null ? entity.getSummaryFull() : "",
                 entity.getSummaryLevel() != null ? entity.getSummaryLevel() : 0);
-
-        // 리마인드 항목 DB 조회로 재구성
-        List<RemindResult> rows = remindResultRepository
-                .findBySummaryResultIdAndIsDeletedFalseOrderByGroupOrderAscSortOrderAsc(
-                        entity.getSequence());
-
-        if (!rows.isEmpty()) {
-            vo.setReminds(toRemindGroups(rows));
-            vo.setTotalRemindCount(entity.getTotalRemindCount());
-        }
-
+        vo.setSummaryResultId(entity.getSequence());
+        vo.setTotalRemindCount(entity.getTotalRemindCount());
         return vo;
     }
 
-    private List<RemindGroup> toRemindGroups(List<RemindResult> rows) {
-        List<RemindGroup> groups = new ArrayList<>();
-        RemindGroup currentGroup = null;
+    // ── 내부: 요청 빌드 ──────────────────────────────────────────────────────
 
-        for (RemindResult row : rows) {
-            if (currentGroup == null || !currentGroup.getGroupName().equals(row.getGroupName())) {
-                currentGroup = new RemindGroup();
-                currentGroup.setGroupName(row.getGroupName());
-                groups.add(currentGroup);
-            }
-            RemindItem item = new RemindItem();
-            item.setType(row.getItemType());
-            item.setContent(row.getItemContent());
-            item.setAssignee(row.getAssignee());
-            item.setDeadline(row.getDeadline());
-            if (row.getDetailText() != null && !row.getDetailText().isBlank()) {
-                item.setDetails(List.of(row.getDetailText().split("\n")));
-            }
-            currentGroup.getItems().add(item);
-        }
-        return groups;
-    }
-
-    // ── 내부: 기본값 ─────────────────────────────────────────────────────────
-
-    private SummaryRequestVo buildAiRequest(SummaryProcessRequestVo req, SummaryConfig config) {
+    private SummaryRequestVo buildAiRequest(SummaryProcessRequestVo req,
+                                            PromptConfig config, int level) {
         SummaryRequestVo ar = new SummaryRequestVo();
         ar.setText(req.getText());
         ar.setFileId(req.getFileUuid() != null ? req.getFileUuid() : req.getYoutubeVideoId());
-
-        int level = req.getSummaryLevel() > 0 ? req.getSummaryLevel() : config.getSummaryLevel();
         ar.setSummaryLevel(level);
 
-        String sourceLang = isBlank(req.getTextLanguage())
-                ? config.getTextLanguage() : req.getTextLanguage();
-        String outputLang = isBlank(req.getSummaryLanguage())
-                ? config.getSummaryLanguage() : req.getSummaryLanguage();
+        String sourceLang = isBlank(req.getTextLanguage()) ? "ko" : req.getTextLanguage();
+        String outputLang = isBlank(req.getSummaryLanguage()) ? sourceLang : req.getSummaryLanguage();
         ar.setTextLanguage(sourceLang);
         ar.setSummaryLanguage(outputLang);
 
-        // DB 프롬프트 조합 (note_summary_config + note_remind_config)
-        String combinedPrompt = buildSystemPromptFromDb(
-                config, sourceLang, outputLang, req.getFileType());
-        if (combinedPrompt != null) {
-            ar.setSystemPrompt(combinedPrompt);
+        // 프롬프트가 있으면 플레이스홀더 치환 후 적용
+        if (!isBlank(config.getPrompt())) {
+            String prompt = config.getPrompt()
+                    .replace("{{SOURCE_LANG}}", sourceLang)
+                    .replace("{{OUTPUT_LANG}}", outputLang);
+            ar.setSystemPrompt(prompt);
+            log.info("[SummaryProcessService] DB 프롬프트 적용 - 길이: {}", config.getPrompt().length());
+        } else {
+            log.debug("[SummaryProcessService] DB 프롬프트 없음 - 코드 fallback 사용");
         }
 
         return ar;
     }
 
-    /**
-     * note_system_prompt_config 에서 요약+리마인드 프롬프트를 조합.
-     * 플레이스홀더 치환 후 반환. DB에 없으면 null 반환 (코드 hardcoded fallback).
-     */
-    private String buildSystemPromptFromDb(SummaryConfig config,
-                                           String sourceLang, String outputLang,
-                                           String fileType) {
-        // 요약 system 프롬프트 조회 (type='summary', prompt_role='system')
-        String summaryRaw = promptConfigRepository
-                .findByTypeAndPromptRoleAndFileTypeAndSummaryLevelAndIsActiveTrue(
-                        "summary", "system", fileType, config.getSummaryLevel())
-                .map(PromptConfig::getPrompt)
-                .orElse(null);
+    // ── 내부: 기본값 ─────────────────────────────────────────────────────────
 
-        if (isBlank(summaryRaw)) {
-            log.debug("[SummaryProcessService] summary system 프롬프트 미설정 - 코드 fallback 사용");
-            return null;
-        }
-
-        // 플레이스홀더 치환
-        String levelDetail = config.getLevelDescription() != null ? config.getLevelDescription() : "";
-        String summaryPrompt = summaryRaw
-                .replace("{{LEVEL_DETAIL}}", levelDetail)
-                .replace("{{SOURCE_LANG}}", sourceLang)
-                .replace("{{OUTPUT_LANG}}", outputLang);
-
-        // 리마인드 system 프롬프트 조회 (type='remind', prompt_role='system', summary_level=NULL)
-        String remindPrompt = promptConfigRepository
-                .findByTypeAndPromptRoleAndFileTypeAndSummaryLevelIsNullAndIsActiveTrue(
-                        "remind", "system", fileType)
-                .map(PromptConfig::getPrompt)
-                .orElse(null);
-
-        if (!isBlank(remindPrompt)) {
-            summaryPrompt = summaryPrompt + "\n\n" + remindPrompt;
-        }
-
-        log.info("[SummaryProcessService] DB 프롬프트 조합 완료 - summaryLen: {}, remindLen: {}",
-                summaryRaw.length(), remindPrompt != null ? remindPrompt.length() : 0);
-
-        return summaryPrompt;
-    }
-
-    private SummaryConfig defaultConfig(String fileType) {
-        log.warn("[SummaryProcessService] fileType={} config 없음 - 기본값 사용", fileType);
-        SummaryConfig c = new SummaryConfig();
+    private PromptConfig defaultConfig(String fileType, int level) {
+        log.warn("[SummaryProcessService] PromptConfig 없음 - fileType: {}, level: {} → 기본값 사용", fileType, level);
+        PromptConfig c = new PromptConfig();
         c.setSequence(0L);
+        c.setType("summary");
         c.setFileType(fileType);
+        c.setLevel(level);
         c.setAiProvider("openai");
-        c.setSummaryLevel(3);
-        c.setTextLanguage("ko");
-        c.setSummaryLanguage("ko");
         return c;
     }
 

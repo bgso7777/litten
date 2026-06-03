@@ -224,6 +224,7 @@ public class SecurityConfiguration {
         // 회원 인증 필요 API
         .requestMatchers("/note/v1/members/me").authenticated()
         .requestMatchers("/note/v1/members/plan").authenticated()
+        .requestMatchers("/note/v1/members/migrate").authenticated()  // 프리미엄 전환 데이터 이관
         // 공개 API
         .requestMatchers("/note/v1/members/**").permitAll()
         .requestMatchers("/note/v1/members/install/**").permitAll()
