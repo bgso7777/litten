@@ -62,11 +62,22 @@ public class YoutubeService {
 
     // ── 채널 구독 ──────────────────────────────────────────────────────────────
 
+    /** 게스트(비로그인) 식별 prefix — GuestUuidAuthenticationFilter 와 동일 */
+    private static final String GUEST_PREFIX = "guest:";
+
     @Transactional
     public MemberYoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
                                           Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
                                           String summaryType, String remindType, Integer remindCustomCount) {
         log.debug("[YoutubeService] subscribe 진입 - memberId: {}, channelId: {}", memberId, channelId);
+
+        // 게스트는 자동 요약/리마인드 비활성 강제 (AI 서버 비용 보호)
+        // 채널 수 제한은 프론트(plan_limits)에서 관리.
+        boolean isGuest = memberId != null && memberId.startsWith(GUEST_PREFIX);
+        if (isGuest) {
+            autoSummary = false;
+            autoRemind  = false;
+        }
 
         boolean useSummary = autoSummary != null && autoSummary;
         boolean useRemind  = autoRemind  != null && autoRemind;

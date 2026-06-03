@@ -14,6 +14,7 @@ import com.litten.common.util.Crypto;
 import com.litten.common.util.DateUtil;
 import com.litten.common.util.Mailer;
 import com.litten.note.summary.SummaryResultRepository;
+import com.litten.note.youtube.MemberYoutubeChannelRepository;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -488,14 +489,22 @@ public class NoteMemberService extends CustomHttpService {
             return result;
         }
 
-        // note_summary_result 이관 (member_uuid = deviceUuid → memberUuid)
+        // 1) note_summary_result 이관 (member_uuid = deviceUuid → memberUuid)
         SummaryResultRepository summaryResultRepository = BeanUtil.getBean2(SummaryResultRepository.class);
-        int migratedCount = summaryResultRepository.migrateMemberUuid(deviceUuid, memberUuid);
+        int summaryMigrated = summaryResultRepository.migrateMemberUuid(deviceUuid, memberUuid);
 
-        log.info("[NoteMemberService] migrateDeviceData 완료 - memberId: {}, deviceUuid: {}, memberUuid: {}, migratedCount: {}",
-                memberId, deviceUuid, memberUuid, migratedCount);
+        // 2) note_member_youtube_channel 이관 (member_id = "guest:<deviceUuid>" → memberId)
+        //    회원이 이미 구독 중인 채널은 제외하고 이관, 나머지 게스트 행은 삭제
+        String guestId = "guest:" + deviceUuid;
+        MemberYoutubeChannelRepository memberChannelRepository = BeanUtil.getBean2(MemberYoutubeChannelRepository.class);
+        int channelMigrated = memberChannelRepository.migrateGuestToMember(guestId, memberId);
+        int channelRemoved  = memberChannelRepository.deleteByMemberId(guestId);
 
-        result.put("migratedCount", migratedCount);
+        log.info("[NoteMemberService] migrateDeviceData 완료 - memberId: {}, deviceUuid: {}, summaryMigrated: {}, channelMigrated: {}, channelRemoved(중복): {}",
+                memberId, deviceUuid, summaryMigrated, channelMigrated, channelRemoved);
+
+        result.put("migratedCount", summaryMigrated);
+        result.put("channelMigratedCount", channelMigrated);
         result.put("memberUuid", memberUuid);
         return result;
     }

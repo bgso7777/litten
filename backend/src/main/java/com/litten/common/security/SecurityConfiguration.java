@@ -216,15 +216,27 @@ public class SecurityConfiguration {
 //        .requestMatchers("/litten/changepassword*.html").permitAll()
 
         // litten
+        // 요약/리마인드 — 게스트(device-uuid) + 로그인 모두 허용
         .requestMatchers("/note/v1/summary/**").permitAll()
-        // 유튜브 채널 모니터링 API (인증 필요)
+        .requestMatchers("/note/v1/remind/**").permitAll()
+
+        // 유튜브 — 로그인 전용 엔드포인트 (게스트 차단)
+        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/note/v1/youtube/channels/*").authenticated()
+        .requestMatchers("/note/v1/youtube/channels/info").authenticated()
+        // 유튜브 — 게스트(device-uuid) + 로그인 모두 허용 (채널 등록/조회/해제, 영상 조회, 자막)
         .requestMatchers("/note/v1/youtube/**").authenticated()
-        // 파일 동기화 API (인증 필요)
-        .requestMatchers("/note/v1/files/**").authenticated()
-        // 회원 인증 필요 API
-        .requestMatchers("/note/v1/members/me").authenticated()
-        .requestMatchers("/note/v1/members/plan").authenticated()
-        .requestMatchers("/note/v1/members/migrate").authenticated()  // 프리미엄 전환 데이터 이관
+
+        // 파일 동기화 API (프리미엄 전용 — 로그인 필요)
+        .requestMatchers("/note/v1/files/**").hasAnyAuthority(
+                AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+                AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+                AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
+        // 회원 인증 필요 API (로그인 전용 — 게스트 차단)
+        .requestMatchers("/note/v1/members/me", "/note/v1/members/plan", "/note/v1/members/migrate")
+                .hasAnyAuthority(
+                AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+                AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+                AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
         // 공개 API
         .requestMatchers("/note/v1/members/**").permitAll()
         .requestMatchers("/note/v1/members/install/**").permitAll()
