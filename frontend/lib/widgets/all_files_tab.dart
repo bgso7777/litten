@@ -805,6 +805,37 @@ class _AllFilesTabState extends State<AllFilesTab> {
     super.dispose();
   }
 
+  /// + 바텀시트에서 선택한 종류에 따라 전체탭 위에서 생성화면을 자동으로 연다.
+  /// (기존 _BottomFabRow 콜백과 동일한 동작)
+  Future<void> _handlePendingCreate(String type) async {
+    debugPrint('➕ [AllFilesTab] 생성화면 자동 진입: $type');
+    switch (type) {
+      case 'text':
+        if (await _blockedByLimit('text')) return;
+        _openEditorView(_EditorType.text, autoCreate: true);
+        break;
+      case 'sttMemo':
+        if (await _blockedByLimit('stt')) return;
+        _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true);
+        break;
+      case 'handwriting':
+        if (await _blockedByLimit('handwriting')) return;
+        _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas);
+        break;
+      case 'files':
+        await _addAttachmentFromFiles();
+        break;
+      case 'audio':
+        if (!_isRecording && await _blockedByLimit('audio')) return;
+        await _toggleRecording();
+        break;
+      case 'youtube':
+        await showYoutubeChannelSheet(context);
+        if (mounted) await _loadYoutubeChannels();
+        break;
+    }
+  }
+
   Future<void> _toggleRecording() async {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final litten = appState.selectedLitten;
@@ -872,6 +903,21 @@ class _AllFilesTabState extends State<AllFilesTab> {
               if (mounted) setState(() => _youtubeChannels = []);
             });
           }
+        }
+
+        // ⭐ + 바텀시트에서 요청된 생성 액션 처리 (전체탭 전용)
+        //   - 첨부/STT 전용 인스턴스는 제외
+        //   - 에디터가 이미 열려있으면 스킵
+        //   - 리튼이 선택된 뒤에만 처리(녹음 등은 리튼 필요). 미선택이면 다음 build까지 대기
+        if (!widget.showOnlyAttachments &&
+            !widget.showOnlySTT &&
+            _openEditor == null &&
+            appState.pendingCreateType != null &&
+            appState.selectedLitten != null) {
+          final pending = appState.consumePendingCreate();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && pending != null) _handlePendingCreate(pending);
+          });
         }
 
         // 에디터가 열려있으면 전체 화면으로 표시

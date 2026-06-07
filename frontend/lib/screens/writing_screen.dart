@@ -10,10 +10,6 @@ import '../widgets/handwriting_tab.dart';
 import '../widgets/browser_tab.dart';
 import '../widgets/all_files_tab.dart';
 import '../widgets/youtube_tab.dart';
-import '../widgets/common/summary_reminder_chip.dart';
-import '../widgets/remind_panel.dart';
-
-enum _PanelState { closed, half, full }
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -23,31 +19,12 @@ class WritingScreen extends StatefulWidget {
 }
 
 class _WritingScreenState extends State<WritingScreen>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   late List<TabItem> _tabs;
   int _recordingTabRefreshCount = 0;
   AppStateProvider? _appState;
-
-  // ⭐ 리마인드 패널 — 연속 높이 + 스냅 애니메이션
-  _PanelState _panelState = _PanelState.closed;
-  double _panelHeight = 0;
-  double _totalHeight = 0;
-  late AnimationController _panelController;
-  late Tween<double> _panelTween;
-  late Animation<double> _panelAnim;
-  static const double _kTabBarMinHeight = 48.0;
-
-  double get _halfHeight => _totalHeight * 0.5;
-  double get _fullHeight => _totalHeight - _kTabBarMinHeight;
-
-  // 실시간 높이 기반 panelLevel (칩 화살표용)
-  int get _panelLevel {
-    if (_totalHeight == 0 || _panelHeight < _halfHeight * 0.3) return 0;
-    if (_panelHeight < (_halfHeight + _fullHeight) * 0.5) return 1;
-    return 2;
-  }
 
   // ⭐ TextTab 상태 유지를 위한 GlobalKey
   final GlobalKey<State<StatefulWidget>> _textTabKey = GlobalKey();
@@ -61,13 +38,6 @@ class _WritingScreenState extends State<WritingScreen>
   @override
   void initState() {
     super.initState();
-    _panelController = AnimationController(vsync: this);
-    _panelTween = Tween<double>(begin: 0, end: 0);
-    _panelAnim = _panelTween.animate(
-      CurvedAnimation(parent: _panelController, curve: Curves.easeOutCubic),
-    );
-    _panelAnim.addListener(_onPanelAnimTick);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _appState = Provider.of<AppStateProvider>(context, listen: false);
       _appState!.addListener(_onAppStateChanged);
@@ -75,16 +45,12 @@ class _WritingScreenState extends State<WritingScreen>
     });
   }
 
-  void _onPanelAnimTick() {
-    if (mounted) setState(() => _panelHeight = _panelAnim.value);
-  }
-
   void _onAppStateChanged() {
     if (!mounted) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-    // ⭐ 노트탭에서 일정이 선택되지 않았으면 undefined 자동 선택
-    if (appState.selectedTabIndex == 0 && appState.selectedLitten == null) {
+    // ⭐ 노트탭(index 2)에서 일정이 선택되지 않았으면 undefined 자동 선택
+    if (appState.selectedTabIndex == 2 && appState.selectedLitten == null) {
       _autoSelectUndefined(appState);
     }
   }
@@ -105,94 +71,8 @@ class _WritingScreenState extends State<WritingScreen>
 
   @override
   void dispose() {
-    _panelAnim.removeListener(_onPanelAnimTick);
-    _panelController.dispose();
     _appState?.removeListener(_onAppStateChanged);
     super.dispose();
-  }
-
-  // 목표 높이로 스냅 애니메이션
-  void _snapTo(double target, _PanelState newState) {
-    if (_totalHeight == 0) return;
-    _panelTween.begin = _panelHeight;
-    _panelTween.end = target.clamp(0.0, _fullHeight);
-    setState(() => _panelState = newState);
-    _panelController
-      ..duration = const Duration(milliseconds: 380)
-      ..forward(from: 0);
-    debugPrint('[WritingScreen] 스냅: ${_panelHeight.toStringAsFixed(0)} → ${target.toStringAsFixed(0)} (${newState.name})');
-  }
-
-  // 드래그 중 실시간 높이 갱신
-  void _onDragUpdate(double dy) {
-    if (_panelState == _PanelState.closed) return;
-    _panelController.stop();
-    setState(() {
-      _panelHeight = (_panelHeight - dy).clamp(0.0, _fullHeight);
-    });
-  }
-
-  // 드래그 종료 → 가장 가까운 스냅 포인트로
-  void _onDragEnd(double velocityY) {
-    if (_totalHeight == 0) return;
-    final half = _halfHeight;
-    final full = _fullHeight;
-    double target;
-    _PanelState newState;
-
-    if (velocityY < -600) {
-      // 위로 빠르게 → 다음 단계
-      if (_panelHeight < half) { target = half; newState = _PanelState.half; }
-      else { target = full; newState = _PanelState.full; }
-    } else if (velocityY > 600) {
-      // 아래로 빠르게 → 이전 단계
-      if (_panelHeight > half) { target = half; newState = _PanelState.half; }
-      else { target = 0; newState = _PanelState.closed; }
-    } else {
-      // 가장 가까운 스냅 포인트
-      if (_panelHeight < half * 0.4) { target = 0; newState = _PanelState.closed; }
-      else if (_panelHeight < (half + full) * 0.5) { target = half; newState = _PanelState.half; }
-      else { target = full; newState = _PanelState.full; }
-    }
-    _snapTo(target, newState);
-  }
-
-  void _expandPanel() {
-    if (_totalHeight == 0) return;
-    if (_panelState == _PanelState.closed) { _snapTo(_halfHeight, _PanelState.half); }
-    else if (_panelState == _PanelState.half) { _snapTo(_fullHeight, _PanelState.full); }
-  }
-
-  void _shrinkPanel() {
-    if (_panelState == _PanelState.full) { _snapTo(_halfHeight, _PanelState.half); }
-    else if (_panelState == _PanelState.half) { _snapTo(0, _PanelState.closed); }
-  }
-
-  // 4단계 토글: closed → half → full → half → closed
-  // 방향 추적용: 마지막으로 확장 중이었는지 축소 중이었는지
-  bool _panelExpanding = true;
-
-  void _togglePanel() {
-    switch (_panelState) {
-      case _PanelState.closed:
-        // 닫힘 → 50%
-        _snapTo(_halfHeight, _PanelState.half);
-        _panelExpanding = true;
-        break;
-      case _PanelState.half:
-        // 50% → 확장 중이면 full, 축소 중이면 closed
-        if (_panelExpanding) {
-          _snapTo(_fullHeight, _PanelState.full);
-        } else {
-          _snapTo(0, _PanelState.closed);
-        }
-        break;
-      case _PanelState.full:
-        // 100% → 50% (축소 시작)
-        _snapTo(_halfHeight, _PanelState.half);
-        _panelExpanding = false;
-        break;
-    }
   }
 
   void _initializeTabs(Map<String, String> savedPositions, {int textCount = 0, int handwritingCount = 0, int pdfCount = 0, int canvasCount = 0, int sttMemoCount = 0, int audioCount = 0, int attachmentCount = 0, int youtubeCount = 0, String? littenTitle, Set<String> noteTabVisibility = const {'all'}}) {
@@ -362,43 +242,8 @@ class _WritingScreenState extends State<WritingScreen>
           },
         );
 
-        return Column(
-          children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // totalHeight 캐시 (처음 또는 변경 시)
-                  if (_totalHeight != constraints.maxHeight) {
-                    _totalHeight = constraints.maxHeight;
-                  }
-                  final tabH = (_totalHeight - _panelHeight).clamp(0.0, _totalHeight);
-
-                  return Column(
-                    children: [
-                      SizedBox(height: tabH, child: draggableTabLayout),
-                      SizedBox(
-                        height: _panelHeight,
-                        child: _panelHeight > 0
-                            ? RemindPanel(
-                                onClose: _shrinkPanel,
-                                onDragUpdate: _onDragUpdate,
-                                onDragEnd: _onDragEnd,
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            // ⭐ 요약 리마인드 칩
-            SummaryReminderChip(
-              onTap: _togglePanel,
-              onScrollUp: _expandPanel,
-              panelLevel: _panelLevel,
-            ),
-          ],
-        );
+        // 리마인드 칩/패널은 '기억' 탭으로 이동됨 — 노트는 파일 작업에 집중
+        return draggableTabLayout;
       },
     );
   }

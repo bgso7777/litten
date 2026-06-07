@@ -251,7 +251,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
             title: l10n?.noLittenSelected ?? '리튼을 선택해주세요',
             description: l10n?.selectLittenFirst ?? '듣기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
             actionText: l10n?.goToHome ?? '홈으로 이동',
-            onAction: () => appState.changeTabIndex(0),
+            onAction: () => appState.changeTabIndex(2),
           );
         }
 

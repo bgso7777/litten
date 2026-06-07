@@ -14,22 +14,27 @@ import '../l10n/app_localizations.dart';
 ///   세부항목1-2                              ▶
 /// 항목2 (파일)                          2개  ▶
 class RemindPanel extends StatefulWidget {
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
   final void Function(double dy)? onDragUpdate;
   final void Function(double velocity)? onDragEnd;
 
+  /// 전체화면(기억 탭) 모드: 드래그 핸들 대신 헤더 표시 + 미완료 항목 깜빡이
+  final bool isFullScreen;
+
   const RemindPanel({
     super.key,
-    required this.onClose,
+    this.onClose,
     this.onDragUpdate,
     this.onDragEnd,
+    this.isFullScreen = false,
   });
 
   @override
   State<RemindPanel> createState() => _RemindPanelState();
 }
 
-class _RemindPanelState extends State<RemindPanel> {
+class _RemindPanelState extends State<RemindPanel>
+    with SingleTickerProviderStateMixin {
   final Set<String> _openTargets = {};
   final Set<String> _openItems = {};
   final ScrollController _scrollController = ScrollController();
@@ -38,8 +43,27 @@ class _RemindPanelState extends State<RemindPanel> {
   bool _isResizing = false;
   VelocityTracker? _velocityTracker;
 
+  // ⭐ 기억 탭: 미완료 항목 기억 유도용 깜빡이 애니메이션
+  late final AnimationController _blinkController;
+  late final Animation<double> _blinkAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _blinkAnim = Tween<double>(begin: 1.0, end: 0.25)
+        .animate(CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut));
+    if (widget.isFullScreen) {
+      _blinkController.repeat(reverse: true);
+    }
+  }
+
   @override
   void dispose() {
+    _blinkController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -79,7 +103,7 @@ class _RemindPanelState extends State<RemindPanel> {
           ),
           child: Column(
             children: [
-              _buildDragHandle(),
+              widget.isFullScreen ? _buildHeader(appState) : _buildDragHandle(),
               Expanded(
                 child: targets.isEmpty
                     ? _buildEmpty()
@@ -89,6 +113,47 @@ class _RemindPanelState extends State<RemindPanel> {
           ),
         );
       },
+    );
+  }
+
+  // ── 기억 탭 헤더 ──────────────────────────────────────────────────────────
+
+  Widget _buildHeader(AppStateProvider appState) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
+    final pendingCount = appState.remindItems.where((i) => !i.isDone).length;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: 0.08),
+        border: Border(
+          bottom: BorderSide(color: primaryColor.withValues(alpha: 0.15), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline, size: 20, color: primaryColor),
+          const SizedBox(width: 8),
+          Text(
+            '리마인드',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
+          ),
+          const SizedBox(width: 10),
+          if (pendingCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                l10n?.reminderCount(pendingCount) ?? '$pendingCount개',
+                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -557,11 +622,21 @@ class _RemindPanelState extends State<RemindPanel> {
               },
               child: Padding(
                 padding: const EdgeInsets.only(right: 10),
-                child: Icon(
-                  item.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-                  size: 20,
-                  color: item.isDone ? Colors.grey.shade400 : primaryColor,
-                ),
+                child: (widget.isFullScreen && !item.isDone)
+                    // ⭐ 기억 유도: 미완료 항목 체크 아이콘 깜빡이
+                    ? FadeTransition(
+                        opacity: _blinkAnim,
+                        child: Icon(
+                          Icons.radio_button_unchecked,
+                          size: 20,
+                          color: primaryColor,
+                        ),
+                      )
+                    : Icon(
+                        item.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+                        size: 20,
+                        color: item.isDone ? Colors.grey.shade400 : primaryColor,
+                      ),
               ),
             ),
             Expanded(

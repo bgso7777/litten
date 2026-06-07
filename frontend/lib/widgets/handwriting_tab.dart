@@ -293,7 +293,7 @@ class _HandwritingTabState extends State<HandwritingTab>
                 l10n?.emptyLittenDescription ??
                 '쓰기를 시작하려면 먼저 홈 탭에서 리튼을 선택하거나 생성해주세요.',
             actionText: l10n?.homeTitle ?? '홈으로 이동',
-            onAction: () => appState.changeTabIndex(0),
+            onAction: () => appState.changeTabIndex(2),
           );
         }
 

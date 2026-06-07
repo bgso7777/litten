@@ -935,6 +935,24 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // ⭐ + 바텀시트 → 노트 전체탭에서 생성화면 자동 진입 요청
+  // 값: 'text' | 'audio' | 'sttMemo' | 'handwriting' | 'files' | 'youtube'
+  String? _pendingCreateType;
+  String? get pendingCreateType => _pendingCreateType;
+
+  void requestCreate(String type) {
+    _pendingCreateType = type;
+    debugPrint('➕ [AppStateProvider] 생성 요청: $type');
+    notifyListeners();
+  }
+
+  /// 대기 중인 생성 요청을 소비(1회성). 처리 측에서 호출.
+  String? consumePendingCreate() {
+    final t = _pendingCreateType;
+    _pendingCreateType = null;
+    return t;
+  }
+
   // 파일 목록 변경 알림 (PDF 변환 등으로 파일이 추가/삭제될 때 호출)
   void notifyFileListChanged() {
     _fileListVersion++;
