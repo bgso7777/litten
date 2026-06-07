@@ -22,12 +22,8 @@ class HomeDashboardScreen extends StatelessWidget {
             appState.remindItems.where((i) => !i.isDone).length;
         final upcoming = _upcomingLittens(appState.littens);
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('홈'),
-            automaticallyImplyLeading: false,
-          ),
-          body: ListView(
+        // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
+        return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // ── 미완료 리마인드 카드 ──
@@ -77,7 +73,6 @@ class HomeDashboardScreen extends StatelessWidget {
                 ],
               ),
             ],
-          ),
         );
       },
     );

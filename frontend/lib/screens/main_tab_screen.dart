@@ -5,7 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
-import 'home_dashboard_screen.dart';
+import 'home_tab_screen.dart';
 import 'home_screen.dart';
 import 'writing_screen.dart';
 import 'memory_screen.dart';
@@ -120,7 +120,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      const HomeDashboardScreen(),       // 0: 홈
+                      const HomeTabScreen(),             // 0: 홈(탭 레이아웃)
                       HomeScreen(key: _homeScreenKey),   // 1: 캘린더
                       WritingScreen(),                   // 2: 노트(+)
                       const MemoryScreen(),              // 3: 기억
@@ -157,7 +157,9 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                   label: l10n?.calendarTab ?? '캘린더',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.add_circle, size: 34, color: Theme.of(context).primaryColor),
+                  // ⭐ 비활성: 연한 바탕 원 + 진한 테마색 +(테두리 없음).
+                  //    활성: 진한 테마색 원 + 흰 +.
+                  icon: _buildAddIcon(context, appState.selectedTabIndex == _createTab),
                   label: '',
                 ),
                 BottomNavigationBarItem(
@@ -196,13 +198,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   void _onTabTapped(BuildContext context, AppStateProvider appState, int index) {
     debugPrint('🔍 [MainTabScreen] 탭 터치: $index (현재: ${appState.selectedTabIndex})');
 
-    // ⭐ 가운데 +(노트) 탭 → 페이지 전환 대신 파일 생성 바텀시트
-    if (index == _createTab) {
-      _showCreateBottomSheet(context, appState);
-      return;
-    }
-
     _logCurrentPlaybackState();
+
+    // ⭐ 가운데 +(노트) 탭 → 노트로 전환만. 파일 생성은 노트 안의 + 버튼으로.
+    if (index == _createTab) {
+      appState.syncNoteTab(); // 노트 진입 시 클라우드 동기화
+    }
 
     // 캘린더 탭 진입 처리
     if (index == _calendarTab) {
@@ -239,84 +240,31 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     }
   }
 
-  /// + 탭 → 파일 종류 선택 바텀시트
-  /// 선택 시 전체탭(all)을 기본으로 깔고 노트(index 2)의 해당 생성 탭으로 진입한다.
-  void _showCreateBottomSheet(BuildContext context, AppStateProvider appState) {
-    debugPrint('➕ [MainTabScreen] 파일 생성 바텀시트 열기');
-    final color = Theme.of(context).primaryColor;
-
-    void enterNote(String type) {
-      debugPrint('➕ [MainTabScreen] 생성 선택: $type → 노트 전체탭 진입 + 생성화면 자동 오픈');
-      Navigator.pop(context);
-      // 전체탭(all)을 기본으로 깔고 그 위에 생성화면을 띄운다(빠져나오면 전체탭).
-      appState.setCurrentWritingTab('all');
-      appState.setTargetWritingTab('all');
-      // 전체탭(AllFilesTab)에서 해당 종류 생성화면 자동 진입 요청
-      appState.requestCreate(type);
-      // 노트 진입 + 클라우드 동기화
-      appState.syncNoteTab();
-      appState.changeTabIndex(_createTab);
-      appState.setCurrentMainTab(_createTab);
-      _pageController.jumpToPage(_createTab);
-    }
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.add, color: color),
-                    const SizedBox(width: 8),
-                    const Text('새로 만들기',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              _createTile(ctx, Icons.notes, '메모', color, () => enterNote('text')),
-              _createTile(ctx, Icons.mic, '녹음', color, () => enterNote('audio')),
-              _createTile(ctx, Icons.record_voice_over, '메모녹음', color, () => enterNote('sttMemo')),
-              _createTile(ctx, Icons.draw, '필기', color, () => enterNote('handwriting')),
-              _createTile(ctx, Icons.drive_folder_upload, '파일', color, () => enterNote('files')),
-              _createTile(ctx, Icons.smart_display_outlined, '영상', color, () => enterNote('youtube')),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _createTile(BuildContext context, IconData icon, String label, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(label),
-      onTap: onTap,
-    );
-  }
 
   void _logCurrentPlaybackState() {
     debugPrint('🎵 탭 변경 시 재생 상태 확인:');
     debugPrint('   - 오디오 재생 중: ${audioService.isPlaying}');
     debugPrint('   - 현재 재생 파일: ${audioService.currentPlayingFile?.fileName ?? "없음"}');
+  }
+
+  /// 가운데 +(노트) 버튼 아이콘.
+  /// 비활성: 연한 바탕 원 + 진한 테마색 +(테두리 없음).
+  /// 활성: 진한 테마색 원 + 흰 +.
+  Widget _buildAddIcon(BuildContext context, bool isActive) {
+    final primary = Theme.of(context).primaryColor;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isActive ? primary : primary.withValues(alpha: 0.15),
+      ),
+      child: Icon(
+        Icons.add,
+        size: 22,
+        color: isActive ? Colors.white : primary,
+      ),
+    );
   }
 
   Widget _buildCalendarIconWithBadge(AppStateProvider appState) {

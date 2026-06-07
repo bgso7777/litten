@@ -18,8 +18,12 @@ class RemindPanel extends StatefulWidget {
   final void Function(double dy)? onDragUpdate;
   final void Function(double velocity)? onDragEnd;
 
-  /// 전체화면(기억 탭) 모드: 드래그 핸들 대신 헤더 표시 + 미완료 항목 깜빡이
+  /// 전체화면 모드: 드래그 핸들 제거 + 미완료 항목 깜빡이
   final bool isFullScreen;
+
+  /// 전체화면 모드에서 자체 '리마인드' 헤더 표시 여부.
+  /// (상단 탭바/탭 레이아웃 안에 넣을 때는 false로 두어 헤더 중복을 피한다)
+  final bool showHeader;
 
   const RemindPanel({
     super.key,
@@ -27,6 +31,7 @@ class RemindPanel extends StatefulWidget {
     this.onDragUpdate,
     this.onDragEnd,
     this.isFullScreen = false,
+    this.showHeader = false,
   });
 
   @override
@@ -103,7 +108,10 @@ class _RemindPanelState extends State<RemindPanel>
           ),
           child: Column(
             children: [
-              widget.isFullScreen ? _buildHeader(appState) : _buildDragHandle(),
+              if (!widget.isFullScreen)
+                _buildDragHandle()
+              else if (widget.showHeader)
+                _buildHeader(appState),
               Expanded(
                 child: targets.isEmpty
                     ? _buildEmpty()
