@@ -7,6 +7,7 @@ import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_tab_screen.dart';
 import 'home_screen.dart';
+import 'calendar_tab_screen.dart';
 import 'writing_screen.dart';
 import 'memory_screen.dart';
 import 'settings_screen.dart';
@@ -120,8 +121,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      const HomeTabScreen(),             // 0: 홈(탭 레이아웃)
-                      HomeScreen(key: _homeScreenKey),   // 1: 캘린더
+                      const HomeTabScreen(),                              // 0: 홈(탭 레이아웃)
+                      CalendarTabScreen(homeScreenKey: _homeScreenKey),   // 1: 캘린더(탭 레이아웃)
                       WritingScreen(),                   // 2: 노트(+)
                       const MemoryScreen(),              // 3: 기억
                       SettingsScreen(),                  // 4: 설정
@@ -252,17 +253,22 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   /// 활성: 진한 테마색 원 + 흰 +.
   Widget _buildAddIcon(BuildContext context, bool isActive) {
     final primary = Theme.of(context).primaryColor;
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isActive ? primary : primary.withValues(alpha: 0.15),
-      ),
-      child: Icon(
-        Icons.add,
-        size: 22,
-        color: isActive ? Colors.white : primary,
+    // 라벨이 없어 다른 탭(아이콘+라벨)보다 위로 정렬되므로,
+    // 상단 패딩으로 살짝 내려 상하 가운데처럼 보이게 한다.
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isActive ? primary : primary.withValues(alpha: 0.15),
+        ),
+        child: Icon(
+          Icons.add,
+          size: 22,
+          color: isActive ? Colors.white : primary,
+        ),
       ),
     );
   }

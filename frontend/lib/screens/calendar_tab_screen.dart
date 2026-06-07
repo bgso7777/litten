@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+import '../widgets/draggable_tab_layout.dart';
+import 'home_screen.dart';
+
+/// 캘린더 영역 — 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성.
+/// 현재는 '캘린더' 탭 하나만 있고, 향후 개인화로 탭을 추가/재배치할 수 있다.
+///
+/// ⭐ 개인화 확장 지점:
+///   [_tabs] 리스트에 TabItem을 추가하면 캘린더 영역에 탭이 늘어난다.
+///
+/// HomeScreen의 GlobalKey는 상위(MainTabScreen)에서 주입받아, 기존의
+/// 일정 추가 FAB·스크롤 제어(showCreateLittenDialog/scrollToTop 등)가 그대로 동작한다.
+class CalendarTabScreen extends StatefulWidget {
+  final GlobalKey<HomeScreenState> homeScreenKey;
+
+  const CalendarTabScreen({super.key, required this.homeScreenKey});
+
+  @override
+  State<CalendarTabScreen> createState() => _CalendarTabScreenState();
+}
+
+class _CalendarTabScreenState extends State<CalendarTabScreen> {
+  late final List<TabItem> _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    // ⭐ 개인화 확장 지점: 여기에 TabItem을 추가하면 탭이 늘어난다.
+    _tabs = [
+      TabItem(
+        id: 'calendar',
+        title: '캘린더',
+        icon: Icons.event_available,
+        content: HomeScreen(key: widget.homeScreenKey),
+        position: TabPosition.topLeft,
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    debugPrint('📅 [CalendarTabScreen] build - 탭 ${_tabs.length}개');
+    return DraggableTabLayout(
+      tabs: _tabs,
+      initialActiveTabId: 'calendar',
+      visibleAreas: const {'topLeft'},
+      onTabPositionChanged: (tabId, newPosition) {
+        setState(() {
+          for (final t in _tabs) {
+            if (t.id == tabId) {
+              t.position = newPosition;
+              break;
+            }
+          }
+        });
+        debugPrint('[CalendarTabScreen] 탭 위치 변경: $tabId -> $newPosition');
+      },
+      onTabChanged: (tabId) {
+        debugPrint('[CalendarTabScreen] 탭 변경: $tabId');
+      },
+    );
+  }
+}
