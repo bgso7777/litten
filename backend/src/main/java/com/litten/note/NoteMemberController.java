@@ -153,6 +153,24 @@ public class NoteMemberController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * PUT /note/v1/members/plan/by-id
+     * id(가입 이메일) 기반 구독 플랜 변경 — 비인증(로그아웃 상태에서도 호출 가능).
+     * Request Body: { "id": "...", "subscriptionPlan": "free|standard|premium", "planExpiredAt": "..."(선택) }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PutMapping("/note/v1/members/plan/by-id")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updatePlanById(@RequestBody JsonNode requestBody) {
+        log.info("[NoteMemberController] PUT /note/v1/members/plan/by-id 진입");
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "put";
+        String serviceMethodName = "updatePlanById";
+        Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, requestBody);
+        return ResponseEntity.ok(result);
+    }
+
     @CrossOrigin(origins="*", allowedHeaders="*")
     @PostMapping("/note/v1/members/password-url")
     @ResponseBody
@@ -328,6 +346,69 @@ public class NoteMemberController {
         String deviceUuid = requestBody.has("deviceUuid") ? requestBody.get("deviceUuid").asText() : null;
         Map<String, Object> result = controllerDynamicServiceBridge
                 .processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, deviceUuid, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /note/v1/members/logout
+     * 로그아웃 시 현재 기기의 디바이스 슬롯(uuid1/2/3 중 일치) 해제. JWT 필요.
+     * Request Body: { "uuid": "앱-디바이스-UUID" }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/logout")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> logout(@RequestBody JsonNode requestBody) {
+        log.info("[NoteMemberController] POST /note/v1/members/logout 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorizedResponse();
+
+        String uuid = requestBody.has("uuid") ? requestBody.get("uuid").asText() : null;
+        Map<String, Object> result = controllerDynamicServiceBridge
+                .processCustomDynamicServiceMethod("com.litten.note.", "NoteMemberService", "post", "logout", uuid, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /note/v1/members/devices
+     * 현재 회원의 등록 디바이스(uuid1/2/3 슬롯) 목록 조회. 디바이스 관리 화면용. JWT 필요.
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @GetMapping("/note/v1/members/devices")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getDevices() {
+        log.debug("[NoteMemberController] GET /note/v1/members/devices 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorizedResponse();
+
+        Map<String, Object> result = controllerDynamicServiceBridge
+                .processCustomDynamicServiceMethod("com.litten.note.", "NoteMemberService", "get", "getDevices", memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * DELETE /note/v1/members/devices
+     * 디바이스 관리 화면에서 특정 기기 원격 해제(슬롯 비우기). JWT 필요.
+     * Request Body: { "uuid": "해제할-디바이스-UUID" }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @DeleteMapping("/note/v1/members/devices")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> removeDevice(@RequestBody JsonNode requestBody) {
+        log.info("[NoteMemberController] DELETE /note/v1/members/devices 진입");
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorizedResponse();
+
+        String uuid = requestBody.has("uuid") ? requestBody.get("uuid").asText() : null;
+        // 슬롯 해제 로직은 logout과 동일 (특정 uuid 슬롯 비우기)
+        Map<String, Object> result = controllerDynamicServiceBridge
+                .processCustomDynamicServiceMethod("com.litten.note.", "NoteMemberService", "post", "logout", uuid, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    private ResponseEntity<Map<String, Object>> unauthorizedResponse() {
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put(com.litten.Constants.TAG_RESULT, com.litten.Constants.RESULT_NOT_FOUND);
+        result.put(com.litten.Constants.TAG_RESULT_MESSAGE, "인증 정보가 없습니다.");
         return ResponseEntity.ok(result);
     }
 

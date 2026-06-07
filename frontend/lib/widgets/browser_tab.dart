@@ -80,8 +80,7 @@ class _BrowserTabState extends State<BrowserTab> {
                     // URL 입력 필드
                     Row(
                       children: [
-                        SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.50,
+                        Expanded(
                           child: TextField(
                             controller: _urlController,
                             decoration: InputDecoration(
@@ -105,7 +104,7 @@ class _BrowserTabState extends State<BrowserTab> {
                             },
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 4),
                         // 내비게이션 버튼들 (우측 정렬)
                         SizedBox(
                           width: 34,

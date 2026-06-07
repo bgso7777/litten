@@ -1820,6 +1820,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
         attachment.id,
       );
 
+      // 3.5) 클라우드 동기화 업로드 (프리미엄+로그인 시 내부에서 판단)
+      SyncService.instance.uploadFile(
+        littenId: selectedLitten.id,
+        localId: attachment.id,
+        fileType: 'attachment',
+        fileName: attachment.fileName,
+        filePath: attachment.filePath,
+        localUpdatedAt: attachment.updatedAt,
+      );
+
       // 4) 파일 카운트 갱신 + 목록 새로고침
       if (mounted) {
         await appState.updateFileCount();
@@ -2011,6 +2021,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
     try {
       await FileStorageService.instance.deleteAttachmentFile(file);
       await LittenService().removeAttachmentFileFromLitten(file.littenId, file.id);
+      // 클라우드 동기화 삭제 (다른 기기에도 전파)
+      if (file.cloudId != null) {
+        SyncService.instance.deleteFile(
+          littenId: file.littenId,
+          localId: file.id,
+          cloudId: file.cloudId!,
+          fileType: 'attachment',
+        );
+      }
       if (mounted) {
         setState(() {
           _attachmentFiles.removeWhere((f) => f.id == file.id);

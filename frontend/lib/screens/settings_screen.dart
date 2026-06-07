@@ -11,6 +11,7 @@ import '../config/themes.dart';
 import '../widgets/common/ad_banner.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
+import 'device_management_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -165,6 +166,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ChangePasswordScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingsItem(
+                    icon: Icons.devices,
+                    // NOTE: 다국어(ARB) 키 추가는 후속 작업 — 우선 한국어 하드코딩
+                    title: '기기 관리',
+                    subtitle: '로그인된 기기를 확인하고 해제합니다 (최대 3대)',
+                    iconColor: Theme.of(context).primaryColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DeviceManagementScreen(),
                         ),
                       );
                     },

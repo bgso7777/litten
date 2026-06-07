@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
+import '../models/attachment_file.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 import 'file_storage_service.dart';
@@ -165,6 +166,10 @@ class SyncService {
     if (token == null) return;
 
     try {
+      // 리튼 메타 동기화(업서트/수신/삭제 전파) — 노트탭 진입 시에도 리튼이 양방향 동기화되도록.
+      // (증분 파일 경로에는 리튼 동기화가 없어, 노트탭 진입만으로는 리튼이 서버에 안 올라가던 문제 수정)
+      await _syncLittens(token);
+
       final lastSync = await _getLastSyncTime();
 
       if (lastSync != null) {
@@ -181,6 +186,12 @@ class SyncService {
           final cloudId = cloudMeta['cloudId'].toString();
           final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
           final cloudFileName = cloudMeta['fileName'] as String? ?? '';
+
+          // 삭제 tombstone 처리 (다른 기기에서 삭제됨)
+          if (cloudMeta['isDeleted'] == true) {
+            await _handleCloudDeletion(token, littenId, localId, fileType, cloudId, _parseDeletedAt(cloudMeta));
+            continue;
+          }
 
           final localFile = await _findLocalFile(littenId, localId, fileType);
 
@@ -292,6 +303,17 @@ class SyncService {
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'audio',
           fileName: '${file.fileName}.m4a', filePath: file.filePath, localUpdatedAt: file.updatedAt,
+        );
+      }
+    }
+
+    // 첨부 파일 (zip/docx/xlsx 등 — 수정 없이 생성/삭제만, fileName에 확장자 포함)
+    final attachmentFiles = await _fileStorage.loadAttachmentFiles(littenId);
+    for (final file in attachmentFiles) {
+      if (file.cloudId == null) {
+        await uploadFile(
+          littenId: littenId, localId: file.id, fileType: 'attachment',
+          fileName: file.fileName, filePath: file.filePath, localUpdatedAt: file.updatedAt,
         );
       }
     }
@@ -446,6 +468,30 @@ class SyncService {
     }
   }
 
+  // 리튼(공간) 원격 삭제 — 사용자 삭제 액션 경로에서 호출. 서버에도 삭제를 전파해
+  // 다음 동기화 때 부활하지 않도록 한다. 실패 시 오프라인 큐에 보관 후 재시도.
+  Future<void> deleteLittenRemote(String littenId) async {
+    debugPrint('[SyncService] deleteLittenRemote 진입 - littenId: $littenId');
+    if (!_canSync) {
+      await _addToOfflineQueue({'action': 'deleteLitten', 'littenId': littenId});
+      return;
+    }
+    final token = await _loadToken();
+    if (token == null) {
+      await _addToOfflineQueue({'action': 'deleteLitten', 'littenId': littenId});
+      return;
+    }
+    try {
+      final ok = await _api.deleteLittenRemote(token: token, littenId: littenId);
+      if (!ok) {
+        await _addToOfflineQueue({'action': 'deleteLitten', 'littenId': littenId});
+      }
+    } catch (e) {
+      debugPrint('[SyncService] deleteLittenRemote 오류: $e, 큐 추가');
+      await _addToOfflineQueue({'action': 'deleteLitten', 'littenId': littenId});
+    }
+  }
+
   // 오프라인 큐 처리
   Future<void> processOfflineQueue() async {
     if (!_canSync) return;
@@ -486,6 +532,8 @@ class SyncService {
           }
         } else if (action == 'delete') {
           success = await _api.deleteCloudFile(token: token, cloudId: item['cloudId']);
+        } else if (action == 'deleteLitten') {
+          success = await _api.deleteLittenRemote(token: token, littenId: item['littenId']);
         }
 
         if (!success) remaining.add(item);
@@ -512,6 +560,26 @@ class SyncService {
 
       // 서버 → 로컬: 로컬에 없거나 서버가 더 최신이면 로컬 반영, 로컬이 더 최신이면 서버로 push
       for (final sj in serverList) {
+        // 삭제 tombstone 처리 (다른 기기에서 리튼 삭제됨)
+        if (sj['_deleted'] == true) {
+          final deletedId = sj['id'] as String?;
+          if (deletedId == null) continue;
+          serverIds.add(deletedId);
+          final local = localById[deletedId];
+          if (local == null) continue; // 이미 로컬에 없음
+          final deletedAt = sj['deletedAt'] != null ? DateTime.tryParse(sj['deletedAt'].toString()) : null;
+          if (deletedAt != null && local.updatedAt.isAfter(deletedAt)) {
+            // 수정 우선: 로컬이 더 최신 → 서버 재활성화(upsert)
+            debugPrint('[SyncService] 리튼 삭제 취소(수정 우선) - id: $deletedId');
+            await _api.upsertLitten(token: token, littenJson: local.toJson());
+          } else {
+            // 삭제 전파: 로컬 리튼 삭제 (로컬 전용 — 원격 재호출 방지)
+            debugPrint('[SyncService] 리튼 삭제 전파 - id: $deletedId 로컬 삭제');
+            await _littenService.deleteLitten(deletedId);
+            localChanged = true;
+          }
+          continue;
+        }
         Litten serverLitten;
         try {
           serverLitten = Litten.fromJson(sj);
@@ -558,6 +626,12 @@ class SyncService {
       final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
       final cloudFileName = cloudMeta['fileName'] as String? ?? '';
 
+      // 삭제 tombstone 처리 (다른 기기에서 삭제됨)
+      if (cloudMeta['isDeleted'] == true) {
+        await _handleCloudDeletion(token, littenId, localId, fileType, cloudId, _parseDeletedAt(cloudMeta));
+        continue;
+      }
+
       final localFile = await _findLocalFile(littenId, localId, fileType);
 
       if (localFile == null) {
@@ -589,6 +663,12 @@ class SyncService {
       final cloudUpdatedAt = DateTime.parse(cloudMeta['localUpdatedAt'].toString());
       final cloudFileName = cloudMeta['fileName'] as String? ?? '';
 
+      // 삭제 tombstone 처리 (다른 기기에서 삭제됨)
+      if (cloudMeta['isDeleted'] == true) {
+        await _handleCloudDeletion(token, littenId, localId, fileType, cloudId, _parseDeletedAt(cloudMeta));
+        continue;
+      }
+
       final localFile = await _findLocalFile(littenId, localId, fileType);
       if (localFile == null || cloudUpdatedAt.isAfter(_getFileUpdatedAt(localFile))) {
         await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
@@ -602,7 +682,7 @@ class SyncService {
     try {
       final bytes = await _api.downloadFile(token: token, cloudId: cloudId);
       if (bytes == null) return;
-      final localPath = await _saveDownloadedFile(littenId, localId, fileType, bytes);
+      final localPath = await _saveDownloadedFile(littenId, localId, fileType, bytes, cloudFileName);
       if (localPath == null) return;
       await _updateLocalFileFromDownload(littenId, localId, fileType, cloudId, localPath, cloudUpdatedAt, cloudFileName);
       debugPrint('[SyncService] 다운로드 완료 - localId: $localId, fileName: $cloudFileName');
@@ -630,6 +710,61 @@ class SyncService {
     }
   }
 
+  // 서버 삭제 tombstone(deletedAt) 파싱
+  DateTime? _parseDeletedAt(Map<String, dynamic> cloudMeta) {
+    final v = cloudMeta['deletedAt'];
+    if (v == null) return null;
+    return DateTime.tryParse(v.toString());
+  }
+
+  /// 서버에서 삭제된 파일(tombstone)을 로컬에 반영.
+  /// 수정 우선(삭제 취소): 로컬 수정시각이 서버 삭제시각보다 최신이면 재업로드해 서버를 재활성화하고,
+  /// 그렇지 않으면 로컬 파일(메타+실파일)을 삭제한다.
+  Future<void> _handleCloudDeletion(String token, String littenId, String localId,
+      String fileType, String cloudId, DateTime? deletedAt) async {
+    final localFile = await _findLocalFile(littenId, localId, fileType);
+    if (localFile == null) return; // 이미 로컬에 없음
+    final localUpdatedAt = _getFileUpdatedAt(localFile);
+    if (deletedAt != null && localUpdatedAt.isAfter(deletedAt)) {
+      debugPrint('[SyncService] 삭제 취소(수정 우선) - localId: $localId, local: $localUpdatedAt > deleted: $deletedAt');
+      await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
+    } else {
+      debugPrint('[SyncService] 삭제 전파 - localId: $localId 로컬 삭제');
+      await _deleteLocalFile(littenId, localId, fileType, localFile);
+    }
+  }
+
+  /// 로컬 파일의 실제 파일 + 메타데이터를 제거 (다른 기기 삭제 전파용).
+  Future<void> _deleteLocalFile(String littenId, String localId, String fileType, dynamic localFile) async {
+    final path = await _getFilePath(localFile, littenId);
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (e) {
+        debugPrint('[SyncService] _deleteLocalFile 실파일 삭제 오류: $e');
+      }
+    }
+    if (fileType == 'text') {
+      final files = await _fileStorage.loadTextFiles(littenId);
+      files.removeWhere((f) => f.id == localId);
+      await _fileStorage.saveTextFiles(littenId, files);
+    } else if (fileType == 'handwriting') {
+      final files = await _fileStorage.loadHandwritingFiles(littenId);
+      files.removeWhere((f) => f.id == localId);
+      await _fileStorage.saveHandwritingFiles(littenId, files);
+    } else if (fileType == 'audio') {
+      final files = await _fileStorage.loadAudioFiles(littenId);
+      files.removeWhere((f) => f.id == localId);
+      await _fileStorage.saveAudioFiles(littenId, files);
+    } else if (fileType == 'attachment') {
+      final files = await _fileStorage.loadAttachmentFiles(littenId);
+      files.removeWhere((f) => f.id == localId);
+      await _fileStorage.saveAttachmentFiles(littenId, files);
+    }
+    _onSyncStatusChanged?.call();
+  }
+
   Future<dynamic> _findLocalFile(String littenId, String localId, String fileType) async {
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
@@ -640,6 +775,9 @@ class SyncService {
     } else if (fileType == 'audio') {
       final files = await _fileStorage.loadAudioFiles(littenId);
       try { return files.firstWhere((f) => f.id == localId); } catch (_) { return null; }
+    } else if (fileType == 'attachment') {
+      final files = await _fileStorage.loadAttachmentFiles(littenId);
+      try { return files.firstWhere((f) => f.id == localId); } catch (_) { return null; }
     }
     return null;
   }
@@ -648,6 +786,7 @@ class SyncService {
     if (file is TextFile) return file.updatedAt;
     if (file is HandwritingFile) return file.updatedAt;
     if (file is AudioFile) return file.updatedAt;
+    if (file is AttachmentFile) return file.updatedAt;
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
@@ -658,15 +797,26 @@ class SyncService {
     }
     if (file is HandwritingFile) return file.imagePath;
     if (file is AudioFile) return file.filePath;
+    if (file is AttachmentFile) return file.filePath;
     return null;
   }
 
-  Future<String?> _saveDownloadedFile(String littenId, String localId, String fileType, Uint8List bytes) async {
+  Future<String?> _saveDownloadedFile(String littenId, String localId, String fileType, Uint8List bytes,
+      [String cloudFileName = '']) async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
-      final dir = Directory('${appDir.path}/littens/$littenId/$fileType');
+      // 첨부파일은 'attachments' 폴더에 원본 확장자로 저장 (확장자 가변)
+      final dirName = fileType == 'attachment' ? 'attachments' : fileType;
+      final dir = Directory('${appDir.path}/littens/$littenId/$dirName');
       await dir.create(recursive: true);
-      final file = File('${dir.path}/$localId${_getFileExtension(fileType)}');
+      String ext;
+      if (fileType == 'attachment') {
+        final dot = cloudFileName.lastIndexOf('.');
+        ext = dot >= 0 ? cloudFileName.substring(dot) : '';
+      } else {
+        ext = _getFileExtension(fileType);
+      }
+      final file = File('${dir.path}/$localId$ext');
       await file.writeAsBytes(bytes);
       return file.path;
     } catch (e) {
@@ -749,6 +899,32 @@ class SyncService {
       }
       await _fileStorage.saveAudioFiles(littenId, files);
       _onSyncStatusChanged?.call();
+    } else if (fileType == 'attachment') {
+      final files = await _fileStorage.loadAttachmentFiles(littenId);
+      final idx = files.indexWhere((f) => f.id == localId);
+      if (idx >= 0) {
+        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
+      } else {
+        // 클라우드에만 있던 신규 첨부 → 메타 생성 (fileName은 원본 cloudFileName, 크기는 저장된 파일에서)
+        int size = 0;
+        try { size = await File(localPath).length(); } catch (_) {}
+        final fname = cloudFileName.isNotEmpty ? cloudFileName : localId;
+        files.add(AttachmentFile(
+          id: localId,
+          littenId: littenId,
+          fileName: fname,
+          filePath: localPath,
+          sizeBytes: size,
+          cloudId: cloudId,
+          cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced,
+          createdAt: cloudUpdatedAt,
+          updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 첨부 신규 파일 생성 - localId: $localId, fileName: $fname');
+      }
+      await _fileStorage.saveAttachmentFiles(littenId, files);
+      _onSyncStatusChanged?.call();
     }
   }
 
@@ -777,6 +953,14 @@ class SyncService {
         await _fileStorage.saveAudioFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
+    } else if (fileType == 'attachment') {
+      final files = await _fileStorage.loadAttachmentFiles(littenId);
+      final idx = files.indexWhere((f) => f.id == localId);
+      if (idx >= 0) {
+        files[idx] = files[idx].copyWith(cloudId: cloudId, syncStatus: status);
+        await _fileStorage.saveAttachmentFiles(littenId, files);
+        _onSyncStatusChanged?.call();
+      }
     }
   }
 
@@ -785,7 +969,7 @@ class SyncService {
       case 'audio': return 'audio/m4a';
       case 'text': return 'text/plain';
       case 'handwriting': return 'image/png';
-      default: return 'application/octet-stream';
+      default: return 'application/octet-stream'; // attachment 등
     }
   }
 

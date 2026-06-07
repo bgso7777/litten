@@ -5,6 +5,7 @@ import com.litten.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +38,8 @@ public class CloudFileService {
         log.debug("[CloudFileService] getFileList 진입 - memberId: {}", memberId);
 
         PageRequest pageRequest = PageRequest.of(0, MAX_SYNC_FILES, Sort.by("updateDateTime").descending());
-        List<CloudFile> files = cloudFileRepository.findByMemberIdAndIsDeletedFalse(memberId, pageRequest);
+        // 삭제 tombstone 포함 — 다른 기기에서 삭제한 파일을 이 기기에 전파하기 위함
+        List<CloudFile> files = cloudFileRepository.findByMemberId(memberId, pageRequest);
         List<Map<String, Object>> fileList = files.stream()
                 .map(this::toMetaMap)
                 .collect(Collectors.toList());
@@ -55,8 +57,9 @@ public class CloudFileService {
 
         LocalDateTime sinceTime = LocalDateTime.parse(since.replace(" ", "T"));
         PageRequest pageRequest = PageRequest.of(0, MAX_SYNC_FILES, Sort.by("updateDateTime").descending());
+        // 삭제 tombstone 포함 — since 이후 삭제된 파일도 내려줘 다른 기기에 삭제를 전파
         List<CloudFile> files = cloudFileRepository
-                .findByMemberIdAndIsDeletedFalseAndUpdateDateTimeAfter(memberId, sinceTime, pageRequest);
+                .findByMemberIdAndUpdateDateTimeAfter(memberId, sinceTime, pageRequest);
         List<Map<String, Object>> fileList = files.stream()
                 .map(this::toMetaMap)
                 .collect(Collectors.toList());
@@ -78,8 +81,8 @@ public class CloudFileService {
         Map<String, Object> result = new HashMap<>();
 
         try {
-            // 기존 파일이 있으면 업데이트, 없으면 신규 생성
-            Optional<CloudFile> existing = cloudFileRepository.findByMemberIdAndLocalIdAndIsDeletedFalse(memberId, localId);
+            // 기존 파일이 있으면 업데이트, 없으면 신규 생성 (삭제된 행도 조회 → 수정 우선 재활성화)
+            Optional<CloudFile> existing = cloudFileRepository.findByMemberIdAndLocalId(memberId, localId);
 
             if (existing.isPresent()) {
                 result = updateFileInternal(existing.get(), file, localUpdatedAt);
@@ -156,6 +159,12 @@ public class CloudFileService {
             cloudFile.setFileSize(file.getSize());
             cloudFile.setLocalUpdatedAt(LocalDateTime.parse(localUpdatedAt.replace(" ", "T")));
             cloudFile.setUpdateDateTime(LocalDateTime.now());
+            // 수정 우선(삭제 취소): 삭제된 파일에 수정이 들어오면 재활성화한다.
+            if (Boolean.TRUE.equals(cloudFile.getIsDeleted())) {
+                cloudFile.setIsDeleted(false);
+                cloudFile.setDeletedAt(null);
+                log.info("[CloudFileService] 삭제된 파일 재활성화(수정 우선) - cloudId: {}", cloudFile.getId());
+            }
             cloudFileRepository.save(cloudFile);
 
             log.info("[CloudFileService] 파일 수정 완료 - cloudId: {}", cloudFile.getId());
@@ -221,8 +230,14 @@ public class CloudFileService {
             long contentLength = resource.contentLength();
             log.info("[CloudFileService] 파일 다운로드 시작 - cloudId: {}, size: {}", cloudId, contentLength);
 
+            // 한글 등 비-ASCII 파일명은 HTTP 헤더(ISO-8859-1)에 직접 넣을 수 없으므로
+            // RFC 5987 방식(filename*=UTF-8'')으로 인코딩한다. ContentDisposition 빌더가 처리.
+            ContentDisposition contentDisposition = ContentDisposition.attachment()
+                    .filename(cloudFile.getFileName(), java.nio.charset.StandardCharsets.UTF_8)
+                    .build();
+
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + cloudFile.getFileName() + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                     .contentType(cloudFile.getContentType() != null
                             ? MediaType.parseMediaType(cloudFile.getContentType())
                             : MediaType.APPLICATION_OCTET_STREAM)
@@ -244,6 +259,8 @@ public class CloudFileService {
         m.put("fileSize", f.getFileSize());
         m.put("localUpdatedAt", f.getLocalUpdatedAt());
         m.put("updatedAt", f.getUpdateDateTime());
+        m.put("isDeleted", Boolean.TRUE.equals(f.getIsDeleted()));
+        m.put("deletedAt", f.getDeletedAt());
         return m;
     }
 }

@@ -120,6 +120,74 @@ class ApiService {
     }
   }
 
+  /// 로그아웃 — 현재 기기의 디바이스 슬롯(uuid1/2/3) 해제 (1계정 3장치).
+  /// POST /litten/note/v1/members/logout  (JWT 헤더 필요)
+  /// Body: `{"uuid": "<device-uuid>"}`
+  Future<bool> logout({required String token, required String deviceUuid}) async {
+    debugPrint('[ApiService] logout 진입 - deviceUuid: $deviceUuid');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/members/logout');
+      final body = jsonEncode({'uuid': deviceUuid});
+      final response = await http.post(url, headers: _getHeaders(token: token), body: body)
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] logout - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] logout - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 등록 디바이스(uuid1/2/3 슬롯) 목록 조회 — 디바이스 관리 화면용.
+  /// GET /litten/note/v1/members/devices  (JWT 헤더 필요)
+  /// 각 항목: `{slot:1, uuid:"...", occupied:true}`
+  Future<List<Map<String, dynamic>>> getDevices({required String token}) async {
+    debugPrint('[ApiService] getDevices 진입');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/members/devices');
+      final response = await http.get(url, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] getDevices - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) {
+          final list = data['devices'] as List<dynamic>? ?? [];
+          return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getDevices - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 특정 디바이스 원격 해제(슬롯 비우기) — 디바이스 관리 화면용.
+  /// DELETE /litten/note/v1/members/devices  (JWT 헤더 필요)
+  /// Body: `{"uuid": "<해제할 device-uuid>"}`
+  Future<bool> removeDevice({required String token, required String uuid}) async {
+    debugPrint('[ApiService] removeDevice 진입 - uuid: $uuid');
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/members/devices');
+      final body = jsonEncode({'uuid': uuid});
+      final response = await http.delete(url, headers: _getHeaders(token: token), body: body)
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] removeDevice - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] removeDevice - 오류: $e');
+      return false;
+    }
+  }
+
   /// 회원가입
   /// POST /litten/note/v1/members/signup
   /// {"id": "bgso777@naver.com", "password": "asdf", "uuid": "sdajf-asdjfls-02394iowjfi-sadj1"}
@@ -634,6 +702,37 @@ class ApiService {
       return false;
     } catch (e) {
       debugPrint('[ApiService] updateSubscriptionPlan - 오류: $e');
+      return false;
+    }
+  }
+
+  /// id(가입 이메일) 기반 구독 플랜 변경 — 비인증(로그아웃 상태에서도 호출 가능).
+  /// PUT /litten/note/v1/members/plan/by-id
+  /// Body: {"id": "...", "subscriptionPlan": "free|standard|premium", "planExpiredAt": "..."(선택)}
+  Future<bool> updateSubscriptionPlanById({
+    required String id,
+    required String plan,
+    String? planExpiredAt,
+  }) async {
+    debugPrint('[ApiService] updateSubscriptionPlanById 진입 - id: $id, plan: $plan');
+    try {
+      final url = Uri.parse('$baseUrl$_planEndpoint/by-id');
+      final body = jsonEncode({
+        'id': id,
+        'subscriptionPlan': plan,
+        if (planExpiredAt != null) 'planExpiredAt': planExpiredAt,
+      });
+      final response = await http
+          .put(url, headers: _getHeaders(), body: body)
+          .timeout(const Duration(seconds: 10));
+      debugPrint('[ApiService] updateSubscriptionPlanById - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['result'] == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] updateSubscriptionPlanById - 오류: $e');
       return false;
     }
   }

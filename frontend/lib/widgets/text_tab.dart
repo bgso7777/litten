@@ -477,24 +477,27 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                               children: [
                                 _textFiles.isEmpty
                                     ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.notes,
-                                              size: 48,
-                                              color: Colors.grey.shade400,
-                                            ),
-                                            AppSpacing.verticalSpaceS,
-                                            Text(
-                                              AppLocalizations.of(context)?.noTextFiles ?? '메모 파일이 없습니다',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
+                                        child: SingleChildScrollView(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.notes,
+                                                size: 48,
+                                                color: Colors.grey.shade400,
                                               ),
-                                            ),
-                                          ],
+                                              AppSpacing.verticalSpaceS,
+                                              Text(
+                                                AppLocalizations.of(context)?.noTextFiles ?? '메모 파일이 없습니다',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       )
                                     : ListView.builder(

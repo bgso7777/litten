@@ -108,6 +108,61 @@ public class NoteMemberService extends CustomHttpService {
         return result;
     }
 
+    /**
+     * id(가입 이메일) 기반 구독 플랜 변경 — 비인증 인터페이스.
+     * 로그아웃 상태(토큰 없음)에서도 플랜 전환을 서버 DB에 반영하기 위함.
+     * (free↔standard, standard→free 등 비프리미엄 전환 대응)
+     *
+     * 보안: 인증 없이 id로 플랜을 바꾸므로 개발/결제연동 전 단계 전용.
+     *       운영에서는 결제 영수증 검증 등으로 보호해야 한다.
+     */
+    @Transactional
+    public Map<String, Object> updatePlanById(JsonNode requestBody) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        String id = requestBody.has(Constants.TAG_ID) ? requestBody.get(Constants.TAG_ID).asText() : null;
+        String plan = requestBody.has(Constants.TAG_SUBSCRIPTION_PLAN) ? requestBody.get(Constants.TAG_SUBSCRIPTION_PLAN).asText() : null;
+        log.info("[NoteMemberService] updatePlanById - id: {}, plan: {}", id, plan);
+
+        if (id == null || plan == null) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "id와 subscriptionPlan은 필수입니다.");
+            return result;
+        }
+        if (!plan.equals(Constants.SUBSCRIPTION_PLAN_FREE)
+                && !plan.equals(Constants.SUBSCRIPTION_PLAN_STANDARD)
+                && !plan.equals(Constants.SUBSCRIPTION_PLAN_PREMIUM)) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "유효하지 않은 플랜: " + plan);
+            return result;
+        }
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        // 가입 회원(signup) 우선 조회, 없으면 device_uuid 기반 행(install 등)도 허용.
+        // → 미가입 비로그인 상태에서도 device_uuid로 플랜 변경을 서버에 반영(구독 변경 자유).
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(id, "signup");
+        if (noteMember == null) {
+            noteMember = noteMemberRepository.findById(id).orElse(null);
+        }
+        if (noteMember == null) {
+            log.warn("[NoteMemberService] updatePlanById - 대상 없음: {}", id);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "대상을 찾을 수 없습니다.");
+            return result;
+        }
+
+        noteMember.setSubscriptionPlan(plan);
+        if (requestBody.has(Constants.TAG_PLAN_EXPIRED_AT) && !requestBody.get(Constants.TAG_PLAN_EXPIRED_AT).isNull()) {
+            noteMember.setPlanExpiredAt(LocalDateTime.parse(requestBody.get(Constants.TAG_PLAN_EXPIRED_AT).asText()));
+        }
+        noteMember.setUpdateDateTime(LocalDateTime.now());
+        noteMemberRepository.save(noteMember);
+        log.info("[NoteMemberService] updatePlanById - 플랜 변경 완료: {} -> {}", id, plan);
+        result.put(Constants.TAG_SUBSCRIPTION_PLAN, plan);
+        return result;
+    }
+
     public Map<String, Object> postInstall(JsonNode requestBody) throws Exception {
         Map<String, Object> result = new HashMap<>();
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
@@ -514,6 +569,84 @@ public class NoteMemberService extends CustomHttpService {
         result.put("watchStateMigratedCount", watchMigrated);
         result.put("memberUuid", memberUuid);
         return result;
+    }
+
+    /**
+     * 로그아웃 / 디바이스 원격 해제.
+     * 회원의 uuid1/2/3 슬롯 중 전달된 uuid와 일치하는 슬롯을 비운다.
+     * 1계정 3장치 제한에서 슬롯을 반납해 다른/신규 기기가 로그인할 수 있게 한다.
+     */
+    @Transactional
+    public Map<String, Object> logout(String uuid, String memberId) throws Exception {
+        log.debug("[NoteMemberService] logout 진입 - memberId: {}, uuid: {}", memberId, uuid);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        if (uuid == null || uuid.isBlank()) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "uuid는 필수입니다.");
+            return result;
+        }
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(memberId, "signup");
+        if (noteMember == null) {
+            log.warn("[NoteMemberService] logout - 회원 없음: {}", memberId);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "회원을 찾을 수 없습니다.");
+            return result;
+        }
+
+        boolean cleared = false;
+        if (uuid.equals(noteMember.getUuid1())) { noteMember.setUuid1(null); cleared = true; }
+        if (uuid.equals(noteMember.getUuid2())) { noteMember.setUuid2(null); cleared = true; }
+        if (uuid.equals(noteMember.getUuid3())) { noteMember.setUuid3(null); cleared = true; }
+
+        if (cleared) {
+            noteMember.setUpdateDateTime(LocalDateTime.now());
+            noteMemberRepository.save(noteMember);
+            log.info("[NoteMemberService] logout - 슬롯 해제 완료 - memberId: {}, uuid: {}", memberId, uuid);
+        } else {
+            log.info("[NoteMemberService] logout - 일치 슬롯 없음(이미 해제됨) - memberId: {}, uuid: {}", memberId, uuid);
+        }
+        result.put("cleared", cleared);
+        return result;
+    }
+
+    /**
+     * 회원의 등록 디바이스(uuid1/2/3 슬롯) 목록 조회. 디바이스 관리 화면용.
+     */
+    public Map<String, Object> getDevices(String memberId) throws Exception {
+        log.debug("[NoteMemberService] getDevices 진입 - memberId: {}", memberId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+        NoteMember noteMember = noteMemberRepository.findByIdAndState(memberId, "signup");
+        if (noteMember == null) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "회원을 찾을 수 없습니다.");
+            return result;
+        }
+
+        java.util.List<Map<String, Object>> devices = new java.util.ArrayList<>();
+        addDeviceSlot(devices, 1, noteMember.getUuid1());
+        addDeviceSlot(devices, 2, noteMember.getUuid2());
+        addDeviceSlot(devices, 3, noteMember.getUuid3());
+        result.put("devices", devices);
+        log.info("[NoteMemberService] getDevices - memberId: {}, 점유 슬롯: {}",
+                memberId, devices.stream().filter(d -> Boolean.TRUE.equals(d.get("occupied"))).count());
+        return result;
+    }
+
+    private void addDeviceSlot(java.util.List<Map<String, Object>> list, int slot, String uuid) {
+        Map<String, Object> d = new HashMap<>();
+        d.put("slot", slot);
+        d.put("uuid", uuid);
+        d.put("occupied", uuid != null && !uuid.isBlank());
+        list.add(d);
     }
 
     @Transactional

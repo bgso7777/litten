@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,13 +25,26 @@ public class LittenService {
     private final LittenRepository littenRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** 회원의 리튼 목록 (각 항목은 프론트 Litten.toJson 그대로) */
+    /**
+     * 회원의 리튼 목록.
+     * 살아있는 리튼은 프론트 Litten.toJson 그대로, 삭제된 리튼은 경량 tombstone
+     * ({id, _deleted:true, deletedAt, updatedAt})으로 내려 다른 기기에 삭제를 전파한다.
+     */
     public List<Map<String, Object>> getLittens(String memberId) {
-        List<Litten> rows = littenRepository.findByMemberIdAndIsDeletedFalse(memberId);
+        List<Litten> rows = littenRepository.findByMemberId(memberId);
         List<Map<String, Object>> result = new ArrayList<>();
         for (Litten e : rows) {
-            Map<String, Object> json = parseExtraJson(e);
-            if (json != null) result.add(json);
+            if (Boolean.TRUE.equals(e.getIsDeleted())) {
+                Map<String, Object> tombstone = new HashMap<>();
+                tombstone.put("id", e.getLittenId());
+                tombstone.put("_deleted", true);
+                tombstone.put("deletedAt", e.getDeletedAt());
+                tombstone.put("updatedAt", e.getClientUpdatedAt());
+                result.add(tombstone);
+            } else {
+                Map<String, Object> json = parseExtraJson(e);
+                if (json != null) result.add(json);
+            }
         }
         log.info("[LittenService] getLittens - memberId: {}, count: {}", memberId, result.size());
         return result;

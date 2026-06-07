@@ -172,7 +172,6 @@ class AuthServiceImpl extends AuthService {
   static const String _keyDeviceUuid = 'device_uuid';
   static const String _keyRegisteredEmail = 'registered_email'; // 최초 회원가입한 이메일
   static const String _keySubscriptionPlan = 'subscription_type';
-  static const String _keyGuestMigrated = 'guest_migrated'; // 게스트→회원 데이터 이관 완료 여부
 
   @override
   AuthStatus get authStatus => _authStatus;
@@ -444,6 +443,20 @@ class AuthServiceImpl extends AuthService {
   Future<void> signOut() async {
     debugPrint('🔐 AuthService: 로그아웃');
 
+    // 서버에 디바이스 슬롯(uuid1/2/3) 해제 요청 — 1계정 3장치 슬롯 반납.
+    // 실패해도(오프라인 등) 로컬 로그아웃은 그대로 진행한다.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = _token ?? prefs.getString(_keyToken);
+      if (token != null) {
+        final uuid = await getDeviceUuid();
+        final ok = await _apiService.logout(token: token, deviceUuid: uuid);
+        debugPrint('🔐 AuthService: 서버 로그아웃(슬롯 해제) 결과 - $ok');
+      }
+    } catch (e) {
+      debugPrint('🔐 AuthService: 서버 로그아웃 실패(무시하고 로컬 로그아웃 진행) - $e');
+    }
+
     _token = null;
     _authStatus = AuthStatus.unauthenticated;
     _currentUser = null;
@@ -635,23 +648,17 @@ class AuthServiceImpl extends AuthService {
     }
   }
 
-  /// 게스트(device-uuid) 데이터를 로그인 회원으로 이관 (최초 로그인 시 1회).
-  /// 성공해야 플래그를 세우므로, 실패 시 다음 로그인에서 자동 재시도된다.
+  /// 게스트(device-uuid) 데이터를 로그인 회원으로 이관 — 로그인할 때마다 실행.
+  /// migrate는 멱등(이관할 게 없으면 0건)이라 매번 호출해도 안전하며,
+  /// 로그아웃 후 게스트 상태에서 추가한 영상구독/요약도 재로그인 시 회원으로 이관된다.
+  /// (1회 플래그 방식은 첫 로그인 이후 등록한 게스트 데이터를 누락시켜 제거함)
   Future<void> _migrateGuestDataOnce(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_keyGuestMigrated) == true) {
-      debugPrint('🔐 AuthService: 게스트 데이터 이관 이미 완료 - 스킵');
-      return;
-    }
     final uuid = await getDeviceUuid();
     debugPrint('🔐 AuthService: 게스트 데이터 이관 시작 - uuid: $uuid');
     final ok = await _apiService.migrateGuestData(token: token, deviceUuid: uuid);
-    if (ok) {
-      await prefs.setBool(_keyGuestMigrated, true);
-      debugPrint('🔐 AuthService: 게스트 데이터 이관 완료');
-    } else {
-      debugPrint('🔐 AuthService: 게스트 데이터 이관 실패 (다음 로그인 시 재시도)');
-    }
+    debugPrint(ok
+        ? '🔐 AuthService: 게스트 데이터 이관 완료'
+        : '🔐 AuthService: 게스트 데이터 이관 실패 (다음 로그인 시 재시도)');
   }
 
   /// 로컬 구독 플랜 업데이트 (메모리 + SharedPreferences, 서버 API 없이)
@@ -662,6 +669,42 @@ class AuthServiceImpl extends AuthService {
     await prefs.setString(_keySubscriptionPlan, plan.name);
     notifyListeners();
     debugPrint('✅ AuthService: 로컬 구독 플랜 업데이트 완료 - ${plan.name}');
+  }
+
+  /// 서버 DB에 구독 플랜 반영. 모든 플랜 전환(free↔standard↔premium)을 서버에 일치시킨다.
+  /// 식별자 우선순위: 토큰(로그인) → 가입 이메일(registered_email) → device_uuid(설치 시 서버 등록).
+  /// - 로그인: JWT 기반 PUT /members/plan
+  /// - 로그아웃/비로그인: id 기반 PUT /members/plan/by-id
+  ///   가입 이메일이 없으면 device_uuid로 식별 → 미가입 비로그인 상태에서도 모든 플랜 변경을
+  ///   서버 DB에 반영(구독 변경 자유). device_uuid 행은 앱 설치 시 install API로 서버에 생성됨.
+  Future<bool> updateServerSubscriptionPlan(SubscriptionPlan plan, {DateTime? expiredAt}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = _token ?? prefs.getString(_keyToken);
+    if (token != null) {
+      final ok = await _apiService.updateSubscriptionPlan(
+        plan: plan.name,
+        token: token,
+        planExpiredAt: expiredAt?.toIso8601String(),
+      );
+      debugPrint('🔐 AuthService: 서버 구독 플랜 업데이트(토큰) - ${plan.name}, 결과: $ok');
+      return ok;
+    }
+    // 로그아웃/비로그인 — 가입 이메일 우선, 없으면 device_uuid(항상 존재)로 식별
+    String? id = prefs.getString(_keyRegisteredEmail);
+    if (id == null || id.isEmpty) {
+      id = await getDeviceUuid();
+    }
+    if (id == null || id.isEmpty) {
+      debugPrint('🔐 AuthService: 서버 구독 플랜 업데이트 스킵 (식별자 없음) - ${plan.name}');
+      return false;
+    }
+    final ok = await _apiService.updateSubscriptionPlanById(
+      id: id,
+      plan: plan.name,
+      planExpiredAt: expiredAt?.toIso8601String(),
+    );
+    debugPrint('🔐 AuthService: 서버 구독 플랜 업데이트(by-id) - id: $id, ${plan.name}, 결과: $ok');
+    return ok;
   }
 
   /// 무료 플랜으로 전환

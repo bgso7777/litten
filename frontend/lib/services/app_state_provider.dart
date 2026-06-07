@@ -523,6 +523,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           debugPrint('[AppStateProvider] 로그인 시 로컬 플랜 유지: $_subscriptionType (서버: $serverType)');
           // AuthService에도 로컬 플랜 동기화
           _authService.updateLocalSubscriptionPlan(_subscriptionTypeToPlan(_subscriptionType));
+          // 로컬 플랜이 서버보다 높으면 서버 DB(subscription_plan)에도 반영
+          // (예: 폰은 premium인데 서버는 free인 경우 자동 해소)
+          if (_subscriptionTypeLevel(_subscriptionType) > _subscriptionTypeLevel(serverType)) {
+            _authService.updateServerSubscriptionPlan(_subscriptionTypeToPlan(_subscriptionType));
+          }
         }
       }
       // 비프리미엄 → 프리미엄 업그레이드 시 플랜 반영
@@ -865,11 +870,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _subscriptionType = subscriptionType;
     await _saveSubscriptionType(subscriptionType);
     // 광고 표시 설정(_adsEnabled)은 플랜 변경과 무관하게 사용자 설정값을 유지
-    // AuthService.currentUser 동기화 (SyncService._canSync 체크용)
+    final plan = _subscriptionTypeToPlan(subscriptionType);
+    // AuthService.currentUser 동기화 (SyncService._canSync 체크용) — 로그인 상태에서만
     if (_authService.authStatus == AuthStatus.authenticated) {
-      final plan = _subscriptionTypeToPlan(subscriptionType);
       await _authService.updateLocalSubscriptionPlan(plan);
     }
+    // 서버 DB(subscription_plan) 반영 — 로그인이면 토큰, 로그아웃이면 가입 이메일(by-id)로.
+    // 로그아웃 상태의 standard→free 등 모든 전환을 서버에 일치시킨다.
+    await _authService.updateServerSubscriptionPlan(plan);
     // 플랜 변경으로 동기화 활성(프리미엄+로그인) 상태가 바뀌면 시작/중단을 반영
     await _applySyncLifecycle('plan');
     notifyListeners();
@@ -1175,6 +1183,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     await _littenService.deleteLitten(littenId);
+    // 서버에도 삭제 전파 (프리미엄+로그인 시) — 다음 동기화에서 부활 방지. 내부에서 _canSync 판단.
+    SyncService.instance.deleteLittenRemote(littenId);
     await refreshLittens();
 
     if (_selectedLitten?.id == littenId) {
