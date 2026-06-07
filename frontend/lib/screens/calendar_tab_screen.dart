@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
+import '../widgets/common/tab_count_title.dart';
 import 'home_screen.dart';
 
 /// 캘린더 영역 — 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성.
@@ -31,8 +34,33 @@ class _CalendarTabScreenState extends State<CalendarTabScreen> {
         id: 'calendar',
         title: '캘린더',
         icon: Icons.event_available,
+        // 제목란: 도래할 일정(오늘 이후) / 전체 일정 카운트
+        customTabWidget: Consumer<AppStateProvider>(
+          builder: (context, appState, _) {
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+            final scheduled = appState.littens
+                .where((l) => l.title != 'undefined' && l.schedule != null);
+            final upcomingCount = scheduled.where((l) {
+              final d = l.schedule!.endDate ?? l.schedule!.date;
+              return !d.isBefore(today);
+            }).length;
+            final totalCount =
+                appState.littens.where((l) => l.title != 'undefined').length;
+            return TabCountTitle([
+              [
+                TabCount(Icons.upcoming, upcomingCount),
+              ],
+              [
+                TabCount(Icons.event_note, totalCount),
+              ],
+            ]);
+          },
+        ),
         content: HomeScreen(key: widget.homeScreenKey),
         position: TabPosition.topLeft,
+        // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김
+        isDraggable: false,
       ),
     ];
   }

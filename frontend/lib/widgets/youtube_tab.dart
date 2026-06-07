@@ -1379,7 +1379,6 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
 
   // ── 영상 타일 ──────────────────────────────────────────────────────────────
   Widget _buildVideoTile(YoutubeVideo video, YoutubeChannel ch) {
-    final canOpen = ch.autoMemo && video.isDone && !video.hasNoTranscript;
     final dotColor = video.isDone
         ? Colors.green
         : video.hasNoTranscript
@@ -1404,7 +1403,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
             Expanded(
               child: Text(
                 video.title,
-                style: TextStyle(fontSize: 13, color: canOpen ? null : Colors.grey),
+                // 제목은 처리 상태와 무관하게 항상 검은색으로 표시(가독성)
+                style: const TextStyle(fontSize: 13, color: Colors.black),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

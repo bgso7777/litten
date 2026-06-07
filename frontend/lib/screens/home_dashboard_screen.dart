@@ -23,56 +23,65 @@ class HomeDashboardScreen extends StatelessWidget {
         final upcoming = _upcomingLittens(appState.littens);
 
         // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
-        return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // ── 미완료 리마인드 카드 ──
-              _SectionTitle(icon: Icons.lightbulb_outline, title: '리마인드'),
-              const SizedBox(height: 8),
-              _RemindSummaryCard(
-                pendingCount: pendingRemind,
-                onTap: () => appState.changeTabIndex(_memoryTabIndex),
-              ),
-              const SizedBox(height: 24),
-
-              // ── 최근/최신 일정 ──
-              _SectionTitle(icon: Icons.event_note, title: '최근 일정'),
-              const SizedBox(height: 8),
-              if (upcoming.isEmpty)
-                _EmptyHint(text: '예정된 일정이 없습니다')
-              else
-                ...upcoming.map(
-                  (l) => _ScheduleTile(
-                    litten: l,
-                    onTap: () {
-                      appState.selectLitten(l);
-                      appState.changeTabIndex(_calendarTabIndex);
-                    },
-                  ),
-                ),
-              const SizedBox(height: 24),
-
-              // ── 공유 (이번엔 UI 자리만) ──
-              _SectionTitle(icon: Icons.share, title: '공유'),
-              const SizedBox(height: 8),
-              Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── 상단: 리마인드 + 최근 일정 ──
+            // 내용 크기만큼만 차지(비-flex)하여, 남는 세로 공간은 전부 아래 공유 영역(Expanded)이
+            // 가져가도록 한다. (Flexible+Expanded로 flex를 나누면 상단 빈 공간이 하단에 남아
+            //  공유 카드가 메인메뉴까지 닿지 않는 문제가 있었음)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _SharePlaceholderCard(
-                      icon: Icons.upload_outlined,
-                      label: '공유한 것',
-                    ),
+                  // ── 미완료 리마인드 카드 ──
+                  _SectionTitle(icon: Icons.lightbulb_outline, title: '리마인드'),
+                  const SizedBox(height: 8),
+                  _RemindSummaryCard(
+                    pendingCount: pendingRemind,
+                    onTap: () => appState.changeTabIndex(_memoryTabIndex),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SharePlaceholderCard(
-                      icon: Icons.download_outlined,
-                      label: '공유 받은 것',
+                  const SizedBox(height: 24),
+
+                  // ── 최근/최신 일정 ──
+                  _SectionTitle(icon: Icons.event_note, title: '최근 일정'),
+                  const SizedBox(height: 8),
+                  if (upcoming.isEmpty)
+                    _EmptyHint(text: '예정된 일정이 없습니다')
+                  else
+                    ...upcoming.map(
+                      (l) => _ScheduleTile(
+                        litten: l,
+                        onTap: () {
+                          appState.selectLitten(l);
+                          appState.changeTabIndex(_calendarTabIndex);
+                        },
+                      ),
                     ),
-                  ),
                 ],
               ),
-            ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── 공유 (메인메뉴 위까지 확장) ──
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: _SectionTitle(icon: Icons.share, title: '공유'),
+            ),
+            const SizedBox(height: 8),
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _ShareTabs(
+                  // 공유 기능은 준비 중 — 카운트 0으로 자리만 표시
+                  sharedOutCount: 0,
+                  sharedInCount: 0,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -203,30 +212,116 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-class _SharePlaceholderCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _SharePlaceholderCard({required this.icon, required this.label});
+/// 공유 섹션 — "공유한 것 / 공유 받은 것" 두 탭으로 분리한 카드.
+/// 각 탭 제목은 아이콘 + 카운트 (홈 탭 제목란 패턴과 일관).
+class _ShareTabs extends StatelessWidget {
+  final int sharedOutCount;
+  final int sharedInCount;
+  const _ShareTabs({required this.sharedOutCount, required this.sharedInCount});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.grey.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+    final color = Theme.of(context).primaryColor;
+    return DefaultTabController(
+      length: 2,
+      child: Card(
+        elevation: 0,
+        color: color.withValues(alpha: 0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          // 카드 외곽 테두리
+          side: BorderSide(color: color.withValues(alpha: 0.35)),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Icon(icon, color: Colors.grey.shade500),
-            const SizedBox(height: 8),
-            Text(label,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-            const SizedBox(height: 4),
-            Text('준비 중',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            TabBar(
+              labelColor: color,
+              unselectedLabelColor: Colors.grey.shade500,
+              indicatorSize: TabBarIndicatorSize.tab,
+              // 선택된 탭을 테두리 박스(토글)로 강조해 두 탭을 시각적으로 구분
+              indicatorPadding: const EdgeInsets.all(4),
+              indicator: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color, width: 1.4),
+              ),
+              // 탭바와 본문 사이 구분선
+              dividerColor: color.withValues(alpha: 0.25),
+              tabs: [
+                Tab(
+                  child: _ShareTabLabel(
+                      icon: Icons.download_outlined,
+                      label: '공유 받은 것',
+                      count: sharedInCount),
+                ),
+                Tab(
+                  child: _ShareTabLabel(
+                      icon: Icons.upload_outlined,
+                      label: '공유한 것',
+                      count: sharedOutCount),
+                ),
+              ],
+            ),
+            const Expanded(
+              child: TabBarView(
+                children: [
+                  _SharePanel(label: '공유 받은 것'),
+                  _SharePanel(label: '공유한 것'),
+                ],
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 공유 탭 제목: 아이콘 + 라벨 + 카운트
+class _ShareTabLabel extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  const _ShareTabLabel(
+      {required this.icon, required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    // 폭이 좁은 기기에서 넘치지 않도록 자동 축소
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 6),
+          Text('$count', style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 공유 탭 내용 (현재 준비 중)
+class _SharePanel extends StatelessWidget {
+  final String label;
+  const _SharePanel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+          const SizedBox(height: 4),
+          Text('준비 중',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+        ],
       ),
     );
   }

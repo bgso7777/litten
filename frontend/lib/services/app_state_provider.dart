@@ -748,7 +748,50 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadLittens(); // 리튼 목록 재로드
 
       debugPrint('✅ undefined 리튼 생성 완료');
+      return;
     }
+
+    // ⭐ 동기화로 여러 기기의 undefined(미분류)가 누적되는 문제 정리
+    //    (undefined는 기기마다 다른 id로 생성되고, 동기화는 id 기준 머지라 중복됨)
+    await _cleanupDuplicateUndefinedLittens();
+  }
+
+  /// 중복 undefined(미분류) 리튼을 1개로 정리한다.
+  /// 대표(파일 보유 우선, 동률이면 더 오래된 것)만 남기고,
+  /// 비어 있는 중복은 로컬 + 원격(서버 전파)에서 삭제해 재유입을 막는다.
+  /// 파일이 있는 중복은 데이터 보존을 위해 자동 삭제하지 않고 경고만 남긴다.
+  ///
+  /// @return 로컬 리튼 목록이 변경되었으면 true
+  Future<bool> _cleanupDuplicateUndefinedLittens() async {
+    final undefinedList = _littens.where((l) => l.title == 'undefined').toList();
+    if (undefinedList.length <= 1) return false;
+
+    // 대표 선정: 파일 많은 것 우선 → 동률이면 더 오래된 것
+    undefinedList.sort((a, b) {
+      final byFiles = b.totalFileCount.compareTo(a.totalFileCount);
+      if (byFiles != 0) return byFiles;
+      return a.createdAt.compareTo(b.createdAt);
+    });
+    final keep = undefinedList.first;
+    debugPrint('🧹 중복 undefined ${undefinedList.length}개 발견 - 대표 유지: ${keep.id} (files=${keep.totalFileCount})');
+
+    var changed = false;
+    for (final dup in undefinedList.skip(1)) {
+      if (dup.totalFileCount == 0) {
+        await _littenService.deleteLitten(dup.id);
+        // 서버에도 삭제 전파 → 다른 기기로 다시 퍼지지 않게 (비프리미엄/오프라인이면 큐에 보관)
+        await SyncService.instance.deleteLittenRemote(dup.id);
+        changed = true;
+        debugPrint('🧹 빈 undefined 중복 삭제: ${dup.id}');
+      } else {
+        debugPrint('⚠️ 파일 보유 undefined 중복 발견 - 자동 삭제 보류(수동 병합 필요): ${dup.id}, files=${dup.totalFileCount}');
+      }
+    }
+
+    if (changed) {
+      _littens = await _littenService.getAllLittens();
+    }
+    return changed;
   }
 
   Future<void> _loadSelectedLitten() async {
@@ -1237,6 +1280,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshLittens() async {
     debugPrint('🔄 refreshLittens 시작');
     _littens = await _littenService.getAllLittens();
+
+    // ⭐ 동기화로 중복 undefined(미분류)가 유입되면 즉시 정리(서버 전파로 재발 방지)
+    await _cleanupDuplicateUndefinedLittens();
 
     // 선택된 리튼이 있다면 업데이트된 데이터로 다시 설정
     // ⭐ 찾지 못해도 기존 _selectedLitten 참조를 유지 (STT/녹음 중 데이터 소실 방지)

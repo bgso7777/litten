@@ -1373,6 +1373,25 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   // 통일된 24x24 아이콘 버튼 (placeholder는 icon: null)
+  /// 리마인드 아이콘 — 파일에 추출된 리마인드가 있으면 활성(테마색),
+  /// 없으면 비활성(연회색). 활성 상태에서 탭하면 리마인드 탭으로 이동.
+  Widget _buildRemindIcon(String fileId, Color color) {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final count = appState.remindItemsForFile(fileId).length;
+    final active = count > 0;
+    return _iconBtn(
+      icon: Icons.lightbulb_outline,
+      color: active ? color : Colors.grey.shade400,
+      tooltip: active ? '리마인드 $count개' : '리마인드 없음',
+      onPressed: active
+          ? () {
+              debugPrint('💡 [AllFilesTab] 리마인드 아이콘 탭 - 파일 $fileId, $count개 → 리마인드 탭 이동');
+              appState.changeTabIndex(3); // 5탭: 홈0·캘린더1·+2·리마인드3·설정4
+            }
+          : null,
+    );
+  }
+
   Widget _iconBtn({
     IconData? icon,
     Color? color,
@@ -1509,7 +1528,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: file.hasSummary ? color : Colors.grey.shade400,
@@ -1518,6 +1537,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                           : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
                       onPressed: () => _showSummaryDialog(file),
                     ),
+                    _buildRemindIcon(file.id, color),
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
@@ -1631,13 +1652,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: Colors.grey.shade400,
                       tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
+                    _buildRemindIcon(file.id, color),
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
@@ -1913,13 +1936,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                  // 순서: 요약 · 리마인드 · 클라우드 · 공유
                   _iconBtn(
                     icon: Icons.auto_awesome,
                     color: Colors.grey.shade400,
                     tooltip: '분석 (미지원)',
                     onPressed: () {},
                   ),
+                  _buildRemindIcon(file.id, color),
+                  _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                   if (_isPremiumPlus)
                     _iconBtn(
                       icon: Icons.share_outlined,
@@ -2337,13 +2362,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
+                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: Colors.grey.shade400,
                       tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
                       onPressed: () {},
                     ),
+                    _buildRemindIcon(file.id, color),
+                    _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,

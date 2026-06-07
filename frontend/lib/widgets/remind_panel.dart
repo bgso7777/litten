@@ -6,6 +6,10 @@ import '../models/remind_item.dart';
 import '../services/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
 
+/// 리마인드 패널의 완료 상태 필터.
+/// - all: 전체(기본) · pending: 미완료만 · done: 완료만
+enum RemindDoneFilter { all, pending, done }
+
 /// 노트영역 하단 — 요약 리마인드 아코디언 패널 (3단계 높이)
 ///
 /// 항목1 (파일)                          3개  ▶
@@ -25,6 +29,9 @@ class RemindPanel extends StatefulWidget {
   /// (상단 탭바/탭 레이아웃 안에 넣을 때는 false로 두어 헤더 중복을 피한다)
   final bool showHeader;
 
+  /// 완료 상태 필터 — 미완료/완료를 상하로 나눠 보여줄 때 사용.
+  final RemindDoneFilter doneFilter;
+
   const RemindPanel({
     super.key,
     this.onClose,
@@ -32,6 +39,7 @@ class RemindPanel extends StatefulWidget {
     this.onDragEnd,
     this.isFullScreen = false,
     this.showHeader = false,
+    this.doneFilter = RemindDoneFilter.all,
   });
 
   @override
@@ -99,7 +107,8 @@ class _RemindPanelState extends State<RemindPanel>
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
       builder: (context, appState, _) {
-        final targets = _sortedTargets(appState.remindTargets);
+        final targets =
+            _applyDoneFilter(_sortedTargets(appState.remindTargets));
 
         return Container(
           margin: const EdgeInsets.fromLTRB(0, 4, 0, 8),
@@ -960,16 +969,35 @@ class _RemindPanelState extends State<RemindPanel>
   Widget _buildEmpty() {
     final primaryColor = Theme.of(context).primaryColor;
     final l10n = AppLocalizations.of(context);
+
+    // 필터별 빈 상태 메시지/아이콘
+    final IconData icon;
+    final String message;
+    switch (widget.doneFilter) {
+      case RemindDoneFilter.pending:
+        icon = Icons.check_circle_outline;
+        message = '미완료 리마인드가 없습니다';
+        break;
+      case RemindDoneFilter.done:
+        icon = Icons.history;
+        message = '완료한 리마인드가 없습니다';
+        break;
+      case RemindDoneFilter.all:
+        icon = Icons.folder_open_outlined;
+        message = l10n?.noRemindItems ?? '요약에서 리마인드를\n추출하면 여기 표시됩니다';
+        break;
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open_outlined, size: 36, color: primaryColor.withValues(alpha: 0.4)),
+            Icon(icon, size: 36, color: primaryColor.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
             Text(
-              l10n?.noRemindItems ?? '요약에서 리마인드를\n추출하면 여기 표시됩니다',
+              message,
               style: TextStyle(fontSize: 13, color: primaryColor.withValues(alpha: 0.6)),
               textAlign: TextAlign.center,
             ),
@@ -980,6 +1008,29 @@ class _RemindPanelState extends State<RemindPanel>
   }
 
   // ── 정렬 헬퍼 ─────────────────────────────────────────────────────────────
+
+  /// 완료 상태 필터 적용 — 그룹(타깃) 내 항목을 필터에 맞게 추려내고,
+  /// 남은 항목이 없는 그룹은 제외한다. (미완료/완료 분할 표시용)
+  List<RemindTarget> _applyDoneFilter(List<RemindTarget> targets) {
+    if (widget.doneFilter == RemindDoneFilter.all) return targets;
+    final wantDone = widget.doneFilter == RemindDoneFilter.done;
+    final result = <RemindTarget>[];
+    for (final t in targets) {
+      final items = t.items.where((i) => i.isDone == wantDone).toList();
+      if (items.isEmpty) continue;
+      result.add(RemindTarget(
+        fileId: t.fileId,
+        fileType: t.fileType,
+        fileName: t.fileName,
+        items: items,
+        summaryGroupId: t.summaryGroupId,
+        summaryLevel: t.summaryLevel,
+        contentType: t.contentType,
+        summaryText: t.summaryText,
+      ));
+    }
+    return result;
+  }
 
   List<RemindTarget> _sortedTargets(List<RemindTarget> targets) {
     final list = List<RemindTarget>.from(targets);
