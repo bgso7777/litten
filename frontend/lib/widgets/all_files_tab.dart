@@ -1160,7 +1160,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         children: [
           Icon(Icons.subscriptions_outlined, size: 14, color: color),
           const SizedBox(width: 6),
-          Text('영상 구독', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          Text('영상', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
           const SizedBox(width: 8),
           Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.2))),
           if (_loadingChannels) ...[

@@ -436,7 +436,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
               children: [
                 Icon(Icons.subscriptions_outlined, color: Theme.of(context).primaryColor, size: 20),
                 const SizedBox(width: 8),
-                const Text('영상 구독', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text('영상', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
           ),

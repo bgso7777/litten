@@ -411,7 +411,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           final hasSchedule = litten.schedule != null;
           final hasActiveNotifications = hasSchedule && litten.schedule!.notificationRules.any((r) => r.isEnabled);
 
-          // 일정 시작 DateTime 계산
+          final now = nowForLanguage(appState.locale.languageCode);
+
+          // 일정 원본 시작 DateTime
           DateTime? scheduleDateTime;
           if (hasSchedule) {
             scheduleDateTime = DateTime(
@@ -423,22 +425,22 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             );
           }
 
-          final now = nowForLanguage(appState.locale.languageCode);
-          final isUpcoming = scheduleDateTime != null && scheduleDateTime.isAfter(now);
-          final isPast = scheduleDateTime != null && !scheduleDateTime.isAfter(now);
+          // 다음 발생 시각(주간 반복 반영). 더 이상 발생하지 않으면 null
+          final nextOccurrence =
+              hasSchedule ? _nextScheduleOccurrence(litten.schedule!, now) : null;
 
-          // 상단(1): 시작 안 한 일정 (알림 유무 무관) → 빠른 시간 상위
-          // 중단(2): 시작시간이 지난 일정 → 최신 상위
+          // 상단(1): 앞으로 발생할 일정(반복 포함) → 다음 발생 시각 빠른 순
+          // 중단(2): 더 이상 발생하지 않는 지난 일정 → 최신 상위
           // 하단(3): 일정 없음 → 생성시간 최신 상위
           int sortPriority;
           DateTime sortTime;
 
-          if (isUpcoming) {
+          if (nextOccurrence != null) {
             sortPriority = 1;
-            sortTime = scheduleDateTime!;
-          } else if (isPast) {
+            sortTime = nextOccurrence;
+          } else if (scheduleDateTime != null) {
             sortPriority = 2;
-            sortTime = scheduleDateTime!;
+            sortTime = scheduleDateTime;
           } else {
             sortPriority = 3;
             sortTime = litten.createdAt;
@@ -508,6 +510,45 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         );
       },
     );
+  }
+
+  /// 일정의 다음 발생 시각(주간 반복 반영). 더 이상 발생하지 않으면 null.
+  /// - 매주 반복(요일 지정): 오늘부터 7일 내 지정 요일 중 종료 시각이 아직 안 지난 가장 가까운 발생
+  /// - 비반복: 종료 시각이 안 지났으면 시작 시각, 지났으면 null
+  DateTime? _nextScheduleOccurrence(LittenSchedule s, DateTime now) {
+    final weekdays = <int>{};
+    for (final r in s.notificationRules) {
+      if (r.isEnabled &&
+          r.frequency == NotificationFrequency.weekly &&
+          r.weekdays != null) {
+        weekdays.addAll(r.weekdays!);
+      }
+    }
+    final start = s.startTime;
+    final end = s.endTime;
+
+    if (weekdays.isNotEmpty) {
+      final base = DateTime(now.year, now.month, now.day);
+      for (int i = 0; i <= 7; i++) {
+        final day = base.add(Duration(days: i));
+        if (!weekdays.contains(day.weekday)) continue;
+        final endDt =
+            DateTime(day.year, day.month, day.day, end.hour, end.minute);
+        if (endDt.isAfter(now)) {
+          return DateTime(
+              day.year, day.month, day.day, start.hour, start.minute);
+        }
+      }
+      return null;
+    }
+
+    final d = s.endDate ?? s.date;
+    final endDt = DateTime(d.year, d.month, d.day, end.hour, end.minute);
+    if (endDt.isAfter(now)) {
+      return DateTime(
+          s.date.year, s.date.month, s.date.day, start.hour, start.minute);
+    }
+    return null;
   }
 
   Widget _buildNotificationSection(AppStateProvider appState, List<dynamic> selectedDateNotifications) {

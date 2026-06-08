@@ -185,7 +185,8 @@ class _RemindSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          // 카드 높이 약 20% 축소 (세로 패딩 16 → 10)
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
               Icon(Icons.notifications_active_outlined, color: color),
@@ -229,6 +230,8 @@ class _ScheduleTile extends StatelessWidget {
       ),
       child: ListTile(
         dense: true,
+        // 타일 높이 약 10% 축소
+        visualDensity: const VisualDensity(vertical: -1),
         leading: Icon(Icons.event, color: color),
         // 제목 + 날짜를 한 줄로 표시
         title: Row(
