@@ -85,7 +85,7 @@ public class CloudFileService {
             Optional<CloudFile> existing = cloudFileRepository.findByMemberIdAndLocalId(memberId, localId);
 
             if (existing.isPresent()) {
-                result = updateFileInternal(existing.get(), file, localUpdatedAt);
+                result = updateFileInternal(existing.get(), file, localUpdatedAt, fileName);
             } else {
                 String filePath = localStorageService.buildFilePath(memberId, fileType, fileName);
                 String savedPath = localStorageService.save(file, filePath);
@@ -118,8 +118,8 @@ public class CloudFileService {
     }
 
     @Transactional
-    public Map<String, Object> updateFile(Long cloudId, String localUpdatedAt, MultipartFile file, String memberId) {
-        log.debug("[CloudFileService] updateFile 진입 - cloudId: {}, memberId: {}", cloudId, memberId);
+    public Map<String, Object> updateFile(Long cloudId, String localUpdatedAt, MultipartFile file, String memberId, String fileName) {
+        log.debug("[CloudFileService] updateFile 진입 - cloudId: {}, memberId: {}, fileName: {}", cloudId, memberId, fileName);
 
         Map<String, Object> result = new HashMap<>();
 
@@ -131,12 +131,17 @@ public class CloudFileService {
             return result;
         }
 
-        return updateFileInternal(optFile.get(), file, localUpdatedAt);
+        return updateFileInternal(optFile.get(), file, localUpdatedAt, fileName);
     }
 
-    private Map<String, Object> updateFileInternal(CloudFile cloudFile, MultipartFile file, String localUpdatedAt) {
+    // newFileName: 제목 변경 전파용(텍스트). null/blank면 기존 fileName 유지.
+    private Map<String, Object> updateFileInternal(CloudFile cloudFile, MultipartFile file, String localUpdatedAt, String newFileName) {
         Map<String, Object> result = new HashMap<>();
         try {
+            // 제목 변경 시 fileName 갱신 → 저장 경로도 새 이름으로 생성됨
+            if (newFileName != null && !newFileName.isBlank()) {
+                cloudFile.setFileName(newFileName);
+            }
             // 이전 파일 백업
             if (cloudFile.getFilePath() != null) {
                 String backupPath = localStorageService.backup(cloudFile.getFilePath());

@@ -862,14 +862,16 @@ class ApiService {
     required String localUpdatedAt,
     required File file,
     required String contentType,
+    String? fileName, // 제목 변경 전파용(텍스트). 서버 fileName/저장경로 갱신.
   }) async {
-    debugPrint('[ApiService] updateFile 진입 - cloudId: $cloudId');
+    debugPrint('[ApiService] updateFile 진입 - cloudId: $cloudId, fileName: $fileName');
     try {
       final uri = Uri.parse('$baseUrl$_filesEndpoint/$cloudId');
       final request = http.MultipartRequest('PUT', uri)
         ..headers.addAll(_getHeaders(token: token))
         ..fields['localUpdatedAt'] = localUpdatedAt
         ..files.add(await http.MultipartFile.fromPath('file', file.path, contentType: _parseMediaType(contentType)));
+      if (fileName != null) request.fields['fileName'] = fileName;
 
       final streamed = await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamed);

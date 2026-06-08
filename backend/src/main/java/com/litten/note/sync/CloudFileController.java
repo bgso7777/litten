@@ -68,12 +68,13 @@ public class CloudFileController {
     public ResponseEntity<Map<String, Object>> updateFile(
             @PathVariable Long cloudId,
             @RequestParam("localUpdatedAt") String localUpdatedAt,
+            @RequestParam(value = "fileName", required = false) String fileName,
             @RequestParam("file") MultipartFile file) {
-        log.debug("[CloudFileController] PUT /note/v1/files/{} 진입", cloudId);
+        log.debug("[CloudFileController] PUT /note/v1/files/{} 진입, fileName: {}", cloudId, fileName);
         String memberId = getCurrentMemberId();
         if (memberId == null) return unauthorizedResponse();
 
-        Map<String, Object> result = cloudFileService.updateFile(cloudId, localUpdatedAt, file, memberId);
+        Map<String, Object> result = cloudFileService.updateFile(cloudId, localUpdatedAt, file, memberId, fileName);
         return ResponseEntity.ok(result);
     }
 

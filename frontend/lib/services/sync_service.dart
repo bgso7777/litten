@@ -257,7 +257,7 @@ class SyncService {
         if (await File(filePath).exists()) {
           await uploadFile(
             littenId: littenId, localId: file.id, fileType: 'text',
-            fileName: '${file.id}.html', filePath: filePath, localUpdatedAt: file.updatedAt,
+            fileName: textUploadFileName(file.id, file.title), filePath: filePath, localUpdatedAt: file.updatedAt,
           );
         }
       } else if (_isModifiedLocally(file.updatedAt, file.cloudUpdatedAt)) {
@@ -267,6 +267,7 @@ class SyncService {
           await updateFile(
             littenId: littenId, localId: file.id, cloudId: file.cloudId!,
             fileType: 'text', filePath: filePath, localUpdatedAt: file.updatedAt,
+            fileName: textUploadFileName(file.id, file.title),
           );
         }
       }
@@ -384,8 +385,9 @@ class SyncService {
     required String fileType,
     required String filePath,
     required DateTime localUpdatedAt,
+    String? fileName, // 제목 변경 전파용(텍스트). null이면 서버 fileName 유지.
   }) async {
-    debugPrint('[SyncService] updateFile - cloudId: $cloudId');
+    debugPrint('[SyncService] updateFile - cloudId: $cloudId, fileName: $fileName');
     if (!_canSync) return;
     final token = await _loadToken();
     if (token == null) return;
@@ -395,7 +397,8 @@ class SyncService {
       await _addToOfflineQueue({
         'action': 'update', 'littenId': littenId, 'localId': localId,
         'cloudId': cloudId, 'fileType': fileType, 'filePath': filePath,
-        'localUpdatedAt': localUpdatedAt.toIso8601String()
+        'localUpdatedAt': localUpdatedAt.toIso8601String(),
+        if (fileName != null) 'fileName': fileName,
       });
       return;
     }
@@ -404,7 +407,7 @@ class SyncService {
       final result = await _api.updateFile(
         token: token, cloudId: cloudId,
         localUpdatedAt: localUpdatedAt.toIso8601String(),
-        file: file, contentType: _getContentType(fileType),
+        file: file, contentType: _getContentType(fileType), fileName: fileName,
       );
       if (result != null) {
         await _updateLocalSyncStatus(littenId, localId, fileType, cloudId, SyncStatus.synced);
@@ -413,7 +416,8 @@ class SyncService {
         await _addToOfflineQueue({
           'action': 'update', 'littenId': littenId, 'localId': localId,
           'cloudId': cloudId, 'fileType': fileType, 'filePath': filePath,
-          'localUpdatedAt': localUpdatedAt.toIso8601String()
+          'localUpdatedAt': localUpdatedAt.toIso8601String(),
+          if (fileName != null) 'fileName': fileName,
         });
       }
     } catch (e) {
@@ -527,6 +531,7 @@ class SyncService {
               token: token, cloudId: item['cloudId'],
               localUpdatedAt: item['localUpdatedAt'], file: file,
               contentType: _getContentType(item['fileType']),
+              fileName: item['fileName'] as String?,
             );
             success = result != null;
           }
@@ -700,10 +705,12 @@ class SyncService {
       debugPrint('[SyncService] _uploadLocalFile - 파일 없음: $filePath');
       return;
     }
+    // 텍스트는 제목도 서버에 반영(다른 기기 제목 동기화)
+    final fileName = localFile is TextFile ? textUploadFileName(localFile.id, localFile.title) : null;
     final result = await _api.updateFile(
       token: token, cloudId: cloudId,
       localUpdatedAt: _getFileUpdatedAt(localFile).toIso8601String(),
-      file: file, contentType: _getContentType(fileType),
+      file: file, contentType: _getContentType(fileType), fileName: fileName,
     );
     if (result != null) {
       await _updateLocalSyncStatus(littenId, localId, fileType, cloudId, SyncStatus.synced);
@@ -831,13 +838,24 @@ class SyncService {
       final files = await _fileStorage.loadTextFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
+        // 클라우드가 더 최신이라 내려받은 경우(LWW): 본문과 제목도 갱신한다.
+        // 제목은 fileName에서 복원(없으면 기존 제목 유지), updatedAt은 cloud에 맞춰 재업로드 루프 방지.
+        final newContent = await File(localPath).readAsString().catchError((_) => files[idx].content);
+        files[idx] = files[idx].copyWith(
+          title: _extractTextTitle(cloudFileName),
+          content: newContent,
+          cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt,
+        );
       } else {
-        // 클라우드에만 있던 신규 파일 → 메타데이터 생성 (title은 HTML content에서 재생성)
+        // 클라우드에만 있던 신규 파일 → 메타데이터 생성
+        // title은 클라우드 fileName("{localId}__{제목}.html")에서 복원하고, 없거나 구버전(UUID)이면
+        // null을 넘겨 TextFile이 본문 첫 줄로 자동 생성(하위 호환).
         final content = await File(localPath).readAsString().catchError((_) => '');
         files.add(TextFile(
           id: localId,
           littenId: littenId,
+          title: _extractTextTitle(cloudFileName),
           content: content,
           cloudId: cloudId,
           cloudUpdatedAt: cloudUpdatedAt,
@@ -1064,6 +1082,30 @@ class SyncService {
     // UUID면 날짜 기반 제목으로 대체
     if (_uuidRegExp.hasMatch(name)) return _dateBasedName('필기', cloudUpdatedAt);
     return name;
+  }
+
+  // 텍스트 업로드 파일명: 제목을 보존하기 위해 "{제목}.html" 형식으로 올린다.
+  // (오디오/필기와 동일 패턴 — 서버 fileName에 제목을 실어 다운로드 기기에서 복원)
+  // 경로·HTTP 안전을 위해 구분자/제어문자만 공백으로 치환한다.
+  // 형식: "{localId}__{제목}.html"
+  // localId 접두로 서버 저장 경로의 유일성을 보장(제목 중복 시 덮어쓰기 방지)하면서
+  // 제목을 함께 실어 보낸다. (구분자/제어문자만 공백 치환)
+  static String textUploadFileName(String localId, String title) {
+    final safe = title.replaceAll(RegExp(r'[\\/\r\n\t]'), ' ').trim();
+    return '${localId}__${safe.isEmpty ? 'text' : safe}.html';
+  }
+
+  // 텍스트 파일 표시 제목 추출
+  // - "{localId}__{제목}.html" → "{제목}"
+  // - 구분자 없음(구버전 "{UUID}.html") 또는 빈값이면 null → 본문 기반 자동 생성에 위임(하위 호환)
+  String? _extractTextTitle(String cloudFileName) {
+    if (cloudFileName.isEmpty) return null;
+    final sep = cloudFileName.indexOf('__');
+    if (sep < 0) return null;
+    final name = cloudFileName
+        .substring(sep + 2)
+        .replaceAll(RegExp(r'\.html$', caseSensitive: false), '');
+    return name.isEmpty ? null : name;
   }
 
   // 오디오 파일 표시 이름 추출

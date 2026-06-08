@@ -211,6 +211,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     // ⭐ 가운데 +(노트) 탭 → 노트로 전환만. 파일 생성은 노트 안의 + 버튼으로.
     if (index == _createTab) {
       appState.syncNoteTab(); // 노트 진입 시 클라우드 동기화
+      // 다른 탭에서 노트로 진입할 때만 전체탭을 기본 활성화(노트 안에서 재탭 시엔 유지 — 녹음 등 중단 방지)
+      if (appState.selectedTabIndex != _createTab) {
+        appState.setCurrentWritingTab('all');
+        appState.setTargetWritingTab('all');
+      }
     }
 
     // 캘린더 탭 진입 처리

@@ -41,6 +41,11 @@ class DraggableTabLayout extends StatefulWidget {
   final String? initialActiveTabId;
   final bool showBottomDock; // deprecated — visibleAreas 사용 권장
   final Set<String> visibleAreas; // 표시할 쿼드런트 집합 (topLeft 항상 포함)
+  // ⭐ 분할 패널 크기 비율 초기값(영속값 주입) + 변경 콜백(드래그 종료 시 영속화)
+  final double initialColumnRatio;
+  final double initialLeftHeightRatio;
+  final double initialRightHeightRatio;
+  final void Function(double column, double left, double right)? onAreaRatioChanged;
 
   const DraggableTabLayout({
     super.key,
@@ -51,6 +56,10 @@ class DraggableTabLayout extends StatefulWidget {
     this.initialActiveTabId,
     this.showBottomDock = false,
     this.visibleAreas = const {'topLeft'},
+    this.initialColumnRatio = 0.5,
+    this.initialLeftHeightRatio = 0.5,
+    this.initialRightHeightRatio = 0.5,
+    this.onAreaRatioChanged,
   });
 
   @override
@@ -73,14 +82,18 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   bool get isPortrait => MediaQuery.of(context).orientation == Orientation.portrait;
   Orientation? _previousOrientation;
 
-  // 분할선 비율 (0.0 ~ 1.0) — 4영역 독립 크기 조절
-  double _columnWidthRatio = 0.5;    // 좌열/우열 너비 비율
-  double _leftHeightRatio = 0.5;     // 좌열 상단(topLeft) 높이 비율
-  double _rightHeightRatio = 0.5;    // 우열 상단(topRight) 높이 비율
+  // 분할선 비율 (0.0 ~ 1.0) — 4영역 독립 크기 조절. initState에서 영속값으로 초기화.
+  late double _columnWidthRatio;    // 좌열/우열 너비 비율
+  late double _leftHeightRatio;     // 좌열 상단(topLeft) 높이 비율
+  late double _rightHeightRatio;    // 우열 상단(topRight) 높이 비율
 
   @override
   void initState() {
     super.initState();
+    // 영속된 패널 크기 비율 복원 (재시작/위젯 재생성 시 appState 저장값 반영)
+    _columnWidthRatio = widget.initialColumnRatio;
+    _leftHeightRatio = widget.initialLeftHeightRatio;
+    _rightHeightRatio = widget.initialRightHeightRatio;
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -291,7 +304,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             _leftHeightRatio =
                 (_leftHeightRatio + d.delta.dy / screenSize.height).clamp(0.1, 0.9);
           });
-        }),
+        }, onDragEnd: _persistAreaRatios),
         Expanded(
           flex: ((1 - _leftHeightRatio) * 100).round(),
           child: _buildQuadrant(TabPosition.bottomLeft, double.infinity, double.infinity),
@@ -312,7 +325,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
               _rightHeightRatio =
                   (_rightHeightRatio + d.delta.dy / screenSize.height).clamp(0.1, 0.9);
             });
-          }),
+          }, onDragEnd: _persistAreaRatios),
           Expanded(
             flex: ((1 - _rightHeightRatio) * 100).round(),
             child: _buildQuadrant(TabPosition.bottomRight, double.infinity, double.infinity),
@@ -341,7 +354,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           _columnWidthRatio =
               (_columnWidthRatio + d.delta.dx / screenSize.width).clamp(0.1, 0.9);
         });
-      }),
+      }, onDragEnd: _persistAreaRatios),
       Expanded(
         flex: ((1 - _columnWidthRatio) * 100).round(),
         child: buildRightColumn(),
@@ -1032,12 +1045,19 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     );
   }
 
+  // 분할선 드래그 종료 시 현재 크기 비율을 영속화
+  void _persistAreaRatios() {
+    widget.onAreaRatioChanged?.call(_columnWidthRatio, _leftHeightRatio, _rightHeightRatio);
+  }
+
   // 가로 분할선 위젯 (상하 크기 조절)
   Widget _buildHorizontalDivider({
     required Function(DragUpdateDetails) onDrag,
+    VoidCallback? onDragEnd,
   }) {
     return GestureDetector(
       onVerticalDragUpdate: onDrag,
+      onVerticalDragEnd: onDragEnd == null ? null : (_) => onDragEnd(),
       behavior: HitTestBehavior.opaque,
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeUpDown,
@@ -1068,9 +1088,11 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
   // 세로 분할선 위젯 (좌우 크기 조절)
   Widget _buildVerticalDivider({
     required Function(DragUpdateDetails) onDrag,
+    VoidCallback? onDragEnd,
   }) {
     return GestureDetector(
       onHorizontalDragUpdate: onDrag,
+      onHorizontalDragEnd: onDragEnd == null ? null : (_) => onDragEnd(),
       behavior: HitTestBehavior.opaque,
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeLeftRight,

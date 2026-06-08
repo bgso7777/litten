@@ -1699,13 +1699,14 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               fileType: 'text',
               filePath: htmlFilePath,
               localUpdatedAt: updatedFile.updatedAt,
+              fileName: SyncService.textUploadFileName(updatedFile.id, updatedFile.title),
             );
           } else {
             SyncService.instance.uploadFile(
               littenId: updatedFile.littenId,
               localId: updatedFile.id,
               fileType: 'text',
-              fileName: '${updatedFile.id}.html',
+              fileName: SyncService.textUploadFileName(updatedFile.id, updatedFile.title),
               filePath: htmlFilePath,
               localUpdatedAt: updatedFile.updatedAt,
             );

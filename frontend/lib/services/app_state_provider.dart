@@ -260,7 +260,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ⭐ 현재 활성 탭 위치 저장 (위젯 재생성 시에도 유지)
-  String _currentWritingTabId = 'text'; // WritingScreen 내부의 현재 활성 탭 (기본값: text)
+  String _currentWritingTabId = 'all'; // WritingScreen 내부의 현재 활성 탭 (기본값: 전체)
   int _currentMainTabIndex = 0; // 메인 탭 인덱스 (0: 홈, 1: 쓰기, 2: 설정)
 
   // ⭐ 노트탭 가시성 설정 (기본: 전체탭만 표시)
@@ -294,6 +294,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     'audio': 'topLeft',
     'browser': 'topLeft',
   };
+
+  // ⭐ DraggableTabLayout 분할 패널 크기 비율 (영속) — 0.1~0.9
+  // column: 좌/우 열 너비, leftHeight: 좌열 상단 높이, rightHeight: 우열 상단 높이
+  double _columnWidthRatio = 0.5;
+  double _leftHeightRatio = 0.5;
+  double _rightHeightRatio = 0.5;
 
   // HomeScreen 하단 탭 선택 상태 (0: 파일, 1: 일정)
   int _homeBottomTabIndex = 0;
@@ -338,6 +344,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get startScreen => _startScreen;
   bool get dockingEnabled => _dockingEnabled;
   Set<String> get visibleAreas => _visibleAreas;
+  // ⭐ 분할 패널 크기 비율 Getters
+  double get columnWidthRatio => _columnWidthRatio;
+  double get leftHeightRatio => _leftHeightRatio;
+  double get rightHeightRatio => _rightHeightRatio;
   // 모든 플랜에서 사용자 설정값 사용 (기본 false)
   bool get adsEnabled => _adsEnabled;
   bool get showYoutubeInAllTab => _showYoutubeInAllTab;
@@ -614,8 +624,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     debugPrint('✅ [AppStateProvider] 구독 플랜 복원: $_subscriptionType');
 
-    // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 'text' 사용)
-    _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'text';
+    // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 '전체' 사용)
+    _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'all';
     debugPrint('✅ [AppStateProvider] 저장된 쓰기 탭 위치 복원: $_currentWritingTabId');
 
     // ⭐ 각 탭의 위치 복원 (all, text, handwriting, audio, browser)
@@ -667,16 +677,25 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('📱 [AppStateProvider] 최초 설치 감지 — 디바이스: ${isTablet ? "패드" : "폰"}');
 
       if (isTablet) {
-        // 패드 기본값: 4분할 + 전체탭 활성화 + 각 영역에 탭 배치
-        _visibleAreas    = {'topLeft', 'topRight', 'bottomLeft', 'bottomRight'};
-        _noteTabVisibility = {'all', 'text', 'handwriting', 'audio', 'browser'};
+        // 패드 기본값: 3분할(좌하단 미사용), 각 영역에 복수 탭 배치
+        //  - 좌상단: 전체(all), 파일(files)
+        //  - 우상단: PDF(pdf), 필기(handwriting), 메모(text)
+        //  - 우하단: 녹음(audio), 녹음메모(sttMemo), 검색(browser)
+        _visibleAreas    = {'topLeft', 'topRight', 'bottomRight'};
+        _noteTabVisibility = {'all', 'files', 'pdf', 'handwriting', 'text', 'audio', 'sttMemo', 'browser'};
         _writingTabPositions = {
           'all':         'topLeft',
+          'files':       'topLeft',
+          'pdf':         'topRight',
           'handwriting': 'topRight',
-          'text':        'bottomLeft',
+          'text':        'topRight',
           'audio':       'bottomRight',
+          'sttMemo':     'bottomRight',
           'browser':     'bottomRight',
         };
+        // 패드 기본 패널 크기: 좌측 컬럼 너비 절반(0.25), 우하단 높이 절반(우상단 0.75/우하단 0.25)
+        _columnWidthRatio = 0.25;
+        _rightHeightRatio = 0.75;
       } else {
         // 폰 기본값: 좌상단만 + 전체탭만
         _visibleAreas      = {'topLeft'};
@@ -693,7 +712,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       for (final entry in _writingTabPositions.entries) {
         await prefs.setString('tab_position_${entry.key}', entry.value);
       }
-      debugPrint('💾 [AppStateProvider] 디바이스 기본값 저장 완료: visibleAreas=$_visibleAreas');
+      await prefs.setDouble('tab_area_column_ratio', _columnWidthRatio);
+      await prefs.setDouble('tab_area_left_height_ratio', _leftHeightRatio);
+      await prefs.setDouble('tab_area_right_height_ratio', _rightHeightRatio);
+      debugPrint('💾 [AppStateProvider] 디바이스 기본값 저장 완료: visibleAreas=$_visibleAreas, col=$_columnWidthRatio, right=$_rightHeightRatio');
     } else if (savedAreas != null) {
       _visibleAreas = {'topLeft', ...savedAreas};
     } else {
@@ -701,6 +723,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _visibleAreas = _dockingEnabled ? {'topLeft', 'bottomLeft'} : {'topLeft'};
     }
     debugPrint('✅ [AppStateProvider] 영역 보기 복원: $_visibleAreas');
+
+    // 분할 패널 크기 비율 복원 (없으면 0.5, 안전 범위로 clamp)
+    _columnWidthRatio = (prefs.getDouble('tab_area_column_ratio') ?? 0.5).clamp(0.1, 0.9);
+    _leftHeightRatio = (prefs.getDouble('tab_area_left_height_ratio') ?? 0.5).clamp(0.1, 0.9);
+    _rightHeightRatio = (prefs.getDouble('tab_area_right_height_ratio') ?? 0.5).clamp(0.1, 0.9);
+    debugPrint('✅ [AppStateProvider] 분할 패널 크기 복원: col=$_columnWidthRatio, left=$_leftHeightRatio, right=$_rightHeightRatio');
 
     // 모든 플랜: 저장된 값 우선, 없으면 false(광고 OFF)
     _adsEnabled = prefs.getBool('ads_enabled') ?? false;
@@ -1697,6 +1725,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       // notifyListeners()를 호출하지 않음 - 탭 위치 변경만으로 UI 전체 재빌드 불필요
     }
+  }
+
+  /// DraggableTabLayout 분할 패널 크기 비율 저장 (드래그 종료 시 호출)
+  /// notifyListeners()를 호출하지 않음 - 드래그 중 전체 재빌드(잰크) 방지. 값은 다음 빌드/실행 시 읽힘.
+  Future<void> saveTabAreaRatios(double column, double left, double right) async {
+    _columnWidthRatio = column.clamp(0.1, 0.9);
+    _leftHeightRatio = left.clamp(0.1, 0.9);
+    _rightHeightRatio = right.clamp(0.1, 0.9);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('tab_area_column_ratio', _columnWidthRatio);
+    await prefs.setDouble('tab_area_left_height_ratio', _leftHeightRatio);
+    await prefs.setDouble('tab_area_right_height_ratio', _rightHeightRatio);
+    debugPrint('💾 [AppStateProvider] 분할 패널 크기 저장: col=$_columnWidthRatio, left=$_leftHeightRatio, right=$_rightHeightRatio');
   }
 
   /// 노트탭 가시성 저장

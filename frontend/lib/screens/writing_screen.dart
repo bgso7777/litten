@@ -217,6 +217,10 @@ class _WritingScreenState extends State<WritingScreen>
           tabs: _tabs,
           initialActiveTabId: appState.currentWritingTabId,
           visibleAreas: appState.visibleAreas,
+          initialColumnRatio: appState.columnWidthRatio,
+          initialLeftHeightRatio: appState.leftHeightRatio,
+          initialRightHeightRatio: appState.rightHeightRatio,
+          onAreaRatioChanged: (c, l, r) => appState.saveTabAreaRatios(c, l, r),
           onTabPositionChanged: (tabId, newPosition) {
             setState(() {
               for (final tab in _tabs) {
