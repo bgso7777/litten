@@ -538,16 +538,14 @@ public class NoteMemberService extends CustomHttpService {
 
         String memberUuid = noteMember.getUuid();
 
-        // deviceUuid와 memberUuid가 같으면 이관 불필요
-        if (deviceUuid.equals(memberUuid)) {
-            log.info("[NoteMemberService] migrateDeviceData - deviceUuid와 memberUuid 동일, 이관 불필요");
-            result.put("migratedCount", 0);
-            return result;
-        }
-
         // 1) note_summary_result 이관 (member_uuid = deviceUuid → memberUuid)
+        //    deviceUuid == memberUuid(회원가입 기기)면 사실상 무효과(동일 값 갱신)지만,
+        //    아래 채널/watch-state는 "guest:<deviceUuid>"로 별도 키되어 이 경우에도 반드시 이관해야 하므로
+        //    조기 return 하지 않는다. (이전 버그: 가입 기기가 자기 게스트 채널을 영영 이관 못 함)
         SummaryResultRepository summaryResultRepository = BeanUtil.getBean2(SummaryResultRepository.class);
-        int summaryMigrated = summaryResultRepository.migrateMemberUuid(deviceUuid, memberUuid);
+        int summaryMigrated = deviceUuid.equals(memberUuid)
+                ? 0
+                : summaryResultRepository.migrateMemberUuid(deviceUuid, memberUuid);
 
         // 2) note_member_youtube_channel 이관 (member_id = "guest:<deviceUuid>" → memberId)
         //    회원이 이미 구독 중인 채널은 제외하고 이관, 나머지 게스트 행은 삭제

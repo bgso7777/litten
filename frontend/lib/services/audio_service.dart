@@ -671,7 +671,16 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
     try {
       debugPrint('[AudioService] 파일 이름 변경: ${audioFile.fileName} -> $newName');
 
-      // 메타데이터 파일 업데이트
+      // ① 저장소(SharedPreferences)의 AudioFile.fileName 갱신 — 목록 표시의 실제 출처.
+      //    (기존 버그: metadata.json만 갱신하고 저장소 목록은 안 바꿔 STT 녹음 등 이름이 안 바뀜)
+      final stored = await FileStorageService.instance.loadAudioFiles(audioFile.littenId);
+      final updated = stored
+          .map((f) => f.id == audioFile.id ? f.copyWith(fileName: newName) : f)
+          .toList();
+      await FileStorageService.instance.saveAudioFiles(audioFile.littenId, updated);
+      debugPrint('[AudioService] 저장소 fileName 갱신 완료');
+
+      // ② 메타데이터 파일(customName) 갱신 — 존재 시 하위 호환 유지
       final metadataPath = audioFile.filePath.replaceAll('.m4a', '_metadata.json');
       final metadataFile = File(metadataPath);
 

@@ -200,10 +200,10 @@ class SyncService {
             await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
           } else {
             final localUpdatedAt = _getFileUpdatedAt(localFile);
-            if (cloudUpdatedAt.isAfter(localUpdatedAt)) {
+            if (_isNewer(cloudUpdatedAt, localUpdatedAt)) {
               // 클라우드가 더 최신 → 다운로드
               await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
-            } else if (localUpdatedAt.isAfter(cloudUpdatedAt)) {
+            } else if (_isNewer(localUpdatedAt, cloudUpdatedAt)) {
               // 로컬이 더 최신 → 업로드
               await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
             }
@@ -325,6 +325,10 @@ class SyncService {
     if (cloudUpdatedAt == null) return false;
     return localUpdatedAt.isAfter(cloudUpdatedAt.add(const Duration(seconds: 2)));
   }
+
+  // a가 b보다 "더 최신"인지 2초 여유로 판정. 서버(MariaDB)가 localUpdatedAt을 초 단위로
+  // 절단 저장해, 원본 기기의 마이크로초 updatedAt이 항상 서버보다 커 보여 무한 재업로드되는 것을 방지.
+  bool _isNewer(DateTime a, DateTime b) => a.isAfter(b.add(const Duration(seconds: 2)));
 
   // 파일 이벤트: 생성
   Future<void> uploadFile({
@@ -645,9 +649,9 @@ class SyncService {
         await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
       } else {
         final localUpdatedAt = _getFileUpdatedAt(localFile);
-        if (cloudUpdatedAt.isAfter(localUpdatedAt)) {
+        if (_isNewer(cloudUpdatedAt, localUpdatedAt)) {
           await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
-        } else if (localUpdatedAt.isAfter(cloudUpdatedAt)) {
+        } else if (_isNewer(localUpdatedAt, cloudUpdatedAt)) {
           await _uploadLocalFile(token, littenId, localId, cloudId, fileType, localFile);
         }
       }
@@ -675,7 +679,7 @@ class SyncService {
       }
 
       final localFile = await _findLocalFile(littenId, localId, fileType);
-      if (localFile == null || cloudUpdatedAt.isAfter(_getFileUpdatedAt(localFile))) {
+      if (localFile == null || _isNewer(cloudUpdatedAt, _getFileUpdatedAt(localFile))) {
         await _downloadAndApply(token, cloudId, littenId, localId, fileType, cloudUpdatedAt, cloudFileName);
       }
     }
@@ -873,7 +877,8 @@ class SyncService {
       final files = await _fileStorage.loadHandwritingFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
+        // updatedAt을 cloud에 맞춰 갱신 — 미설정 시 copyWith가 now()로 올려 로컬이 더 최신이 되어 재업로드 핑퐁 발생
+        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt);
       } else {
         // 클라우드에만 있던 신규 파일 → 중복 이름 방지 후 메타데이터 생성
         final uniqueTitle = _uniqueName(displayTitle, files.map((f) => f.title).toSet());
@@ -898,7 +903,8 @@ class SyncService {
       final files = await _fileStorage.loadAudioFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
+        // updatedAt을 cloud에 맞춰 갱신 — 미설정 시 copyWith가 now()로 올려 재업로드 핑퐁 발생
+        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt);
       } else {
         // 클라우드에만 있던 신규 파일 → 중복 이름 방지 후 메타데이터 생성
         final uniqueName = _uniqueName(displayName, files.map((f) => f.fileName).toSet());
@@ -921,7 +927,8 @@ class SyncService {
       final files = await _fileStorage.loadAttachmentFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced);
+        // updatedAt을 cloud에 맞춰 갱신 — 미설정 시 copyWith가 now()로 올려 재업로드 핑퐁 발생
+        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt);
       } else {
         // 클라우드에만 있던 신규 첨부 → 메타 생성 (fileName은 원본 cloudFileName, 크기는 저장된 파일에서)
         int size = 0;
@@ -951,7 +958,11 @@ class SyncService {
       final files = await _fileStorage.loadTextFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, syncStatus: status);
+        // 업로드/업데이트 성공 = 서버 버전이 곧 로컬 버전 → cloudUpdatedAt을 updatedAt에 맞춰
+        // "로컬이 더 최신"(_isModifiedLocally) 오판으로 매 동기화마다 재업로드되는 루프를 방지.
+        files[idx] = files[idx].copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: files[idx].updatedAt, updatedAt: files[idx].updatedAt);
         await _fileStorage.saveTextFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
@@ -959,7 +970,9 @@ class SyncService {
       final files = await _fileStorage.loadHandwritingFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, syncStatus: status);
+        files[idx] = files[idx].copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: files[idx].updatedAt, updatedAt: files[idx].updatedAt);
         await _fileStorage.saveHandwritingFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
@@ -967,7 +980,9 @@ class SyncService {
       final files = await _fileStorage.loadAudioFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, syncStatus: status);
+        files[idx] = files[idx].copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: files[idx].updatedAt, updatedAt: files[idx].updatedAt);
         await _fileStorage.saveAudioFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
@@ -975,7 +990,9 @@ class SyncService {
       final files = await _fileStorage.loadAttachmentFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
-        files[idx] = files[idx].copyWith(cloudId: cloudId, syncStatus: status);
+        files[idx] = files[idx].copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: files[idx].updatedAt, updatedAt: files[idx].updatedAt);
         await _fileStorage.saveAttachmentFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
