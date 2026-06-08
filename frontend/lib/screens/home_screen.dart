@@ -1416,56 +1416,42 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }).toList();
   }
 
-  /// 특정 날짜(셀) 칩에 표시할 제목 목록 — 시작 시각이 이른 일정부터 최대 2개.
-  /// (예: 일요일 셀 → '주일 유년부 예배'(09:05) → '주일 대예배'(11:10))
-  List<String> _chipTitlesForDay(List<Litten> littens, DateTime day) {
-    final occurring = _littensOccurringOn(littens, day);
-    int mins(Litten l) => l.schedule == null
-        ? 24 * 60
-        : l.schedule!.startTime.hour * 60 + l.schedule!.startTime.minute;
-    occurring.sort((a, b) => mins(a).compareTo(mins(b)));
-    return occurring.take(2).map((l) => l.title).toList();
-  }
-
-  /// 날짜 셀 아래 일정 표시. 캘린더가 축소(일정 리스트 표시)되어 영역이 작으면
-  /// 테마색 점으로, 전체 화면이면 제목(좌측 정렬)으로 표시.
+  /// 날짜 셀 아래 알림 표시. 제목 대신 테마색 점 1개로 표시한다.
+  /// - 전체 화면: 등록일(원본 날짜)은 일정 바(_buildScheduleBars)로 표시되므로 점 생략하고,
+  ///   미래 반복 발생일에만 점 표시.
+  /// - 축소(일정 리스트) 모드: 바가 숨겨지므로 모든 발생일에 점 표시.
   Widget _chipForDay(List<Litten> littens, DateTime day) {
-    if (_scheduleListVisible) {
-      final count = _littensOccurringOn(littens, day).length;
-      if (count == 0) return const SizedBox.shrink();
-      // 일정 개수와 무관하게 점 1개로 표시
-      final color = Theme.of(context).primaryColor;
-      return Padding(
-        padding: const EdgeInsets.only(top: 2.0),
-        child: Container(
-          width: 4,
-          height: 4,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-      );
-    }
-    return _chipTitlesColumn(_chipTitlesForDay(littens, day));
-  }
+    final target = DateTime(day.year, day.month, day.day);
+    final occurring = _littensOccurringOn(littens, day);
+    if (occurring.isEmpty) return const SizedBox.shrink();
 
-  /// 칩 제목들을 날짜 셀 아래에 그리는 위젯(공통). 셀 폭을 채워 좌측 정렬.
-  Widget _chipTitlesColumn(List<String> titles) {
-    if (titles.isEmpty) return const SizedBox.shrink();
+    // 전체 화면: 등록일은 바로 표시되므로, 반복으로 그 외 날짜에 발생하는 일정만 점으로.
+    // 축소 모드: 바가 숨겨지므로 모든 발생 일정을 점으로.
+    final dotted = _scheduleListVisible
+        ? occurring
+        : occurring.where((l) {
+            final created =
+                DateTime(l.createdAt.year, l.createdAt.month, l.createdAt.day);
+            return !created.isAtSameMomentAs(target);
+          }).toList();
+    if (dotted.isEmpty) return const SizedBox.shrink();
+
+    // 그날 발생하는 일정(반복 일정 포함) 1개당 점 1개
+    final dotCount = dotted.length;
+    final color = Theme.of(context).primaryColor;
     return Padding(
-      padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
-      child: SizedBox(
-        width: double.infinity,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: titles
-              .map((title) => Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.left,
-                    style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
-                  ))
-              .toList(),
+      padding: const EdgeInsets.only(top: 2.0, left: 1.0, right: 1.0),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 2,
+        runSpacing: 2,
+        children: List.generate(
+          dotCount,
+          (i) => Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
         ),
       ),
     );
