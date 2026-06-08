@@ -308,6 +308,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _fileListVersion = 0;
   int get fileListVersion => _fileListVersion;
 
+  // ⭐ 영상 채널 목록 새로고침 신호 (노트탭 진입 시 증가 → AllFilesTab이 서버 재조회)
+  // 다른 기기에서 추가/삭제한 채널이 탭 진입만으로 반영되도록 한다.
+  int _youtubeRefreshTick = 0;
+  int get youtubeRefreshTick => _youtubeRefreshTick;
+  void requestYoutubeRefresh() {
+    _youtubeRefreshTick++;
+    notifyListeners();
+  }
+
   // 캘린더 상태
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
@@ -998,6 +1007,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final littenIds = _littens.map((l) => l.id).toList();
     debugPrint('[AppStateProvider] syncNoteTab - ${littenIds.length}개 리튼 동기화');
     SyncService.instance.syncOnNoteTab(littenIds);
+    // 노트탭 진입 시 영상 채널도 서버에서 재조회(다른 기기 추가/삭제 반영)
+    requestYoutubeRefresh();
   }
 
   // WritingScreen 내부 탭 설정 (파일 타입에 따라)

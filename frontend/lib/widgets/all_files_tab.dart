@@ -105,6 +105,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   bool _loading = false;
   String? _activeLittenId = '__init__';
   int _lastFileListVersion = 0; // ⭐ 마지막으로 로드한 파일 목록 버전
+  int _lastYoutubeRefreshTick = 0; // ⭐ 마지막으로 처리한 영상 채널 새로고침 신호
 
   // 현재 전체화면으로 열린 에디터
   _EditorType? _openEditor;
@@ -867,6 +868,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
         final showYoutube = appState.showYoutubeInAllTab;
         if (showYoutube && !_youtubeAutoLoadRequested) {
           _youtubeAutoLoadRequested = true;
+          _lastYoutubeRefreshTick = appState.youtubeRefreshTick;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _loadYoutubeChannels());
+        } else if (showYoutube && appState.youtubeRefreshTick != _lastYoutubeRefreshTick) {
+          // 노트탭 진입 등으로 새로고침 신호가 오면 서버에서 채널 재조회(다른 기기 추가/삭제 반영)
+          _lastYoutubeRefreshTick = appState.youtubeRefreshTick;
           WidgetsBinding.instance.addPostFrameCallback((_) => _loadYoutubeChannels());
         } else if (!showYoutube) {
           _youtubeAutoLoadRequested = false;
