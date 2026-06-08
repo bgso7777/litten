@@ -1876,6 +1876,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 홈 일정 탭 → 캘린더 진입 시 일정 리스트를 펼쳐서 보여달라는 1회성 요청 플래그
+  bool _pendingExpandScheduleList = false;
+  bool get pendingExpandScheduleList => _pendingExpandScheduleList;
+  void requestExpandScheduleList() {
+    _pendingExpandScheduleList = true;
+  }
+  void consumeExpandScheduleListRequest() {
+    _pendingExpandScheduleList = false;
+  }
+
   /// UI 강제 업데이트 (외부에서 호출 가능)
   void forceUpdate() {
     notifyListeners();

@@ -64,6 +64,13 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         _pageController.page?.round() != targetIndex) {
       debugPrint('🔄 [MainTabScreen] 외부 탭 전환 감지 → $targetIndex');
       _pageController.jumpToPage(targetIndex);
+      // 홈 일정에서 캘린더로 이동한 경우, 캘린더 탭을 누른 것처럼 전체 일정 리스트를 펼쳐서 보여준다.
+      if (targetIndex == _calendarTab && appState.pendingExpandScheduleList) {
+        appState.consumeExpandScheduleListRequest();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _homeScreenKey.currentState?.expandScheduleList();
+        });
+      }
     }
   }
 

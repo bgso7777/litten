@@ -646,7 +646,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
             Expanded(
               child: Text(
                 video.title,
-                style: TextStyle(fontSize: 13, color: canOpen ? null : Colors.grey),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: canOpen ? Colors.black87 : Colors.grey,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1653,13 +1656,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                    _iconBtn(
-                      icon: Icons.auto_awesome,
-                      color: Colors.grey.shade400,
-                      tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
-                      onPressed: () {},
-                    ),
-                    _buildRemindIcon(file.id, color),
+                    // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                    _iconBtn(icon: null),
+                    _iconBtn(icon: null),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
@@ -1937,13 +1936,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                  _iconBtn(
-                    icon: Icons.auto_awesome,
-                    color: Colors.grey.shade400,
-                    tooltip: '분석 (미지원)',
-                    onPressed: () {},
-                  ),
-                  _buildRemindIcon(file.id, color),
+                  // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                  _iconBtn(icon: null),
+                  _iconBtn(icon: null),
                   _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                   if (_isPremiumPlus)
                     _iconBtn(
@@ -2363,13 +2358,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                    _iconBtn(
-                      icon: Icons.auto_awesome,
-                      color: Colors.grey.shade400,
-                      tooltip: AppLocalizations.of(context)?.summaryUnsupported ?? '요약 미지원',
-                      onPressed: () {},
-                    ),
-                    _buildRemindIcon(file.id, color),
+                    // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                    _iconBtn(icon: null),
+                    _iconBtn(icon: null),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(

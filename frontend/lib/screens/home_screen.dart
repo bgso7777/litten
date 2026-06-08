@@ -198,6 +198,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
+  /// 외부(홈 일정)에서 캘린더로 이동했을 때, 선택된 날짜가 보이도록 포커스 월을 맞추고
+  /// 캘린더를 다시 그려 해당 날짜의 칩(일정)이 펼쳐지게 한다.
+  /// 외부(홈 일정)에서 캘린더로 이동했을 때, 캘린더 탭을 누른 것처럼
+  /// 하단 일정 리스트를 위로 펼쳐서(전체 일정) 보여준다.
+  void expandScheduleList() {
+    if (!mounted) return;
+    if (!_scheduleListVisible) {
+      setState(() => _scheduleListVisible = true);
+    }
+    debugPrint('📅 [HomeScreen] 외부 진입 → 일정 리스트 펼침');
+  }
+
   /// 외부에서 캘린더 날짜를 오늘로 변경하고 스크롤을 맨 위로
   void goToToday() {
     final now = DateTime.now();
@@ -1258,18 +1270,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   selectedBuilder: (context, day, focusedDay) {
                     // 해당 날짜의 리튼 찾기
                     final targetDate = DateTime(day.year, day.month, day.day);
-                    final littensOnDate = appState.littens.where((litten) {
-                      if (litten.title == 'undefined') return false;
-                      final littenDate = DateTime(
-                        litten.createdAt.year,
-                        litten.createdAt.month,
-                        litten.createdAt.day,
-                      );
-                      return littenDate.isAtSameMomentAs(targetDate);
-                    }).toList();
+                    final littensOnDate =
+                        _littensOccurringOn(appState.littens, targetDate);
 
-                    // 리튼 제목 (최대 1개만 표시)
-                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+                    // 리튼 제목 (최대 1개만 표시) — 같은 날짜에 2개 이상이면
+                    // 앞으로 도래할 가장 가까운 일정을 우선 표시
+                    final littenTitle = _pickUpcomingChipTitle(littensOnDate);
 
                     return Container(
                       margin: const EdgeInsets.all(4.0),
@@ -1318,18 +1324,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   todayBuilder: (context, day, focusedDay) {
                     // 해당 날짜의 리튼 찾기
                     final targetDate = DateTime(day.year, day.month, day.day);
-                    final littensOnDate = appState.littens.where((litten) {
-                      if (litten.title == 'undefined') return false;
-                      final littenDate = DateTime(
-                        litten.createdAt.year,
-                        litten.createdAt.month,
-                        litten.createdAt.day,
-                      );
-                      return littenDate.isAtSameMomentAs(targetDate);
-                    }).toList();
+                    final littensOnDate =
+                        _littensOccurringOn(appState.littens, targetDate);
 
-                    // 리튼 제목 (최대 1개만 표시)
-                    final littenTitle = littensOnDate.isNotEmpty ? littensOnDate.first.title : null;
+                    // 리튼 제목 (최대 1개만 표시) — 같은 날짜에 2개 이상이면
+                    // 앞으로 도래할 가장 가까운 일정을 우선 표시
+                    final littenTitle = _pickUpcomingChipTitle(littensOnDate);
 
                     return Container(
                       margin: const EdgeInsets.all(4.0),
@@ -1387,6 +1387,104 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         ],
       ),
     );
+  }
+
+  /// 특정 날짜(셀)에 표시할 일정(리튼) 목록.
+  /// - 생성(기준) 날짜가 해당 날짜와 같으면 포함
+  /// - 매주 반복(요일 지정) 일정은 기준 날짜 이후의 해당 요일마다 발생하므로 포함
+  /// ('undefined' 리튼 제외)
+  List<Litten> _littensOccurringOn(List<Litten> littens, DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    return littens.where((l) {
+      if (l.title == 'undefined') return false;
+      final created =
+          DateTime(l.createdAt.year, l.createdAt.month, l.createdAt.day);
+      if (created.isAtSameMomentAs(target)) return true;
+      final s = l.schedule;
+      if (s == null) return false;
+      final weekdays = <int>{};
+      for (final r in s.notificationRules) {
+        if (r.isEnabled &&
+            r.frequency == NotificationFrequency.weekly &&
+            r.weekdays != null) {
+          weekdays.addAll(r.weekdays!);
+        }
+      }
+      if (weekdays.isEmpty || !weekdays.contains(target.weekday)) return false;
+      final base = DateTime(s.date.year, s.date.month, s.date.day);
+      return !target.isBefore(base);
+    }).toList();
+  }
+
+  /// 특정 날짜(셀) 칩에 표시할 제목 목록 — 시작 시각이 이른 일정부터 최대 2개.
+  /// (예: 일요일 셀 → '주일 유년부 예배'(09:05) → '주일 대예배'(11:10))
+  List<String> _chipTitlesForDay(List<Litten> littens, DateTime day) {
+    final occurring = _littensOccurringOn(littens, day);
+    int mins(Litten l) => l.schedule == null
+        ? 24 * 60
+        : l.schedule!.startTime.hour * 60 + l.schedule!.startTime.minute;
+    occurring.sort((a, b) => mins(a).compareTo(mins(b)));
+    return occurring.take(2).map((l) => l.title).toList();
+  }
+
+  /// 날짜 셀 아래 일정 표시. 캘린더가 축소(일정 리스트 표시)되어 영역이 작으면
+  /// 테마색 점으로, 전체 화면이면 제목(좌측 정렬)으로 표시.
+  Widget _chipForDay(List<Litten> littens, DateTime day) {
+    if (_scheduleListVisible) {
+      final count = _littensOccurringOn(littens, day).length;
+      if (count == 0) return const SizedBox.shrink();
+      // 일정 개수와 무관하게 점 1개로 표시
+      final color = Theme.of(context).primaryColor;
+      return Padding(
+        padding: const EdgeInsets.only(top: 2.0),
+        child: Container(
+          width: 4,
+          height: 4,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+      );
+    }
+    return _chipTitlesColumn(_chipTitlesForDay(littens, day));
+  }
+
+  /// 칩 제목들을 날짜 셀 아래에 그리는 위젯(공통). 셀 폭을 채워 좌측 정렬.
+  Widget _chipTitlesColumn(List<String> titles) {
+    if (titles.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: titles
+              .map((title) => Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
+                    style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  /// 칩에 표시할 제목 선택.
+  /// 같은 날짜 셀에 2개 이상의 일정이 있으면 시작 시각이 가장 이른(시간순 첫) 일정을 표시한다.
+  /// (예: 일요일 셀에 '주일 유년부 예배'(09:05)와 '주일 대예배'(11:10)가 함께면 유년부 예배)
+  /// 일정(schedule)이 없는 리튼만 있으면 첫 번째 제목.
+  String? _pickUpcomingChipTitle(List<Litten> littens) {
+    if (littens.isEmpty) return null;
+    final scheduled = littens.where((l) => l.schedule != null).toList();
+    if (scheduled.isNotEmpty) {
+      int mins(Litten l) =>
+          l.schedule!.startTime.hour * 60 + l.schedule!.startTime.minute;
+      scheduled.sort((a, b) => mins(a).compareTo(mins(b)));
+      return scheduled.first.title;
+    }
+    return littens.first.title;
   }
 
   // 일정 바 오버레이 빌드
@@ -1845,21 +1943,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 );
                               },
                               defaultBuilder: (context, day, focusedDay) {
-                                final dateKey = DateFormat('yyyy-MM-dd').format(day);
-                                final littenIdsWithNotification = _notificationDateCache[dateKey] ?? {};
-
-                                final notificationTitles = littenIdsWithNotification
-                                    .take(2)
-                                    .map((littenId) {
-                                      final litten = appState.littens.firstWhere(
-                                        (l) => l.id == littenId,
-                                        orElse: () => Litten(id: '', title: '', createdAt: DateTime.now()),
-                                      );
-                                      return litten.title;
-                                    })
-                                    .where((title) => title.isNotEmpty)
-                                    .toList();
-
                                 return DragTarget<String>(
                                   onAcceptWithDetails: (details) async {
                                     try {
@@ -1904,20 +1987,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                               ),
                                             ),
                                           ),
-                                          if (notificationTitles.isNotEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 2.0, left: 2.0, right: 2.0),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: notificationTitles.map((title) => Text(
-                                                  title,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(fontSize: 8, color: Colors.grey[600], height: 1.1),
-                                                )).toList(),
-                                              ),
-                                            ),
+                                          _chipForDay(appState.littens, day),
                                         ],
                                       ),
                                     );
@@ -1925,7 +1995,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 );
                               },
                               selectedBuilder: (context, day, focusedDay) {
-                                // 축소 모드에서는 간단하게 선택된 날짜만 표시
+                                // 선택된 날짜: 원형 강조 + 해당 날짜의 칩(일정) 펼쳐서 표시
                                 return Container(
                                   margin: const EdgeInsets.all(4.0),
                                   child: Column(
@@ -1950,13 +2020,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
-                                      // 축소 모드에서는 제목 표시하지 않음 (점으로만 표시)
+                                      _chipForDay(appState.littens, day),
                                     ],
                                   ),
                                 );
                               },
                               todayBuilder: (context, day, focusedDay) {
-                                // 축소 모드에서는 간단하게 오늘 날짜만 표시
+                                // 오늘 날짜: 원형 강조 + 해당 날짜의 칩(일정) 펼쳐서 표시
                                 return Container(
                                   margin: const EdgeInsets.all(4.0),
                                   child: Column(
@@ -1981,6 +2051,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
+                                      _chipForDay(appState.littens, day),
                                     ],
                                   ),
                                 );
@@ -2068,17 +2139,17 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           }
         }
       } else if (start.isAfter(todayOnly)) {
-        final diff = start.difference(todayOnly).inDays;
-        if (nearestDays == -1 || diff < nearestDays) {
-          nearestDays = diff;
-          // 실제 일정 시작 시각까지 남은 초 계산 (시간 표시용)
-          final futureScheduleStart = tz.TZDateTime(
-            getTimezoneForLanguage(languageCode),
-            start.year, start.month, start.day,
-            litten.schedule!.startTime.hour,
-            litten.schedule!.startTime.minute,
-          );
-          nearestFutureSeconds = futureScheduleStart.difference(now).inSeconds;
+        // 실제 일정 시작 시각까지 남은 초로 비교 → 같은 날이면 시작 시각이 이른 일정 우선
+        final futureScheduleStart = tz.TZDateTime(
+          getTimezoneForLanguage(languageCode),
+          start.year, start.month, start.day,
+          litten.schedule!.startTime.hour,
+          litten.schedule!.startTime.minute,
+        );
+        final diffSec = futureScheduleStart.difference(now).inSeconds;
+        if (nearestFutureSeconds == null || diffSec < nearestFutureSeconds) {
+          nearestDays = start.difference(todayOnly).inDays;
+          nearestFutureSeconds = diffSec;
           if (nearestTodaySeconds == null) nearestTitle = litten.title;
         }
       }

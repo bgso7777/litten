@@ -20,7 +20,7 @@ class HomeDashboardScreen extends StatelessWidget {
       builder: (context, appState, _) {
         final pendingRemind =
             appState.remindItems.where((i) => !i.isDone).length;
-        final upcoming = _upcomingLittens(appState.littens);
+        final upcoming = _upcomingSchedules(appState.littens);
 
         // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
         return Column(
@@ -45,17 +45,22 @@ class HomeDashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── 최근/최신 일정 ──
-                  _SectionTitle(icon: Icons.event_note, title: '최근 일정'),
+                  // ── 일정 (앞으로 도래할 순서, 최대 2개) ──
+                  _SectionTitle(icon: Icons.event_note, title: '일정'),
                   const SizedBox(height: 8),
                   if (upcoming.isEmpty)
                     _EmptyHint(text: '예정된 일정이 없습니다')
                   else
                     ...upcoming.map(
-                      (l) => _ScheduleTile(
-                        litten: l,
+                      (e) => _ScheduleTile(
+                        litten: e.litten,
+                        when: e.when,
                         onTap: () {
-                          appState.selectLitten(l);
+                          // 일정/리튼을 선택하지 않고 캘린더로 이동.
+                          // 날짜 선택은 해제(특정 날짜 필터로 목록이 비는 것 방지)하고,
+                          // 캘린더 탭을 눌렀을 때처럼 전체 일정 리스트를 위로 펼쳐서 보여준다.
+                          appState.clearDateSelection();
+                          appState.requestExpandScheduleList();
                           appState.changeTabIndex(_calendarTabIndex);
                         },
                       ),
@@ -87,25 +92,60 @@ class HomeDashboardScreen extends StatelessWidget {
     );
   }
 
-  /// 다가오는 일정 우선(오늘 이후), 없으면 최신순. 시스템 기본('undefined') 제외. 상위 5개.
-  List<Litten> _upcomingLittens(List<Litten> littens) {
+  /// 앞으로 도래할 일정을 "다음 발생 시각(반복 포함)" 가까운 순으로 정렬해 상위 2개.
+  /// 주간 반복(매주 특정 요일) 일정은 다음 발생 요일을 계산해 사용한다.
+  /// 시스템 기본('undefined') 제외. 도래할 일정이 없으면 빈 목록.
+  List<({Litten litten, DateTime when})> _upcomingSchedules(
+      List<Litten> littens) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final scheduled = littens
-        .where((l) => l.title != 'undefined' && l.schedule != null)
-        .toList();
+    final result = <({Litten litten, DateTime when})>[];
+    for (final l in littens) {
+      if (l.title == 'undefined' || l.schedule == null) continue;
+      final when = _nextOccurrence(l.schedule!, now);
+      if (when != null) result.add((litten: l, when: when));
+    }
+    result.sort((a, b) => a.when.compareTo(b.when));
+    return result.take(2).toList();
+  }
 
-    final upcoming = scheduled.where((l) {
-      final d = l.schedule!.endDate ?? l.schedule!.date;
-      return !d.isBefore(today);
-    }).toList()
-      ..sort((a, b) => a.schedule!.date.compareTo(b.schedule!.date));
+  /// 일정의 "다음 발생 시각"을 계산한다.
+  /// - 매주 반복(요일 지정) 일정: 오늘부터 7일 내에서 지정 요일 중 아직 끝나지 않은 가장 가까운 발생
+  /// - 비반복 일정: 기준 날짜의 종료 시각이 아직 지나지 않았으면 그 시작 시각, 지났으면 null
+  static DateTime? _nextOccurrence(LittenSchedule s, DateTime now) {
+    final weekdays = <int>{}; // 1=월 … 7=일 (DateTime.weekday와 동일)
+    for (final r in s.notificationRules) {
+      if (r.isEnabled &&
+          r.frequency == NotificationFrequency.weekly &&
+          r.weekdays != null) {
+        weekdays.addAll(r.weekdays!);
+      }
+    }
+    final start = s.startTime;
+    final end = s.endTime;
 
-    if (upcoming.isNotEmpty) return upcoming.take(5).toList();
+    if (weekdays.isNotEmpty) {
+      final base = DateTime(now.year, now.month, now.day);
+      for (int i = 0; i <= 7; i++) {
+        final day = base.add(Duration(days: i));
+        if (!weekdays.contains(day.weekday)) continue;
+        final endDt =
+            DateTime(day.year, day.month, day.day, end.hour, end.minute);
+        if (endDt.isAfter(now)) {
+          return DateTime(
+              day.year, day.month, day.day, start.hour, start.minute);
+        }
+      }
+      return null;
+    }
 
-    // 다가오는 일정이 없으면 최신 수정순
-    scheduled.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return scheduled.take(5).toList();
+    // 비반복: 기준 날짜(종료일 우선)의 종료 시각이 지나지 않았으면 시작 시각
+    final d = s.endDate ?? s.date;
+    final endDt = DateTime(d.year, d.month, d.day, end.hour, end.minute);
+    if (endDt.isAfter(now)) {
+      return DateTime(
+          s.date.year, s.date.month, s.date.day, start.hour, start.minute);
+    }
+    return null;
   }
 }
 
@@ -170,13 +210,16 @@ class _RemindSummaryCard extends StatelessWidget {
 
 class _ScheduleTile extends StatelessWidget {
   final Litten litten;
+  final DateTime when; // 다음 발생 시각(반복 포함)
   final VoidCallback onTap;
-  const _ScheduleTile({required this.litten, required this.onTap});
+  const _ScheduleTile(
+      {required this.litten, required this.when, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
-    final dateStr = DateFormat('M/d').format(litten.schedule!.date);
+    // 다음 발생 날짜 + 시작 시각 표시 (예: 6/14 09:05)
+    final dateStr = DateFormat('M/d HH:mm').format(when);
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -185,10 +228,21 @@ class _ScheduleTile extends StatelessWidget {
         side: BorderSide(color: color.withValues(alpha: 0.15)),
       ),
       child: ListTile(
+        dense: true,
         leading: Icon(Icons.event, color: color),
-        title: Text(litten.title,
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(dateStr),
+        // 제목 + 날짜를 한 줄로 표시
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(litten.title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            Text(dateStr,
+                style: TextStyle(
+                    fontSize: 13, color: color, fontWeight: FontWeight.w500)),
+          ],
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
@@ -223,7 +277,7 @@ class _ShareTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Card(
         elevation: 0,
         color: color.withValues(alpha: 0.05),
@@ -251,6 +305,12 @@ class _ShareTabs extends StatelessWidget {
               tabs: [
                 Tab(
                   child: _ShareTabLabel(
+                      icon: Icons.all_inbox_outlined,
+                      label: '전체',
+                      count: sharedInCount + sharedOutCount),
+                ),
+                Tab(
+                  child: _ShareTabLabel(
                       icon: Icons.download_outlined,
                       label: '공유 받은 것',
                       count: sharedInCount),
@@ -266,6 +326,8 @@ class _ShareTabs extends StatelessWidget {
             const Expanded(
               child: TabBarView(
                 children: [
+                  // 전체: 공유 받은 것 + 공유한 것을 시간 순서대로
+                  _SharePanel(label: '전체 (받은 것·공유한 것 시간순)'),
                   _SharePanel(label: '공유 받은 것'),
                   _SharePanel(label: '공유한 것'),
                 ],
