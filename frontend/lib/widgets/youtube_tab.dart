@@ -890,6 +890,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   // 로컬 모드: RSS로 받은 전체 영상 캐시(채널별) → 3개씩 페이지로 슬라이스
   final Map<String, List<YoutubeVideo>> _localRssCache = {};
   static const int _localPageSize = 3;
+  // 무료(Free) 플랜의 채널별 영상 페이지 상한(로컬 RSS). 스탠다드 이상은 서버 전체 페이지.
+  static const int _freeMaxPages = 5;
 
   @override
   bool get wantKeepAlive => true;
@@ -990,41 +992,58 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
     setState(() => _loadingVideoKeys.add(key));
-    // 비로그인(스탠다드): 서버 우선(백엔드가 수집한 영상) → 없으면 RSS 폴백
-    if (_localMode) {
-      // 1) 서버 우선: device-uuid 헤더로 인증해 백엔드가 수집·요약한 영상을 가져온다.
-      final serverResult = await _apiService.getYoutubeVideos(channelId: channelId, page: page, size: _localPageSize);
-      if (serverResult.videos.isNotEmpty) {
-        debugPrint('[YoutubeTab] 로컬-서버 영상 로드 ($channelId) page $page: ${serverResult.videos.length}개, 총 ${serverResult.totalPages}페이지');
+
+    // 영상 소스/페이지 한도는 구독 플랜 기준으로 가른다(전체탭과 동일 기준).
+    // - 무료(Free): 로컬 RSS만, 채널별 최대 5페이지(=3×5≈15개).
+    // - 스탠다드 이상(isPremiumUser): 서버에 저장된 전체를 페이지별로(서버 제목 기준).
+    final isPaid = Provider.of<AppStateProvider>(context, listen: false).isPremiumUser;
+
+    if (!isPaid) {
+      try {
+        var all = _localRssCache[channelId];
+        if (all == null) {
+          all = await _rssService.fetchChannelVideos(channelId);
+          _localRssCache[channelId] = all;
+        }
+        final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
+        debugPrint('[YoutubeTab] 무료 RSS 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
         if (mounted) setState(() {
-          _videoPageData.putIfAbsent(channelId, () => {})[page] = serverResult.videos;
-          _videoTotalPages[channelId] = serverResult.totalPages;
+          _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
+          _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, _freeMaxPages);
           _loadingVideoKeys.remove(key);
         });
-        return;
+      } catch (e) {
+        debugPrint('❌ [YoutubeTab] 무료 RSS 영상 로드 실패 ($channelId): $e');
+        if (mounted) setState(() {
+          _videoPageData.putIfAbsent(channelId, () => {})[page] = [];
+          _loadingVideoKeys.remove(key);
+        });
       }
-      // 2) RSS 폴백: 서버에 아직 영상이 없으면(스케줄러 미수집 등) RSS로 즉시 표시
-      var all = _localRssCache[channelId];
-      if (all == null) {
-        all = await _rssService.fetchChannelVideos(channelId);
-        _localRssCache[channelId] = all;
-      }
-      final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
-      debugPrint('[YoutubeTab] 로컬-RSS 폴백 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
-      if (mounted) setState(() {
-        _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
-        _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, 9999);
-        _loadingVideoKeys.remove(key);
-      });
       return;
     }
-    final result = await _apiService.getYoutubeVideos(token: _token!, channelId: channelId, page: page, size: 3);
-    debugPrint('[YoutubeTab] 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
-    if (mounted) setState(() {
-      _videoPageData.putIfAbsent(channelId, () => {})[page] = result.videos;
-      _videoTotalPages[channelId] = result.totalPages;
-      _loadingVideoKeys.remove(key);
-    });
+
+    // 스탠다드 이상: 서버 전체 페이지 (프리미엄=토큰, 스탠다드 비로그인=게스트 device-uuid)
+    final hasToken = _token != null && _token!.isNotEmpty;
+    try {
+      final result = hasToken
+          ? await _apiService.getYoutubeVideos(token: _token!, channelId: channelId, page: page, size: _localPageSize)
+          : await _apiService.getYoutubeVideos(channelId: channelId, page: page, size: _localPageSize);
+      // 빈 응답(videos 0 && totalPages 0)은 타임아웃/오류로 간주 — 페이지 수 보존 + 캐시 안 함(재시도 가능).
+      if (result.videos.isEmpty && result.totalPages == 0) {
+        debugPrint('[YoutubeTab] 서버 영상 로드 빈 응답(일시 실패 추정) - page $page 보류, 재시도 가능');
+        if (mounted) setState(() => _loadingVideoKeys.remove(key));
+        return;
+      }
+      debugPrint('[YoutubeTab] 서버 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
+      if (mounted) setState(() {
+        _videoPageData.putIfAbsent(channelId, () => {})[page] = result.videos;
+        _videoTotalPages[channelId] = result.totalPages;
+        _loadingVideoKeys.remove(key);
+      });
+    } catch (e) {
+      debugPrint('❌ [YoutubeTab] 서버 영상 로드 실패 ($channelId, page $page): $e');
+      if (mounted) setState(() => _loadingVideoKeys.remove(key));
+    }
   }
 
   void _toggleChannel(YoutubeChannel ch) {

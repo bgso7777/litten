@@ -446,6 +446,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final result = _youtubeToken != null
           ? await _apiService.getYoutubeVideos(token: _youtubeToken!, channelId: channelId, page: page, size: _localPageSize)
           : await _apiService.getYoutubeVideos(channelId: channelId, page: page, size: _localPageSize);
+      // 빈 응답(videos 0 && totalPages 0)은 타임아웃/오류로 간주한다. 서버가 일시 지연될 때
+      // 기존 페이지 수(예: 26)를 0으로 무너뜨리고 빈 페이지를 캐시하면 '영상 없음'으로 잘못 보이고
+      // 재시도도 막힌다. → 캐시하지 않고 로딩 키만 풀어 다음 진입/넘김 때 재시도되게 둔다.
+      if (result.videos.isEmpty && result.totalPages == 0) {
+        debugPrint('[AllFilesTab] 서버 영상 로드 빈 응답(일시 실패 추정) - page $page 보류, 재시도 가능');
+        if (mounted) setState(() => _loadingVideoKeys.remove(key));
+        return;
+      }
       debugPrint('[AllFilesTab] 서버 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
       if (mounted) setState(() {
         _videoPageData.putIfAbsent(channelId, () => {})[page] = result.videos;
@@ -455,10 +463,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _loadVideoSummaryFlags(result.videos); // 요약 존재 여부 비동기 조회
     } catch (e) {
       debugPrint('❌ [AllFilesTab] 서버 영상 로드 실패 ($channelId, page $page): $e');
-      if (mounted) setState(() {
-        _videoPageData.putIfAbsent(channelId, () => {})[page] = [];
-        _loadingVideoKeys.remove(key);
-      });
+      // 실패 페이지를 캐시하지 않아 재시도 가능하게 둔다(페이지 수도 보존).
+      if (mounted) setState(() => _loadingVideoKeys.remove(key));
     }
   }
 
@@ -710,9 +716,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
             Expanded(
               child: Text(
                 video.title,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
-                  color: canOpen ? Colors.black87 : Colors.grey,
+                  color: Colors.black87,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
