@@ -279,14 +279,21 @@ class SyncService {
     // 필기 파일
     final hwFiles = await _fileStorage.loadHandwritingFiles(littenId);
     for (final file in hwFiles) {
-      final filePath = file.isMultiPage
+      // 단일 PDF(문서 변환) 필기는 원본 .pdf 경로/이름으로 업로드해 다른 기기에서 PDF로 복원되게 한다.
+      final isPdfDoc = file.type == HandwritingType.pdfConvert &&
+          !file.isMultiPage &&
+          file.imagePath.toLowerCase().endsWith('.pdf');
+      final filePath = (file.isMultiPage || isPdfDoc)
           ? file.imagePath
           : '${appDir.path}/littens/$littenId/handwriting/${file.id}_drawing.png';
+      final uploadName = isPdfDoc
+          ? (file.displayTitle.toLowerCase().endsWith('.pdf') ? file.displayTitle : '${file.displayTitle}.pdf')
+          : '${file.displayTitle}_drawing.png';
       if (file.cloudId == null) {
         // 신규: 클라우드에 없는 파일 업로드
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'handwriting',
-          fileName: '${file.displayTitle}_drawing.png', filePath: filePath, localUpdatedAt: file.updatedAt,
+          fileName: uploadName, filePath: filePath, localUpdatedAt: file.updatedAt,
         );
       } else if (_isModifiedLocally(file.updatedAt, file.cloudUpdatedAt)) {
         // 수정: 로컬이 클라우드보다 최신이면 업데이트
@@ -832,6 +839,9 @@ class SyncService {
       if (fileType == 'attachment') {
         final dot = cloudFileName.lastIndexOf('.');
         ext = dot >= 0 ? cloudFileName.substring(dot) : '';
+      } else if (fileType == 'handwriting' && cloudFileName.toLowerCase().endsWith('.pdf')) {
+        // PDF 변환 필기: 원본 .pdf로 저장해 수신 기기에서도 PDF 뷰어로 열리게 한다.
+        ext = '.pdf';
       } else {
         ext = _getFileExtension(fileType);
       }
@@ -882,6 +892,8 @@ class SyncService {
     } else if (fileType == 'handwriting') {
       // 클라우드 fileName에서 표시 제목 추출
       final displayTitle = _extractHandwritingTitle(cloudFileName, cloudUpdatedAt);
+      // PDF 변환 필기(.pdf 원본)는 수신 측에서도 PDF 뷰어로 열리도록 pdfConvert 타입으로 복원한다.
+      final isPdf = localPath.toLowerCase().endsWith('.pdf') || cloudFileName.toLowerCase().endsWith('.pdf');
       final files = await _fileStorage.loadHandwritingFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
@@ -895,6 +907,7 @@ class SyncService {
           littenId: littenId,
           title: uniqueTitle,
           imagePath: localPath,
+          type: isPdf ? HandwritingType.pdfConvert : HandwritingType.drawing,
           cloudId: cloudId,
           cloudUpdatedAt: cloudUpdatedAt,
           syncStatus: SyncStatus.synced,
@@ -1118,6 +1131,8 @@ class SyncService {
   // - 구버전 업로드: "UUID_drawing.png" → UUID → 날짜 기반 대체
   String _extractHandwritingTitle(String cloudFileName, DateTime cloudUpdatedAt) {
     if (cloudFileName.isEmpty) return _dateBasedName('필기', cloudUpdatedAt);
+    // PDF 변환 필기는 확장자(.pdf)를 제목에 그대로 보존한다(목록에 .pdf 노출).
+    if (cloudFileName.toLowerCase().endsWith('.pdf')) return cloudFileName;
     final name = cloudFileName
         .replaceAll(RegExp(r'\.(png|jpg|jpeg)$', caseSensitive: false), '')
         .replaceAll('_drawing', '');

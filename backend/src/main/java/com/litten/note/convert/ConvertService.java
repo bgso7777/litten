@@ -33,8 +33,14 @@ public class ConvertService {
             file.transferTo(inputFile);
             log.info("[ConvertService] 임시 파일 저장 - path: {}", inputFile);
 
+            // 요청마다 고유 사용자 프로필 디렉토리를 지정한다.
+            // 기본 공유 프로필(~/.config/libreoffice)을 쓰면 변환이 반복/동시 실행될 때
+            // 프로필 락 때문에 두 번째 이후 인스턴스가 기존 인스턴스로 핸드오프되며 멈춰(타임아웃) 버린다.
+            // UserInstallation을 요청별 임시 디렉토리로 분리하면 각 변환이 독립적으로 실행된다.
+            Path profileDir = tempDir.resolve("lo_profile");
             ProcessBuilder pb = new ProcessBuilder(
                 LIBREOFFICE_CMD,
+                "-env:UserInstallation=file://" + profileDir.toString(),
                 "--headless",
                 "--norestore",
                 "--nofirststartwizard",

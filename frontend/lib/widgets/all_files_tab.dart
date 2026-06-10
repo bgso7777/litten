@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -72,11 +73,6 @@ class _AllFilesTabState extends State<AllFilesTab> {
   bool _loadingChannels = false;
   // 영상 채널 표시 ON 시 자동 로드를 1회만 트리거하기 위한 플래그 (무한 리로드 방지)
   bool _youtubeAutoLoadRequested = false;
-  // 영상 구독 섹션 ↔ 파일 목록 분할 비율 (상단 영상 영역 비율, 드래그로 조절)
-  double _youtubeSplitRatio = 0.5;
-  // 영상 섹션 자연 높이가 영역의 50%를 넘는지 (넘을 때만 분할+구분선 표시)
-  bool _youtubeContentOverflow = false;
-  final GlobalKey _youtubeAreaKey = GlobalKey();
   final Map<String, Map<int, List<YoutubeVideo>>> _videoPageData = {};
   final Map<String, int> _videoTotalPages = {};
   final Set<String> _loadingVideoKeys = {}; // "${channelId}_${page}"
@@ -85,9 +81,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // 로컬(비로그인) 모드: RSS로 받은 전체 영상 캐시(채널별) → 3개씩 페이지로 슬라이스
   final Map<String, List<YoutubeVideo>> _localRssCache = {};
   static const int _localPageSize = 3;
+  // 무료(Free) 플랜의 채널별 영상 페이지 상한(로컬 RSS). 스탠다드 이상은 서버 전체 페이지.
+  static const int _freeMaxPages = 5;
   // 채널별 확인 상태(로컬) + 최신 영상 게시일(RSS) — 새 영상 아이콘/정렬용
   Map<String, ChannelWatchState> _watchStates = {};
   final Map<String, DateTime?> _latestVideoAt = {};
+  // 채널 추가(등록) 시각 — 전체탭 시간순 정렬에서 "추가하면 맨 위"를 위해 사용.
+  // 최초 발견 채널은 최신 영상일자로 시드(점프 방지), 이후 새로 추가된 채널만 now() 기록.
+  static const String _kChannelAddedAtKey = 'yt_channel_added_at';
+  Map<String, DateTime> _channelAddedAt = {};
   // 클라우드 동기화·공유는 프리미엄(서버 보관) 전용 → 무료/스탠다드는 숨김
   bool get _isPremiumPlus =>
       Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser;
@@ -252,10 +254,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
-  /// 전체탭 당겨서 새로고침: 파일 목록과 영상(구독 채널)을 함께 갱신한다.
-  /// (영상 섹션 표시 여부와 무관하게 둘 다 리프레시 — _loadYoutubeChannels는 OFF면 내부에서 생략)
+  /// 전체탭 당겨서 새로고침: 클라우드 동기화 후 파일 목록과 영상(구독 채널)을 함께 갱신한다.
+  /// 동기화를 먼저 await해야 다른 기기에서 수정/추가한 내용이 내려온 뒤 로컬을 다시 읽는다.
+  /// (이게 없으면 로컬만 재로드해 다른 기기 수정분이 반영되지 않음)
   Future<void> _refreshFilesAndVideos(AppStateProvider appState) async {
-    debugPrint('🔄 [AllFilesTab] 당겨서 새로고침 - 파일 + 영상');
+    debugPrint('🔄 [AllFilesTab] 당겨서 새로고침 - 동기화 + 파일 + 영상');
+    // 1) 클라우드 동기화(다른 기기 변경분 다운로드 + 로컬 미동기화 업로드)
+    final littenIds = appState.littens.map((l) => l.id).toList();
+    await SyncService.instance.syncOnNoteTab(littenIds);
+    // 2) 로컬 파일 + 영상 채널 갱신
     await Future.wait([
       _loadFiles(appState),
       _loadYoutubeChannels(),
@@ -317,7 +324,50 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Future<void> _applyNewVideoData(List<YoutubeChannel> channels) async {
     _watchStates = await ChannelWatchService.loadAll();
     await _loadLatestVideoTimes(channels);
+    await _reconcileChannelAddedAt(channels);
     channels.sort(_compareChannels);
+  }
+
+  /// 채널 추가 시각 맵 동기화. 최초 1회(저장값 없음)에는 모든 채널을 최신 영상일자로 시드해
+  /// 일괄 상단 점프를 막고, 이후 새로 등록된 채널만 now()로 기록해 "추가하면 맨 위"가 되게 한다.
+  Future<void> _reconcileChannelAddedAt(List<YoutubeChannel> channels) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kChannelAddedAtKey);
+    final firstBuild = raw == null;
+    final map = <String, DateTime>{};
+    if (raw != null) {
+      try {
+        (jsonDecode(raw) as Map<String, dynamic>).forEach((k, v) {
+          final t = DateTime.tryParse(v.toString());
+          if (t != null) map[k] = t;
+        });
+      } catch (_) {}
+    }
+    final now = DateTime.now();
+    final present = <String>{};
+    for (final ch in channels) {
+      present.add(ch.channelId);
+      if (map.containsKey(ch.channelId)) continue;
+      // 최초 빌드: 영상일자로 시드(점프 방지) / 이후: 신규 추가 → now()로 맨 위
+      map[ch.channelId] = firstBuild
+          ? (_latestVideoAt[ch.channelId] ?? DateTime.fromMillisecondsSinceEpoch(0))
+          : now;
+    }
+    map.removeWhere((k, _) => !present.contains(k)); // 구독 해제 채널 정리
+    await prefs.setString(
+      _kChannelAddedAtKey,
+      jsonEncode(map.map((k, v) => MapEntry(k, v.toIso8601String()))),
+    );
+    _channelAddedAt = map;
+  }
+
+  /// 전체탭 시간순 정렬용 채널 시각 = max(추가 시각, 최신 영상 게시일).
+  /// 추가 직후엔 추가 시각(now)으로 맨 위, 이후 더 최신 영상이 올라오면 그 게시일로 갱신.
+  DateTime _channelSortAt(YoutubeChannel ch) {
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    final added = _channelAddedAt[ch.channelId] ?? epoch;
+    final video = _latestVideoAt[ch.channelId] ?? epoch;
+    return added.isAfter(video) ? added : video;
   }
 
   /// 각 채널 최신 영상 게시일을 RSS로 병렬 조회 (무인증)
@@ -340,14 +390,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   /// 정렬: 새 영상 있는 채널 우선 → 최신 영상 게시일 내림차순 → id 내림차순
+  // 등록순(채널을 추가한 순서) 정렬: id 오름차순. (전체탭에서 파일은 수정일순, 영상은 등록순으로 합쳐 표시)
   int _compareChannels(YoutubeChannel a, YoutubeChannel b) {
-    final an = _hasNewVideo(a), bn = _hasNewVideo(b);
-    if (an != bn) return an ? -1 : 1;
-    final at = _latestVideoAt[a.channelId], bt = _latestVideoAt[b.channelId];
-    if (at != null && bt != null) return bt.compareTo(at);
-    if (at != null) return -1;
-    if (bt != null) return 1;
-    return b.id.compareTo(a.id);
+    return a.id.compareTo(b.id);
   }
 
   /// 채널을 펼쳐 영상을 확인한 것으로 처리 (최신 영상 시각 저장 → 새 영상 아이콘 끔)
@@ -363,8 +408,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (_loadingVideoKeys.contains(key)) return;
     if (_videoPageData[channelId]?[page] != null) return;
 
-    // 로컬(비로그인, 스탠다드): RSS 전체를 캐시 후 3개씩 슬라이스해 서버 모드와 동일하게 페이지네이션
-    if (_youtubeToken == null) {
+    // 영상 소스/페이지 한도는 구독 플랜 기준으로 가른다.
+    // - 무료(Free): 로컬 RSS만, 채널별 최대 5페이지(=3×5≈15개).
+    // - 스탠다드 이상(isPremiumUser): 서버에 저장된 전체를 페이지별로(서버 제목 기준).
+    final isPaid = Provider.of<AppStateProvider>(context, listen: false).isPremiumUser;
+
+    if (!isPaid) {
       setState(() => _loadingVideoKeys.add(key));
       try {
         var all = _localRssCache[channelId];
@@ -373,15 +422,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
           _localRssCache[channelId] = all;
         }
         final pageVids = all.skip(page * _localPageSize).take(_localPageSize).toList();
-        debugPrint('[AllFilesTab] 로컬 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
+        debugPrint('[AllFilesTab] 무료 로컬 영상 로드 ($channelId) page $page: ${pageVids.length}/${all.length}개');
         if (mounted) setState(() {
           _videoPageData.putIfAbsent(channelId, () => {})[page] = pageVids;
-          _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, 9999);
+          // 무료는 최대 5페이지로 상한
+          _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, _freeMaxPages);
           _loadingVideoKeys.remove(key);
         });
         _loadVideoSummaryFlags(pageVids); // 요약 존재 여부 비동기 조회
       } catch (e) {
-        debugPrint('❌ [AllFilesTab] 로컬 RSS 영상 로드 실패 ($channelId): $e');
+        debugPrint('❌ [AllFilesTab] 무료 RSS 영상 로드 실패 ($channelId): $e');
         if (mounted) setState(() {
           _videoPageData.putIfAbsent(channelId, () => {})[page] = [];
           _loadingVideoKeys.remove(key);
@@ -390,10 +440,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
       return;
     }
 
+    // 스탠다드 이상: 서버 전체 페이지 (프리미엄=토큰, 스탠다드 비로그인=게스트 device-uuid)
     setState(() => _loadingVideoKeys.add(key));
     try {
-      final result = await _apiService.getYoutubeVideos(token: _youtubeToken!, channelId: channelId, page: page, size: 3);
-      debugPrint('[AllFilesTab] 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
+      final result = _youtubeToken != null
+          ? await _apiService.getYoutubeVideos(token: _youtubeToken!, channelId: channelId, page: page, size: _localPageSize)
+          : await _apiService.getYoutubeVideos(channelId: channelId, page: page, size: _localPageSize);
+      debugPrint('[AllFilesTab] 서버 영상 로드 ($channelId, page $page): ${result.videos.length}개, 총 ${result.totalPages}페이지');
       if (mounted) setState(() {
         _videoPageData.putIfAbsent(channelId, () => {})[page] = result.videos;
         _videoTotalPages[channelId] = result.totalPages;
@@ -401,7 +454,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       });
       _loadVideoSummaryFlags(result.videos); // 요약 존재 여부 비동기 조회
     } catch (e) {
-      debugPrint('❌ [AllFilesTab] 영상 로드 실패 ($channelId, page $page): $e');
+      debugPrint('❌ [AllFilesTab] 서버 영상 로드 실패 ($channelId, page $page): $e');
       if (mounted) setState(() {
         _videoPageData.putIfAbsent(channelId, () => {})[page] = [];
         _loadingVideoKeys.remove(key);
@@ -1042,23 +1095,39 @@ class _AllFilesTabState extends State<AllFilesTab> {
       );
     }
 
-    // 파일 목록 슬리버 (결합/분할 양쪽에서 재사용)
-    final fileSliver = SliverPadding(
+    // 파일 + 영상 채널을 하나의 시간순 목록으로 완전히 섞는다.
+    // 정렬 키: 파일=수정일(updatedAt), 채널=최신 영상 게시일(_latestVideoAt = "채널에 영상 제목이 생긴 일시").
+    // 게시일을 아직 모르는 채널(epoch)은 목록 맨 아래로 내려가고 날짜 헤더를 붙이지 않는다.
+    final List<({DateTime sortAt, _MergedFile? file, YoutubeChannel? channel})> items = [
+      for (final f in merged) (sortAt: f.sortAt, file: f, channel: null),
+      if (showYoutubeSection)
+        for (final ch in _youtubeChannels)
+          (sortAt: _channelSortAt(ch), file: null, channel: ch),
+    ];
+    items.sort((a, b) => b.sortAt.compareTo(a.sortAt));
+
+    final listSliver = SliverPadding(
       padding: const EdgeInsets.only(bottom: 80),
       sliver: SliverList.builder(
-        itemCount: merged.length,
+        itemCount: items.length,
         itemBuilder: (context, index) {
-          final entry = merged[index];
-          final currentDate = DateTime(entry.sortAt.year, entry.sortAt.month, entry.sortAt.day);
-          final showDateHeader = index == 0 ||
-              DateTime(merged[index - 1].sortAt.year, merged[index - 1].sortAt.month, merged[index - 1].sortAt.day) != currentDate;
+          final entry = items[index];
+          final at = entry.sortAt;
+          final currentDate = DateTime(at.year, at.month, at.day);
+          final prevAt = index == 0 ? null : items[index - 1].sortAt;
+          // 날짜 헤더: 직전 항목과 날짜가 다를 때만. 게시일 미상(epoch, 2000년 이전)은 헤더 생략.
+          final showDateHeader = at.year >= 2000 &&
+              (prevAt == null || DateTime(prevAt.year, prevAt.month, prevAt.day) != currentDate);
 
-          final card = switch (entry.type) {
-            _FileType.text => _buildTextCard(entry.file as TextFile),
-            _FileType.handwriting => _buildHandwritingCard(entry.file as HandwritingFile),
-            _FileType.audio => _buildAudioCard(entry.file as AudioFile),
-            _FileType.attachment => _buildAttachmentCard(entry.file as AttachmentFile),
-          };
+          final f = entry.file;
+          final Widget card = f != null
+              ? switch (f.type) {
+                  _FileType.text => _buildTextCard(f.file as TextFile),
+                  _FileType.handwriting => _buildHandwritingCard(f.file as HandwritingFile),
+                  _FileType.audio => _buildAudioCard(f.file as AudioFile),
+                  _FileType.attachment => _buildAttachmentCard(f.file as AttachmentFile),
+                }
+              : _buildYoutubeChannelCard(entry.channel!);
 
           if (showDateHeader) {
             return Column(
@@ -1071,140 +1140,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
       ),
     );
 
-    // 영상 섹션 미표시: 파일 목록만 (단일 스크롤). 당겨서 새로고침 시 파일+영상 모두 갱신.
-    if (!showYoutubeSection) {
-      return RefreshIndicator(
-        onRefresh: () => _refreshFilesAndVideos(appState),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [fileSliver],
-        ),
-      );
-    }
-
-    // 영상 구독 섹션 콘텐츠 (Column으로 구성 → 자연 높이 측정 가능, 분할/결합 공용)
-    final youtubeColumn = Column(
-      key: _youtubeAreaKey,
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildYoutubeSectionHeader(),
-        if (_loadingChannels)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-          )
-        else
-          ..._youtubeChannels.map(_buildYoutubeChannelCard),
-        const SizedBox(height: 4),
-      ],
-    );
-
-    final color = Theme.of(context).primaryColor;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final h = constraints.maxHeight;
-        // 영상 섹션 자연 높이를 측정해 50% 초과 여부 갱신 (값이 바뀔 때만 setState → 루프 방지)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final ctx = _youtubeAreaKey.currentContext;
-          if (ctx == null || !mounted) return;
-          final natural = ctx.size?.height ?? 0;
-          final over = natural > h * 0.5;
-          if (over != _youtubeContentOverflow) {
-            setState(() => _youtubeContentOverflow = over);
-          }
-        });
-
-        // 분할(구분선) 조건: 영상 섹션이 50% 초과 + 채널 ≥1 + 파일 ≥1
-        final showSplit = _youtubeContentOverflow && _youtubeChannels.isNotEmpty && merged.isNotEmpty;
-
-        if (!showSplit) {
-          // 결합: 영상 섹션 + 파일 목록을 한 스크롤로 (구분선 없음). 당겨서 파일+영상 모두 새로고침.
-          return RefreshIndicator(
-            onRefresh: () => _refreshFilesAndVideos(appState),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: youtubeColumn),
-                fileSliver,
-              ],
-            ),
-          );
-        }
-
-        // 분할: 상단 영상(드래그 비율) + 구분선 핸들 + 하단 파일
-        final topHeight = (h * _youtubeSplitRatio).clamp(h * 0.2, h * 0.8);
-        return Column(
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: topHeight),
-              // 상단 영상 영역을 당겨 새로고침 → 파일+영상 모두 리프레시
-              child: RefreshIndicator(
-                onRefresh: () => _refreshFilesAndVideos(appState),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: youtubeColumn,
-                ),
-              ),
-            ),
-            // 드래그로 상/하 영역 비율 조절하는 분할 핸들
-            MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (details) {
-                  setState(() {
-                    _youtubeSplitRatio =
-                        ((topHeight + details.delta.dy) / h).clamp(0.2, 0.8);
-                  });
-                },
-                child: Container(
-                  height: 14,
-                  color: color.withValues(alpha: 0.12),
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 48,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // 하단 파일 영역을 당겨도 파일+영상 모두 리프레시
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () => _refreshFilesAndVideos(appState),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [fileSliver],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildYoutubeSectionHeader() {
-    final color = Theme.of(context).primaryColor;
-    return Padding(
-      padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
-      child: Row(
-        children: [
-          Icon(Icons.subscriptions_outlined, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text('영상', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-          const SizedBox(width: 8),
-          Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.2))),
-          if (_loadingChannels) ...[
-            const SizedBox(width: 8),
-            const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5)),
-          ],
-        ],
+    return RefreshIndicator(
+      onRefresh: () => _refreshFilesAndVideos(appState),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [listSliver],
       ),
     );
   }
@@ -1738,12 +1678,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final docDir = await getApplicationDocumentsDirectory();
       final dir = Directory('${docDir.path}/littens/${selectedLitten.id}/handwriting');
       if (!await dir.exists()) await dir.create(recursive: true);
-      final titleWithoutExt = pdfName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-
       // 2) HandwritingFile 메타데이터 (imagePath = 절대 PDF 경로, 단일 파일)
+      // 제목에 .pdf 확장자를 그대로 노출한다(목록에서 PDF임을 표시 + 동기화 fileName과 일치).
       final newFile = HandwritingFile(
         littenId: selectedLitten.id,
-        title: titleWithoutExt,
+        title: pdfName,
         imagePath: '',
         type: HandwritingType.pdfConvert,
       );
@@ -1760,6 +1699,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
       await LittenService().addHandwritingFileToLitten(
         selectedLitten.id,
         saved.id,
+      );
+
+      // 3-1) 클라우드 업로드 — 변환된 PDF 원본을 .pdf 이름으로 올려 다른 기기에서 PDF로 복원되게 한다.
+      // (이 호출이 없어 변환 PDF가 공유되지 않던 문제 수정. fileName 확장자 .pdf로 수신측이 PDF임을 인지)
+      SyncService.instance.uploadFile(
+        littenId: selectedLitten.id,
+        localId: saved.id,
+        fileType: 'handwriting',
+        fileName: pdfName, // "{제목}.pdf"
+        filePath: savedPdfPath,
+        localUpdatedAt: saved.updatedAt,
       );
 
       // 4) 파일 카운트/목록 갱신

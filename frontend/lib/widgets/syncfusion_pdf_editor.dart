@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../models/handwriting_file.dart';
+import '../services/file_storage_service.dart';
+import '../services/sync_service.dart';
 import '../l10n/app_localizations.dart';
 
 /// Syncfusion 기반 PDF 에디터
@@ -65,6 +67,33 @@ class _SyncfusionPdfEditorState extends State<SyncfusionPdfEditor> {
       final file = File(widget.file.imagePath);
       await file.writeAsBytes(bytes);
       debugPrint('💾 PDF 주석 저장 완료: ${widget.file.imagePath} (${bytes.length} bytes)');
+
+      // 로컬 수정시각 갱신 + 클라우드 업로드(주석을 다른 기기에 전파). 이게 없어 PDF 편집이 동기화 안 되던 문제 수정.
+      final now = DateTime.now();
+      String? cloudId = widget.file.cloudId;
+      final storage = FileStorageService.instance;
+      final list = await storage.loadHandwritingFiles(widget.file.littenId);
+      final idx = list.indexWhere((f) => f.id == widget.file.id);
+      if (idx >= 0) {
+        list[idx] = list[idx].copyWith(updatedAt: now);
+        cloudId = list[idx].cloudId;
+        await storage.saveHandwritingFiles(widget.file.littenId, list);
+      }
+      final base = widget.file.displayTitle;
+      final pdfName = base.toLowerCase().endsWith('.pdf') ? base : '$base.pdf';
+      if (cloudId != null) {
+        await SyncService.instance.updateFile(
+          littenId: widget.file.littenId, localId: widget.file.id, cloudId: cloudId,
+          fileType: 'handwriting', filePath: widget.file.imagePath,
+          localUpdatedAt: now, fileName: pdfName,
+        );
+      } else {
+        await SyncService.instance.uploadFile(
+          littenId: widget.file.littenId, localId: widget.file.id,
+          fileType: 'handwriting', fileName: pdfName,
+          filePath: widget.file.imagePath, localUpdatedAt: now,
+        );
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('저장 완료')),
