@@ -4669,7 +4669,10 @@ class _HandwritingTabState extends State<HandwritingTab>
               littenId: updatedFile.littenId,
               localId: updatedFile.id,
               fileType: 'handwriting',
-              fileName: '${updatedFile.id}_drawing.png',
+              // 제목을 fileName에 실어 보낸다(UUID가 아니라). 다른 기기에서 _extractHandwritingTitle이
+              // 제목을 복원해 같은 이름으로 표시된다. UUID로 보내면 수신 측이 날짜기반 이름으로 폴백해
+              // 기기 간 파일명이 달라진다. (미동기화 batch 업로드 경로 sync_service.dart와 동일 규칙)
+              fileName: '${updatedFile.displayTitle}_drawing.png',
               filePath: pngPath,
               localUpdatedAt: updatedFile.updatedAt,
             );

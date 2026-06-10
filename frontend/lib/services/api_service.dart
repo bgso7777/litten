@@ -738,7 +738,11 @@ class ApiService {
   }
 
   /// 클라우드 파일 메타데이터 목록 조회
-  Future<List<Map<String, dynamic>>> getCloudFiles({required String token, String? since}) async {
+  // files: 변경/전체 파일 메타. serverTime: 서버가 내려준 다음 증분 동기화 기준 시각(토큰).
+  // serverTime을 since로 되돌려 보내면 비교가 전부 서버 시계 공간에서 일어나, 기기/서버 간
+  // 타임존·시계 오차로 새 파일이 누락되던 문제를 막는다. (실패 시 serverTime=null → since 미갱신)
+  Future<({List<Map<String, dynamic>> files, String? serverTime})> getCloudFiles(
+      {required String token, String? since}) async {
     debugPrint('[ApiService] getCloudFiles 진입 - since: $since');
     try {
       final uri = since != null
@@ -749,13 +753,16 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['result'] == 1) {
-          return List<Map<String, dynamic>>.from(data['files'] ?? []);
+          return (
+            files: List<Map<String, dynamic>>.from(data['files'] ?? []),
+            serverTime: data['serverTime']?.toString(),
+          );
         }
       }
-      return [];
+      return (files: <Map<String, dynamic>>[], serverTime: null);
     } catch (e) {
       debugPrint('[ApiService] getCloudFiles - 오류: $e');
-      return [];
+      return (files: <Map<String, dynamic>>[], serverTime: null);
     }
   }
 

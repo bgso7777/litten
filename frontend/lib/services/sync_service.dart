@@ -96,8 +96,8 @@ class SyncService {
     if (token == null) return;
 
     try {
-      await _bidirectionalSync(token);
-      await _saveLastSyncTime(DateTime.now());
+      final serverTime = await _bidirectionalSync(token);
+      await _saveServerSyncTime(serverTime);
       debugPrint('[SyncService] syncOnLogin 완료');
     } catch (e) {
       debugPrint('[SyncService] syncOnLogin 오류: $e');
@@ -115,8 +115,8 @@ class SyncService {
     if (token == null) return;
 
     try {
-      await _bidirectionalSync(token);
-      await _saveLastSyncTime(DateTime.now());
+      final serverTime = await _bidirectionalSync(token);
+      await _saveServerSyncTime(serverTime);
       debugPrint('[SyncService] syncOnAppStart 완료');
     } catch (e) {
       debugPrint('[SyncService] syncOnAppStart 오류: $e');
@@ -138,12 +138,10 @@ class SyncService {
     if (token == null) return;
     try {
       final lastSync = await _getLastSyncTime();
-      if (lastSync != null) {
-        await _incrementalSync(token, lastSync);
-      } else {
-        await _bidirectionalSync(token);
-      }
-      await _saveLastSyncTime(DateTime.now());
+      final serverTime = lastSync != null
+          ? await _incrementalSync(token, lastSync)
+          : await _bidirectionalSync(token);
+      await _saveServerSyncTime(serverTime);
     } catch (e) {
       debugPrint('[SyncService] syncOnForeground 오류: $e');
     }
@@ -171,10 +169,13 @@ class SyncService {
       await _syncLittens(token);
 
       final lastSync = await _getLastSyncTime();
+      String? serverTime; // 서버가 내려준 다음 since 토큰
 
       if (lastSync != null) {
         // 마지막 동기화 이후 클라우드 변경분 가져오기
-        final changedFiles = await _api.getCloudFiles(token: token, since: lastSync.toIso8601String());
+        final result = await _api.getCloudFiles(token: token, since: lastSync.toIso8601String());
+        final changedFiles = result.files;
+        serverTime = result.serverTime;
         debugPrint('[SyncService] syncOnNoteTab - 클라우드 변경 파일: ${changedFiles.length}개');
 
         for (final cloudMeta in changedFiles) {
@@ -211,7 +212,7 @@ class SyncService {
         }
       } else {
         // 동기화 기록 없음 → 전체 양방향 동기화
-        await _bidirectionalSync(token);
+        serverTime = await _bidirectionalSync(token);
       }
 
       // 미동기화 로컬 파일 업로드
@@ -222,7 +223,8 @@ class SyncService {
       // 오프라인 큐 재시도
       await processOfflineQueue();
 
-      await _saveLastSyncTime(DateTime.now());
+      // 서버 시계 기준 토큰으로 since 갱신(기기 시계 사용 금지) — 조회 실패 시 미갱신
+      await _saveServerSyncTime(serverTime);
       debugPrint('[SyncService] syncOnNoteTab 완료');
     } catch (e) {
       debugPrint('[SyncService] syncOnNoteTab 오류: $e');
@@ -239,9 +241,10 @@ class SyncService {
     for (final littenId in littenIds) {
       await _uploadUnsyncedFilesForLitten(token, littenId);
     }
-    // 업로드 완료 후 lastSync 갱신 (이후 syncOnNoteTab에서 중복 조회 방지)
-    await _saveLastSyncTime(DateTime.now());
-    debugPrint('[SyncService] uploadAllLocalFiles 완료');
+    // lastSync는 기기 시계로 박지 않는다(서버 시계와 어긋나 새 파일 누락 유발).
+    // 미설정으로 두면 다음 syncOnNoteTab이 전체 양방향 동기화를 돌려 다른 기기 파일을
+    // 내려받고 서버 토큰으로 since를 정상 설정한다(자가 치유).
+    debugPrint('[SyncService] uploadAllLocalFiles 완료 - since는 다음 전체 동기화에서 설정');
   }
 
   Future<void> _uploadUnsyncedFilesForLitten(String token, String littenId) async {
@@ -618,13 +621,15 @@ class SyncService {
     }
   }
 
-  Future<void> _bidirectionalSync(String token) async {
+  // 반환: 서버가 내려준 동기화 토큰(다음 since). 실패 시 null → 호출부에서 since 미갱신.
+  Future<String?> _bidirectionalSync(String token) async {
     debugPrint('[SyncService] _bidirectionalSync 시작');
     // 오프라인 큐 먼저 처리: 보류 중인 삭제가 클라우드에 반영된 후 파일 목록을 조회해야
     // 삭제된 파일이 다시 다운로드되는 현상을 방지
     await processOfflineQueue();
     await _syncLittens(token); // 리튼 메타 먼저 동기화 (파일이 담길 공간 확보)
-    final cloudFiles = await _api.getCloudFiles(token: token);
+    final result = await _api.getCloudFiles(token: token);
+    final cloudFiles = result.files;
     debugPrint('[SyncService] 클라우드 파일 ${cloudFiles.length}개');
 
     for (final cloudMeta in cloudFiles) {
@@ -656,12 +661,14 @@ class SyncService {
         }
       }
     }
+    return result.serverTime;
   }
 
-  // 증분 동기화
-  Future<void> _incrementalSync(String token, DateTime since) async {
+  // 증분 동기화. 반환: 서버 동기화 토큰(다음 since). 실패 시 null → since 미갱신.
+  Future<String?> _incrementalSync(String token, DateTime since) async {
     debugPrint('[SyncService] _incrementalSync - since: $since');
-    final changedFiles = await _api.getCloudFiles(token: token, since: since.toIso8601String());
+    final result = await _api.getCloudFiles(token: token, since: since.toIso8601String());
+    final changedFiles = result.files;
     debugPrint('[SyncService] 변경 파일 ${changedFiles.length}개');
 
     for (final cloudMeta in changedFiles) {
@@ -684,6 +691,7 @@ class SyncService {
       }
     }
     await processOfflineQueue();
+    return result.serverTime;
   }
 
   Future<void> _downloadAndApply(String token, String cloudId, String littenId,
@@ -1020,6 +1028,23 @@ class SyncService {
   Future<void> _saveLastSyncTime(DateTime time) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastSyncTime, time.toIso8601String());
+  }
+
+  /// 서버가 내려준 동기화 토큰(서버 시계 시각)을 다음 since로 저장한다.
+  /// null(조회 실패)이면 갱신하지 않아 같은 구간을 다음에 다시 조회한다(누락 방지).
+  /// 서버 문자열을 DateTime으로 파싱해 저장하되 TZ 변환을 하지 않으므로 서버 시계 값이 그대로 보존된다.
+  Future<void> _saveServerSyncTime(String? serverTime) async {
+    if (serverTime == null) {
+      debugPrint('[SyncService] _saveServerSyncTime - serverTime 없음, since 미갱신');
+      return;
+    }
+    final parsed = DateTime.tryParse(serverTime);
+    if (parsed == null) {
+      debugPrint('[SyncService] _saveServerSyncTime - 파싱 실패: $serverTime');
+      return;
+    }
+    await _saveLastSyncTime(parsed);
+    debugPrint('[SyncService] _saveServerSyncTime - 저장: $serverTime');
   }
 
   Future<DateTime?> _getLastSyncTime() async {

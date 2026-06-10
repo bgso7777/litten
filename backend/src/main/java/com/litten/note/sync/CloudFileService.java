@@ -49,12 +49,22 @@ public class CloudFileService {
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
         result.put("files", fileList);
         result.put(Constants.TAG_SIZE, fileList.size());
+        // 동기화 토큰: 다음 증분 동기화의 since로 사용. 클라이언트 시계가 아닌 서버 시계를 기준으로
+        // 비교해야 updateDateTime(@LastModifiedDate, 서버 시계)와 어긋나지 않는다.
+        result.put("serverTime", syncToken());
         return result;
+    }
+
+    // 증분 동기화 기준 시각(토큰). DATETIME이 초 단위로 절단 저장되어 같은 초에 커밋된
+    // 파일이 누락되지 않도록 2초 안전 버퍼를 둔다(겹치는 구간은 멱등 재조회라 무해).
+    private LocalDateTime syncToken() {
+        return LocalDateTime.now().minusSeconds(2);
     }
 
     public Map<String, Object> getChangedFiles(String memberId, String since) {
         log.debug("[CloudFileService] getChangedFiles 진입 - memberId: {}, since: {}", memberId, since);
 
+        LocalDateTime serverTime = syncToken();
         LocalDateTime sinceTime = LocalDateTime.parse(since.replace(" ", "T"));
         PageRequest pageRequest = PageRequest.of(0, MAX_SYNC_FILES, Sort.by("updateDateTime").descending());
         // 삭제 tombstone 포함 — since 이후 삭제된 파일도 내려줘 다른 기기에 삭제를 전파
@@ -69,6 +79,9 @@ public class CloudFileService {
         result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
         result.put("files", fileList);
         result.put(Constants.TAG_SIZE, fileList.size());
+        // 다음 증분 동기화 기준 시각(서버 시계). 쿼리 시작 시점으로 잡아 조회 도중 커밋된 파일도
+        // 다음 회차에 포함되게 한다.
+        result.put("serverTime", serverTime);
         return result;
     }
 
@@ -101,6 +114,11 @@ public class CloudFileService {
                 cloudFile.setContentType(file.getContentType());
                 cloudFile.setIsDeleted(false);
                 cloudFile.setLocalUpdatedAt(LocalDateTime.parse(localUpdatedAt.replace(" ", "T")));
+                // 증분 동기화 기준 시각. JPA Auditing(@EnableJpaAuditing) 미사용이라 INSERT 시
+                // updateDateTime이 NULL로 남으면, findByMemberIdAndUpdateDateTimeAfter(since)에서
+                // 영영 안 잡혀 다른 기기에 신규 파일이 증분 동기화되지 않는다. 수정 경로(updateFileInternal)와
+                // 동일하게 여기서도 서버 시계로 명시 설정한다.
+                cloudFile.setUpdateDateTime(LocalDateTime.now());
                 cloudFileRepository.save(cloudFile);
 
                 log.info("[CloudFileService] 신규 파일 업로드 완료 - localId: {}, path: {}", localId, savedPath);

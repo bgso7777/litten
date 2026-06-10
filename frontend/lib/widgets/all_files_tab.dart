@@ -252,6 +252,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  /// 전체탭 당겨서 새로고침: 파일 목록과 영상(구독 채널)을 함께 갱신한다.
+  /// (영상 섹션 표시 여부와 무관하게 둘 다 리프레시 — _loadYoutubeChannels는 OFF면 내부에서 생략)
+  Future<void> _refreshFilesAndVideos(AppStateProvider appState) async {
+    debugPrint('🔄 [AllFilesTab] 당겨서 새로고침 - 파일 + 영상');
+    await Future.wait([
+      _loadFiles(appState),
+      _loadYoutubeChannels(),
+    ]);
+  }
+
   Future<void> _loadYoutubeChannels() async {
     if (widget.showOnlySTT || widget.showOnlyAttachments) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1061,8 +1071,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
       ),
     );
 
-    // 영상 섹션 미표시: 파일 목록만 (단일 스크롤)
-    if (!showYoutubeSection) return CustomScrollView(slivers: [fileSliver]);
+    // 영상 섹션 미표시: 파일 목록만 (단일 스크롤). 당겨서 새로고침 시 파일+영상 모두 갱신.
+    if (!showYoutubeSection) {
+      return RefreshIndicator(
+        onRefresh: () => _refreshFilesAndVideos(appState),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [fileSliver],
+        ),
+      );
+    }
 
     // 영상 구독 섹션 콘텐츠 (Column으로 구성 → 자연 높이 측정 가능, 분할/결합 공용)
     final youtubeColumn = Column(
@@ -1101,12 +1119,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
         final showSplit = _youtubeContentOverflow && _youtubeChannels.isNotEmpty && merged.isNotEmpty;
 
         if (!showSplit) {
-          // 결합: 영상 섹션 + 파일 목록을 한 스크롤로 (구분선 없음)
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: youtubeColumn),
-              fileSliver,
-            ],
+          // 결합: 영상 섹션 + 파일 목록을 한 스크롤로 (구분선 없음). 당겨서 파일+영상 모두 새로고침.
+          return RefreshIndicator(
+            onRefresh: () => _refreshFilesAndVideos(appState),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: youtubeColumn),
+                fileSliver,
+              ],
+            ),
           );
         }
 
@@ -1116,9 +1138,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: topHeight),
-              // 채널 리스트를 아래로 당겨(상위 '영상 구독' 제목까지 끌어내려) 새로고침 → 채널 리스트 리프레시
+              // 상단 영상 영역을 당겨 새로고침 → 파일+영상 모두 리프레시
               child: RefreshIndicator(
-                onRefresh: _loadYoutubeChannels,
+                onRefresh: () => _refreshFilesAndVideos(appState),
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   child: youtubeColumn,
@@ -1151,7 +1173,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 ),
               ),
             ),
-            Expanded(child: CustomScrollView(slivers: [fileSliver])),
+            // 하단 파일 영역을 당겨도 파일+영상 모두 리프레시
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _refreshFilesAndVideos(appState),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [fileSliver],
+                ),
+              ),
+            ),
           ],
         );
       },
