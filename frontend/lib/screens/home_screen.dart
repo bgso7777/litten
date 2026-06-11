@@ -210,6 +210,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     debugPrint('📅 [HomeScreen] 외부 진입 → 일정 리스트 펼침');
   }
 
+  /// 외부(캘린더 탭 진입/서버 일정 pull 완료)에서 캘린더 본문을 강제 리빌드한다.
+  /// fire-and-forget 서버 pull 완료 후 호출해, 새로 받은 일정이 즉시 화면에 반영되게 한다.
+  void forceRefresh() {
+    if (!mounted) return;
+    setState(() {});
+    debugPrint('🔄 [HomeScreen] forceRefresh - 캘린더 본문 강제 리빌드');
+  }
+
   /// 외부에서 캘린더 날짜를 오늘로 변경하고 스크롤을 맨 위로
   void goToToday() {
     final now = DateTime.now();
@@ -524,6 +532,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
     return RefreshIndicator(
       onRefresh: () async {
+        // 당겨서 새로고침: 서버 일정 동기화(로그인 시) 후 로컬 목록 갱신
+        await appState.refreshSchedulesFromServer();
         await appState.refreshLittens();
         setState(() {});
       },

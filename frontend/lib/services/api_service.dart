@@ -30,6 +30,7 @@ class ApiService {
   static const String _convertToPdfEndpoint = '/litten/note/v1/convert/to-pdf';
   static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
   static const String _littensEndpoint = '/litten/note/v1/littens';
+  static const String _schedulesEndpoint = '/litten/note/v1/schedules';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -820,6 +821,65 @@ class ApiService {
       return false;
     } catch (e) {
       debugPrint('[ApiService] deleteLittenRemote - 오류: $e');
+      return false;
+    }
+  }
+
+  // ── 캘린더 일정 동기화 (로그인 회원 전용 JWT) ─────────────────────────────
+
+  /// 회원의 일정 목록 조회 (pull). 응답: {success, schedules:[페이로드...]}
+  Future<List<Map<String, dynamic>>> getSchedules({required String token}) async {
+    debugPrint('[ApiService] getSchedules 진입');
+    try {
+      final url = Uri.parse('$baseUrl$_schedulesEndpoint');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] getSchedules - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['schedules'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getSchedules - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 일정 업서트 (littenId 기준 생성/수정).
+  /// body = { littenId, title, updatedAt, notificationCount, schedule:{LittenSchedule.toJson} }
+  Future<bool> upsertSchedule({required String token, required Map<String, dynamic> scheduleJson}) async {
+    debugPrint('[ApiService] upsertSchedule 진입 - littenId: ${scheduleJson['littenId']}');
+    try {
+      final url = Uri.parse('$baseUrl$_schedulesEndpoint');
+      final response = await http.post(url, headers: _getHeaders(token: token), body: jsonEncode(scheduleJson)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] upsertSchedule - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] upsertSchedule - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 일정 삭제 (littenId 기준)
+  Future<bool> deleteSchedule({required String token, required String littenId}) async {
+    debugPrint('[ApiService] deleteSchedule 진입 - littenId: $littenId');
+    try {
+      final url = Uri.parse('$baseUrl$_schedulesEndpoint/$littenId');
+      final response = await http.delete(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] deleteSchedule - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] deleteSchedule - 오류: $e');
       return false;
     }
   }

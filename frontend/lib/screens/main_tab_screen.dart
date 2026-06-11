@@ -224,6 +224,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       appState.clearDateSelection();
       appState.changeFocusedDate(DateTime.now());
 
+      // 캘린더 탭 진입 시 서버 일정 새로고침(로그인 시) — 다른 기기에서 추가/수정한 일정 반영.
+      // pull은 비동기라, 완료 후 캘린더 본문을 강제 리빌드해 새 일정이 즉시 보이게 한다.
+      appState.refreshSchedulesFromServer().then((_) {
+        _homeScreenKey.currentState?.forceRefresh();
+      });
+
       // 다른 화면에서 선택한 일정이 있으면 유지
       final keepSelection = appState.selectedTabIndex != _calendarTab &&
           appState.selectedLitten != null;

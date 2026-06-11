@@ -15,6 +15,7 @@ import '../config/plan_limits.dart';
 import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/schedule_sync_service.dart';
 import '../models/handwriting_file.dart' show HandwritingType;
 
 class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
@@ -38,6 +39,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _authService,
       onSyncStatusChanged: notifyFileListChanged,
       onLittenChanged: () { refreshLittens(); },
+    );
+
+    // 캘린더 일정 동기화(로그인 기준, 프리미엄 무관). 서버→로컬 반영 시 리튼 목록 리로드.
+    ScheduleSyncService.instance.init(
+      _authService,
+      onChanged: () { refreshLittens(); },
     );
 
     // AuthService의 상태 변경을 감지하여 UI 업데이트
@@ -511,6 +518,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 미동기화 로컬 파일 일괄 업로드 (프리미엄 여부는 내부에서 판단)
     final startLittenIds = _littens.map((l) => l.id).toList();
     SyncService.instance.uploadAllLocalFiles(startLittenIds);
+    // 캘린더 일정 서버 동기화(로그인 기준, 프리미엄 무관) — 내부에서 _canSync 판단
+    ScheduleSyncService.instance.pullSchedules();
     // 동기화 생명주기 기준값 설정 — 시작 시점 상태를 기록해 이후 전환만 감지하도록 함
     _lastSyncEnabled = isLoggedIn && isPremiumPlusUser;
     if (_lastSyncEnabled) {
@@ -560,6 +569,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       // 동기화 생명주기: 로그인/플랜 상태가 반영된 뒤 한 곳에서 시작/중단을 처리
       _applySyncLifecycle('auth');
+
+      // 캘린더 일정 동기화(로그인 기준, 프리미엄 무관): 로그아웃→로그인 전환 시
+      // 로컬 일정을 서버로 이관(업로드)한 뒤 서버 일정을 내려받아 병합한다.
+      if (_previousAuthStatus != AuthStatus.authenticated &&
+          newStatus == AuthStatus.authenticated) {
+        debugPrint('[AppStateProvider] 로그인 전환 → 일정 이관+병합 시작');
+        ScheduleSyncService.instance.uploadAllSchedules().then(
+            (_) => ScheduleSyncService.instance.pullSchedules());
+      }
     }
 
     _previousAuthStatus = newStatus;
@@ -1209,6 +1227,10 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       await _littenService.saveLitten(litten);
+      // 일정이 있으면 서버에 업서트(로그인 시) — 내부에서 _canSync 판단
+      if (schedule != null) {
+        ScheduleSyncService.instance.pushSchedule(litten);
+      }
       await refreshLittens();
       _updateNotificationSchedule();
 
@@ -1237,6 +1259,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       await _littenService.saveLitten(updatedLitten);
+      // 일정이 있으면 서버에 업서트, 없으면(일정 제거됨) 서버에서 삭제(로그인 시).
+      // 내부에서 _canSync 판단하므로 비로그인은 no-op.
+      if (updatedLitten.schedule != null) {
+        ScheduleSyncService.instance.pushSchedule(updatedLitten);
+      } else {
+        ScheduleSyncService.instance.deleteScheduleRemote(updatedLitten.id);
+      }
       await refreshLittens();
 
       // 선택된 리튼이 변경된 경우 업데이트
@@ -1264,9 +1293,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       throw Exception('녹음 중에는 리튼을 삭제할 수 없습니다. 녹음을 중지한 후 다시 시도해주세요.');
     }
 
+    // 일정을 가진 리튼이면 서버 일정도 삭제(로그인 시) — 삭제 전에 schedule 보유 여부 확인
+    final deletingLitten = _littens.where((l) => l.id == littenId).firstOrNull;
     await _littenService.deleteLitten(littenId);
     // 서버에도 삭제 전파 (프리미엄+로그인 시) — 다음 동기화에서 부활 방지. 내부에서 _canSync 판단.
     SyncService.instance.deleteLittenRemote(littenId);
+    // 일정 삭제 전파 (로그인 시, 프리미엄 무관). 내부에서 _canSync 판단.
+    if (deletingLitten?.schedule != null) {
+      ScheduleSyncService.instance.deleteScheduleRemote(littenId);
+    }
     await refreshLittens();
 
     if (_selectedLitten?.id == littenId) {
@@ -1313,6 +1348,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     
     await _littenService.saveLitten(newLitten);
     await refreshLittens();
+  }
+
+  /// 서버에서 캘린더 일정을 내려받아 로컬과 병합 (로그인 시, 프리미엄 무관).
+  /// 캘린더 탭 진입·당겨서 새로고침에서 호출한다. 비로그인은 내부 _canSync로 no-op.
+  /// pullSchedules 내부에서 변경이 있으면 onChanged(refreshLittens)가 호출돼 UI가 갱신된다.
+  Future<void> refreshSchedulesFromServer() async {
+    debugPrint('🔄 refreshSchedulesFromServer 시작');
+    await ScheduleSyncService.instance.pullSchedules();
   }
 
   // 리튼 목록 새로고침
