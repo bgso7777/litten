@@ -1222,7 +1222,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       final litten = Litten(
         title: title.trim(),
         createdAt: selectedDateTime,
-        updatedAt: selectedDateTime,
+        // updatedAt은 LWW(동기화 충돌해결) 기준 시각이므로 일정 날짜(미래일 수 있음)가 아닌
+        // 실제 생성 시각을 사용한다. (일정 날짜를 넣으면 이후 수정/삭제가 "과거"로 판정돼 무시됨)
+        updatedAt: DateTime.now(),
         schedule: schedule,
       );
 

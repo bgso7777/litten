@@ -102,7 +102,8 @@ class HomeDashboardScreen extends StatelessWidget {
     for (final l in littens) {
       if (l.title == 'undefined' || l.schedule == null) continue;
       final when = _nextOccurrence(l.schedule!, now);
-      if (when != null) result.add((litten: l, when: when));
+      // 시작 시각이 이미 지난(진행 중 포함) 일정은 제외 — 아직 도래하지 않은 일정만 표시
+      if (when != null && when.isAfter(now)) result.add((litten: l, when: when));
     }
     result.sort((a, b) => a.when.compareTo(b.when));
     return result.take(2).toList();
@@ -216,11 +217,34 @@ class _ScheduleTile extends StatelessWidget {
   const _ScheduleTile(
       {required this.litten, required this.when, required this.onTap});
 
+  /// 일정 시작 시각까지 남은 기간/시간 라벨 (캘린더 힌트 칩과 동일 규칙).
+  /// - 24시간 이내: 분/시간(+분), 1분 미만은 초
+  /// - 24시간 이상: 일 단위
+  /// 이미 지난 일정은 null.
+  String? _remainingLabel(DateTime start, DateTime now) {
+    final diff = start.difference(now);
+    if (diff.isNegative) return null;
+    final secs = diff.inSeconds;
+    const oneDayInSec = 86400;
+    if (secs < oneDayInSec) {
+      final minutes = secs ~/ 60;
+      if (minutes == 0) return '${secs % 60}초 후';
+      if (minutes < 60) return '$minutes분 후';
+      final hours = minutes ~/ 60;
+      final remaining = minutes % 60;
+      return remaining > 0 ? '$hours시간 $remaining분 후' : '$hours시간 후';
+    }
+    final days = secs ~/ oneDayInSec;
+    return '$days일 후';
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
     // 다음 발생 날짜 + 시작 시각 표시 (예: 6/14 09:05)
     final dateStr = DateFormat('M/d HH:mm').format(when);
+    // 제목과 일시 사이에 표시할 남은 기간/시간
+    final remainLabel = _remainingLabel(when, DateTime.now());
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -240,6 +264,13 @@ class _ScheduleTile extends StatelessWidget {
               child: Text(litten.title,
                   maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
+            // 제목과 일시 사이: 남은 기간/시간 (지난 일정은 미표시)
+            if (remainLabel != null) ...[
+              const SizedBox(width: 8),
+              Text(remainLabel,
+                  style: TextStyle(
+                      fontSize: 12, color: color, fontWeight: FontWeight.bold)),
+            ],
             const SizedBox(width: 8),
             Text(dateStr,
                 style: TextStyle(

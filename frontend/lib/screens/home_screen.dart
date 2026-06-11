@@ -370,6 +370,28 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
   }
 
+  /// 캘린더 힌트 칩 클릭 시: 현재 발생한 일정 알림을 모두 닫아 하단 캘린더 탭의 뱃지를 클리어한다.
+  /// 발생 알림(firedNotifications)의 리튼을 badge_dismissed_litten_ids에 추가한 뒤
+  /// 뱃지를 재계산(_loadNotificationDates)하면 todayBadgeCount가 0이 되어 탭 뱃지가 사라진다.
+  Future<void> _clearScheduleBadge() async {
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final fired = appState.notificationService.firedNotifications;
+      if (fired.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final dismissed = prefs.getStringList('badge_dismissed_litten_ids')?.toSet() ?? {};
+      for (final n in fired) {
+        dismissed.add(n.littenId);
+      }
+      await prefs.setStringList('badge_dismissed_litten_ids', dismissed.toList());
+      appState.notificationService.notifyBadgeChange();
+      if (mounted) await _loadNotificationDates(); // 뱃지 재계산 → 0
+      debugPrint('🔕 [HomeScreen] 칩 클릭 → 일정 알림 뱃지 클리어 (${fired.length}건)');
+    } catch (e) {
+      debugPrint('❌ [HomeScreen] 뱃지 클리어 실패: $e');
+    }
+  }
+
   /// 선택된 날짜의 일정 목록 로드 (알림 설정 여부와 관계없이 모든 일정)
   Future<void> _loadNotificationsForSelectedDate(DateTime date, AppStateProvider appState) async {
     try {
@@ -2262,6 +2284,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       onTap: () {
         debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 토글 (현재: $_scheduleListVisible)');
         setState(() { _scheduleListVisible = !_scheduleListVisible; });
+        _clearScheduleBadge(); // 칩 클릭 시 일정 알림 뱃지(하단 캘린더 탭) 클리어
       },
       child: CustomPaint(
         painter: _ConcaveChipPainter(

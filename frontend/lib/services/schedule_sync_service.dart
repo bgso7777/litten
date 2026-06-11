@@ -48,6 +48,8 @@ class ScheduleSyncService {
   Future<void> pushSchedule(Litten litten) async {
     if (!_canSync) return;
     if (litten.schedule == null) return;
+    // undefined(미분류) 리튼은 캘린더/동기화 대상이 아니므로 서버에 올리지 않는다.
+    if (litten.title == 'undefined') return;
     final token = await _loadToken();
     if (token == null) return;
     debugPrint('[ScheduleSyncService] pushSchedule - littenId: ${litten.id}');
@@ -73,7 +75,8 @@ class ScheduleSyncService {
   Future<void> uploadAllSchedules() async {
     if (!_canSync) return;
     final locals = await _littenService.getAllLittens();
-    final scheduled = locals.where((l) => l.schedule != null).toList();
+    // undefined(미분류) 리튼은 일정 동기화 대상에서 제외
+    final scheduled = locals.where((l) => l.schedule != null && l.title != 'undefined').toList();
     debugPrint('[ScheduleSyncService] uploadAllSchedules - ${scheduled.length}개');
     for (final l in scheduled) {
       await pushSchedule(l);
@@ -104,6 +107,9 @@ class ScheduleSyncService {
         if (littenId == null) continue;
         final local = localById[littenId];
 
+        // undefined(미분류) 리튼은 일정 동기화 대상 아님 — 로컬이 undefined면 건드리지 않는다
+        if (local != null && local.title == 'undefined') continue;
+
         // ── 삭제 tombstone ──
         if (s['_deleted'] == true) {
           if (local?.schedule == null) continue; // 이미 일정 없음
@@ -129,6 +135,7 @@ class ScheduleSyncService {
 
         final schedule = LittenSchedule.fromJson(Map<String, dynamic>.from(scheduleJson));
         final title = s['title'] as String? ?? '일정';
+        if (title == 'undefined') continue; // 서버에 undefined 일정이 있어도 로컬 생성/반영 안 함
         final notificationCount = (s['notificationCount'] as num?)?.toInt() ?? 0;
 
         if (local == null) {

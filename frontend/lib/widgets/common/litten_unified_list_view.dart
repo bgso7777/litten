@@ -551,6 +551,27 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     return null;
   }
 
+  /// 일정 시작 시각까지 남은 기간/시간 라벨. 캘린더 힌트 칩과 동일한 규칙:
+  /// - 24시간 이내: 분/시간(+분), 1분 미만은 초
+  /// - 24시간 이상: 일 단위
+  /// 이미 지난(시작 시각이 과거) 일정은 null (표시하지 않음).
+  String? _remainingLabel(DateTime start, DateTime now) {
+    final diff = start.difference(now);
+    if (diff.isNegative) return null;
+    final secs = diff.inSeconds;
+    const oneDayInSec = 86400; // 24*60*60
+    if (secs < oneDayInSec) {
+      final minutes = secs ~/ 60;
+      if (minutes == 0) return '${secs % 60}초 후';
+      if (minutes < 60) return '$minutes분 후';
+      final hours = minutes ~/ 60;
+      final remaining = minutes % 60;
+      return remaining > 0 ? '$hours시간 $remaining분 후' : '$hours시간 후';
+    }
+    final days = secs ~/ oneDayInSec;
+    return '$days일 후';
+  }
+
   Widget _buildNotificationSection(AppStateProvider appState, List<dynamic> selectedDateNotifications) {
     final selectedDate = appState.selectedDate;
     return Container(
@@ -622,14 +643,27 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                     size: 24,
                   ),
                 title: Text(litten.title, style: TextStyle(fontWeight: FontWeight.w600, color: itemFg)),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(timeRange, style: TextStyle(fontSize: 12, color: itemSub)),
-                    if (schedule.notes != null && schedule.notes!.isNotEmpty)
-                      Text(schedule.notes!, style: TextStyle(fontSize: 11, color: itemSub), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
-                ),
+                subtitle: Builder(builder: (context) {
+                  // 제목과 일시 사이에 남은 기간/시간 표시 (캘린더 힌트 칩과 동일 규칙). 지난 일정은 미표시.
+                  final remainLabel = isPast ? null : _remainingLabel(startDateTime, DateTime.now());
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (remainLabel != null)
+                        Text(
+                          remainLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      Text(timeRange, style: TextStyle(fontSize: 12, color: itemSub)),
+                      if (schedule.notes != null && schedule.notes!.isNotEmpty)
+                        Text(schedule.notes!, style: TextStyle(fontSize: 11, color: itemSub), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  );
+                }),
                   trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isSelected ? Colors.white54 : Colors.blue.shade300),
                   onTap: () async {
                     try {
