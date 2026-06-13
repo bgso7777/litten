@@ -286,6 +286,9 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
         channelName: channelName,
         channelThumbnail: _validated!['channelThumbnail'] ?? '',
         isActive: true,
+        // 로컬(비로그인) 모드: 전체탭 "등록일 기준" 정렬을 위해 로컬 등록일시를 저장한다.
+        // 로그인 모드는 서버 subscribedAt(insertDateTime)을 사용.
+        registeredAt: serverChannel?.registeredAt ?? DateTime.now(),
       );
       final updated = await LocalYoutubeChannelService.add(localChannel);
       if (mounted) {

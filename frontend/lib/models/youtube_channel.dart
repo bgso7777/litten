@@ -62,6 +62,8 @@ class YoutubeChannel {
   final bool autoRemind;
   final String? remindType;
   final int? remindCustomCount;
+  // 채널 구독(등록)일시 — 서버 응답(subscribedAt). 전체탭 "등록일 기준" 정렬에 사용.
+  final DateTime? registeredAt;
 
   const YoutubeChannel({
     required this.id,
@@ -77,6 +79,7 @@ class YoutubeChannel {
     this.autoRemind = false,
     this.remindType,
     this.remindCustomCount,
+    this.registeredAt,
   });
 
   factory YoutubeChannel.fromJson(Map<String, dynamic> json) => YoutubeChannel(
@@ -93,6 +96,9 @@ class YoutubeChannel {
         autoRemind: json['autoRemind'] ?? false,
         remindType: json['remindType'] as String?,
         remindCustomCount: (json['remindCustomCount'] as num?)?.toInt(),
+        registeredAt: json['subscribedAt'] != null
+            ? DateTime.tryParse(json['subscribedAt'].toString())
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -109,6 +115,7 @@ class YoutubeChannel {
         'autoRemind': autoRemind,
         'remindType': remindType,
         'remindCustomCount': remindCustomCount,
+        'subscribedAt': registeredAt?.toIso8601String(),
       };
 
   YoutubeChannel copyWith({
@@ -138,6 +145,7 @@ class YoutubeChannel {
         remindCustomCount: clearRemindCustomCount
             ? null
             : (remindCustomCount ?? this.remindCustomCount),
+        registeredAt: registeredAt,
       );
 }
 

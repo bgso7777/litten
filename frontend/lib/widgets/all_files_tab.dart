@@ -90,6 +90,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // 최초 발견 채널은 최신 영상일자로 시드(점프 방지), 이후 새로 추가된 채널만 now() 기록.
   static const String _kChannelAddedAtKey = 'yt_channel_added_at';
   Map<String, DateTime> _channelAddedAt = {};
+  // 새 영상이 생겨 상단 NEW 영역으로 끌어올려진(고정된) 채널 ID 집합.
+  // 새 영상 발생 시 핀 → 펼쳐서 확인 후 다시 닫으면 핀 해제(원래 생성일시 위치로 복귀).
+  final Set<String> _newPinnedChannels = {};
   // 클라우드 동기화·공유는 프리미엄(서버 보관) 전용 → 무료/스탠다드는 숨김
   bool get _isPremiumPlus =>
       Provider.of<AppStateProvider>(context, listen: false).isPremiumPlusUser;
@@ -325,6 +328,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
     _watchStates = await ChannelWatchService.loadAll();
     await _loadLatestVideoTimes(channels);
     await _reconcileChannelAddedAt(channels);
+    // 새 영상이 있는 채널은 상단 NEW 영역으로 고정(핀). 확인 후 닫을 때 _toggleChannel에서 해제한다.
+    for (final ch in channels) {
+      if (_hasNewVideo(ch)) _newPinnedChannels.add(ch.channelId);
+    }
+    // 구독 해제된 채널의 핀 정리
+    final ids = channels.map((c) => c.channelId).toSet();
+    _newPinnedChannels.removeWhere((id) => !ids.contains(id));
     channels.sort(_compareChannels);
   }
 
@@ -359,17 +369,6 @@ class _AllFilesTabState extends State<AllFilesTab> {
       jsonEncode(map.map((k, v) => MapEntry(k, v.toIso8601String()))),
     );
     _channelAddedAt = map;
-  }
-
-  /// 전체탭 시간순 정렬용 채널 시각.
-  /// - NEW(새 영상 있는) 채널: 추가 직후 상단 노출을 위해 max(추가 시각, 최신 영상 게시일).
-  /// - NEW가 아닌 채널: 최신 영상 게시일(영상 생성 순)만 사용한다.
-  DateTime _channelSortAt(YoutubeChannel ch) {
-    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
-    final video = _latestVideoAt[ch.channelId] ?? epoch;
-    if (!_hasNewVideo(ch)) return video;
-    final added = _channelAddedAt[ch.channelId] ?? epoch;
-    return added.isAfter(video) ? added : video;
   }
 
   /// 각 채널 최신 영상 게시일을 RSS로 병렬 조회 (무인증)
@@ -493,7 +492,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
   void _toggleChannel(YoutubeChannel ch) {
     final id = ch.channelId;
     if (_expandedChannels.contains(id)) {
-      setState(() => _expandedChannels.remove(id));
+      // 영상을 확인(펼침 시 _markChannelSeen)한 뒤 닫으면 상단 NEW 영역 고정 해제 → 원래 위치 복귀.
+      setState(() {
+        _expandedChannels.remove(id);
+        if (!_hasNewVideo(ch)) _newPinnedChannels.remove(id);
+      });
     } else {
       setState(() => _expandedChannels.add(id));
       _loadVideoPage(id, _channelVideoPage[id] ?? 0);
@@ -1106,16 +1109,36 @@ class _AllFilesTabState extends State<AllFilesTab> {
       );
     }
 
-    // 파일 + 영상 채널을 하나의 시간순 목록으로 완전히 섞는다.
-    // 정렬 키: 파일=수정일(updatedAt), 채널=최신 영상 게시일(_latestVideoAt = "채널에 영상 제목이 생긴 일시").
-    // 게시일을 아직 모르는 채널(epoch)은 목록 맨 아래로 내려가고 날짜 헤더를 붙이지 않는다.
-    final List<({DateTime sortAt, _MergedFile? file, YoutubeChannel? channel})> items = [
+    // 전체탭 정렬 구조 (2영역):
+    //  ① 상단 NEW 영역: 새 영상이 생겨 고정(핀)된 채널들. "영상이 추가된 순서"(최신 영상 게시일
+    //     _latestVideoAt 내림차순)로 모아 맨 위에 노출. 확인 후 닫으면 핀이 풀려 ②로 내려간다.
+    //  ② 기본 영역: 파일=수정일(updatedAt), 채널=생성(등록)일시(_channelAddedAt)를 하나의
+    //     시간순 목록으로 섞어 내림차순 정렬.
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+
+    final topChannels = showYoutubeSection
+        ? _youtubeChannels.where((ch) => _newPinnedChannels.contains(ch.channelId)).toList()
+        : <YoutubeChannel>[];
+    // 영상이 추가된 순서 = 최신 영상 게시일 내림차순
+    topChannels.sort((a, b) =>
+        (_latestVideoAt[b.channelId] ?? epoch).compareTo(_latestVideoAt[a.channelId] ?? epoch));
+
+    final baseItems = <({DateTime sortAt, _MergedFile? file, YoutubeChannel? channel})>[
       for (final f in merged) (sortAt: f.sortAt, file: f, channel: null),
       if (showYoutubeSection)
         for (final ch in _youtubeChannels)
-          (sortAt: _channelSortAt(ch), file: null, channel: ch),
+          if (!_newPinnedChannels.contains(ch.channelId))
+            // 채널 정렬 기준 = 실제 등록일시(서버 registeredAt) 우선, 없으면 기존 추정값(_channelAddedAt) 폴백
+            (sortAt: ch.registeredAt ?? _channelAddedAt[ch.channelId] ?? epoch, file: null, channel: ch),
     ];
-    items.sort((a, b) => b.sortAt.compareTo(a.sortAt));
+    baseItems.sort((a, b) => b.sortAt.compareTo(a.sortAt));
+
+    final items = <({DateTime sortAt, _MergedFile? file, YoutubeChannel? channel})>[
+      for (final ch in topChannels)
+        (sortAt: _latestVideoAt[ch.channelId] ?? epoch, file: null, channel: ch),
+      ...baseItems,
+    ];
+    final int topCount = topChannels.length;
 
     final listSliver = SliverPadding(
       padding: const EdgeInsets.only(bottom: 80),
@@ -1125,9 +1148,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
           final entry = items[index];
           final at = entry.sortAt;
           final currentDate = DateTime(at.year, at.month, at.day);
-          final prevAt = index == 0 ? null : items[index - 1].sortAt;
-          // 날짜 헤더: 직전 항목과 날짜가 다를 때만. 게시일 미상(epoch, 2000년 이전)은 헤더 생략.
-          final showDateHeader = at.year >= 2000 &&
+          // 상단 NEW 영역(고정 채널)은 날짜 헤더 없이 카드만 노출한다.
+          final bool isTop = index < topCount;
+          // 직전 항목 비교는 기본 영역 안에서만(상단 영역 항목은 비교 대상에서 제외).
+          final prevAt = (index == 0 || index - 1 < topCount) ? null : items[index - 1].sortAt;
+          // 날짜 헤더: 기본 영역에서 직전 항목과 날짜가 다를 때만. 게시일 미상(epoch, 2000년 이전)은 헤더 생략.
+          final showDateHeader = !isTop && at.year >= 2000 &&
               (prevAt == null || DateTime(prevAt.year, prevAt.month, prevAt.day) != currentDate);
 
           final f = entry.file;

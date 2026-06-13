@@ -1,8 +1,14 @@
 package com.litten.note.youtube;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.LocalDateTime;
 
 /**
  * 멤버의 유튜브 채널 구독 정보 응답 DTO.
@@ -28,6 +34,12 @@ public class YoutubeSubscriptionDto {
     private String  remindType;
     private Integer remindCustomCount;
 
+    // 채널 구독(등록)일시 — 전체탭에서 채널을 "등록일 기준"으로 정렬하기 위해 내려준다.
+    // (BaseEntity.insertDateTime = @CreatedDate)
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+    private LocalDateTime subscribedAt;
+
     public static YoutubeSubscriptionDto of(MemberYoutubeChannel sub) {
         YoutubeChannel ch = sub.getChannel();
         YoutubeSubscriptionDto dto = new YoutubeSubscriptionDto();
@@ -44,6 +56,7 @@ public class YoutubeSubscriptionDto {
         dto.autoRemind       = sub.getAutoRemind();
         dto.remindType       = sub.getRemindType();
         dto.remindCustomCount = sub.getRemindCustomCount();
+        dto.subscribedAt     = sub.getInsertDateTime(); // 등록일시(BaseEntity) → 전체탭 등록일 정렬용
         return dto;
     }
 }
