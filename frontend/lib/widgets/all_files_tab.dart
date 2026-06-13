@@ -361,12 +361,14 @@ class _AllFilesTabState extends State<AllFilesTab> {
     _channelAddedAt = map;
   }
 
-  /// 전체탭 시간순 정렬용 채널 시각 = max(추가 시각, 최신 영상 게시일).
-  /// 추가 직후엔 추가 시각(now)으로 맨 위, 이후 더 최신 영상이 올라오면 그 게시일로 갱신.
+  /// 전체탭 시간순 정렬용 채널 시각.
+  /// - NEW(새 영상 있는) 채널: 추가 직후 상단 노출을 위해 max(추가 시각, 최신 영상 게시일).
+  /// - NEW가 아닌 채널: 최신 영상 게시일(영상 생성 순)만 사용한다.
   DateTime _channelSortAt(YoutubeChannel ch) {
     final epoch = DateTime.fromMillisecondsSinceEpoch(0);
-    final added = _channelAddedAt[ch.channelId] ?? epoch;
     final video = _latestVideoAt[ch.channelId] ?? epoch;
+    if (!_hasNewVideo(ch)) return video;
+    final added = _channelAddedAt[ch.channelId] ?? epoch;
     return added.isAfter(video) ? added : video;
   }
 
@@ -892,6 +894,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
           _recordingDuration = Duration.zero;
         });
         _loadFiles(appState);
+        // 상단 파일 카운트 배지(totalAudioCount 등)는 _loadFiles가 갱신하지 않으므로 별도로 재계산.
+        // (녹음 직후 마이크 카운트가 안 늘던 문제)
+        appState.updateFileCount();
       }
       if (audioFile != null) {
         SyncService.instance.uploadFile(

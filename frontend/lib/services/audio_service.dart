@@ -409,9 +409,18 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
-      // 메타데이터에서 실제 파일이 없는 항목 제거 후 저장
+      // 메타데이터 정리: 스캔된 파일(.m4a)에 매칭되거나, 메타 경로의 실제 파일이 디스크에
+      // 존재하면(확장자 무관) 보존한다. (.m4a 스캔만으로 판단하면, iOS가 확장자 없이 올린
+      // fileName 탓에 확장자 없이 저장된 구 다운로드본의 메타를 "파일 없음"으로 오판해 삭제 →
+      // 녹음이 통째로 유실되던 문제 방지)
       final existingIds = audioFiles.map((f) => f.id).toSet();
-      final cleanedStored = storedFiles.where((f) => existingIds.contains(f.id)).toList();
+      final cleanedStored = <AudioFile>[];
+      for (final f in storedFiles) {
+        if (existingIds.contains(f.id) ||
+            (f.filePath.isNotEmpty && await File(f.filePath).exists())) {
+          cleanedStored.add(f);
+        }
+      }
       if (cleanedStored.length != storedFiles.length) {
         await FileStorageService.instance.saveAudioFiles(litten.id, cleanedStored);
       }
