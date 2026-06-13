@@ -19,6 +19,9 @@ public interface MemberYoutubeChannelRepository extends JpaRepository<MemberYout
 
     boolean existsByMemberIdAndChannelId(String memberId, String channelId);
 
+    /** 등록일시(insert_date_time)가 비어있는 레거시 구독 행 — 시작 시 1회 backfill 대상 */
+    List<MemberYoutubeChannel> findByInsertDateTimeIsNull();
+
     /** 특정 채널에 활성 구독자가 존재하는지 확인 (폴링 대상 채널 판단용) */
     boolean existsByChannelIdAndIsActiveTrue(String channelId);
 

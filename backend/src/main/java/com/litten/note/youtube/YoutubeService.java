@@ -103,6 +103,9 @@ public class YoutubeService {
                     MemberYoutubeChannel s = new MemberYoutubeChannel();
                     s.setMemberId(memberId);
                     s.setChannelId(channelId);
+                    // JPA Auditing(@EnableJpaAuditing) 미사용 → 등록일시 수동 세팅.
+                    // 전체탭 "등록일 기준" 정렬(YoutubeSubscriptionDto.subscribedAt)에 사용.
+                    s.setInsertDateTime(LocalDateTime.now());
                     return s;
                 });
         sub.setIsActive(true);
