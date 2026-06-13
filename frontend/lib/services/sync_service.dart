@@ -284,7 +284,7 @@ class SyncService {
           !file.isMultiPage &&
           file.imagePath.toLowerCase().endsWith('.pdf');
       final filePath = (file.isMultiPage || isPdfDoc)
-          ? file.imagePath
+          ? await _resolveLocalPath(file.imagePath, littenId, 'handwriting')
           : '${appDir.path}/littens/$littenId/handwriting/${file.id}_drawing.png';
       final uploadName = isPdfDoc
           ? (file.displayTitle.toLowerCase().endsWith('.pdf') ? file.displayTitle : '${file.displayTitle}.pdf')
@@ -311,9 +311,11 @@ class SyncService {
     final audioFiles = await _fileStorage.loadAudioFiles(littenId);
     for (final file in audioFiles) {
       if (file.cloudId == null) {
+        // iOS 재설치 등으로 저장된 절대경로가 무효일 수 있어 현재 appDir 기준으로 재구성
+        final audioPath = await _resolveLocalPath(file.filePath, littenId, 'audio');
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'audio',
-          fileName: '${file.fileName}.m4a', filePath: file.filePath, localUpdatedAt: file.updatedAt,
+          fileName: '${file.fileName}.m4a', filePath: audioPath, localUpdatedAt: file.updatedAt,
         );
       }
     }
@@ -322,9 +324,10 @@ class SyncService {
     final attachmentFiles = await _fileStorage.loadAttachmentFiles(littenId);
     for (final file in attachmentFiles) {
       if (file.cloudId == null) {
+        final attachPath = await _resolveLocalPath(file.filePath, littenId, 'attachments');
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'attachment',
-          fileName: file.fileName, filePath: file.filePath, localUpdatedAt: file.updatedAt,
+          fileName: file.fileName, filePath: attachPath, localUpdatedAt: file.updatedAt,
         );
       }
     }
@@ -816,14 +819,25 @@ class SyncService {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
+  /// 저장된 파일 경로가 (iOS 앱 재설치로 컨테이너 경로가 바뀌어) 무효일 때
+  /// 현재 앱 문서 디렉토리 기준으로 재구성한다. 디렉토리 구조/파일명은 보존하고
+  /// 컨테이너 경로만 교체. 기존 경로가 유효하거나 비어 있으면 그대로 반환.
+  Future<String> _resolveLocalPath(String storedPath, String littenId, String typeDir) async {
+    if (storedPath.isEmpty) return storedPath;
+    if (await File(storedPath).exists()) return storedPath;
+    final appDir = await getApplicationDocumentsDirectory();
+    final name = storedPath.split('/').last;
+    return '${appDir.path}/littens/$littenId/$typeDir/$name';
+  }
+
   Future<String?> _getFilePath(dynamic file, String littenId) async {
     if (file is TextFile) {
       final appDir = await getApplicationDocumentsDirectory();
       return '${appDir.path}/littens/$littenId/text/${file.id}.html';
     }
-    if (file is HandwritingFile) return file.imagePath;
-    if (file is AudioFile) return file.filePath;
-    if (file is AttachmentFile) return file.filePath;
+    if (file is HandwritingFile) return _resolveLocalPath(file.imagePath, littenId, 'handwriting');
+    if (file is AudioFile) return _resolveLocalPath(file.filePath, littenId, 'audio');
+    if (file is AttachmentFile) return _resolveLocalPath(file.filePath, littenId, 'attachments');
     return null;
   }
 
@@ -835,17 +849,27 @@ class SyncService {
       final dirName = fileType == 'attachment' ? 'attachments' : fileType;
       final dir = Directory('${appDir.path}/littens/$littenId/$dirName');
       await dir.create(recursive: true);
-      String ext;
-      if (fileType == 'attachment') {
-        final dot = cloudFileName.lastIndexOf('.');
-        ext = dot >= 0 ? cloudFileName.substring(dot) : '';
-      } else if (fileType == 'handwriting' && cloudFileName.toLowerCase().endsWith('.pdf')) {
-        // PDF 변환 필기: 원본 .pdf로 저장해 수신 기기에서도 PDF 뷰어로 열리게 한다.
-        ext = '.pdf';
+      // 저장 파일명 결정.
+      // 오디오는 원본이 "표시명 기반 파일명"({표시명}.m4a)으로 저장되는데, 다운로드본을
+      // {localId}.m4a로 저장하면 같은 녹음이 두 개의 물리 파일로 갈려 목록(디렉토리 스캔)에
+      // 중복으로 잡힌다. 원본 업로드명(cloudFileName)과 동일하게 저장해 한 파일로 합친다.
+      // 텍스트/필기(png)는 원본도 {localId}.ext라 localId 기준을 그대로 유지한다.
+      final File file;
+      if (fileType == 'audio' && cloudFileName.isNotEmpty) {
+        file = File('${dir.path}/$cloudFileName');
       } else {
-        ext = _getFileExtension(fileType);
+        String ext;
+        if (fileType == 'attachment') {
+          final dot = cloudFileName.lastIndexOf('.');
+          ext = dot >= 0 ? cloudFileName.substring(dot) : '';
+        } else if (fileType == 'handwriting' && cloudFileName.toLowerCase().endsWith('.pdf')) {
+          // PDF 변환 필기: 원본 .pdf로 저장해 수신 기기에서도 PDF 뷰어로 열리게 한다.
+          ext = '.pdf';
+        } else {
+          ext = _getFileExtension(fileType);
+        }
+        file = File('${dir.path}/$localId$ext');
       }
-      final file = File('${dir.path}/$localId$ext');
       await file.writeAsBytes(bytes);
       return file.path;
     } catch (e) {
