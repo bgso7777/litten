@@ -22,6 +22,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _registeredEmail; // signup 상태의 계정 이메일
+  String? _deviceUuid; // 기기 구분용 — 끝 5자리를 설정 하단에 표시
 
   @override
   void initState() {
@@ -40,6 +41,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // UUID 가져오기
       final uuid = await appState.authService.getDeviceUuid();
       debugPrint('[SettingsScreen] UUID: $uuid');
+
+      // 기기 구분용 UUID 표시 (네트워크 조회 전에 먼저 반영)
+      if (mounted) setState(() => _deviceUuid = uuid);
 
       // UUID로 계정 조회
       final accountData = await apiService.findAccountByUuid(uuid: uuid);
@@ -337,6 +341,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     l10n?.appDescription ?? '크로스 플랫폼 통합 노트 앱',
                     style: AppTextStyles.caption2,
                   ),
+                  if (_deviceUuid != null && _deviceUuid!.length >= 5) ...[
+                    AppSpacing.verticalSpaceXS,
+                    Text(
+                      '기기 ID: ${_deviceUuid!.substring(_deviceUuid!.length - 5)}',
+                      style: AppTextStyles.caption2,
+                    ),
+                  ],
                 ],
               ),
             ),
