@@ -35,6 +35,8 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _stateSaveTimer;
   String? _currentRecordingLittenId;
   DateTime? _recordingStartTime; // 녹음 시작 시간
+  // 녹음 파일은 안정 키(localId)로 저장하고, 사용자 표시명은 메타데이터로 분리 보관한다.
+  String? _currentRecordingDisplayName;
 
   // Getters
   bool get isRecording => _isRecording;
@@ -57,6 +59,10 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint('[AudioService] 권한 체크 건너뛰기 (record 패키지가 자체 처리)');
     return true;
   }
+
+  /// 녹음 표시명에 쓰는 날짜 스탬프 (YYMMDDHHmmss)
+  String _dateStamp(DateTime t) =>
+      '${t.year.toString().substring(2)}${t.month.toString().padLeft(2, '0')}${t.day.toString().padLeft(2, '0')}${t.hour.toString().padLeft(2, '0')}${t.minute.toString().padLeft(2, '0')}${t.second.toString().padLeft(2, '0')}';
 
   /// 듣기(녹음) 시작
   Future<bool> startRecording(Litten litten, {String undefinedPrefix = '녹음'}) async {
@@ -83,11 +89,15 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('[AudioService] 오디오 디렉토리 생성: ${littenDir.path}');
       }
 
-      // 파일명 생성 (일정명 + 년월일시분초)
+      // 파일명은 안정 키(localId)로 통일한다. 사용자 표시명({litten명} {YYMMDDHHmmss})은
+      // 메타데이터(AudioFile.fileName)로 분리 보관한다.
+      // (과거: 파일명=표시명이라 동기화 다운로드본 {localId}.m4a와 물리 파일이 갈려
+      //  디렉토리 스캔에서 같은 녹음이 2개로 중복 생성됨)
       final now = DateTime.now();
+      final id = now.millisecondsSinceEpoch.toString();
       final littenName = litten.title == 'undefined' ? undefinedPrefix : litten.title;
-      final fileName = '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}.m4a';
-      final filePath = '${littenDir.path}/$fileName';
+      _currentRecordingDisplayName = '$littenName ${_dateStamp(now)}';
+      final filePath = '${littenDir.path}/$id.m4a';
       
       debugPrint('[AudioService] 녹음 파일 경로: $filePath');
 
@@ -235,16 +245,22 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
             ? DateTime.now().difference(_recordingStartTime!)
             : _recordingDuration;
 
-        // AudioFile 모델 생성
+        // AudioFile 모델 생성.
+        // id = 파일명(저장 시 localId로 통일됨) / fileName = 사용자 표시명(메타, 파일명과 분리).
+        // 표시명은 startRecording에서 보관한 값을 쓰고, (상태복원 등으로) 없으면 재생성한다.
+        final id = path.split('/').last.replaceAll('.m4a', '');
+        final displayName = _currentRecordingDisplayName ??
+            '${litten.title == 'undefined' ? '녹음' : litten.title} ${_dateStamp(_recordingStartTime ?? DateTime.now())}';
         final audioFile = AudioFile(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: id,
           littenId: litten.id,
-          fileName: path.split('/').last.replaceAll('.m4a', ''),
+          fileName: displayName,
           filePath: path,
           duration: actualDuration,
           createdAt: DateTime.now(),
           isFromSTT: isFromSTT,
         );
+        _currentRecordingDisplayName = null;
 
         debugPrint('[AudioService] 오디오 파일 저장됨: ${audioFile.fileName}');
         debugPrint('[AudioService] 파일 경로: ${audioFile.filePath}');
@@ -254,7 +270,7 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
 
         // 메타데이터 저장 (syncStatus 등 유지용)
         final stored = await FileStorageService.instance.loadAudioFiles(litten.id);
-        stored.removeWhere((f) => f.filePath == audioFile.filePath);
+        stored.removeWhere((f) => f.id == audioFile.id || f.filePath == audioFile.filePath);
         stored.add(audioFile);
         debugPrint('[AudioService] ⭐ 저장 전 audioFile.isFromSTT: ${audioFile.isFromSTT}');
         await FileStorageService.instance.saveAudioFiles(litten.id, stored);
@@ -356,8 +372,10 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
 
       // 저장된 메타데이터 로드 (cloudId, syncStatus 등 유지)
       final storedFiles = await FileStorageService.instance.loadAudioFiles(litten.id);
+      // 안정 키(id=파일명) 매칭 우선 — 동기화 다운로드본과 원본을 한 항목으로 합쳐 중복을 막는다.
+      final storedById = <String, AudioFile>{for (final f in storedFiles) f.id: f};
       final storedByPath = <String, AudioFile>{for (final f in storedFiles) f.filePath: f};
-      // 경로 불일치 대비 파일명 기반 폴백 (Android 심볼릭 링크 등)
+      // 경로/표시명 폴백 (마이그레이션 전 {표시명}.m4a 호환, Android 심볼릭 링크 등)
       final storedByName = <String, AudioFile>{for (final f in storedFiles) f.fileName: f};
 
       if (!await audioDir.exists()) {
@@ -371,17 +389,17 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       for (final file in files) {
         if (file is File && file.path.endsWith('.m4a')) {
           final stat = await file.stat();
-          final fileName = file.path.split('/').last.replaceAll('.m4a', '');
-          // 경로로 먼저 조회, 경로 불일치 시 파일명으로 폴백 (isFromSTT 등 메타데이터 보존)
-          final stored = storedByPath[file.path] ?? storedByName[fileName];
+          final nameNoExt = file.path.split('/').last.replaceAll('.m4a', '');
+          // 안정 키(id=파일명) 우선, 경로/표시명은 폴백 — id 매칭이 다운로드본·원본을 한 항목으로 합친다.
+          final stored = storedById[nameNoExt] ?? storedByPath[file.path] ?? storedByName[nameNoExt];
           final audioFile = stored != null
               // 경로 정규화 — 단순 로드이므로 updatedAt(수정 시각)은 보존한다.
               // (보존하지 않으면 로드할 때마다 now로 갱신되어 목록에서 항상 최상위로 올라온다)
               ? stored.copyWith(filePath: file.path, updatedAt: stored.updatedAt)
               : AudioFile(
-                  id: stat.modified.millisecondsSinceEpoch.toString(),
+                  id: nameNoExt,
                   littenId: litten.id,
-                  fileName: fileName,
+                  fileName: nameNoExt,
                   filePath: file.path,
                   duration: Duration.zero,
                   createdAt: stat.modified,
@@ -392,8 +410,8 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       // 메타데이터에서 실제 파일이 없는 항목 제거 후 저장
-      final existingNames = audioFiles.map((f) => f.fileName).toSet();
-      final cleanedStored = storedFiles.where((f) => existingNames.contains(f.fileName)).toList();
+      final existingIds = audioFiles.map((f) => f.id).toSet();
+      final cleanedStored = storedFiles.where((f) => existingIds.contains(f.id)).toList();
       if (cleanedStored.length != storedFiles.length) {
         await FileStorageService.instance.saveAudioFiles(litten.id, cleanedStored);
       }
@@ -408,6 +426,71 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
       return [];
     }
   }
+
+  /// [마이그레이션] 오디오 물리 파일명을 표시명 기반 → 안정 키({localId}.m4a)로 정규화한다.
+  /// 과거 녹음은 "{표시명}.m4a"로 저장돼 동기화 다운로드본 "{localId}.m4a"와 물리 파일이 갈려
+  /// 중복되었으므로, 표시명 파일을 id 파일로 rename(이미 id 파일이 있으면 표시명 파일 삭제)하고
+  /// 메타 경로를 정규화한다. 표시명(fileName 메타)은 보존된다. 앱 시작 시 1회만 수행(플래그).
+  static Future<void> migrateAudioFileNamesToId(List<String> littenIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('audio_filename_id_migrated_v1') == true) return;
+    debugPrint('[AudioService] 오디오 파일명 마이그레이션 시작 - ${littenIds.length}개 리튼');
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      for (final littenId in littenIds) {
+        await _migrateLittenAudio(littenId, appDir);
+      }
+      await prefs.setBool('audio_filename_id_migrated_v1', true);
+      debugPrint('[AudioService] 오디오 파일명 마이그레이션 완료');
+    } catch (e) {
+      // 실패 시 플래그 미설정 → 다음 시작에 재시도
+      debugPrint('[AudioService] 오디오 파일명 마이그레이션 오류: $e');
+    }
+  }
+
+  static Future<void> _migrateLittenAudio(String littenId, Directory appDir) async {
+    final dir = Directory('${appDir.path}/littens/$littenId/audio');
+    if (!await dir.exists()) return;
+    final stored = await FileStorageService.instance.loadAudioFiles(littenId);
+    if (stored.isEmpty) return;
+
+    final seen = <String>{};
+    final updated = <AudioFile>[];
+    var changed = false;
+    for (final f in stored) {
+      final targetPath = '${dir.path}/${f.id}.m4a';
+      if (f.filePath != targetPath) {
+        final current = File(f.filePath);
+        final target = File(targetPath);
+        try {
+          if (await target.exists()) {
+            // id 파일(다운로드본)이 이미 있으면 표시명 파일은 중복 → 삭제
+            if (await current.exists()) await current.delete();
+          } else if (await current.exists()) {
+            await current.rename(targetPath);
+          }
+        } catch (e) {
+          debugPrint('[AudioService] 마이그레이션 파일 처리 오류 (${f.id}): $e');
+        }
+        changed = true;
+      }
+      // 같은 id 중복 메타는 1개만 유지(수정 시각 보존)
+      if (seen.add(f.id)) {
+        updated.add(f.copyWith(filePath: targetPath, updatedAt: f.updatedAt));
+      } else {
+        changed = true;
+      }
+    }
+    if (changed) {
+      await FileStorageService.instance.saveAudioFiles(littenId, updated);
+      debugPrint('[AudioService] 마이그레이션 - littenId: $littenId, ${stored.length}→${updated.length}개');
+    }
+  }
+
+  /// 테스트 전용: 리튼 단위 오디오 파일명 마이그레이션 (실행 플래그/문서 디렉토리 우회)
+  @visibleForTesting
+  static Future<void> migrateLittenAudioForTest(String littenId, Directory appDir) =>
+      _migrateLittenAudio(littenId, appDir);
 
   /// 오디오 파일 재생
   Future<bool> playAudio(AudioFile audioFile) async {

@@ -849,27 +849,20 @@ class SyncService {
       final dirName = fileType == 'attachment' ? 'attachments' : fileType;
       final dir = Directory('${appDir.path}/littens/$littenId/$dirName');
       await dir.create(recursive: true);
-      // 저장 파일명 결정.
-      // 오디오는 원본이 "표시명 기반 파일명"({표시명}.m4a)으로 저장되는데, 다운로드본을
-      // {localId}.m4a로 저장하면 같은 녹음이 두 개의 물리 파일로 갈려 목록(디렉토리 스캔)에
-      // 중복으로 잡힌다. 원본 업로드명(cloudFileName)과 동일하게 저장해 한 파일로 합친다.
-      // 텍스트/필기(png)는 원본도 {localId}.ext라 localId 기준을 그대로 유지한다.
-      final File file;
-      if (fileType == 'audio' && cloudFileName.isNotEmpty) {
-        file = File('${dir.path}/$cloudFileName');
+      // 저장 파일명은 안정 키(localId) 기준으로 통일한다. 오디오 원본도 이제 {localId}.m4a로
+      // 저장(audio_service)되므로 다운로드본과 같은 물리 파일로 합쳐져 중복이 생기지 않는다.
+      // 첨부는 확장자 가변이라 cloudFileName에서 확장자만 취하고, PDF 변환 필기는 .pdf로 저장한다.
+      String ext;
+      if (fileType == 'attachment') {
+        final dot = cloudFileName.lastIndexOf('.');
+        ext = dot >= 0 ? cloudFileName.substring(dot) : '';
+      } else if (fileType == 'handwriting' && cloudFileName.toLowerCase().endsWith('.pdf')) {
+        // PDF 변환 필기: 원본 .pdf로 저장해 수신 기기에서도 PDF 뷰어로 열리게 한다.
+        ext = '.pdf';
       } else {
-        String ext;
-        if (fileType == 'attachment') {
-          final dot = cloudFileName.lastIndexOf('.');
-          ext = dot >= 0 ? cloudFileName.substring(dot) : '';
-        } else if (fileType == 'handwriting' && cloudFileName.toLowerCase().endsWith('.pdf')) {
-          // PDF 변환 필기: 원본 .pdf로 저장해 수신 기기에서도 PDF 뷰어로 열리게 한다.
-          ext = '.pdf';
-        } else {
-          ext = _getFileExtension(fileType);
-        }
-        file = File('${dir.path}/$localId$ext');
+        ext = _getFileExtension(fileType);
       }
+      final file = File('${dir.path}/$localId$ext');
       await file.writeAsBytes(bytes);
       return file.path;
     } catch (e) {

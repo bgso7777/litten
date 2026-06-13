@@ -514,9 +514,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     // 앱 시작 동기화 (비동기 fire-and-forget)
+    final startLittenIds = _littens.map((l) => l.id).toList();
+    // 오디오 파일명 정규화 마이그레이션 — 동기화로 새 다운로드본을 받기 전에 기존 중복부터 정리
+    await AudioService.migrateAudioFileNamesToId(startLittenIds);
     SyncService.instance.syncOnAppStart();
     // 미동기화 로컬 파일 일괄 업로드 (프리미엄 여부는 내부에서 판단)
-    final startLittenIds = _littens.map((l) => l.id).toList();
     SyncService.instance.uploadAllLocalFiles(startLittenIds);
     // 캘린더 일정 서버 동기화(로그인 기준, 프리미엄 무관) — 내부에서 _canSync 판단
     ScheduleSyncService.instance.pullSchedules();
