@@ -974,32 +974,56 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     const Center(child: CircularProgressIndicator())
                   else
                     _buildFileList(),
-                  Positioned(
-                    bottom: 28,
-                    left: 0,
-                    right: 0,
-                    child: widget.showOnlySTT
-                        ? _buildSttOnlyFab(color: Theme.of(context).primaryColor)
-                        : widget.showOnlyAttachments
-                            ? _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor)
-                            : _BottomFabRow(
-                                onText: () async { if (await _blockedByLimit('text')) return; _openEditorView(_EditorType.text, autoCreate: true); },
-                                onTextWithSTT: () async { if (await _blockedByLimit('stt')) return; _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true); },
-                                onFiles: _addAttachmentFromFiles,
-                                onCanvas: () async { if (await _blockedByLimit('handwriting')) return; _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas); },
-                                onAudio: () async { if (!_isRecording && await _blockedByLimit('audio')) return; _toggleRecording(); },
-                                onYoutube: () async {
-                                  await showYoutubeChannelSheet(context);
-                                  // 시트에서 채널 등록 시 전체탭 영상 섹션 즉시 반영
-                                  if (mounted) await _loadYoutubeChannels();
-                                },
-                                isRecording: _isRecording,
-                                recordingDuration: _recordingDuration,
-                              ),
-                  ),
+                  // STT 전용 / 첨부 전용 모드는 기존 단일 FAB 유지
+                  if (widget.showOnlySTT || widget.showOnlyAttachments)
+                    Positioned(
+                      bottom: 28,
+                      left: 0,
+                      right: 0,
+                      child: widget.showOnlySTT
+                          ? _buildSttOnlyFab(color: Theme.of(context).primaryColor)
+                          : _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor),
+                    ),
+                  // ── 기존 일반 노트 스피드다이얼 FAB — 메인메뉴 위 칩 행(_CreateChipBar)으로 대체.
+                  //    빠르게 되돌릴 수 있도록 주석으로 보존(이 블록 주석 해제 + 아래 _CreateChipBar 제거 시 복구). ──
+                  // Positioned(
+                  //   bottom: 28,
+                  //   left: 0,
+                  //   right: 0,
+                  //   child: _BottomFabRow(
+                  //     onText: () async { if (await _blockedByLimit('text')) return; _openEditorView(_EditorType.text, autoCreate: true); },
+                  //     onTextWithSTT: () async { if (await _blockedByLimit('stt')) return; _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true); },
+                  //     onFiles: _addAttachmentFromFiles,
+                  //     onCanvas: () async { if (await _blockedByLimit('handwriting')) return; _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas); },
+                  //     onAudio: () async { if (!_isRecording && await _blockedByLimit('audio')) return; _toggleRecording(); },
+                  //     onYoutube: () async {
+                  //       await showYoutubeChannelSheet(context);
+                  //       if (mounted) await _loadYoutubeChannels();
+                  //     },
+                  //     isRecording: _isRecording,
+                  //     recordingDuration: _recordingDuration,
+                  //   ),
+                  // ),
                 ],
               ),
             ),
+            // ⭐ 일반 노트 모드: 메인메뉴 바로 위에 항상 표시되는 생성 칩 행(가로 스크롤).
+            //    +(노트) → + → 목록의 2단계 펼침을 없애고, 칩 한 번 탭으로 즉시 생성.
+            if (!widget.showOnlySTT && !widget.showOnlyAttachments)
+              _CreateChipBar(
+                onText: () async { if (await _blockedByLimit('text')) return; _openEditorView(_EditorType.text, autoCreate: true); },
+                onTextWithSTT: () async { if (await _blockedByLimit('stt')) return; _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true); },
+                onFiles: _addAttachmentFromFiles,
+                onCanvas: () async { if (await _blockedByLimit('handwriting')) return; _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas); },
+                onAudio: () async { if (!_isRecording && await _blockedByLimit('audio')) return; _toggleRecording(); },
+                onYoutube: () async {
+                  await showYoutubeChannelSheet(context);
+                  // 시트에서 채널 등록 시 전체탭 영상 섹션 즉시 반영
+                  if (mounted) await _loadYoutubeChannels();
+                },
+                isRecording: _isRecording,
+                recordingDuration: _recordingDuration,
+              ),
           ],
         );
       },
@@ -2973,6 +2997,139 @@ class _BottomFabRowState extends State<_BottomFabRow> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// 메인메뉴 바로 위에 항상 표시되는 "생성 칩 행"(가로 스크롤).
+/// 기존 스피드다이얼(_BottomFabRow)의 항목/순서/표시조건(fabVis)을 그대로 따르되,
+/// 2단계 펼침 없이 칩 한 번 탭으로 즉시 생성한다. 스타일은 캘린더 힌트칩과 통일.
+class _CreateChipBar extends StatelessWidget {
+  final VoidCallback onText;
+  final VoidCallback onTextWithSTT;
+  final VoidCallback onFiles;
+  final VoidCallback onCanvas;
+  final VoidCallback onAudio;
+  final VoidCallback? onYoutube;
+  final bool isRecording;
+  final Duration recordingDuration;
+
+  const _CreateChipBar({
+    required this.onText,
+    required this.onTextWithSTT,
+    required this.onFiles,
+    required this.onCanvas,
+    required this.onAudio,
+    this.onYoutube,
+    this.isRecording = false,
+    this.recordingDuration = Duration.zero,
+  });
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  Widget _chip(BuildContext context,
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap,
+      bool active = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: active ? color : color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            // 캘린더 힌트칩과 동일한 세로 패딩(6)으로 높이를 맞춘다.
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: color.withValues(alpha: active ? 1.0 : 0.25), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: active ? Colors.white : color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: active ? Colors.white : color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
+    final fabVis = Provider.of<AppStateProvider>(context).allTabFabVisibility;
+
+    final chips = <Widget>[];
+    // 순서(좌→우): 메모 → 녹음 → 녹음 메모 → 필기 → 파일 → 영상 채널
+    if (fabVis.contains('text')) {
+      chips.add(_chip(context,
+          icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: onText));
+    }
+    if (fabVis.contains('audio')) {
+      chips.add(_chip(context,
+          icon: isRecording ? Icons.stop : Icons.mic,
+          label: isRecording
+              ? (l10n?.recordingStatus(_formatDuration(recordingDuration)) ??
+                  '녹음중... ${_formatDuration(recordingDuration)}')
+              : (l10n?.audioTab ?? '녹음'),
+          color: color,
+          onTap: onAudio,
+          active: isRecording));
+    }
+    if (fabVis.contains('stt')) {
+      chips.add(_chip(context,
+          icon: Icons.record_voice_over,
+          label: l10n?.voiceMemoLabel ?? '녹음 메모',
+          color: color,
+          onTap: onTextWithSTT));
+    }
+    if (fabVis.contains('canvas')) {
+      chips.add(_chip(context,
+          icon: Icons.draw, label: l10n?.handwritingTab ?? '필기', color: color, onTap: onCanvas));
+    }
+    if (fabVis.contains('files')) {
+      chips.add(_chip(context,
+          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: onFiles));
+    }
+    if (fabVis.contains('youtube') && onYoutube != null) {
+      chips.add(_chip(context,
+          icon: Icons.smart_display, label: '영상 채널', color: color, onTap: onYoutube!));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: chips),
+      ),
     );
   }
 }
