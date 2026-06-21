@@ -2533,6 +2533,36 @@ class _AllFilesTabState extends State<AllFilesTab> {
         throw Exception('파일 저장 실패 (SharedPreferences 오류)');
       }
 
+      // 요약이 반영된 본문을 실제 .html 파일에도 기록한다.
+      // (saveTextFiles는 메타데이터(JSON)만 저장 — .html을 갱신하지 않으면 동기화 업로드가
+      //  요약 없는 옛 본문을 올린다)
+      await storage.saveTextFileContent(updatedFile);
+
+      // 클라우드 동기화: 요약으로 본문이 바뀌었으므로 즉시 서버에 반영한다.
+      // (기존엔 .html 미기록 + 업로드 트리거 부재로, 요약한 파일이 다른 기기에 동기화되지 않던 문제 수정)
+      final htmlFilePath =
+          '${(await getApplicationDocumentsDirectory()).path}/littens/${updatedFile.littenId}/text/${updatedFile.id}.html';
+      if (updatedFile.cloudId != null) {
+        SyncService.instance.updateFile(
+          littenId: updatedFile.littenId,
+          localId: updatedFile.id,
+          cloudId: updatedFile.cloudId!,
+          fileType: 'text',
+          filePath: htmlFilePath,
+          localUpdatedAt: updatedFile.updatedAt,
+          fileName: SyncService.textUploadFileName(updatedFile.id, updatedFile.title),
+        );
+      } else {
+        SyncService.instance.uploadFile(
+          littenId: updatedFile.littenId,
+          localId: updatedFile.id,
+          fileType: 'text',
+          fileName: SyncService.textUploadFileName(updatedFile.id, updatedFile.title),
+          filePath: htmlFilePath,
+          localUpdatedAt: updatedFile.updatedAt,
+        );
+      }
+
       // 파일 목록 새로고침
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await _loadFiles(appState);

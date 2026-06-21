@@ -1112,8 +1112,28 @@ class SyncService {
   }
 
   Future<void> _saveOfflineQueue(List<Map<String, dynamic>> queue) async {
+    // 저장 시 항상 중복 제거: 같은 대상(action+littenId+localId+fileType+cloudId)은 마지막 1개만 유지.
+    // (서버 다운 등으로 매 동기화마다 동일 파일이 재시도→재추가되어 큐가 무한 증식하던 문제 방지.
+    //  기존에 부풀어 있던 큐도 다음 저장 시점에 고유 항목 수로 자동 수축된다)
+    final deduped = _dedupOfflineQueue(queue);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyOfflineQueue, jsonEncode(queue));
+    await prefs.setString(_keyOfflineQueue, jsonEncode(deduped));
+    if (deduped.length != queue.length) {
+      debugPrint('[SyncService] 오프라인 큐 중복 제거 - ${queue.length}→${deduped.length}개');
+    }
+  }
+
+  // 오프라인 큐 항목의 중복 식별 키. 같은 키는 같은 동기화 작업으로 간주한다.
+  String _offlineQueueKey(Map<String, dynamic> e) =>
+      '${e['action']}|${e['littenId'] ?? ''}|${e['localId'] ?? ''}|${e['fileType'] ?? ''}|${e['cloudId'] ?? ''}';
+
+  // 같은 키는 마지막(가장 최근) 항목만 남긴다. 삽입 순서는 보존한다.
+  List<Map<String, dynamic>> _dedupOfflineQueue(List<Map<String, dynamic>> queue) {
+    final byKey = <String, Map<String, dynamic>>{};
+    for (final e in queue) {
+      byKey[_offlineQueueKey(e)] = e; // 동일 키는 최신 값으로 덮어씀
+    }
+    return byKey.values.toList();
   }
 
   // UUID 패턴 감지: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
