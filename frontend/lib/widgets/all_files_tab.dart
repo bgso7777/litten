@@ -1200,11 +1200,37 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  // 제목 아이콘 토글로 숨긴 종류인지 판정 (text/audio/canvas/pdf/files/photo/video)
+  bool _hiddenByTitleToggle(_MergedFile m, Set<String> hidden) {
+    if (hidden.isEmpty) return false;
+    switch (m.type) {
+      case _FileType.text:
+        // STT(녹음 메모) 텍스트는 'stt', 일반 텍스트는 'text'
+        return hidden.contains((m.file as TextFile).isFromSTT ? 'stt' : 'text');
+      case _FileType.audio:
+        // STT(녹음 메모) 오디오는 'stt', 일반 녹음은 'audio'
+        return hidden.contains((m.file as AudioFile).isFromSTT ? 'stt' : 'audio');
+      case _FileType.handwriting:
+        final isPdf = (m.file as HandwritingFile).type == HandwritingType.pdfConvert;
+        return hidden.contains(isPdf ? 'pdf' : 'canvas');
+      case _FileType.attachment:
+        final a = m.file as AttachmentFile;
+        if (a.isImage) return hidden.contains('photo');
+        if (a.isVideo) return hidden.contains('video');
+        return hidden.contains('files');
+    }
+  }
+
   Widget _buildFileList() {
-    final merged = _applyFilter(_mergedFiles);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final hidden = appState.allTabHiddenTypes;
+    // 단일 필터(드롭다운, 현재 히든) + 제목 아이콘 토글 숨김을 함께 적용
+    final merged = _applyFilter(_mergedFiles)
+        .where((m) => !_hiddenByTitleToggle(m, hidden))
+        .toList();
     final showYoutubeSection = !widget.showOnlySTT && !widget.showOnlyAttachments
         && (_fileFilter == _FileFilter.all || _fileFilter == _FileFilter.youtube)
+        && !hidden.contains('youtube')
         && appState.showYoutubeInAllTab
         && (_youtubeChannels.isNotEmpty || _loadingChannels);
 
@@ -3548,30 +3574,37 @@ class AllFilesTabButton extends StatelessWidget {
         void maybeAdd(String id, IconData icon, int count) {
           if (fabVis.contains(id) && count > 0) {
             if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
-            visItems.add(_iconCount(icon, count));
+            visItems.add(_iconCount(context, appState, id, icon, count));
           }
         }
-        // 카운트가 0보다 클 때만 추가 (설정과 무관) — pdf/사진/비디오용
-        void addIfPositive(IconData icon, int count) {
+        // 카운트가 0보다 클 때만 추가 (설정과 무관) — pdf/사진/비디오/영상채널용
+        void addIfPositive(String key, IconData icon, int count) {
           if (count > 0) {
             if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
-            visItems.add(_iconCount(icon, count));
+            visItems.add(_iconCount(context, appState, key, icon, count));
           }
         }
         // 첨부 중 사진/비디오 분리 — '파일'은 사진/비디오 제외분만 표시
         final photoCount = appState.actualPhotoCount;
         final videoCount = appState.actualVideoCount;
         final otherFiles = (attachmentCount - photoCount - videoCount).clamp(0, 1 << 31);
-        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 녹음 → 필기(캔버스+PDF) → 파일 → 사진 → 비디오
-        maybeAdd('text', Icons.notes, textCount);
-        maybeAdd('audio', Icons.mic, audioCount);
+        // 녹음 메모(STT)를 메모/녹음에서 분리: 메모=비STT 텍스트, 녹음=비STT 오디오, 녹음메모=STT(텍스트+오디오)
+        final sttTextCount = appState.actualSttTextCount;
+        final sttAudioCount = appState.actualSttMemoCount;
+        final memoCount = (textCount - sttTextCount).clamp(0, 1 << 31);
+        final recordingCount = (audioCount - sttAudioCount).clamp(0, 1 << 31);
+        final sttCount = sttTextCount + sttAudioCount;
+        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 녹음 → 녹음메모 → 필기(캔버스+PDF) → 파일 → 사진 → 비디오 → 영상채널
+        maybeAdd('text', Icons.notes, memoCount);
+        maybeAdd('audio', Icons.mic, recordingCount);
+        maybeAdd('stt', Icons.record_voice_over, sttCount);
         maybeAdd('canvas', Icons.draw, canvasCount);
-        addIfPositive(Icons.picture_as_pdf, pdfCount);
+        addIfPositive('pdf', Icons.picture_as_pdf, pdfCount);
         maybeAdd('files', Icons.description, otherFiles);
-        addIfPositive(Icons.photo_camera, photoCount);
-        addIfPositive(Icons.videocam, videoCount);
+        addIfPositive('photo', Icons.photo_camera, photoCount);
+        addIfPositive('video', Icons.videocam, videoCount);
         // 영상 채널(구독) — 채널이 1개 이상일 때 표시 (생성 칩 순서와 동일하게 맨 뒤)
-        addIfPositive(Icons.subscriptions, appState.actualYoutubeChannelCount);
+        addIfPositive('youtube', Icons.subscriptions, appState.actualYoutubeChannelCount);
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -3675,14 +3708,28 @@ class AllFilesTabButton extends StatelessWidget {
     );
   }
 
-  Widget _iconCount(IconData icon, int count) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon),
-        const SizedBox(width: 5),
-        Text(count.toString()),
-      ],
+  // 종류별 아이콘+카운트. 탭하면 해당 종류를 리스트에서 숨김/표시 토글한다.
+  // 숨김 상태: 흐리게 + 카운트 normal, 표시 상태: 기본(활성 탭에서 bold 상속).
+  Widget _iconCount(BuildContext context, AppStateProvider appState, String key, IconData icon, int count) {
+    final hidden = appState.allTabHiddenTypes.contains(key);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => appState.toggleAllTabHiddenType(key),
+      child: Opacity(
+        opacity: hidden ? 0.4 : 1.0,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon),
+            const SizedBox(width: 5),
+            Text(
+              count.toString(),
+              // 숨김이면 normal로 고정, 표시면 상위 스타일(활성 탭 bold) 상속
+              style: hidden ? const TextStyle(fontWeight: FontWeight.normal) : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -380,6 +380,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // ⭐ 전체탭 제목 아이콘 토글로 "숨긴 종류" 집합(세션 한정). 비어있으면 전부 표시.
+  // 키: text/audio/canvas/pdf/files/photo/video/youtube
+  final Set<String> _allTabHiddenTypes = {};
+  Set<String> get allTabHiddenTypes => _allTabHiddenTypes;
+  void toggleAllTabHiddenType(String key) {
+    if (!_allTabHiddenTypes.add(key)) _allTabHiddenTypes.remove(key);
+    notifyListeners();
+  }
+
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
   AppIconBadgeService get appIconBadgeService => _appIconBadgeService;
