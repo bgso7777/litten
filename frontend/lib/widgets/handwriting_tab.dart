@@ -38,6 +38,7 @@ class HandwritingTab extends StatefulWidget {
   final HandwritingFile? initialFile; // ⭐ 초기 파일 (파일 클릭 시 해당 파일을 바로 열기 위함)
   final String? initialPdfPath; // ⭐ 전체탭에서 파일 선택 후 전달받는 PDF 경로
   final String? initialPdfFileName; // ⭐ PDF 파일명
+  final String? initialImagePath; // ⭐ 전체탭 파일 리스트의 사진(이미지 첨부)을 필기로 편집하기 위한 이미지 경로
   const HandwritingTab({
     super.key,
     this.initialAction = HandwritingInitialAction.none,
@@ -46,6 +47,7 @@ class HandwritingTab extends StatefulWidget {
     this.initialFile,
     this.initialPdfPath,
     this.initialPdfFileName,
+    this.initialImagePath,
   });
 
   @override
@@ -171,6 +173,13 @@ class _HandwritingTabState extends State<HandwritingTab>
         if (!mounted) return;
         debugPrint('📂 initialPdfPath 감지됨 - 파일 선택 없이 변환 시작: ${widget.initialPdfPath}');
         _loadPdfFileFromPath(widget.initialPdfPath!, widget.initialPdfFileName ?? 'document.pdf');
+      });
+    } else if (widget.initialImagePath != null) {
+      // ⭐ 전체탭 파일 리스트의 사진(이미지 첨부) 탭 → 그 사진을 배경으로 필기 편집 시작
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        debugPrint('📂 initialImagePath 감지됨 - 사진을 필기로 편집: ${widget.initialImagePath}');
+        _loadImagePathAsHandwriting(widget.initialImagePath!);
       });
     } else if (widget.initialAction != HandwritingInitialAction.none) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3763,7 +3772,12 @@ class _HandwritingTabState extends State<HandwritingTab>
       debugPrint('ℹ️ 사용자가 이미지 선택을 취소함');
       return;
     }
+    await _loadImagePathAsHandwriting(picked.path);
+  }
 
+  /// 지정한 경로의 이미지를 배경으로 하는 새 필기 파일을 만들어 편집 모드로 연다.
+  /// (갤러리/카메라 선택 후, 또는 전체탭 파일 리스트의 사진 첨부 탭 시 공통 사용)
+  Future<void> _loadImagePathAsHandwriting(String srcPath) async {
     if (!mounted) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
@@ -3784,13 +3798,13 @@ class _HandwritingTabState extends State<HandwritingTab>
 
       final now = DateTime.now();
       final ts = now.millisecondsSinceEpoch;
-      final ext = picked.path.split('.').last.toLowerCase();
+      final ext = srcPath.split('.').last.toLowerCase();
       final ext2 = (ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp')
           ? ext
           : 'png';
       final savedPath =
           '${handwritingDir.path}/image_$ts.$ext2';
-      await File(picked.path).copy(savedPath);
+      await File(srcPath).copy(savedPath);
       debugPrint('💾 이미지 저장 완료: $savedPath');
 
       // 이미지 비율 계산

@@ -81,6 +81,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _actualCanvasCount = 0;
   int _actualSttMemoCount = 0;
   int _actualSttTextCount = 0; // 선택 리튼 STT(음성메모) 텍스트 수 — 전체탭 필터 카운트용
+  int _actualPhotoCount = 0;   // 선택 리튼 첨부 중 이미지 수 — 전체탭 사진 필터용
+  int _actualVideoCount = 0;   // 선택 리튼 첨부 중 비디오 수 — 전체탭 비디오 필터용
   int _actualAttachmentCount = 0;
   int _actualYoutubeChannelCount = 0;
 
@@ -399,6 +401,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualCanvasCount => _actualCanvasCount;
   int get actualSttMemoCount => _actualSttMemoCount;
   int get actualSttTextCount => _actualSttTextCount;
+  int get actualPhotoCount => _actualPhotoCount;
+  int get actualVideoCount => _actualVideoCount;
   int get actualAttachmentCount => _actualAttachmentCount;
   int get actualYoutubeChannelCount => _actualYoutubeChannelCount;
 
@@ -2442,6 +2446,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
     int selectedPdf = 0, selectedCanvas = 0, selectedSttMemo = 0, selectedAttachment = 0;
     int selectedSttText = 0; // 선택 리튼의 STT(음성메모) 텍스트 수 — 전체탭 필터 카운트용
+    int selectedPhoto = 0, selectedVideo = 0; // 첨부 중 이미지/비디오 분리 카운트 — 전체탭 사진/비디오 필터용
     // 앱 전체 제한용 분리 카운트
     int awMemo = 0, awStt = 0, awAudioOnly = 0, awHand = 0, awAttach = 0;
 
@@ -2475,6 +2480,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         selectedAttachment += attachmentFiles.length;
         selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length;
         selectedSttText += textFiles.where((f) => f.isFromSTT).length;
+        selectedPhoto += attachmentFiles.where((f) => f.isImage).length;
+        selectedVideo += attachmentFiles.where((f) => f.isVideo).length;
       }
     }
 
@@ -2497,6 +2504,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _actualCanvasCount = selectedCanvas;
     _actualSttMemoCount = selectedSttMemo;
     _actualSttTextCount = selectedSttText;
+    _actualPhotoCount = selectedPhoto;
+    _actualVideoCount = selectedVideo;
     _actualAttachmentCount = selectedAttachment;
     // 유튜브 채널 카운트는 YoutubeTab에서 별도 업데이트
 

@@ -47,10 +47,10 @@ enum _FileType { text, handwriting, audio, attachment }
 /// 전체탭 상단 필터 — 종류별로 목록을 걸러 본다.
 /// all=전체, text=메모, audio=녹음, stt=녹음 메모(isFromSTT), handwriting=필기,
 /// attachment=파일, youtube=영상 채널
-enum _FileFilter { all, text, audio, stt, handwriting, attachment, youtube }
+enum _FileFilter { all, text, audio, stt, handwriting, attachment, photo, video, youtube }
 
 // 전체탭 필터 키 순서(드롭다운 표시 순서). AppStateProvider.allTabFileFilter와 _FileFilter.name 동일 문자열.
-const List<String> kAllTabFilterKeys = ['all', 'text', 'audio', 'stt', 'handwriting', 'attachment', 'youtube'];
+const List<String> kAllTabFilterKeys = ['all', 'text', 'audio', 'stt', 'handwriting', 'attachment', 'photo', 'video', 'youtube'];
 
 IconData _allTabFilterIcon(String key) {
   switch (key) {
@@ -64,8 +64,12 @@ IconData _allTabFilterIcon(String key) {
       return Icons.draw;
     case 'attachment':
       return Icons.drive_folder_upload;
+    case 'photo':
+      return Icons.photo_camera;
+    case 'video':
+      return Icons.videocam;
     case 'youtube':
-      return Icons.smart_display;
+      return Icons.subscriptions;
     case 'all':
     default:
       return Icons.filter_list;
@@ -85,6 +89,10 @@ String _allTabFilterLabel(BuildContext context, String key) {
       return l10n?.handwritingTab ?? '필기';
     case 'attachment':
       return '파일';
+    case 'photo':
+      return '사진';
+    case 'video':
+      return '비디오';
     case 'youtube':
       return '영상 채널';
     case 'all':
@@ -170,6 +178,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   HandwritingFile? _selectedHandwritingFile; // ⭐ 선택된 필기 파일
   String? _initialPdfPath; // ⭐ PDF 파일 경로 (파일 선택 후 전달)
   String? _initialPdfFileName; // ⭐ PDF 파일명
+  String? _initialImagePath; // ⭐ 사진(이미지 첨부) 탭 시 필기로 편집할 이미지 경로
 
   // 인라인 녹음 / 재생 상태
   final AudioService _audioService = AudioService();
@@ -328,6 +337,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (!appState.showYoutubeInAllTab) {
       debugPrint('[AllFilesTab] 전체탭 영상 채널 표시 OFF - 로드 생략');
       if (mounted) setState(() { _youtubeChannels = []; _loadingChannels = false; });
+      appState.setYoutubeChannelCount(0); // 제목 카운트 동기화
       return;
     }
     debugPrint('[AllFilesTab] _loadYoutubeChannels 진입');
@@ -349,6 +359,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _channelVideoPage.clear();
         _localRssCache.clear();
       });
+      appState.setYoutubeChannelCount(locals.length); // 제목 카운트 동기화
       return;
     }
     _youtubeToken = token;
@@ -367,6 +378,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         _channelVideoPage.clear();
         _localRssCache.clear();
       });
+      appState.setYoutubeChannelCount(channels.length); // 제목 카운트 동기화
     } catch (e) {
       debugPrint('❌ [AllFilesTab] 채널 로드 실패: $e');
       if (mounted) setState(() => _loadingChannels = false);
@@ -900,10 +912,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
     SttMemoSettings? sttSettings,
     String? initialPdfPath,
     String? initialPdfFileName,
+    String? initialImagePath,
   }) {
     setState(() {
       _openEditor = type;
       _handwritingAction = action;
+      _initialImagePath = initialImagePath;
       _autoCreate = autoCreate;
       _autoStartSTT = autoStartSTT;
       _selectedTextFile = textFile;
@@ -919,6 +933,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _openEditor = null;
       _initialPdfPath = null;
       _initialPdfFileName = null;
+      _initialImagePath = null;
     });
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     // 타이틀 카운트(필기/메모 등) 갱신 — 에디터에서 추가/삭제된 파일 반영
@@ -1104,12 +1119,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
           );
         }
         return HandwritingTab(
-          key: ValueKey(_selectedHandwritingFile?.id ?? _initialPdfPath ?? _handwritingAction),
+          key: ValueKey(_selectedHandwritingFile?.id ?? _initialImagePath ?? _initialPdfPath ?? _handwritingAction),
           initialAction: _handwritingAction,
           onClose: _closeEditor,
           initialFile: _selectedHandwritingFile,
           initialPdfPath: _initialPdfPath,
           initialPdfFileName: _initialPdfFileName,
+          initialImagePath: _initialImagePath,
         );
     }
   }
@@ -1170,7 +1186,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
       case _FileFilter.handwriting:
         return src.where((m) => m.type == _FileType.handwriting).toList();
       case _FileFilter.attachment:
-        return src.where((m) => m.type == _FileType.attachment).toList();
+        // 파일 = 사진/비디오를 제외한 일반 첨부
+        return src.where((m) =>
+            m.type == _FileType.attachment &&
+            !(m.file as AttachmentFile).isImage &&
+            !(m.file as AttachmentFile).isVideo).toList();
+      case _FileFilter.photo:
+        return src.where((m) =>
+            m.type == _FileType.attachment && (m.file as AttachmentFile).isImage).toList();
+      case _FileFilter.video:
+        return src.where((m) =>
+            m.type == _FileType.attachment && (m.file as AttachmentFile).isVideo).toList();
     }
   }
 
@@ -2002,6 +2028,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   // ── 사진/비디오 추가 (image_picker → 첨부파일로 저장) ──
+  // 사진은 첨부(이미지)로 저장되어 파일 리스트에 나타나고, 리스트에서 탭하면 필기로 편집된다.
   Future<void> _addPhoto() => _pickMedia(isVideo: false);
   Future<void> _addVideo() => _pickMedia(isVideo: true);
 
@@ -2052,9 +2079,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
           ? await picker.pickVideo(source: source)
           : await picker.pickImage(source: source);
       if (picked == null) return;
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final fallbackName = isVideo ? 'video_$ts.mp4' : 'photo_$ts.jpg';
-      final name = picked.name.isNotEmpty ? picked.name : fallbackName;
+      // 파일명: 다른 파일과 동일하게 "사진/비디오 YYMMDDHHmmss" + 원본 확장자
+      final now = DateTime.now();
+      String two(int v) => v.toString().padLeft(2, '0');
+      final stamp = '${now.year.toString().substring(2)}${two(now.month)}${two(now.day)}'
+          '${two(now.hour)}${two(now.minute)}${two(now.second)}';
+      final base = picked.name.isNotEmpty ? picked.name : picked.path;
+      final dot = base.lastIndexOf('.');
+      final ext = dot >= 0 ? base.substring(dot) : (isVideo ? '.mp4' : '.jpg');
+      final name = '${isVideo ? '비디오' : '사진'} $stamp$ext';
       await _saveAttachmentFromPath(picked.path, name);
     } catch (e) {
       debugPrint('❌ 미디어 가져오기 실패: $e');
@@ -2128,16 +2161,34 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final isConvertible = _isLibreOfficeSupported(file.extension);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Padding(
+      // 사진(이미지 첨부)은 탭하면 필기 편집기로 열려 그 위에 그릴 수 있다.
+      // (우측 동기화/공유/더보기 버튼은 각자 탭을 소비하므로 영향 없음)
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: file.isImage
+            ? () async {
+                if (await _blockedByLimit('handwriting')) return;
+                _openEditorView(_EditorType.handwriting, initialImagePath: file.filePath);
+              }
+            : null,
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Leading 아이콘
+            // Leading 아이콘 (이미지/비디오는 사진/비디오 아이콘으로 일치)
             CircleAvatar(
               radius: 16,
               backgroundColor: color.withValues(alpha: 0.1),
-              child: Icon(Icons.description, color: color, size: 18),
+              child: Icon(
+                file.isImage
+                    ? Icons.photo_camera
+                    : file.isVideo
+                        ? Icons.videocam
+                        : Icons.description,
+                color: color,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
             // 제목 영역
@@ -2251,6 +2302,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -3328,7 +3380,7 @@ class _CreateChipBar extends StatelessWidget {
     }
     if (fabVis.contains('youtube') && onYoutube != null) {
       chips.add(_chip(context,
-          icon: Icons.smart_display, label: '영상 채널', color: color, onTap: onYoutube!));
+          icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: onYoutube!));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -3464,6 +3516,8 @@ class RecordMemoSpeedDialIcon extends StatelessWidget {
 
 /// DraggableTabLayout 탭 버튼에 표시할 일정명 + 3개 아이콘 + 파일수 위젯
 class AllFilesTabButton extends StatelessWidget {
+  // ⭐ 전체탭 제목 영역 종류 필터 표시 여부. 현재 히든. 다시 보이려면 true.
+  static const bool _showAllTabFilter = false;
   final int textCount;
   final int canvasCount;
   final int pdfCount;
@@ -3497,15 +3551,27 @@ class AllFilesTabButton extends StatelessWidget {
             visItems.add(_iconCount(icon, count));
           }
         }
-        maybeAdd('canvas', Icons.draw, canvasCount);
-        maybeAdd('audio', Icons.mic, audioCount);
-        maybeAdd('text', Icons.notes, textCount);
-        // PDF 카운트: 1개 이상일 때만 표시 (설정과 무관)
-        if (pdfCount > 0) {
-          if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
-          visItems.add(_iconCount(Icons.picture_as_pdf, pdfCount));
+        // 카운트가 0보다 클 때만 추가 (설정과 무관) — pdf/사진/비디오용
+        void addIfPositive(IconData icon, int count) {
+          if (count > 0) {
+            if (visItems.isNotEmpty) visItems.add(const SizedBox(width: 8));
+            visItems.add(_iconCount(icon, count));
+          }
         }
-        maybeAdd('files', Icons.description, attachmentCount);
+        // 첨부 중 사진/비디오 분리 — '파일'은 사진/비디오 제외분만 표시
+        final photoCount = appState.actualPhotoCount;
+        final videoCount = appState.actualVideoCount;
+        final otherFiles = (attachmentCount - photoCount - videoCount).clamp(0, 1 << 31);
+        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 녹음 → 필기(캔버스+PDF) → 파일 → 사진 → 비디오
+        maybeAdd('text', Icons.notes, textCount);
+        maybeAdd('audio', Icons.mic, audioCount);
+        maybeAdd('canvas', Icons.draw, canvasCount);
+        addIfPositive(Icons.picture_as_pdf, pdfCount);
+        maybeAdd('files', Icons.description, otherFiles);
+        addIfPositive(Icons.photo_camera, photoCount);
+        addIfPositive(Icons.videocam, videoCount);
+        // 영상 채널(구독) — 채널이 1개 이상일 때 표시 (생성 칩 순서와 동일하게 맨 뒤)
+        addIfPositive(Icons.subscriptions, appState.actualYoutubeChannelCount);
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -3516,17 +3582,20 @@ class AllFilesTabButton extends StatelessWidget {
             ],
             ...visItems,
             // 제일 우측: 종류 필터 드롭다운 (기본 '전체', 탭하면 아래로 펼쳐져 아이콘 선택)
-            // 카운트 아이콘들과 헷갈리지 않도록 구분선 + 여백으로 분리한다.
-            if (visItems.isNotEmpty || displayTitle.isNotEmpty) ...[
-              const SizedBox(width: 10),
-              Container(
-                width: 1,
-                height: 16,
-                color: Theme.of(context).primaryColor.withValues(alpha: 0.35),
-              ),
-              const SizedBox(width: 6),
+            // ⭐ 현재 히든 처리 — 다시 보이려면 _showAllTabFilter = true 로 변경.
+            //    카운트 아이콘들과 헷갈리지 않도록 구분선 + 여백으로 분리한다.
+            if (_showAllTabFilter) ...[
+              if (visItems.isNotEmpty || displayTitle.isNotEmpty) ...[
+                const SizedBox(width: 10),
+                Container(
+                  width: 1,
+                  height: 16,
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 6),
+              ],
+              _buildFilterDropdown(context, appState),
             ],
-            _buildFilterDropdown(context, appState),
           ],
         );
       },
@@ -3550,7 +3619,12 @@ class AllFilesTabButton extends StatelessWidget {
       case 'handwriting':
         return s.actualHandwritingCount;
       case 'attachment':
-        return s.actualAttachmentCount;
+        // 파일 = 사진/비디오 제외 일반 첨부
+        return (s.actualAttachmentCount - s.actualPhotoCount - s.actualVideoCount).clamp(0, 1 << 31);
+      case 'photo':
+        return s.actualPhotoCount;
+      case 'video':
+        return s.actualVideoCount;
       case 'youtube':
         return s.actualYoutubeChannelCount;
       case 'all':
@@ -3567,8 +3641,8 @@ class AllFilesTabButton extends StatelessWidget {
       tooltip: '필터',
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.under, // 필터 트리거 바로 아래로 펼쳐지게
-      // 펼침 메뉴 좌우 폭 축소(기본 ≈112 → ≈68, 약 60%)
-      constraints: const BoxConstraints(minWidth: 68, maxWidth: 68),
+      // 펼침 메뉴 좌우 폭 축소(≈68 → ≈54, 추가 20%↓)
+      constraints: const BoxConstraints(minWidth: 54, maxWidth: 54),
       onSelected: (v) => appState.setAllTabFileFilter(v),
       itemBuilder: (ctx) => [
         for (final k in kAllTabFilterKeys)
@@ -3576,32 +3650,24 @@ class AllFilesTabButton extends StatelessWidget {
             value: k,
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            // 아이콘 + 해당 카운트(라벨 없음). 선택 항목은 테마색 강조, 이름은 툴팁으로만.
-            child: Tooltip(
-              message: _allTabFilterLabel(ctx, k),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_allTabFilterIcon(k),
-                      size: 20, color: current == k ? color : Colors.grey.shade600),
-                  const SizedBox(width: 8),
-                  Text('${_filterCount(appState, k)}',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: current == k ? color : Colors.grey.shade700,
-                          fontWeight: current == k ? FontWeight.w700 : FontWeight.w500)),
-                ],
+            // 아이콘만 표시(카운트 없음). 선택 항목은 테마색 강조, 이름은 툴팁으로만.
+            child: Center(
+              child: Tooltip(
+                message: _allTabFilterLabel(ctx, k),
+                child: Icon(_allTabFilterIcon(k),
+                    size: 20, color: current == k ? color : Colors.grey.shade600),
               ),
             ),
           ),
       ],
-      // 트리거: 필터 아이콘 + 전체 파일수 + 펼침 화살표
+      // 트리거: 현재 선택된 필터 아이콘 + 해당 카운트 + 펼침 화살표
+      // (선택 상태를 아이콘으로 구분할 수 있게 — 전체일 때만 filter_list 아이콘)
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.filter_list, size: 18, color: color),
+          Icon(_allTabFilterIcon(current), size: 18, color: color),
           const SizedBox(width: 3),
-          Text('${_filterCount(appState, 'all')}',
+          Text('${_filterCount(appState, current)}',
               style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
           Icon(Icons.arrow_drop_down, size: 18, color: color),
         ],

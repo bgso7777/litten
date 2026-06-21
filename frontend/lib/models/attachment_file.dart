@@ -39,6 +39,16 @@ class AttachmentFile {
     return fileName.substring(dot + 1).toLowerCase();
   }
 
+  // 미디어 분류(전체탭 사진/비디오 필터·카운트용). 확장자 기준.
+  static const Set<String> imageExtensions = {
+    'jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp', 'bmp', 'tif', 'tiff'
+  };
+  static const Set<String> videoExtensions = {
+    'mp4', 'mov', 'm4v', 'avi', 'mkv', '3gp', 'webm', 'wmv', 'flv'
+  };
+  bool get isImage => imageExtensions.contains(extension);
+  bool get isVideo => videoExtensions.contains(extension);
+
   AttachmentFile copyWith({
     String? fileName,
     String? filePath,
