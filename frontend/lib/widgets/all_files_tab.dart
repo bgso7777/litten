@@ -3397,6 +3397,32 @@ class AllFilesTabButton extends StatelessWidget {
     );
   }
 
+  // 전체탭 필터별 카운트. (memo=비STT 텍스트, recording=비STT 녹음, stt=STT 텍스트+녹음)
+  int _filterCount(AppStateProvider s, String key) {
+    final memo = (s.actualTextCount - s.actualSttTextCount).clamp(0, 1 << 31);
+    final recording = (s.actualAudioCount - s.actualSttMemoCount).clamp(0, 1 << 31);
+    final stt = s.actualSttTextCount + s.actualSttMemoCount;
+    final total = s.actualTextCount + s.actualAudioCount +
+        s.actualHandwritingCount + s.actualAttachmentCount;
+    switch (key) {
+      case 'text':
+        return memo;
+      case 'audio':
+        return recording;
+      case 'stt':
+        return stt;
+      case 'handwriting':
+        return s.actualHandwritingCount;
+      case 'attachment':
+        return s.actualAttachmentCount;
+      case 'youtube':
+        return s.actualYoutubeChannelCount;
+      case 'all':
+      default:
+        return total;
+    }
+  }
+
   // 탭 제목 안 종류 필터 드롭다운. 선택 시 AppStateProvider에 반영 → 전체탭 목록이 걸러진다.
   Widget _buildFilterDropdown(BuildContext context, AppStateProvider appState) {
     final color = Theme.of(context).primaryColor;
@@ -3404,27 +3430,43 @@ class AllFilesTabButton extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: '필터',
       padding: EdgeInsets.zero,
-      offset: const Offset(0, 28), // 트리거 아래로 펼쳐지게
+      position: PopupMenuPosition.under, // 필터 트리거 바로 아래로 펼쳐지게
+      // 펼침 메뉴 좌우 폭 축소(기본 ≈112 → ≈68, 약 60%)
+      constraints: const BoxConstraints(minWidth: 68, maxWidth: 68),
       onSelected: (v) => appState.setAllTabFileFilter(v),
       itemBuilder: (ctx) => [
         for (final k in kAllTabFilterKeys)
           PopupMenuItem<String>(
             value: k,
             height: 40,
-            // 아이콘만 표시(라벨 없음). 선택된 항목은 테마색으로 강조. 이름은 툴팁으로만.
-            child: Center(
-              child: Tooltip(
-                message: _allTabFilterLabel(ctx, k),
-                child: Icon(_allTabFilterIcon(k),
-                    size: 20, color: current == k ? color : Colors.grey.shade600),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            // 아이콘 + 해당 카운트(라벨 없음). 선택 항목은 테마색 강조, 이름은 툴팁으로만.
+            child: Tooltip(
+              message: _allTabFilterLabel(ctx, k),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_allTabFilterIcon(k),
+                      size: 20, color: current == k ? color : Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Text('${_filterCount(appState, k)}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: current == k ? color : Colors.grey.shade700,
+                          fontWeight: current == k ? FontWeight.w700 : FontWeight.w500)),
+                ],
               ),
             ),
           ),
       ],
+      // 트리거: 필터 아이콘 + 전체 파일수 + 펼침 화살표
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_allTabFilterIcon(current), size: 18, color: color),
+          Icon(Icons.filter_list, size: 18, color: color),
+          const SizedBox(width: 3),
+          Text('${_filterCount(appState, 'all')}',
+              style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
           Icon(Icons.arrow_drop_down, size: 18, color: color),
         ],
       ),
@@ -3441,6 +3483,7 @@ class AllFilesTabButton extends StatelessWidget {
       ],
     );
   }
+
 }
 
 // ───────────────────────────── 녹음 상태 바 ─────────────────────────────

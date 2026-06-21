@@ -80,6 +80,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _actualPdfCount = 0;
   int _actualCanvasCount = 0;
   int _actualSttMemoCount = 0;
+  int _actualSttTextCount = 0; // 선택 리튼 STT(음성메모) 텍스트 수 — 전체탭 필터 카운트용
   int _actualAttachmentCount = 0;
   int _actualYoutubeChannelCount = 0;
 
@@ -397,6 +398,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualPdfCount => _actualPdfCount;
   int get actualCanvasCount => _actualCanvasCount;
   int get actualSttMemoCount => _actualSttMemoCount;
+  int get actualSttTextCount => _actualSttTextCount;
   int get actualAttachmentCount => _actualAttachmentCount;
   int get actualYoutubeChannelCount => _actualYoutubeChannelCount;
 
@@ -2439,6 +2441,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     int totalAudio = 0, totalText = 0, totalHandwriting = 0;
     int selectedAudio = 0, selectedText = 0, selectedHandwriting = 0;
     int selectedPdf = 0, selectedCanvas = 0, selectedSttMemo = 0, selectedAttachment = 0;
+    int selectedSttText = 0; // 선택 리튼의 STT(음성메모) 텍스트 수 — 전체탭 필터 카운트용
     // 앱 전체 제한용 분리 카운트
     int awMemo = 0, awStt = 0, awAudioOnly = 0, awHand = 0, awAttach = 0;
 
@@ -2471,6 +2474,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         selectedCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
         selectedAttachment += attachmentFiles.length;
         selectedSttMemo += audioFiles.where((f) => f.isFromSTT).length;
+        selectedSttText += textFiles.where((f) => f.isFromSTT).length;
       }
     }
 
@@ -2492,6 +2496,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _actualPdfCount = selectedPdf;
     _actualCanvasCount = selectedCanvas;
     _actualSttMemoCount = selectedSttMemo;
+    _actualSttTextCount = selectedSttText;
     _actualAttachmentCount = selectedAttachment;
     // 유튜브 채널 카운트는 YoutubeTab에서 별도 업데이트
 
