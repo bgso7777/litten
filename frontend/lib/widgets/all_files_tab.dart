@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
@@ -1065,6 +1066,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 onFiles: _addAttachmentFromFiles,
                 onCanvas: () async { if (await _blockedByLimit('handwriting')) return; _openEditorView(_EditorType.handwriting, action: HandwritingInitialAction.createCanvas); },
                 onAudio: () async { if (!_isRecording && await _blockedByLimit('audio')) return; _toggleRecording(); },
+                onPhoto: _addPhoto,
+                onVideo: _addVideo,
                 onYoutube: () async {
                   await showYoutubeChannelSheet(context);
                   // 시트에서 채널 등록 시 전체탭 영상 섹션 즉시 반영
@@ -1993,6 +1996,126 @@ class _AllFilesTabState extends State<AllFilesTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('파일 추가에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  // ── 사진/비디오 추가 (image_picker → 첨부파일로 저장) ──
+  Future<void> _addPhoto() => _pickMedia(isVideo: false);
+  Future<void> _addVideo() => _pickMedia(isVideo: true);
+
+  Future<void> _pickMedia({required bool isVideo}) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('리튼을 먼저 선택해주세요'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    // 첨부 개수 제한(사진/비디오도 첨부로 저장되므로 'attachment' 기준)
+    final block = await appState.createBlockReason('attachment');
+    if (block != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return;
+    }
+
+    // 입력 소스 선택 시트 (카메라 / 갤러리)
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: Text(isVideo ? '카메라로 촬영' : '카메라로 촬영'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('갤러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final picker = ImagePicker();
+      final XFile? picked = isVideo
+          ? await picker.pickVideo(source: source)
+          : await picker.pickImage(source: source);
+      if (picked == null) return;
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final fallbackName = isVideo ? 'video_$ts.mp4' : 'photo_$ts.jpg';
+      final name = picked.name.isNotEmpty ? picked.name : fallbackName;
+      await _saveAttachmentFromPath(picked.path, name);
+    } catch (e) {
+      debugPrint('❌ 미디어 가져오기 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('가져오지 못했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  // 선택/촬영한 미디어를 첨부파일로 저장(복사 → 메타 → 리튼 연결 → 동기화 → 목록 갱신)
+  Future<void> _saveAttachmentFromPath(String srcPath, String fileName) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final selectedLitten = appState.selectedLitten;
+    if (selectedLitten == null) return;
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final attachDir = Directory('${docDir.path}/littens/${selectedLitten.id}/attachments');
+      if (!await attachDir.exists()) await attachDir.create(recursive: true);
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final safeName = fileName.replaceAll(RegExp(r'[\\/]'), '_');
+      final savedPath = '${attachDir.path}/${ts}_$safeName';
+      await File(srcPath).copy(savedPath);
+      final fileSize = await File(savedPath).length();
+
+      final attachment = AttachmentFile(
+        littenId: selectedLitten.id,
+        fileName: fileName,
+        filePath: savedPath,
+        sizeBytes: fileSize,
+      );
+      final stored = await FileStorageService.instance.loadAttachmentFiles(selectedLitten.id);
+      stored.add(attachment);
+      await FileStorageService.instance.saveAttachmentFiles(selectedLitten.id, stored);
+      await LittenService().addAttachmentFileToLitten(selectedLitten.id, attachment.id);
+
+      SyncService.instance.uploadFile(
+        littenId: selectedLitten.id,
+        localId: attachment.id,
+        fileType: 'attachment',
+        fileName: attachment.fileName,
+        filePath: attachment.filePath,
+        localUpdatedAt: attachment.updatedAt,
+      );
+
+      if (mounted) {
+        await appState.updateFileCount();
+        appState.notifyFileListChanged();
+        await _loadFiles(appState);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"$fileName" 추가되었습니다')),
+        );
+      }
+      debugPrint('✅ 미디어 첨부 저장 완료: ${attachment.id}');
+    } catch (e) {
+      debugPrint('❌ 미디어 첨부 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
         );
       }
     }
@@ -3088,6 +3211,8 @@ class _CreateChipBar extends StatelessWidget {
   final VoidCallback onFiles;
   final VoidCallback onCanvas;
   final VoidCallback onAudio;
+  final VoidCallback? onPhoto;
+  final VoidCallback? onVideo;
   final VoidCallback? onYoutube;
   final bool isRecording;
   final Duration recordingDuration;
@@ -3098,6 +3223,8 @@ class _CreateChipBar extends StatelessWidget {
     required this.onFiles,
     required this.onCanvas,
     required this.onAudio,
+    this.onPhoto,
+    this.onVideo,
     this.onYoutube,
     this.isRecording = false,
     this.recordingDuration = Duration.zero,
@@ -3189,6 +3316,15 @@ class _CreateChipBar extends StatelessWidget {
     if (fabVis.contains('files')) {
       chips.add(_chip(context,
           icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: onFiles));
+    }
+    // 사진 / 비디오 (영상 채널 앞). 첨부파일로 저장된다.
+    if (onPhoto != null) {
+      chips.add(_chip(context,
+          icon: Icons.photo_camera, label: '사진', color: color, onTap: onPhoto!));
+    }
+    if (onVideo != null) {
+      chips.add(_chip(context,
+          icon: Icons.videocam, label: '비디오', color: color, onTap: onVideo!));
     }
     if (fabVis.contains('youtube') && onYoutube != null) {
       chips.add(_chip(context,
