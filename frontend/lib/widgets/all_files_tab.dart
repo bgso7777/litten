@@ -3380,7 +3380,16 @@ class AllFilesTabButton extends StatelessWidget {
             ],
             ...visItems,
             // 제일 우측: 종류 필터 드롭다운 (기본 '전체', 탭하면 아래로 펼쳐져 아이콘 선택)
-            if (visItems.isNotEmpty || displayTitle.isNotEmpty) const SizedBox(width: 8),
+            // 카운트 아이콘들과 헷갈리지 않도록 구분선 + 여백으로 분리한다.
+            if (visItems.isNotEmpty || displayTitle.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              Container(
+                width: 1,
+                height: 16,
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.35),
+              ),
+              const SizedBox(width: 6),
+            ],
             _buildFilterDropdown(context, appState),
           ],
         );
@@ -3402,27 +3411,20 @@ class AllFilesTabButton extends StatelessWidget {
           PopupMenuItem<String>(
             value: k,
             height: 40,
-            child: Row(
-              children: [
-                Icon(_allTabFilterIcon(k),
-                    size: 18, color: current == k ? color : Colors.grey.shade600),
-                const SizedBox(width: 10),
-                Text(_allTabFilterLabel(ctx, k)),
-                if (current == k) ...[
-                  const Spacer(),
-                  Icon(Icons.check, size: 18, color: color),
-                ],
-              ],
+            // 아이콘만 표시(라벨 없음). 선택된 항목은 테마색으로 강조. 이름은 툴팁으로만.
+            child: Center(
+              child: Tooltip(
+                message: _allTabFilterLabel(ctx, k),
+                child: Icon(_allTabFilterIcon(k),
+                    size: 20, color: current == k ? color : Colors.grey.shade600),
+              ),
             ),
           ),
       ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_allTabFilterIcon(current), size: 16, color: color),
-          const SizedBox(width: 3),
-          Text(_allTabFilterLabel(context, current),
-              style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+          Icon(_allTabFilterIcon(current), size: 18, color: color),
           Icon(Icons.arrow_drop_down, size: 18, color: color),
         ],
       ),
