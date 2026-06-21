@@ -43,6 +43,55 @@ import '../models/youtube_channel.dart';
 
 enum _FileType { text, handwriting, audio, attachment }
 
+/// 전체탭 상단 필터 — 종류별로 목록을 걸러 본다.
+/// all=전체, text=메모, audio=녹음, stt=녹음 메모(isFromSTT), handwriting=필기,
+/// attachment=파일, youtube=영상 채널
+enum _FileFilter { all, text, audio, stt, handwriting, attachment, youtube }
+
+// 전체탭 필터 키 순서(드롭다운 표시 순서). AppStateProvider.allTabFileFilter와 _FileFilter.name 동일 문자열.
+const List<String> kAllTabFilterKeys = ['all', 'text', 'audio', 'stt', 'handwriting', 'attachment', 'youtube'];
+
+IconData _allTabFilterIcon(String key) {
+  switch (key) {
+    case 'text':
+      return Icons.notes;
+    case 'audio':
+      return Icons.mic;
+    case 'stt':
+      return Icons.record_voice_over;
+    case 'handwriting':
+      return Icons.draw;
+    case 'attachment':
+      return Icons.drive_folder_upload;
+    case 'youtube':
+      return Icons.smart_display;
+    case 'all':
+    default:
+      return Icons.filter_list;
+  }
+}
+
+String _allTabFilterLabel(BuildContext context, String key) {
+  final l10n = AppLocalizations.of(context);
+  switch (key) {
+    case 'text':
+      return l10n?.memoLabel ?? '메모';
+    case 'audio':
+      return l10n?.audioTab ?? '녹음';
+    case 'stt':
+      return l10n?.voiceMemoLabel ?? '녹음 메모';
+    case 'handwriting':
+      return l10n?.handwritingTab ?? '필기';
+    case 'attachment':
+      return '파일';
+    case 'youtube':
+      return '영상 채널';
+    case 'all':
+    default:
+      return '전체';
+  }
+}
+
 class _MergedFile {
   final _FileType type;
   final dynamic file; // TextFile | HandwritingFile | AudioFile | AttachmentFile
@@ -1094,10 +1143,39 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  // 현재 전체탭 필터(공유 상태). 탭바 버튼의 드롭다운에서 변경되며 Provider로 공유된다.
+  _FileFilter get _fileFilter {
+    final s = Provider.of<AppStateProvider>(context, listen: false).allTabFileFilter;
+    return _FileFilter.values.firstWhere((e) => e.name == s, orElse: () => _FileFilter.all);
+  }
+
+  // 상단 필터에 따라 파일 목록을 거른다. (youtube는 파일이 아닌 채널이라 파일 목록은 비움)
+  List<_MergedFile> _applyFilter(List<_MergedFile> src) {
+    switch (_fileFilter) {
+      case _FileFilter.all:
+        return src;
+      case _FileFilter.youtube:
+        return const <_MergedFile>[];
+      case _FileFilter.text:
+        return src.where((m) => m.type == _FileType.text && !(m.file as TextFile).isFromSTT).toList();
+      case _FileFilter.audio:
+        return src.where((m) => m.type == _FileType.audio && !(m.file as AudioFile).isFromSTT).toList();
+      case _FileFilter.stt:
+        return src.where((m) =>
+            (m.type == _FileType.text && (m.file as TextFile).isFromSTT) ||
+            (m.type == _FileType.audio && (m.file as AudioFile).isFromSTT)).toList();
+      case _FileFilter.handwriting:
+        return src.where((m) => m.type == _FileType.handwriting).toList();
+      case _FileFilter.attachment:
+        return src.where((m) => m.type == _FileType.attachment).toList();
+    }
+  }
+
   Widget _buildFileList() {
-    final merged = _mergedFiles;
+    final merged = _applyFilter(_mergedFiles);
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final showYoutubeSection = !widget.showOnlySTT && !widget.showOnlyAttachments
+        && (_fileFilter == _FileFilter.all || _fileFilter == _FileFilter.youtube)
         && appState.showYoutubeInAllTab
         && (_youtubeChannels.isNotEmpty || _loadingChannels);
 
@@ -3301,9 +3379,53 @@ class AllFilesTabButton extends StatelessWidget {
               if (visItems.isNotEmpty) const SizedBox(width: 6),
             ],
             ...visItems,
+            // 제일 우측: 종류 필터 드롭다운 (기본 '전체', 탭하면 아래로 펼쳐져 아이콘 선택)
+            if (visItems.isNotEmpty || displayTitle.isNotEmpty) const SizedBox(width: 8),
+            _buildFilterDropdown(context, appState),
           ],
         );
       },
+    );
+  }
+
+  // 탭 제목 안 종류 필터 드롭다운. 선택 시 AppStateProvider에 반영 → 전체탭 목록이 걸러진다.
+  Widget _buildFilterDropdown(BuildContext context, AppStateProvider appState) {
+    final color = Theme.of(context).primaryColor;
+    final current = appState.allTabFileFilter;
+    return PopupMenuButton<String>(
+      tooltip: '필터',
+      padding: EdgeInsets.zero,
+      offset: const Offset(0, 28), // 트리거 아래로 펼쳐지게
+      onSelected: (v) => appState.setAllTabFileFilter(v),
+      itemBuilder: (ctx) => [
+        for (final k in kAllTabFilterKeys)
+          PopupMenuItem<String>(
+            value: k,
+            height: 40,
+            child: Row(
+              children: [
+                Icon(_allTabFilterIcon(k),
+                    size: 18, color: current == k ? color : Colors.grey.shade600),
+                const SizedBox(width: 10),
+                Text(_allTabFilterLabel(ctx, k)),
+                if (current == k) ...[
+                  const Spacer(),
+                  Icon(Icons.check, size: 18, color: color),
+                ],
+              ],
+            ),
+          ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_allTabFilterIcon(current), size: 16, color: color),
+          const SizedBox(width: 3),
+          Text(_allTabFilterLabel(context, current),
+              style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+          Icon(Icons.arrow_drop_down, size: 18, color: color),
+        ],
+      ),
     );
   }
 

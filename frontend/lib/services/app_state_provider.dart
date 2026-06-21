@@ -291,6 +291,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ⭐ 전체탭에 구독 영상 채널 목록 표시 여부 (기본: false)
   bool _showYoutubeInAllTab = true;
 
+  // ⭐ 전체탭 종류 필터(세션 한정, 미저장). 값: all/text/audio/stt/handwriting/attachment/youtube
+  String _allTabFileFilter = 'all';
+
   // ⭐ WritingScreen 탭 위치 저장 (all, text, handwriting, pdf, sttMemo, audio, browser 각각의 위치)
   Map<String, String> _writingTabPositions = {
     'all': 'topLeft',
@@ -367,6 +370,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 모든 플랜에서 사용자 설정값 사용 (기본 false)
   bool get adsEnabled => _adsEnabled;
   bool get showYoutubeInAllTab => _showYoutubeInAllTab;
+  String get allTabFileFilter => _allTabFileFilter;
+  void setAllTabFileFilter(String filter) {
+    if (_allTabFileFilter == filter) return;
+    _allTabFileFilter = filter;
+    notifyListeners();
+  }
 
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
