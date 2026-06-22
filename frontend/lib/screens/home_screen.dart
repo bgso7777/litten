@@ -1453,19 +1453,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   ///   미래 반복 발생일에만 점 표시.
   /// - 축소(일정 리스트) 모드: 바가 숨겨지므로 모든 발생일에 점 표시.
   Widget _chipForDay(List<Litten> littens, DateTime day) {
-    final target = DateTime(day.year, day.month, day.day);
     final occurring = _littensOccurringOn(littens, day);
     if (occurring.isEmpty) return const SizedBox.shrink();
 
-    // 전체 화면: 등록일은 바로 표시되므로, 반복으로 그 외 날짜에 발생하는 일정만 점으로.
+    // 전체 화면: 등록일과 반복 발생일 모두 일정 바(_buildScheduleBars)로 표시되므로 점 미표시.
     // 축소 모드: 바가 숨겨지므로 모든 발생 일정을 점으로.
-    final dotted = _scheduleListVisible
-        ? occurring
-        : occurring.where((l) {
-            final created =
-                DateTime(l.createdAt.year, l.createdAt.month, l.createdAt.day);
-            return !created.isAtSameMomentAs(target);
-          }).toList();
+    if (!_scheduleListVisible) return const SizedBox.shrink();
+    final dotted = occurring;
     if (dotted.isEmpty) return const SizedBox.shrink();
 
     // 그날 발생하는 일정(반복 일정 포함) 1개당 점 1개
@@ -1551,6 +1545,45 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       });
 
       debugPrint('📅 일정 추가: ${litten.title}, $startDate ~ $endDate');
+    }
+
+    // 매주 반복(요일 지정) 일정의 발생일도 등록일과 동일하게 단일일 바로 추가
+    // (등록 구간[base~regEnd]에 포함되는 날짜는 위에서 이미 바로 그려졌으므로 제외)
+    final firstDayOfFocusedMonth = DateTime(focusedYear, focusedMonth, 1);
+    final lastDayOfFocusedMonth = DateTime(focusedYear, focusedMonth + 1, 0);
+    for (final litten in appState.littens) {
+      if (litten.title == 'undefined' || litten.schedule == null) continue;
+      final schedule = litten.schedule!;
+
+      final weekdays = <int>{};
+      for (final r in schedule.notificationRules) {
+        if (r.isEnabled &&
+            r.frequency == NotificationFrequency.weekly &&
+            r.weekdays != null) {
+          weekdays.addAll(r.weekdays!);
+        }
+      }
+      if (weekdays.isEmpty) continue;
+
+      final base = DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      final regEnd = schedule.endDate != null
+          ? DateTime(schedule.endDate!.year, schedule.endDate!.month, schedule.endDate!.day)
+          : base;
+
+      for (var d = firstDayOfFocusedMonth;
+          !d.isAfter(lastDayOfFocusedMonth);
+          d = d.add(const Duration(days: 1))) {
+        if (!weekdays.contains(d.weekday)) continue;
+        if (d.isBefore(base)) continue;
+        // 등록 구간(base~regEnd)은 이미 바로 그려졌으므로 건너뜀
+        if (!d.isBefore(base) && !d.isAfter(regEnd)) continue;
+        schedules.add({
+          'title': litten.title,
+          'startDate': d,
+          'endDate': d,
+        });
+        debugPrint('📅 반복 일정 바 추가: ${litten.title}, $d');
+      }
     }
 
     debugPrint('📅 총 ${schedules.length}개 일정 표시');
@@ -2294,7 +2327,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         ),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          // 칩 높이만 약 10% 확대 (세로 패딩 증가, 가로/폰트는 유지)
+          padding: const EdgeInsets.symmetric(horizontal: 19.8, vertical: 8.2),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -2302,7 +2336,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14.3,
                     color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.bold,
                   ),
@@ -2313,7 +2347,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               Text(
                 timeLabel,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14.3,
                   color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.w500,
                 ),
@@ -2321,7 +2355,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               const SizedBox(width: 4),
               Icon(
                 _scheduleListVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-                size: 22,
+                size: 17.6,
                 color: Theme.of(context).primaryColor,
               ),
             ],

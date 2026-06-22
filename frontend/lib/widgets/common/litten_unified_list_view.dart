@@ -671,7 +671,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
                         return;
                       }
-                      await appState.selectLitten(litten);
+                      // 캘린더: 선택을 undefined로 고정 (다른 일정으로 바뀌지 않게)
+                      final undefinedTarget = appState.littens.where((l) => l.title == 'undefined').firstOrNull ?? litten;
+                      await appState.selectLitten(undefinedTarget);
                     } catch (e) {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange));
@@ -696,6 +698,14 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final handwritingCount = isUndefinedLitten ? appState.totalHandwritingCount : files.where((f) => (f['fileData'] as Map)['type'] == 'handwriting').length;
     final hasSchedule = litten.schedule != null;
     final hasEnabledNotification = hasSchedule && litten.schedule!.notificationRules.any((r) => r.isEnabled);
+
+    // 다음 발생 시각까지 남은 기간/시간 라벨 (반복 일정 반영). undefined/일정없음/지난 일정은 미표시.
+    String? remainLabel;
+    if (!isUndefinedLitten && hasSchedule) {
+      final now = nowForLanguage(appState.locale.languageCode);
+      final nextOcc = _nextScheduleOccurrence(litten.schedule!, now);
+      if (nextOcc != null) remainLabel = _remainingLabel(nextOcc, now);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,7 +742,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
                 return;
               }
-              await appState.selectLitten(litten);
+              // 캘린더: 선택을 undefined로 고정 (다른 일정으로 바뀌지 않게)
+              final undefinedTarget = appState.littens.where((l) => l.title == 'undefined').firstOrNull ?? litten;
+              await appState.selectLitten(undefinedTarget);
             } catch (e) {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange, duration: const Duration(seconds: 3)));
@@ -740,7 +752,8 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           },
           onLongPress: isUndefinedLitten ? null : () => _showEditLittenDialog(litten.id),
           child: Builder(builder: (context) {
-            final isSelected = appState.selectedLitten?.id == litten.id;
+            // 캘린더: undefined 일정을 항상 선택 상태로 강조, 다른 리튼은 강조하지 않음
+            final isSelected = isUndefinedLitten;
             // undefined 선택 시 통계바 스타일(연한 배경 + 일반 색상), 일반 선택은 primary 배경 + 흰색
             final isUndefinedSelected = isUndefinedLitten && isSelected;
             final bgColor = isSelected
@@ -775,25 +788,52 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                         ],
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            isUndefinedLitten ? '' : litten.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                              color: isSelected && !isUndefinedLitten ? Colors.white : (isUndefinedLitten ? Colors.grey.shade600 : null),
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  isUndefinedLitten ? '' : litten.title,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: isSelected && !isUndefinedLitten ? Colors.white : (isUndefinedLitten ? Colors.grey.shade600 : null),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // 남은 기간/시간: 제목 오른쪽 옆에 표시
+                              if (remainLabel != null) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  remainLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeColor,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  _buildFileCountBadge(Icons.notes, textCount, badgeColor),
-                  const SizedBox(width: 4),
-                  _buildFileCountBadge(Icons.draw, handwritingCount, badgeColor),
-                  const SizedBox(width: 4),
-                  _buildFileCountBadge(Icons.mic, audioCount, badgeColor),
-                  const SizedBox(width: 4),
+                  // undefined: 파일 카운트 미표시(전체 일정 카운트만). 그 외: 카운트>0인 파일 유형만 표시
+                  if (!isUndefinedLitten) ...[
+                    if (textCount > 0) ...[
+                      _buildFileCountBadge(Icons.notes, textCount, badgeColor),
+                      const SizedBox(width: 4),
+                    ],
+                    if (handwritingCount > 0) ...[
+                      _buildFileCountBadge(Icons.draw, handwritingCount, badgeColor),
+                      const SizedBox(width: 4),
+                    ],
+                    if (audioCount > 0) ...[
+                      _buildFileCountBadge(Icons.mic, audioCount, badgeColor),
+                      const SizedBox(width: 4),
+                    ],
+                  ],
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') _showEditLittenDialog(litten.id);
