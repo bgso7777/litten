@@ -41,8 +41,20 @@ public class SummaryProcessService {
         String fileType = req.getFileType();
 
         // 1) note_prompt_config 에서 설정+프롬프트 단일 조회
+        //    해당 fileType 설정이 없으면 'text' 설정으로 폴백한다.
+        //    (예: youtube 전용 프롬프트가 DB에 없을 때 — text 프롬프트는 콘텐츠 유형
+        //     자동 판별에 '유튜브'가 포함돼 있어 그대로 재사용 가능. systemPrompt 미설정으로
+        //     OpenAI 요약이 실패하는 것을 방지한다.)
         PromptConfig config = promptConfigRepository
                 .findByTypeAndFileTypeAndLevelAndIsActiveTrue("summary", fileType, level)
+                .or(() -> {
+                    if (!"text".equalsIgnoreCase(fileType)) {
+                        log.info("[SummaryProcessService] '{}' 프롬프트 설정 없음 → 'text' 설정으로 폴백 (level: {})", fileType, level);
+                        return promptConfigRepository
+                                .findByTypeAndFileTypeAndLevelAndIsActiveTrue("summary", "text", level);
+                    }
+                    return Optional.empty();
+                })
                 .orElseGet(() -> defaultConfig(fileType, level));
 
         // 2) 캐시 조회 (YouTube / 개인 파일)

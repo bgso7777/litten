@@ -879,6 +879,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   // ⭐ 영상 상세 캐시 (videoId → 상세, 팝업에서 lazy 로드 후 재사용)
   final Map<int, YoutubeVideo> _videoDetailCache = {};
   final Set<int> _loadingVideoDetails = {};
+  // 영상별 요약 존재 여부 (videoId → 요약 1개 이상 저장됨) — 요약 아이콘 활성화 판단용
+  final Map<String, bool> _videoHasSummary = {};
   final _transcriptService = YoutubeTranscriptService();
   final _webViewTranscriptService = YoutubeWebViewTranscriptService();
   final _rssService = YoutubeRssService();
@@ -1015,6 +1017,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
           _videoTotalPages[channelId] = (all!.length / _localPageSize).ceil().clamp(1, _freeMaxPages);
           _loadingVideoKeys.remove(key);
         });
+        _loadVideoSummaryFlags(pageVids); // 요약 존재 여부 비동기 조회 → 아이콘 활성화
       } catch (e) {
         debugPrint('❌ [YoutubeTab] 무료 RSS 영상 로드 실패 ($channelId): $e');
         if (mounted) setState(() {
@@ -1043,10 +1046,31 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
         _videoTotalPages[channelId] = result.totalPages;
         _loadingVideoKeys.remove(key);
       });
+      _loadVideoSummaryFlags(result.videos); // 요약 존재 여부 비동기 조회 → 아이콘 활성화
     } catch (e) {
       debugPrint('❌ [YoutubeTab] 서버 영상 로드 실패 ($channelId, page $page): $e');
       if (mounted) setState(() => _loadingVideoKeys.remove(key));
     }
+  }
+
+  /// 영상 목록의 각 영상에 대해 요약 존재 여부를 조회해 _videoHasSummary 갱신.
+  /// (summaryLevel:0 → 저장된 최고 레벨 반환, null이면 요약 없음)
+  Future<void> _loadVideoSummaryFlags(List<YoutubeVideo> videos) async {
+    for (final v in videos) {
+      final vid = v.videoId;
+      if (vid.isEmpty || _videoHasSummary.containsKey(vid)) continue;
+      final cache = await _apiService.getYoutubeSummaryCache(videoId: vid, token: _token);
+      if (!mounted) return;
+      setState(() => _videoHasSummary[vid] = cache != null);
+    }
+  }
+
+  /// 단일 영상의 요약 존재 여부 재조회 (요약 시트를 닫은 직후 아이콘 갱신용)
+  Future<void> _refreshVideoSummaryFlag(String videoId) async {
+    if (videoId.isEmpty) return;
+    final cache = await _apiService.getYoutubeSummaryCache(videoId: videoId, token: _token);
+    if (!mounted) return;
+    setState(() => _videoHasSummary[videoId] = cache != null);
   }
 
   void _toggleChannel(YoutubeChannel ch) {
@@ -1406,6 +1430,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
         : video.hasNoTranscript
             ? Colors.orange
             : Colors.blue;
+    final hasSummary = _videoHasSummary[video.videoId] == true;
 
     return InkWell(
       // ⭐ 흐릿한 항목도 클릭 가능 — YouTube 플레이어 시트 표시
@@ -1431,6 +1456,27 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // 요약 아이콘: 요약이 1개라도 있으면 활성(테마색·탭하면 요약 보기), 없으면 비활성(연회색)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasSummary
+                  ? () => showYoutubeSummarySheet(
+                        context: context,
+                        videoId: video.videoId,
+                        channelName: ch.channelName,
+                        videoTitle: video.title,
+                        token: _token,
+                      )
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 18,
+                  color: hasSummary ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                ),
+              ),
+            ),
             if (video.publishedAt != null)
               Padding(
                 padding: const EdgeInsets.only(left: 6),
@@ -1444,13 +1490,15 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   }
 
   /// YouTube IFrame 임베드 + 요약 버튼 시트
-  void _showVideoPlayerSheet(YoutubeVideo video, YoutubeChannel ch) {
-    showYoutubeVideoPlayerSheet(
+  Future<void> _showVideoPlayerSheet(YoutubeVideo video, YoutubeChannel ch) async {
+    await showYoutubeVideoPlayerSheet(
       context: context,
       video: video,
       channel: ch,
       token: _token,
     );
+    // 플레이어 시트에서 요약했을 수 있으니 아이콘 상태 재조회
+    _refreshVideoSummaryFlag(video.videoId);
   }
 
   /// 영상 상세 팝업 (헤더: 채널명/제목/일시, 본문: 요약 또는 전사)

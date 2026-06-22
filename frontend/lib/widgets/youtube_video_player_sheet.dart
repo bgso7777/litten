@@ -1275,8 +1275,10 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     setState(() { _loading = true; _error = null; _summary = null; _result = null; _memoSaved = false; });
     try {
       // 통합 처리 API — 레벨별 캐시 재사용(forceRegenerate:false) + 저장 + 리마인드
+      // fileType:'youtube' 이어야 백엔드가 youtube_video_id 를 키로 저장/조회한다.
+      // ('text'로 보내면 youtube_video_id 가 NULL 인 고아 레코드로 저장되어 재조회/아이콘 활성화가 동작하지 않음)
       final r = await ApiService().processSummary(
-        fileType: 'text',
+        fileType: 'youtube',
         youtubeVideoId: widget.videoId,
         text: widget.transcript,
         textLanguage: _textLanguage,
