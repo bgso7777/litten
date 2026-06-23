@@ -29,20 +29,15 @@ class _MemoryScreenState extends State<MemoryScreen> {
         id: 'remind',
         title: '리마인드',
         icon: Icons.lightbulb_outline,
-        // 제목란: 신규(미완료) · 확인(완료) / 전체 카운트
+        // 제목란: 요약(요약 그룹) 카운트 + 리마인드(개별 항목) 카운트
         customTabWidget: Consumer<AppStateProvider>(
           builder: (context, appState, _) {
-            final items = appState.remindItems;
-            final newCount = items.where((i) => !i.isDone).length;
-            final doneCount = items.where((i) => i.isDone).length;
-            final totalCount = items.length;
+            final summaryCount = appState.remindTargets.length;
+            final remindCount = appState.remindItems.length;
             return TabCountTitle([
               [
-                TabCount(Icons.fiber_new, newCount),
-                TabCount(Icons.check_circle, doneCount),
-              ],
-              [
-                TabCount(Icons.lightbulb_outline, totalCount),
+                TabCount(Icons.auto_awesome, summaryCount),     // 요약
+                TabCount(Icons.lightbulb_outline, remindCount), // 리마인드
               ],
             ]);
           },

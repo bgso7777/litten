@@ -171,9 +171,9 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                   label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.lightbulb_outline),
-                  activeIcon: const Icon(Icons.lightbulb),
-                  label: '리마인드',
+                  icon: _buildInsightIcon(false),
+                  activeIcon: _buildInsightIcon(true),
+                  label: '인사이트',
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.settings),
@@ -287,6 +287,40 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           size: 22,
           color: isActive ? Colors.white : primary,
         ),
+      ),
+    );
+  }
+
+  // 인사이트(요약+리마인드 통합) 탭 — 별표(반짝임) 요약 아이콘을 메인으로,
+  // 우상단에 작은 전구(아이디어/리마인드) 배지를 겹쳐 표현한다.
+  // 색은 지정하지 않아 메인·배지 모두 BottomNavigationBar 상태색
+  // (비선택 회색 / 선택 시 테마색)을 따른다.
+  Widget _buildInsightIcon(bool isActive) {
+    return SizedBox(
+      width: 28,
+      height: 26,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 요약(별) — 메인이지만 조금 작게, 좌하단
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: Icon(
+              isActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              size: 17,
+            ),
+          ),
+          // 전구(아이디어/리마인드) — 그만큼 크게, 우상단
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Icon(
+              isActive ? Icons.lightbulb : Icons.lightbulb_outline,
+              size: 15,
+            ),
+          ),
+        ],
       ),
     );
   }

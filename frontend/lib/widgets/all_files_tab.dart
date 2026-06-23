@@ -3364,10 +3364,14 @@ class _CreateChipBar extends StatelessWidget {
     final fabVis = Provider.of<AppStateProvider>(context).allTabFabVisibility;
 
     final chips = <Widget>[];
-    // 순서(좌→우): 메모 → 녹음 → 녹음 메모 → 필기 → 파일 → 영상 채널
+    // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 사진 → 비디오 → 영상 채널 → 파일
     if (fabVis.contains('text')) {
       chips.add(_chip(context,
           icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: onText));
+    }
+    if (fabVis.contains('canvas')) {
+      chips.add(_chip(context,
+          icon: Icons.draw, label: l10n?.handwritingTab ?? '필기', color: color, onTap: onCanvas));
     }
     if (fabVis.contains('audio')) {
       chips.add(_chip(context,
@@ -3387,15 +3391,7 @@ class _CreateChipBar extends StatelessWidget {
           color: color,
           onTap: onTextWithSTT));
     }
-    if (fabVis.contains('canvas')) {
-      chips.add(_chip(context,
-          icon: Icons.draw, label: l10n?.handwritingTab ?? '필기', color: color, onTap: onCanvas));
-    }
-    if (fabVis.contains('files')) {
-      chips.add(_chip(context,
-          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: onFiles));
-    }
-    // 사진 / 비디오 (영상 채널 앞). 첨부파일로 저장된다.
+    // 사진 / 비디오 — 첨부파일로 저장된다.
     if (onPhoto != null) {
       chips.add(_chip(context,
           icon: Icons.photo_camera, label: '사진', color: color, onTap: onPhoto!));
@@ -3407,6 +3403,10 @@ class _CreateChipBar extends StatelessWidget {
     if (fabVis.contains('youtube') && onYoutube != null) {
       chips.add(_chip(context,
           icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: onYoutube!));
+    }
+    if (fabVis.contains('files')) {
+      chips.add(_chip(context,
+          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: onFiles));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();

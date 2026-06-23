@@ -16,79 +16,22 @@ class HomeDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint('🏠 [HomeDashboardScreen] build');
-    return Consumer<AppStateProvider>(
-      builder: (context, appState, _) {
-        final pendingRemind =
-            appState.remindItems.where((i) => !i.isDone).length;
-        final upcoming = _upcomingSchedules(appState.littens);
-
-        // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 상단: 리마인드 + 최근 일정 ──
-            // 내용 크기만큼만 차지(비-flex)하여, 남는 세로 공간은 전부 아래 공유 영역(Expanded)이
-            // 가져가도록 한다. (Flexible+Expanded로 flex를 나누면 상단 빈 공간이 하단에 남아
-            //  공유 카드가 메인메뉴까지 닿지 않는 문제가 있었음)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── 미완료 리마인드 카드 ──
-                  _SectionTitle(icon: Icons.lightbulb_outline, title: '리마인드'),
-                  const SizedBox(height: 8),
-                  _RemindSummaryCard(
-                    pendingCount: pendingRemind,
-                    onTap: () => appState.changeTabIndex(_memoryTabIndex),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ── 일정 (앞으로 도래할 순서, 최대 2개) ──
-                  _SectionTitle(icon: Icons.event_note, title: '일정'),
-                  const SizedBox(height: 8),
-                  if (upcoming.isEmpty)
-                    _EmptyHint(text: '예정된 일정이 없습니다')
-                  else
-                    ...upcoming.map(
-                      (e) => _ScheduleTile(
-                        litten: e.litten,
-                        when: e.when,
-                        onTap: () {
-                          // 일정/리튼을 선택하지 않고 캘린더로 이동.
-                          // 날짜 선택은 해제(특정 날짜 필터로 목록이 비는 것 방지)하고,
-                          // 캘린더 탭을 눌렀을 때처럼 전체 일정 리스트를 위로 펼쳐서 보여준다.
-                          appState.clearDateSelection();
-                          appState.requestExpandScheduleList();
-                          appState.changeTabIndex(_calendarTabIndex);
-                        },
-                      ),
-                    ),
-                ],
-              ),
+    // 공유 아이콘은 탭 제목란으로 이동. body에는 공유 본문(전체/공유받은것/공유한것)만 표시.
+    // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: _ShareTabs(
+              // 공유 기능은 준비 중 — 카운트 0으로 자리만 표시
+              sharedOutCount: 0,
+              sharedInCount: 0,
             ),
-            const SizedBox(height: 24),
-
-            // ── 공유 (메인메뉴 위까지 확장) ──
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: _SectionTitle(icon: Icons.share, title: '공유'),
-            ),
-            const SizedBox(height: 8),
-            const Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: _ShareTabs(
-                  // 공유 기능은 준비 중 — 카운트 0으로 자리만 표시
-                  sharedOutCount: 0,
-                  sharedInCount: 0,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 

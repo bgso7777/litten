@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
-import '../widgets/common/tab_count_title.dart';
 import 'home_dashboard_screen.dart';
 
 /// 홈 영역 — 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성.
@@ -30,26 +27,8 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
         id: 'home',
         title: '홈',
         icon: Icons.home_outlined,
-        // 제목란: 일정 · 리마인드(미완료) · 공유한것 · 공유받은것 카운트
-        customTabWidget: Consumer<AppStateProvider>(
-          builder: (context, appState, _) {
-            final scheduleCount =
-                appState.littens.where((l) => l.title != 'undefined').length;
-            final remindCount =
-                appState.remindItems.where((i) => !i.isDone).length;
-            // 공유 기능은 준비 중 — 카운트 0으로 자리만 표시
-            const sharedOutCount = 0;
-            const sharedInCount = 0;
-            return TabCountTitle([
-              [
-                TabCount(Icons.event, scheduleCount),
-                TabCount(Icons.lightbulb_outline, remindCount),
-                const TabCount(Icons.upload_outlined, sharedOutCount),
-                const TabCount(Icons.download_outlined, sharedInCount),
-              ],
-            ]);
-          },
-        ),
+        // 제목란: 공유 아이콘 (홈 body 최상위에 있던 공유 아이콘을 여기로 이동)
+        customTabWidget: const Icon(Icons.share),
         content: const HomeDashboardScreen(),
         position: TabPosition.topLeft,
         // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김
