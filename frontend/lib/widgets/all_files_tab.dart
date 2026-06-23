@@ -3329,8 +3329,8 @@ class _CreateChipBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 캘린더 힌트칩과 동일한 세로 패딩(6)으로 높이를 맞춘다.
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // 캘린더 힌트칩과 동일한 세로 패딩(5)으로 높이를 맞춘다. (항목이 많을 때 구분 ↑)
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(

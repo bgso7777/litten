@@ -19,6 +19,7 @@ import '../widgets/home/notification_settings.dart';
 import '../config/themes.dart';
 import '../utils/responsive_utils.dart';
 import '../utils/timezone_utils.dart';
+import '../utils/schedule_utils.dart' as schedule_utils;
 import '../models/litten.dart';
 import '../models/audio_file.dart';
 import '../models/text_file.dart';
@@ -1179,41 +1180,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 월 네비게이션 헤더
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                onPressed: () {
-                  final previousMonth = DateTime(
-                    appState.focusedDate.year,
-                    appState.focusedDate.month - 1,
-                  );
-                  appState.changeFocusedDate(previousMonth);
-                },
-                icon: const Icon(Icons.chevron_left),
-                tooltip: '이전 달',
-              ),
-              Text(
-                DateFormat.yMMMM(appState.locale.languageCode).format(appState.focusedDate),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
-                ),
-              ),
-              IconButton(
-                onPressed: () {
-                  final nextMonth = DateTime(
-                    appState.focusedDate.year,
-                    appState.focusedDate.month + 1,
-                  );
-                  appState.changeFocusedDate(nextMonth);
-                },
-                icon: const Icon(Icons.chevron_right),
-                tooltip: '다음 달',
-              ),
-            ],
-          ),
+          // 월 네비게이션 헤더는 상단 탭 제목란(CalendarTabScreen)으로 이동됨
           // 캘린더
           Stack(
             children: [
@@ -1823,46 +1790,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         child: Column(
           mainAxisSize: MainAxisSize.max,
           children: [
-            // 월 네비게이션 헤더
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  onPressed: () {
-                    final previousMonth = DateTime(
-                      _calendarFocusedDate.value.year,
-                      _calendarFocusedDate.value.month - 1,
-                    );
-                    _calendarFocusedDate.value = previousMonth;
-                  },
-                  icon: const Icon(Icons.chevron_left),
-                  tooltip: '이전 달',
-                ),
-                ValueListenableBuilder<DateTime>(
-                  valueListenable: _calendarFocusedDate,
-                  builder: (context, focusedDate, child) {
-                    return Text(
-                      DateFormat.yMMMM(currentAppState.locale.languageCode).format(focusedDate),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: (Theme.of(context).textTheme.headlineSmall?.fontSize ?? 24) - 2,
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  onPressed: () {
-                    final nextMonth = DateTime(
-                      _calendarFocusedDate.value.year,
-                      _calendarFocusedDate.value.month + 1,
-                    );
-                    _calendarFocusedDate.value = nextMonth;
-                  },
-                  icon: const Icon(Icons.chevron_right),
-                  tooltip: '다음 달',
-                ),
-              ],
-            ),
+            // 월 네비게이션 헤더는 상단 탭 제목란(CalendarTabScreen)으로 이동됨.
+            // 탭 제목란의 ‹ › 화살표 → appState.changeFocusedDate → _syncCalendarFocusedDate
+            // 리스너가 _calendarFocusedDate 를 동기화하므로 캘린더가 함께 이동한다.
             // 캘린더 (Expanded로 전체 공간 차지)
             Expanded(
               child: LayoutBuilder(
@@ -2208,6 +2138,29 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return (secondsUntilToday: nearestTodaySeconds, daysUntilNext: nearestDays, secondsUntilFutureEvent: nearestFutureSeconds, nearestTitle: nearestTitle);
   }
 
+  /// 다가오는 일정(미래)들을 시작 시각 오름차순으로 수집한다.
+  /// 펼친 일정 목록(litten_unified_list_view)과 **동일한** schedule_utils.nextScheduleOccurrence
+  /// 로직을 써서, 칩 바와 펼친 목록의 일정 집합이 일치하도록 한다.
+  List<({String title, DateTime when})> _getUpcomingSchedules(
+    List<Litten> littens,
+    String languageCode, {
+    int limit = 50,
+  }) {
+    final now = nowForLanguage(languageCode);
+    final result = <({String title, DateTime when})>[];
+
+    for (final litten in littens) {
+      if (litten.schedule == null || litten.title == 'undefined') continue;
+      final next = schedule_utils.nextScheduleOccurrence(litten.schedule!, now);
+      if (next != null && next.isAfter(now)) {
+        result.add((title: litten.title, when: next));
+      }
+    }
+
+    result.sort((a, b) => a.when.compareTo(b.when));
+    return result.length > limit ? result.sublist(0, limit) : result;
+  }
+
   /// 반복 알림 규칙을 기반으로 now 이후의 다음 발생일 계산 (시각 포함 비교)
   DateTime? _calculateNextOccurrenceFromRules(
     DateTime originalStart,
@@ -2278,87 +2231,108 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return best;
   }
 
-  // 일정 목록 스크롤 유도 힌트 칩 위젯
+  // 일정 목록 스크롤 유도 힌트 칩 바
+  // 다가오는 일정들을 "제목 · 남은시간" 칩으로 시간순 가로 스크롤 표시한다.
+  // (스타일은 all_files_tab.dart 의 _CreateChipBar 와 통일)
   Widget _buildScheduleHintChip(AppStateProvider appState) {
     final l10n = AppLocalizations.of(context);
-    final hint = _getScheduleHint(appState.littens, appState.locale.languageCode);
+    final languageCode = appState.locale.languageCode;
+    final now = nowForLanguage(languageCode);
+    final upcoming = _getUpcomingSchedules(appState.littens, languageCode);
+    final color = Theme.of(context).primaryColor;
 
-    final String timeLabel;
-    // ⭐ 1일(24시간) 이내면 시간/분, 그 외에는 일로 표시
-    const int oneDayInSec = 86400; // 24*60*60
-    final int? secsToNext = hint.secondsUntilToday ?? hint.secondsUntilFutureEvent;
-
-    if (secsToNext != null && secsToNext < oneDayInSec) {
-      // 1일 이내 → 시간/분/초로 표시
-      final minutes = secsToNext ~/ 60;
-      final seconds = secsToNext % 60;
-      if (minutes == 0) {
-        timeLabel = '0분 ${seconds}초 후 일정 있음';
-      } else if (minutes < 60) {
-        timeLabel = '$minutes분 후 일정 있음';
-      } else {
-        final hours = minutes ~/ 60;
-        final remaining = minutes % 60;
-        timeLabel = remaining > 0 ? '$hours시간 $remaining분 후 일정 있음' : '$hours시간 후 일정 있음';
-      }
-    } else if (hint.daysUntilNext > 0) {
-      // 1일 이상 → 일 단위로 표시
-      timeLabel = '${hint.daysUntilNext}일 후 일정 있음';
-    } else if (secsToNext != null) {
-      // 24시간 이상이지만 daysUntilNext가 0인 경우 (예: 23시간 59분 후 → 표시 안 됨 방지)
-      final days = secsToNext ~/ oneDayInSec;
-      timeLabel = days > 0 ? '$days일 후 일정 있음' : (l10n?.viewScheduleList ?? '일정 목록 보기');
-    } else {
-      timeLabel = l10n?.viewScheduleList ?? '일정 목록 보기';
+    // 칩 탭 / 위로 스와이프 → 일정 목록 펼침 토글 (기존 단일 칩 동작 유지)
+    void toggleList() {
+      debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 토글 (현재: $_scheduleListVisible)');
+      setState(() { _scheduleListVisible = !_scheduleListVisible; });
+      _clearScheduleBadge(); // 칩 클릭 시 일정 알림 뱃지(하단 캘린더 탭) 클리어
     }
-    final String? title = hint.nearestTitle;
+
+    final List<Widget> chips;
+    if (upcoming.isEmpty) {
+      // 빈 상태: "일정 목록 보기" 단일 칩
+      chips = [
+        _scheduleChip(
+          icon: Icons.event_note,
+          label: l10n?.viewScheduleList ?? '일정 목록 보기',
+          color: color,
+          onTap: toggleList,
+        ),
+      ];
+    } else {
+      chips = [
+        for (final s in upcoming)
+          _scheduleChip(
+            icon: Icons.event,
+            label: '${s.title} · ${schedule_utils.remainingLabel(s.when, now) ?? ''}',
+            color: color,
+            onTap: toggleList,
+          ),
+      ];
+    }
 
     return GestureDetector(
-      onTap: () {
-        debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 토글 (현재: $_scheduleListVisible)');
-        setState(() { _scheduleListVisible = !_scheduleListVisible; });
-        _clearScheduleBadge(); // 칩 클릭 시 일정 알림 뱃지(하단 캘린더 탭) 클리어
+      // 위로 스와이프 시 일정 목록 펼침 (가로 스크롤은 가로 드래그만 소비 → 세로 제스처와 충돌 없음)
+      onVerticalDragEnd: (d) {
+        final v = d.primaryVelocity;
+        if (v != null && v < -200 && !_scheduleListVisible) {
+          debugPrint('📅 [HomeScreen] 칩 바 위로 스와이프 → 일정 목록 펼침');
+          setState(() { _scheduleListVisible = true; });
+          _clearScheduleBadge();
+        }
       },
-      child: CustomPaint(
-        painter: _ConcaveChipPainter(
-          fillColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-          borderColor: Theme.of(context).primaryColor.withValues(alpha: 0.25),
-          backgroundColor: Theme.of(context).cardColor,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
-        child: Container(
-          width: double.infinity,
-          // 칩 높이만 약 10% 확대 (세로 패딩 증가, 가로/폰트는 유지)
-          padding: const EdgeInsets.symmetric(horizontal: 19.8, vertical: 8.2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (title != null) ...[
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14.3,
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: chips),
+        ),
+      ),
+    );
+  }
+
+  /// 캘린더 하단 일정 칩 1개 (스타일은 all_files_tab.dart 의 _CreateChipBar._chip 과 통일)
+  Widget _scheduleChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            // 세로 패딩을 약간 줄여(6→5) 항목이 많을 때 구분이 더 잘 되게 함
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
                 const SizedBox(width: 6),
-              ],
-              Text(
-                timeLabel,
-                style: TextStyle(
-                  fontSize: 14.3,
-                  color: Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.w500,
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                _scheduleListVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-                size: 17.6,
-                color: Theme.of(context).primaryColor,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2811,83 +2785,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       ),
     );
   }
-}
-
-/// 힌트 칩 배경 Painter — 상단 좌우 모서리를 오목(concave) 곡선으로 처리
-/// 코너 영역을 backgroundColor(cardColor)로 덮어 오목 효과를 시각적으로 표현
-class _ConcaveChipPainter extends CustomPainter {
-  final Color fillColor;
-  final Color borderColor;
-  final Color backgroundColor;
-  final double cornerRadius;
-
-  const _ConcaveChipPainter({
-    required this.fillColor,
-    required this.borderColor,
-    required this.backgroundColor,
-    this.cornerRadius = 16.0,
-  });
-
-  /// 칩 본체 경로 (오목 코너 포함)
-  Path _buildChipPath(Size size) {
-    final r = cornerRadius;
-    final path = Path();
-    path.moveTo(r, 0);
-    path.quadraticBezierTo(0, 0, 0, r);       // 좌상단 오목 곡선
-    path.lineTo(0, size.height);
-    path.lineTo(size.width, size.height);
-    path.lineTo(size.width, r);
-    path.quadraticBezierTo(size.width, 0, size.width - r, 0); // 우상단 오목 곡선
-    path.lineTo(r, 0);
-    path.close();
-    return path;
-  }
-
-  /// 좌상단 코너 오목 영역 — 이 영역을 backgroundColor로 덮어 오목 효과를 표현
-  Path _buildLeftCornerPath(Size size) {
-    final r = cornerRadius;
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(r, 0);
-    path.quadraticBezierTo(0, 0, 0, r);
-    path.close();
-    return path;
-  }
-
-  /// 우상단 코너 오목 영역
-  Path _buildRightCornerPath(Size size) {
-    final r = cornerRadius;
-    final path = Path();
-    path.moveTo(size.width, 0);
-    path.lineTo(size.width - r, 0);
-    path.quadraticBezierTo(size.width, 0, size.width, r);
-    path.close();
-    return path;
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 1. 칩 배경 채우기
-    canvas.drawPath(_buildChipPath(size), Paint()
-      ..color = fillColor
-      ..style = PaintingStyle.fill,
-    );
-    // 2. 오목 코너 영역을 캘린더 배경색으로 덮어써서 오목 효과 표현
-    final bgPaint = Paint()..color = backgroundColor..style = PaintingStyle.fill;
-    canvas.drawPath(_buildLeftCornerPath(size), bgPaint);
-    canvas.drawPath(_buildRightCornerPath(size), bgPaint);
-    // 3. 칩 테두리 (리마인더 칩과 동일하게 stroke 그림)
-    canvas.drawPath(_buildChipPath(size), Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ConcaveChipPainter old) =>
-      old.fillColor != fillColor || old.borderColor != borderColor ||
-      old.backgroundColor != backgroundColor || old.cornerRadius != cornerRadius;
 }
 
 /// 캘린더를 위한 Custom SliverPersistentHeaderDelegate

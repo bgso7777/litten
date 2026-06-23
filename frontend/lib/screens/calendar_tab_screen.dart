@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
-import '../widgets/common/tab_count_title.dart';
 import 'home_screen.dart';
 
 /// 캘린더 영역 — 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성.
@@ -34,27 +34,51 @@ class _CalendarTabScreenState extends State<CalendarTabScreen> {
         id: 'calendar',
         title: '캘린더',
         icon: Icons.event_available,
-        // 제목란: 도래할 일정(오늘 이후) / 전체 일정 카운트
+        // 제목란: 월 네비게이션(이전 ‹ · 2026년 6월 · 다음 ›). 캘린더 내부 헤더를 여기로 이동.
         customTabWidget: Consumer<AppStateProvider>(
           builder: (context, appState, _) {
-            final now = DateTime.now();
-            final today = DateTime(now.year, now.month, now.day);
-            final scheduled = appState.littens
-                .where((l) => l.title != 'undefined' && l.schedule != null);
-            final upcomingCount = scheduled.where((l) {
-              final d = l.schedule!.endDate ?? l.schedule!.date;
-              return !d.isBefore(today);
-            }).length;
-            final totalCount =
-                appState.littens.where((l) => l.title != 'undefined').length;
-            return TabCountTitle([
-              [
-                TabCount(Icons.upcoming, upcomingCount),
+            final color = Theme.of(context).primaryColor;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    final previousMonth = DateTime(
+                      appState.focusedDate.year,
+                      appState.focusedDate.month - 1,
+                    );
+                    appState.changeFocusedDate(previousMonth);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.chevron_left, size: 22, color: color),
+                  ),
+                ),
+                const SizedBox(width: 40),
+                Text(
+                  DateFormat.yMMMM(appState.locale.languageCode)
+                      .format(appState.focusedDate),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 40),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    final nextMonth = DateTime(
+                      appState.focusedDate.year,
+                      appState.focusedDate.month + 1,
+                    );
+                    appState.changeFocusedDate(nextMonth);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.chevron_right, size: 22, color: color),
+                  ),
+                ),
               ],
-              [
-                TabCount(Icons.event_note, totalCount),
-              ],
-            ]);
+            );
           },
         ),
         content: HomeScreen(key: widget.homeScreenKey),
