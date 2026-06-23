@@ -3712,6 +3712,8 @@ class AllFilesTabButton extends StatelessWidget {
   // 숨김 상태: 흐리게 + 카운트 normal, 표시 상태: 기본(활성 탭에서 bold 상속).
   Widget _iconCount(BuildContext context, AppStateProvider appState, String key, IconData icon, int count) {
     final hidden = appState.allTabHiddenTypes.contains(key);
+    // 카운트 숫자 폰트를 아이콘보다 약간 작게(읽힐 정도, 기본의 0.8배) 줄이고 아이콘에 바짝 붙인다.
+    final countFontSize = (DefaultTextStyle.of(context).style.fontSize ?? 13) * 0.8;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => appState.toggleAllTabHiddenType(key),
@@ -3719,13 +3721,18 @@ class AllFilesTabButton extends StatelessWidget {
         opacity: hidden ? 0.4 : 1.0,
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          // 작은 카운트 숫자를 가운데가 아니라 아이콘 하단에 맞춘다.
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Icon(icon),
-            const SizedBox(width: 5),
+            const SizedBox(width: 2),
             Text(
               count.toString(),
-              // 숨김이면 normal로 고정, 표시면 상위 스타일(활성 탭 bold) 상속
-              style: hidden ? const TextStyle(fontWeight: FontWeight.normal) : null,
+              // 폰트는 아이콘보다 약간 작게. 숨김이면 normal로 고정, 표시면 상위 weight(활성 탭 bold) 상속
+              style: TextStyle(
+                fontSize: countFontSize,
+                fontWeight: hidden ? FontWeight.normal : null,
+              ),
             ),
           ],
         ),

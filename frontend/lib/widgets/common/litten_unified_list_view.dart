@@ -737,33 +737,16 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                           ),
                         ],
                         const SizedBox(width: 8),
+                        // 남은 기간/시간은 행 우측 고정 위치로 이동(아래 참고). 여기는 제목만 표시.
                         Expanded(
-                          child: Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  isUndefinedLitten ? '' : litten.title,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                    color: isSelected && !isUndefinedLitten ? Colors.white : (isUndefinedLitten ? Colors.grey.shade600 : null),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // 남은 기간/시간: 제목 오른쪽 옆에 표시
-                              if (remainLabel != null) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  remainLabel,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: themeColor,
-                                  ),
-                                ),
-                              ],
-                            ],
+                          child: Text(
+                            isUndefinedLitten ? '' : litten.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: isSelected && !isUndefinedLitten ? Colors.white : (isUndefinedLitten ? Colors.grey.shade600 : null),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -783,6 +766,24 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                       _buildFileCountBadge(Icons.mic, audioCount, badgeColor),
                       const SizedBox(width: 4),
                     ],
+                  ],
+                  // 남은 기간/시간: 행 우측 고정 위치(고정 너비 + 우측 정렬).
+                  // 파일 뱃지 개수와 무관하게 메뉴 버튼 바로 왼쪽에 일정하게 표시된다.
+                  if (remainLabel != null) ...[
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        remainLabel,
+                        textAlign: TextAlign.right,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: themeColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                   ],
                   PopupMenuButton<String>(
                     onSelected: (value) {

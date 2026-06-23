@@ -35,49 +35,53 @@ class _CalendarTabScreenState extends State<CalendarTabScreen> {
         title: '캘린더',
         icon: Icons.event_available,
         // 제목란: 월 네비게이션(이전 ‹ · 2026년 6월 · 다음 ›). 캘린더 내부 헤더를 여기로 이동.
+        // 아이콘/글씨 크기와 세로 패딩은 부모(DraggableTabLayout)가 적용하는
+        // IconTheme(17)/DefaultTextStyle(13)을 상속하고 FittedBox로 감싸,
+        // 홈·"+" 탭의 TabCountTitle 과 상하 폭을 동일하게 맞춘다.
         customTabWidget: Consumer<AppStateProvider>(
           builder: (context, appState, _) {
-            final color = Theme.of(context).primaryColor;
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    final previousMonth = DateTime(
-                      appState.focusedDate.year,
-                      appState.focusedDate.month - 1,
-                    );
-                    appState.changeFocusedDate(previousMonth);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.chevron_left, size: 22, color: color),
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      final previousMonth = DateTime(
+                        appState.focusedDate.year,
+                        appState.focusedDate.month - 1,
+                      );
+                      appState.changeFocusedDate(previousMonth);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(Icons.chevron_left),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 40),
-                Text(
-                  DateFormat.yMMMM(appState.locale.languageCode)
-                      .format(appState.focusedDate),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 40),
-                InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    final nextMonth = DateTime(
-                      appState.focusedDate.year,
-                      appState.focusedDate.month + 1,
-                    );
-                    appState.changeFocusedDate(nextMonth);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.chevron_right, size: 22, color: color),
+                  const SizedBox(width: 40),
+                  Text(
+                    DateFormat.yMMMM(appState.locale.languageCode)
+                        .format(appState.focusedDate),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 40),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      final nextMonth = DateTime(
+                        appState.focusedDate.year,
+                        appState.focusedDate.month + 1,
+                      );
+                      appState.changeFocusedDate(nextMonth);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(Icons.chevron_right),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
