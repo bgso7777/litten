@@ -2846,7 +2846,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               appState.addQuizItems(quizItems);
               debugPrint('✨ [SttMode] 퀴즈 ${quizItems.length}개 추가 완료');
             }
-            // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거)
+            // 리마인드 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거)
             final markerIdx = summary.indexOf('─── 📌 퀴즈 ───');
             final pureSummary = markerIdx != -1
                 ? summary.substring(0, markerIdx).trim()

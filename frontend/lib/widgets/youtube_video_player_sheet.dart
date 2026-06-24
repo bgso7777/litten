@@ -1298,7 +1298,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         _loading = false; _result = r; _summary = r.displaySummary;
         _savedLevels.add(_summaryLevel); // 이제 이 레벨은 저장됨
       });
-      // ⭐ 요약이 완료되면(메모 저장과 무관하게) 인사이트 '요약'에 무조건 기록 (로컬 별도 파일).
+      // ⭐ 요약이 완료되면(메모 저장과 무관하게) 리마인드 '요약'에 무조건 기록 (로컬 별도 파일).
       //    같은 영상·레벨은 summaryGroupId로 중복 갱신.
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final fullSummary = r.displaySummary;
@@ -1387,7 +1387,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       await storage.saveTextFiles(litten.id, list);
       await appState.updateFileCount();
       appState.notifyFileListChanged(); // 파일 목록 UI 즉시 새로고침
-      // (인사이트 '요약' 기록은 요약 완료 시점(_summarize)에서 이미 처리됨)
+      // (리마인드 '요약' 기록은 요약 완료 시점(_summarize)에서 이미 처리됨)
       debugPrint('[메모저장] 완료 - "$title" (litten: ${litten.id})');
       if (mounted) {
         setState(() => _memoSaved = true);

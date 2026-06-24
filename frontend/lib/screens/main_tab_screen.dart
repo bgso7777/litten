@@ -171,9 +171,9 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                   label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: _buildInsightIcon(false),
-                  activeIcon: _buildInsightIcon(true),
-                  label: '인사이트',
+                  icon: _buildRemindIcon(false),
+                  activeIcon: _buildRemindIcon(true),
+                  label: '리마인드',
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.settings),
@@ -296,11 +296,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     );
   }
 
-  // 인사이트(요약+퀴즈 통합) 탭 — 별표(반짝임) 요약 아이콘을 메인으로,
+  // 리마인드(요약+퀴즈 통합) 탭 — 별표(반짝임) 요약 아이콘을 메인으로,
   // 우상단에 작은 전구(아이디어/퀴즈) 배지를 겹쳐 표현한다.
   // 색은 지정하지 않아 메인·배지 모두 BottomNavigationBar 상태색
   // (비선택 회색 / 선택 시 테마색)을 따른다.
-  Widget _buildInsightIcon(bool isActive) {
+  Widget _buildRemindIcon(bool isActive) {
     return SizedBox(
       width: 28,
       height: 26,

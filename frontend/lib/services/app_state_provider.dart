@@ -103,7 +103,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<dynamic> _selectedDateNotifications = [];
   List<dynamic> get selectedDateNotifications => _selectedDateNotifications;
 
-  // ⭐ 요약 상태 (인사이트 '요약' 섹션 + 로컬 별도 파일 저장)
+  // ⭐ 요약 상태 (리마인드 '요약' 섹션 + 로컬 별도 파일 저장)
   final SummaryStorageService _summaryStorage = SummaryStorageService();
   List<SummaryEntry> _summaries = [];
   List<SummaryEntry> get summaries => _summaries; // 이미 최신순 정렬

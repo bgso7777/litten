@@ -1548,7 +1548,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
   // 통일된 24x24 아이콘 버튼 (placeholder는 icon: null)
   /// 퀴즈 아이콘 — 파일에 추출된 항목이 있으면 활성(테마색),
-  /// 없으면 비활성(연회색). 활성 상태에서 탭하면 인사이트 탭으로 이동.
+  /// 없으면 비활성(연회색). 활성 상태에서 탭하면 리마인드 탭으로 이동.
   /// 아이콘: 전구(lightbulb) 안에 소문자 'q'를 넣은 합성 모양.
   Widget _buildQuizIcon(String fileId, Color color) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
@@ -1563,8 +1563,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
         child: InkWell(
           onTap: active
               ? () {
-                  debugPrint('💡 [AllFilesTab] 퀴즈 아이콘 탭 - 파일 $fileId, $count개 → 인사이트 탭 이동');
-                  appState.changeTabIndex(3); // 5탭: 홈0·캘린더1·+2·인사이트3·설정4
+                  debugPrint('💡 [AllFilesTab] 퀴즈 아이콘 탭 - 파일 $fileId, $count개 → 리마인드 탭 이동');
+                  appState.changeTabIndex(3); // 5탭: 홈0·캘린더1·+2·리마인드3·설정4
                 }
               : null,
           borderRadius: BorderRadius.circular(12),
@@ -2923,7 +2923,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         debugPrint('✨ [AllFilesTab] 퀴즈 ${quizItems.length}개 추가 완료');
       }
 
-      // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거한 순수 요약)
+      // 리마인드 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거한 순수 요약)
       final fullSummary = result.summary;
       final markerIdx = fullSummary.indexOf('─── 📌 퀴즈 ───');
       final pureSummary =
