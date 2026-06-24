@@ -2315,8 +2315,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       chips = [
         for (final s in upcoming)
           _scheduleChip(
-            icon: Icons.event,
-            label: '${s.title} · ${schedule_utils.remainingLabel(s.when, now) ?? ''}',
+            // "남은시간 · 일정제목" 순서로 표시 (아이콘 없음)
+            label: '${schedule_utils.remainingLabel(s.when, now) ?? ''} · ${s.title}',
             color: color,
             onTap: toggleList,
           ),
@@ -2336,7 +2336,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          // 칩이 놓인 하단 바 배경을 옅은 테마색으로 (노트 액션 바와 통일)
+          color: color.withValues(alpha: 0.08),
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2350,7 +2351,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
   /// 캘린더 하단 일정 칩 1개 (스타일은 all_files_tab.dart 의 _CreateChipBar._chip 과 통일)
   Widget _scheduleChip({
-    required IconData icon,
+    IconData? icon,
     required String label,
     required Color color,
     required VoidCallback onTap,
@@ -2358,29 +2359,32 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: color.withValues(alpha: 0.08),
+        // + 칩(노트 액션 버튼)과 동일하게 짙은 테마색 바탕 + 흰색 아이콘/글씨.
+        color: color,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 세로 패딩을 약간 줄여(6→5) 항목이 많을 때 구분이 더 잘 되게 함
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            // 세로 패딩(7)으로 칩 높이를 아주 약간 키움 (노트 액션 칩과 동일)
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+              border: Border.all(color: color, width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 6),
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                ],
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: Colors.white,
                   ),
                 ),
               ],

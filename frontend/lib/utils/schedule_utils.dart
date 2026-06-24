@@ -48,15 +48,12 @@ String? remainingLabel(DateTime start, DateTime now) {
   final diff = start.difference(now);
   if (diff.isNegative) return null;
   final secs = diff.inSeconds;
-  const oneDayInSec = 86400; // 24*60*60
-  if (secs < oneDayInSec) {
-    final minutes = secs ~/ 60;
-    if (minutes == 0) return '${secs % 60}초 후';
-    if (minutes < 60) return '$minutes분 후';
-    final hours = minutes ~/ 60;
-    final remaining = minutes % 60;
-    return remaining > 0 ? '$hours시간 $remaining분 후' : '$hours시간 후';
-  }
-  final days = secs ~/ oneDayInSec;
-  return '$days일 후';
+  // 가장 큰 단위 하나만 표시: 일이 있으면 일만, 없으면 시간만, 분만, 초만.
+  final days = secs ~/ 86400; // 24*60*60
+  if (days >= 1) return '$days일 후';
+  final hours = secs ~/ 3600;
+  if (hours >= 1) return '$hours시간 후';
+  final minutes = secs ~/ 60;
+  if (minutes >= 1) return '$minutes분 후';
+  return '$secs초 후';
 }

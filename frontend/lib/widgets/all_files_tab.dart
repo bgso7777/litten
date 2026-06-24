@@ -3323,30 +3323,30 @@ class _CreateChipBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: active ? color : color.withValues(alpha: 0.08),
+        // + 버튼과 동일하게 짙은 테마색 바탕 + 흰색 아이콘/글씨.
+        color: color,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 캘린더 힌트칩과 동일한 세로 패딩(5)으로 높이를 맞춘다. (항목이 많을 때 구분 ↑)
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            // 캘린더 힌트칩과 동일한 세로 패딩(7)으로 높이를 맞춘다. (항목이 많을 때 구분 ↑)
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: color.withValues(alpha: active ? 1.0 : 0.25), width: 1),
+              border: Border.all(color: color, width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: active ? Colors.white : color),
+                Icon(icon, size: 16, color: Colors.white),
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: active ? Colors.white : color,
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -3414,7 +3414,8 @@ class _CreateChipBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        // 버튼들이 놓인 하단 바 배경을 탭 제목 바탕색과 동일하게 (primaryColor alpha 0.08)
+        color: color.withValues(alpha: 0.08),
         border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
