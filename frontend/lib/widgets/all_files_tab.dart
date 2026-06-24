@@ -1547,22 +1547,61 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   // 통일된 24x24 아이콘 버튼 (placeholder는 icon: null)
-  /// 리마인드 아이콘 — 파일에 추출된 리마인드가 있으면 활성(테마색),
-  /// 없으면 비활성(연회색). 활성 상태에서 탭하면 리마인드 탭으로 이동.
+  /// 퀴즈 아이콘 — 파일에 추출된 항목이 있으면 활성(테마색),
+  /// 없으면 비활성(연회색). 활성 상태에서 탭하면 인사이트 탭으로 이동.
+  /// 아이콘: 전구(lightbulb) 안에 소문자 'q'를 넣은 합성 모양.
   Widget _buildRemindIcon(String fileId, Color color) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final count = appState.remindItemsForFile(fileId).length;
     final active = count > 0;
-    return _iconBtn(
-      icon: Icons.lightbulb_outline,
-      color: active ? color : Colors.grey.shade400,
-      tooltip: active ? '리마인드 $count개' : '리마인드 없음',
-      onPressed: active
-          ? () {
-              debugPrint('💡 [AllFilesTab] 리마인드 아이콘 탭 - 파일 $fileId, $count개 → 리마인드 탭 이동');
-              appState.changeTabIndex(3); // 5탭: 홈0·캘린더1·+2·리마인드3·설정4
-            }
-          : null,
+    final iconColor = active ? color : Colors.grey.shade400;
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: active
+              ? () {
+                  debugPrint('💡 [AllFilesTab] 퀴즈 아이콘 탭 - 파일 $fileId, $count개 → 인사이트 탭 이동');
+                  appState.changeTabIndex(3); // 5탭: 홈0·캘린더1·+2·인사이트3·설정4
+                }
+              : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Tooltip(
+            message: active ? '퀴즈 $count개' : '퀴즈 없음',
+            child: Center(child: _quizBulbIcon(iconColor, 18)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 꽉 찬 전구(lightbulb) 안에 흰색 소문자 'q'를 올린 퀴즈 아이콘.
+  /// (외곽선 전구 위에 글자를 겹치면 전구선과 섞여 깨져 보여, 채운 전구 + 흰 q로 또렷하게)
+  Widget _quizBulbIcon(Color color, double size) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.lightbulb, size: size, color: color),
+          // 전구 유리(위쪽 둥근 부분) 중앙에 흰 q — 살짝 위로 올려 또렷하게
+          Positioned(
+            top: size * 0.07,
+            child: Text(
+              'q',
+              style: TextStyle(
+                fontSize: size * 0.5,
+                height: 1.0,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2883,6 +2922,22 @@ class _AllFilesTabState extends State<AllFilesTab> {
         appState.addRemindItems(remindItems);
         debugPrint('✨ [AllFilesTab] 리마인드 ${remindItems.length}개 추가 완료');
       }
+
+      // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (리마인드 마커 제거한 순수 요약)
+      final fullSummary = result.summary;
+      final markerIdx = fullSummary.indexOf('─── 📌 리마인드 ───');
+      final pureSummary =
+          markerIdx != -1 ? fullSummary.substring(0, markerIdx).trim() : fullSummary.trim();
+      await appState.recordSummary(
+        littenId: file.littenId,
+        sourceFileId: file.id,
+        sourceType: 'text',
+        title: file.displayTitle,
+        summaryText: pureSummary,
+        summaryLevel: result.summaryLevel,
+        summaryGroupId:
+            remindItems.isNotEmpty ? remindItems.first.summaryGroupId : null,
+      );
 
       debugPrint('✨ [AllFilesTab] 요약 저장 완료');
 

@@ -2840,10 +2840,27 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             fileType: RemindFileType.text,
             summaryLevel: _sttSettings.summaryLevel,
           );
-          if (remindItems.isNotEmpty && mounted) {
+          if (mounted) {
             final appState = Provider.of<AppStateProvider>(context, listen: false);
-            appState.addRemindItems(remindItems);
-            debugPrint('✨ [SttMode] 리마인드 ${remindItems.length}개 추가 완료');
+            if (remindItems.isNotEmpty) {
+              appState.addRemindItems(remindItems);
+              debugPrint('✨ [SttMode] 리마인드 ${remindItems.length}개 추가 완료');
+            }
+            // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (리마인드 마커 제거)
+            final markerIdx = summary.indexOf('─── 📌 리마인드 ───');
+            final pureSummary = markerIdx != -1
+                ? summary.substring(0, markerIdx).trim()
+                : summary.trim();
+            await appState.recordSummary(
+              littenId: file.littenId,
+              sourceFileId: file.id,
+              sourceType: 'text',
+              title: file.displayTitle,
+              summaryText: pureSummary,
+              summaryLevel: _sttSettings.summaryLevel,
+              summaryGroupId:
+                  remindItems.isNotEmpty ? remindItems.first.summaryGroupId : null,
+            );
           }
 
           // ⭐ 자동 요약 시점에 즉시 에디터에 삽입

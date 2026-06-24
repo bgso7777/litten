@@ -1298,7 +1298,26 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         _loading = false; _result = r; _summary = r.displaySummary;
         _savedLevels.add(_summaryLevel); // 이제 이 레벨은 저장됨
       });
-      // 자동 저장 제거 — 사용자가 "메모로 저장" 버튼으로 직접 저장
+      // ⭐ 요약이 완료되면(메모 저장과 무관하게) 인사이트 '요약'에 무조건 기록 (로컬 별도 파일).
+      //    같은 영상·레벨은 summaryGroupId로 중복 갱신.
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final fullSummary = r.displaySummary;
+      final markerIdx = fullSummary.indexOf('─── 📌 리마인드 ───');
+      final pureSummary = markerIdx != -1
+          ? fullSummary.substring(0, markerIdx).trim()
+          : fullSummary.trim();
+      await appState.recordSummary(
+        littenId: appState.selectedLitten?.id ?? '',
+        sourceFileId: widget.videoId,
+        sourceType: 'youtube',
+        title: widget.videoTitle.trim().isNotEmpty
+            ? widget.videoTitle.trim()
+            : widget.videoId,
+        summaryText: pureSummary,
+        summaryLevel: _summaryLevel,
+        summaryGroupId: 'youtube:${widget.videoId}:$_summaryLevel',
+      );
+      // 메모 저장은 사용자가 "메모로 저장" 버튼으로 직접 (요약 본문만 저장)
     } catch (e) {
       if (!mounted) return;
       setState(() { _loading = false; _error = '요약 실패: $e'; });
@@ -1327,12 +1346,10 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       final title = '${head(widget.channelName.trim(), 5)}-${head(widget.videoTitle.trim(), 7)}';
 
       String esc(String s) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-      String html(String s) => esc(s).replaceAll('\n', '<br>');
-      // 상단: 원본 스크립트 본문
-      final scriptHtml = '<p>${html(widget.transcript)}</p>';
-      // 하단: 요약 블록 (text_tab._summaryToHtml과 동일한 마커/구분선 형식 → 재요약 시 호환)
+      // ⭐ 원문(스크립트) 제외 — 요약 내용만 메모로 저장
+      // 요약 블록 (text_tab._summaryToHtml과 동일한 마커 형식 → 재요약 시 호환)
       final summaryBuf = StringBuffer()
-        ..write('<!-- SUMMARY_START --><hr/><p><strong>📋 AI 요약</strong></p>');
+        ..write('<!-- SUMMARY_START --><p><strong>📋 AI 요약</strong></p>');
       for (final line in result.displaySummary.split('\n')) {
         final t = line.trim();
         if (t.isEmpty) continue;
@@ -1343,7 +1360,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         }
       }
       summaryBuf.write('<!-- SUMMARY_END -->');
-      final content = '$scriptHtml$summaryBuf';
+      final content = summaryBuf.toString();
 
       // 요약 메타데이터(summary/summaryHistory)를 채워야 파일리스트에서 요약 아이콘이
       // 활성(테마색)으로 보이고, 요약 보기/재요약(SummaryDialog)이 정상 동작한다.
@@ -1370,6 +1387,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       await storage.saveTextFiles(litten.id, list);
       await appState.updateFileCount();
       appState.notifyFileListChanged(); // 파일 목록 UI 즉시 새로고침
+      // (인사이트 '요약' 기록은 요약 완료 시점(_summarize)에서 이미 처리됨)
       debugPrint('[메모저장] 완료 - "$title" (litten: ${litten.id})');
       if (mounted) {
         setState(() => _memoSaved = true);

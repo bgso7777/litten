@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
 import '../models/remind_item.dart';
+import '../models/summary_entry.dart';
+import '../services/summary_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
 import '../services/background_notification_service.dart';
@@ -100,6 +102,69 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 선택된 날짜의 알림 목록
   List<dynamic> _selectedDateNotifications = [];
   List<dynamic> get selectedDateNotifications => _selectedDateNotifications;
+
+  // ⭐ 요약 상태 (인사이트 '요약' 섹션 + 로컬 별도 파일 저장)
+  final SummaryStorageService _summaryStorage = SummaryStorageService();
+  List<SummaryEntry> _summaries = [];
+  List<SummaryEntry> get summaries => _summaries; // 이미 최신순 정렬
+
+  /// 저장된 요약을 로컬 파일에서 로드
+  Future<void> loadSummaries() async {
+    _summaries = await _summaryStorage.getAllSummaries();
+    notifyListeners();
+  }
+
+  /// 요약 생성 시 호출 — 로컬 파일로 별도 저장 + 상태 반영.
+  /// 같은 summaryGroupId가 있으면 갱신(중복 방지).
+  Future<void> recordSummary({
+    required String littenId,
+    required String sourceFileId,
+    required String sourceType,
+    required String title,
+    required String summaryText,
+    int? summaryLevel,
+    String? contentType,
+    String? summaryGroupId,
+  }) async {
+    if (summaryText.trim().isEmpty) return;
+
+    SummaryEntry record;
+    final existingIdx = summaryGroupId != null
+        ? _summaries.indexWhere((s) => s.summaryGroupId == summaryGroupId)
+        : -1;
+    if (existingIdx != -1) {
+      record = _summaries[existingIdx].copyWith(
+        title: title,
+        summaryText: summaryText,
+        summaryLevel: summaryLevel,
+        contentType: contentType,
+        updatedAt: DateTime.now(),
+      );
+      _summaries[existingIdx] = record;
+    } else {
+      record = SummaryEntry(
+        littenId: littenId,
+        sourceFileId: sourceFileId,
+        sourceType: sourceType,
+        title: title,
+        summaryText: summaryText,
+        summaryLevel: summaryLevel,
+        contentType: contentType,
+        summaryGroupId: summaryGroupId,
+      );
+      _summaries.insert(0, record);
+    }
+    await _summaryStorage.saveSummary(record);
+    debugPrint('[AppStateProvider] recordSummary: ${record.title} (총 ${_summaries.length}건)');
+    notifyListeners();
+  }
+
+  /// 요약 삭제 (파일 + 상태)
+  Future<void> deleteSummary(String id) async {
+    _summaries.removeWhere((s) => s.id == id);
+    await _summaryStorage.deleteSummary(id);
+    notifyListeners();
+  }
 
   // ⭐ 리마인드 상태
   List<RemindItem> _remindItems = [];
@@ -485,6 +550,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     await _loadSettings();
     await _loadRemindItems();
+    await loadSummaries();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
 
