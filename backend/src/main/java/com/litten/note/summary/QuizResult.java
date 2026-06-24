@@ -9,10 +9,10 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 
 /**
- * 리마인드 결과 엔티티 — 1 RemindItem = 1 행.
+ * 퀴즈 결과 엔티티 — 1 QuizItem = 1 행.
  *
  * 계층 구조:
- *   1단 group_name  → 여러 RemindResult 를 group_order 로 묶음
+ *   1단 group_name  → 여러 QuizResult 를 group_order 로 묶음
  *   2단 item_*      → 세부항목 (유형/내용/담당자/기한)
  *   3단 detail_text → 부가 설명 (여러 줄은 \n 구분)
  *
@@ -21,12 +21,12 @@ import java.io.Serializable;
 @Getter
 @Setter
 @NoArgsConstructor
-@Entity(name = "RemindResult")
-@Table(name = "note_remind_result", indexes = {
-    @Index(name = "idx_remind_result_summary", columnList = "summary_result_id"),
-    @Index(name = "idx_remind_result_group",   columnList = "summary_result_id, group_order, sort_order")
+@Entity(name = "QuizResult")
+@Table(name = "note_quiz_result", indexes = {
+    @Index(name = "idx_quiz_result_summary", columnList = "summary_result_id"),
+    @Index(name = "idx_quiz_result_group",   columnList = "summary_result_id, group_order, sort_order")
 })
-public class RemindResult extends BaseEntity implements Serializable {
+public class QuizResult extends BaseEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 요약/리마인드 API 컨트롤러.
+ * 요약/퀴즈 API 컨트롤러.
  *
  * ┌──────────────────────────────────────────────────────────┐
  * │  POST /note/v1/summary/process                           │
@@ -61,8 +61,8 @@ public class SummaryController {
      *   "summary"        : "전체 AI 응답 텍스트...",
      *   "summaryOnly"    : "순수 요약 텍스트...",
      *   "summarySections": [ { "sectionTitle": "전체 목적", "sectionContent": "..." }, ... ],
-     *   "reminds"        : [ { "groupName": "...", "items": [...] }, ... ],
-     *   "totalRemindCount": 5,
+     *   "quizzes"        : [ { "groupName": "...", "items": [...] }, ... ],
+     *   "totalQuizCount": 5,
      *   "error"          : null
      * }
      */

@@ -10,7 +10,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RemindItem {
+public class QuizItem {
     private String type;       // 일정|액션|핵심개념|적용포인트|학습할것|외부대기|리스크|기타
     private String content;    // 세부항목 내용
     private String assignee;   // 담당자

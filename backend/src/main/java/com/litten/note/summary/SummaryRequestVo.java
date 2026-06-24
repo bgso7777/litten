@@ -16,7 +16,7 @@ public class SummaryRequestVo {
 
     /**
      * DB에서 조합된 최종 시스템 프롬프트.
-     * note_summary_config.system_prompt + note_remind_config.system_prompt
+     * note_summary_config.system_prompt + note_quiz_config.system_prompt
      * NULL이면 OpenAiSummaryService 내 하드코딩 fallback 사용.
      */
     private String systemPrompt;

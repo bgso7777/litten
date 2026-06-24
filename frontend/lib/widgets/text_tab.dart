@@ -26,8 +26,8 @@ import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
 import '../services/sync_service.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
-import '../models/remind_item.dart';
-import '../utils/remind_parser.dart';
+import '../models/quiz_item.dart';
+import '../utils/quiz_parser.dart';
 
 class TextTab extends StatefulWidget {
   final bool autoCreate;
@@ -2830,24 +2830,24 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           await _saveCurrentTextFile();
           debugPrint('💾 [SttMode] 요약 TextFile에 저장 완료 (이력: ${newHistory.length}개)');
 
-          // 리마인드 추출 및 저장 (요약 단위로 그룹화)
+          // 퀴즈 추출 및 저장 (요약 단위로 그룹화)
           final file = _currentTextFile!;
-          final remindItems = RemindParser.parse(
+          final quizItems = QuizParser.parse(
             summaryText: summary,
             fileId: file.id,
             fileName: file.displayTitle,
             littenId: file.littenId,
-            fileType: RemindFileType.text,
+            fileType: QuizFileType.text,
             summaryLevel: _sttSettings.summaryLevel,
           );
           if (mounted) {
             final appState = Provider.of<AppStateProvider>(context, listen: false);
-            if (remindItems.isNotEmpty) {
-              appState.addRemindItems(remindItems);
-              debugPrint('✨ [SttMode] 리마인드 ${remindItems.length}개 추가 완료');
+            if (quizItems.isNotEmpty) {
+              appState.addQuizItems(quizItems);
+              debugPrint('✨ [SttMode] 퀴즈 ${quizItems.length}개 추가 완료');
             }
-            // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (리마인드 마커 제거)
-            final markerIdx = summary.indexOf('─── 📌 리마인드 ───');
+            // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거)
+            final markerIdx = summary.indexOf('─── 📌 퀴즈 ───');
             final pureSummary = markerIdx != -1
                 ? summary.substring(0, markerIdx).trim()
                 : summary.trim();
@@ -2859,7 +2859,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               summaryText: pureSummary,
               summaryLevel: _sttSettings.summaryLevel,
               summaryGroupId:
-                  remindItems.isNotEmpty ? remindItems.first.summaryGroupId : null,
+                  quizItems.isNotEmpty ? quizItems.first.summaryGroupId : null,
             );
           }
 

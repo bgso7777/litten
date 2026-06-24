@@ -301,10 +301,10 @@ class _SummaryDialogState extends State<SummaryDialog> {
   }
 
   Widget _buildHistorySummaryBox(SummaryRecord rec, Color color) {
-    const reminderMarker = '─── 📌 리마인드 ───';
-    final reminderIdx = rec.summary.indexOf(reminderMarker);
-    final summaryOnly = reminderIdx != -1
-        ? rec.summary.substring(0, reminderIdx).trim()
+    const quizMarker = '─── 📌 퀴즈 ───';
+    final quizIdx = rec.summary.indexOf(quizMarker);
+    final summaryOnly = quizIdx != -1
+        ? rec.summary.substring(0, quizIdx).trim()
         : rec.summary;
 
     return Container(

@@ -6,7 +6,7 @@ import '../models/youtube_channel.dart';
 /// 로그인 없이(무료/스탠다드 플랜) 등록한 영상 구독 채널을 단말 로컬에 저장한다.
 ///
 /// 백엔드 영상 구독은 로그인 회원 전용이므로, 비로그인 사용자는 이 로컬 저장소를
-/// 통해 채널을 등록/조회/삭제한다. 서버측 자동 요약·리마인드·영상 자동수집은
+/// 통해 채널을 등록/조회/삭제한다. 서버측 자동 요약·퀴즈·영상 자동수집은
 /// 로컬 채널에는 적용되지 않는다(로그인 후 사용 가능).
 class LocalYoutubeChannelService {
   static const String _key = 'local_youtube_channels';

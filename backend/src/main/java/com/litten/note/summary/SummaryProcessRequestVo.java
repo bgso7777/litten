@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 프론트엔드 → 백엔드 요약/리마인드 처리 요청 VO.
+ * 프론트엔드 → 백엔드 요약/퀴즈 처리 요청 VO.
  *
  * 필수: fileType
  * YouTube  : fileType="youtube", youtubeVideoId 필수

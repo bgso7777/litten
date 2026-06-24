@@ -1840,17 +1840,17 @@ abstract class AppLocalizations {
   /// **'Note'**
   String get noteOption;
 
-  /// Reminder chip label when count is 0
+  /// Quiz chip label when count is 0
   ///
   /// In en, this message translates to:
-  /// **'Reminder'**
-  String get reminderLabel;
+  /// **'Quiz'**
+  String get quizLabel;
 
-  /// Reminder chip label with pending count
+  /// Quiz chip label with pending count
   ///
   /// In en, this message translates to:
-  /// **'Reminder {count}'**
-  String reminderCount(int count);
+  /// **'Quiz {count}'**
+  String quizCount(int count);
 
   /// Empty state for voice memo tab
   ///
@@ -2026,11 +2026,11 @@ abstract class AppLocalizations {
   /// **'File name'**
   String get fileNameHint;
 
-  /// Remind panel empty state message
+  /// Quiz panel empty state message
   ///
   /// In en, this message translates to:
   /// **'Extract from summaries\nand they\'ll appear here'**
-  String get noRemindItems;
+  String get noQuizItems;
 
   /// Cloud sync info dialog content after plan change
   ///
@@ -2428,11 +2428,11 @@ abstract class AppLocalizations {
   /// **'Summary added to file.'**
   String get summaryAdded;
 
-  /// Snackbar when summary is added and remind items are created
+  /// Snackbar when summary is added and quiz items are created
   ///
   /// In en, this message translates to:
-  /// **'Summary added. {count} remind(s) created.'**
-  String summaryAddedWithRemind(int count);
+  /// **'Summary added. {count} quiz(s) created.'**
+  String summaryAddedWithQuiz(int count);
 
   /// Snackbar when saving summary to file fails
   ///

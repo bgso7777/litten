@@ -9,22 +9,22 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RemindResponseVo {
+public class QuizResponseVo {
     private boolean success;
-    private List<RemindGroup> reminds;
-    private int totalRemindCount;
+    private List<QuizGroup> quizzes;
+    private int totalQuizCount;
     private String error;
 
-    public static RemindResponseVo ok(List<RemindGroup> groups) {
-        RemindResponseVo vo = new RemindResponseVo();
+    public static QuizResponseVo ok(List<QuizGroup> groups) {
+        QuizResponseVo vo = new QuizResponseVo();
         vo.success = true;
-        vo.reminds = groups;
-        vo.totalRemindCount = groups.stream().mapToInt(g -> g.getItems().size()).sum();
+        vo.quizzes = groups;
+        vo.totalQuizCount = groups.stream().mapToInt(g -> g.getItems().size()).sum();
         return vo;
     }
 
-    public static RemindResponseVo fail(String error) {
-        RemindResponseVo vo = new RemindResponseVo();
+    public static QuizResponseVo fail(String error) {
+        QuizResponseVo vo = new QuizResponseVo();
         vo.success = false;
         vo.error = error;
         return vo;

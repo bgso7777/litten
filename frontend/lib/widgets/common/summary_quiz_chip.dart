@@ -3,14 +3,14 @@ import 'package:provider/provider.dart';
 import '../../services/app_state_provider.dart';
 import '../../l10n/app_localizations.dart';
 
-/// 노트탭 하단 — 요약 리마인드 칩
+/// 노트탭 하단 — 요약 퀴즈 칩
 /// [panelLevel]: 0=닫힘, 1=절반, 2=전체
-class SummaryReminderChip extends StatelessWidget {
+class SummaryQuizChip extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onScrollUp;
   final int panelLevel;
 
-  const SummaryReminderChip({
+  const SummaryQuizChip({
     super.key,
     this.onTap,
     this.onScrollUp,
@@ -25,19 +25,19 @@ class SummaryReminderChip extends StatelessWidget {
     return Consumer<AppStateProvider>(
       builder: (context, appState, _) {
         final l10n = AppLocalizations.of(context);
-        final pendingCount = appState.remindItems.where((i) => !i.isDone).length;
+        final pendingCount = appState.quizItems.where((i) => !i.isDone).length;
         final label = pendingCount > 0
-            ? (l10n?.reminderCount(pendingCount) ?? '리마인드 ${pendingCount}개')
-            : (l10n?.reminderLabel ?? '리마인드');
+            ? (l10n?.quizCount(pendingCount) ?? '퀴즈 ${pendingCount}개')
+            : (l10n?.quizLabel ?? '퀴즈');
 
         return GestureDetector(
           onTap: () {
-            debugPrint('[SummaryReminderChip] 탭');
+            debugPrint('[SummaryQuizChip] 탭');
             onTap?.call();
           },
           onVerticalDragEnd: (details) {
             if (details.primaryVelocity != null && details.primaryVelocity! < -200) {
-              debugPrint('[SummaryReminderChip] 스크롤업 감지 velocity=${details.primaryVelocity}');
+              debugPrint('[SummaryQuizChip] 스크롤업 감지 velocity=${details.primaryVelocity}');
               onScrollUp?.call();
             }
           },
@@ -55,7 +55,7 @@ class SummaryReminderChip extends StatelessWidget {
                 children: [
                   Icon(Icons.lightbulb_outline, size: 15, color: color),
                   const SizedBox(width: 6),
-                  // ⭐ 닫힘/펼침 동일하게 라벨 표시 (예: "리마인드 3개")
+                  // ⭐ 닫힘/펼침 동일하게 라벨 표시 (예: "퀴즈 3개")
                   Text(
                     label,
                     style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),

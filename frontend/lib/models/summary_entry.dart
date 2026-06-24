@@ -18,7 +18,7 @@ class SummaryEntry {
   final String summaryText;  // 순수 요약 본문
   final int? summaryLevel;   // 요약 수준 1~5
   final String? contentType; // 회의/강의/발표/...
-  final String? summaryGroupId; // 리마인드 그룹과 연결 (중복 기록 방지/매칭)
+  final String? summaryGroupId; // 퀴즈 그룹과 연결 (중복 기록 방지/매칭)
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? cloudId;     // 서버 동기화용 (미동기화 시 null)

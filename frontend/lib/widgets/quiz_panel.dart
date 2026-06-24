@@ -2,22 +2,22 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../models/remind_item.dart';
+import '../models/quiz_item.dart';
 import '../services/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
 
-/// 리마인드 패널의 완료 상태 필터.
+/// 퀴즈 패널의 완료 상태 필터.
 /// - all: 전체(기본) · pending: 미완료만 · done: 완료만
-enum RemindDoneFilter { all, pending, done }
+enum QuizDoneFilter { all, pending, done }
 
-/// 노트영역 하단 — 요약 리마인드 아코디언 패널 (3단계 높이)
+/// 노트영역 하단 — 요약 퀴즈 아코디언 패널 (3단계 높이)
 ///
 /// 항목1 (파일)                          3개  ▶
-///   세부항목1-1 (리마인드 제목)               ▶
+///   세부항목1-1 (퀴즈 제목)               ▶
 ///     내용~~~~~
 ///   세부항목1-2                              ▶
 /// 항목2 (파일)                          2개  ▶
-class RemindPanel extends StatefulWidget {
+class QuizPanel extends StatefulWidget {
   final VoidCallback? onClose;
   final void Function(double dy)? onDragUpdate;
   final void Function(double velocity)? onDragEnd;
@@ -25,28 +25,28 @@ class RemindPanel extends StatefulWidget {
   /// 전체화면 모드: 드래그 핸들 제거 + 미완료 항목 깜빡이
   final bool isFullScreen;
 
-  /// 전체화면 모드에서 자체 '리마인드' 헤더 표시 여부.
+  /// 전체화면 모드에서 자체 '퀴즈' 헤더 표시 여부.
   /// (상단 탭바/탭 레이아웃 안에 넣을 때는 false로 두어 헤더 중복을 피한다)
   final bool showHeader;
 
   /// 완료 상태 필터 — 미완료/완료를 상하로 나눠 보여줄 때 사용.
-  final RemindDoneFilter doneFilter;
+  final QuizDoneFilter doneFilter;
 
-  const RemindPanel({
+  const QuizPanel({
     super.key,
     this.onClose,
     this.onDragUpdate,
     this.onDragEnd,
     this.isFullScreen = false,
     this.showHeader = false,
-    this.doneFilter = RemindDoneFilter.all,
+    this.doneFilter = QuizDoneFilter.all,
   });
 
   @override
-  State<RemindPanel> createState() => _RemindPanelState();
+  State<QuizPanel> createState() => _QuizPanelState();
 }
 
-class _RemindPanelState extends State<RemindPanel>
+class _QuizPanelState extends State<QuizPanel>
     with SingleTickerProviderStateMixin {
   final Set<String> _openTargets = {};
   final Set<String> _openItems = {};
@@ -82,7 +82,7 @@ class _RemindPanelState extends State<RemindPanel>
   }
 
   void _toggleTarget(String fileId) {
-    debugPrint('[RemindPanel] 파일 토글: $fileId');
+    debugPrint('[QuizPanel] 파일 토글: $fileId');
     setState(() {
       if (_openTargets.contains(fileId)) {
         _openTargets.remove(fileId);
@@ -93,7 +93,7 @@ class _RemindPanelState extends State<RemindPanel>
   }
 
   void _toggleItem(String itemId) {
-    debugPrint('[RemindPanel] 항목 토글: $itemId');
+    debugPrint('[QuizPanel] 항목 토글: $itemId');
     setState(() {
       if (_openItems.contains(itemId)) {
         _openItems.remove(itemId);
@@ -108,7 +108,7 @@ class _RemindPanelState extends State<RemindPanel>
     return Consumer<AppStateProvider>(
       builder: (context, appState, _) {
         final targets =
-            _applyDoneFilter(_sortedTargets(appState.remindTargets));
+            _applyDoneFilter(_sortedTargets(appState.quizTargets));
 
         return Container(
           margin: const EdgeInsets.fromLTRB(0, 4, 0, 8),
@@ -138,7 +138,7 @@ class _RemindPanelState extends State<RemindPanel>
   Widget _buildHeader(AppStateProvider appState) {
     final primaryColor = Theme.of(context).primaryColor;
     final l10n = AppLocalizations.of(context);
-    final pendingCount = appState.remindItems.where((i) => !i.isDone).length;
+    final pendingCount = appState.quizItems.where((i) => !i.isDone).length;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -153,7 +153,7 @@ class _RemindPanelState extends State<RemindPanel>
           Icon(Icons.lightbulb_outline, size: 20, color: primaryColor),
           const SizedBox(width: 8),
           Text(
-            '리마인드',
+            '퀴즈',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
           ),
           const SizedBox(width: 10),
@@ -165,7 +165,7 @@ class _RemindPanelState extends State<RemindPanel>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                l10n?.reminderCount(pendingCount) ?? '$pendingCount개',
+                l10n?.quizCount(pendingCount) ?? '$pendingCount개',
                 style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
               ),
             ),
@@ -208,7 +208,7 @@ class _RemindPanelState extends State<RemindPanel>
 
   // ── 아코디언 리스트 ────────────────────────────────────────────────────────
 
-  Widget _buildList(BuildContext context, List<RemindTarget> targets, AppStateProvider appState) {
+  Widget _buildList(BuildContext context, List<QuizTarget> targets, AppStateProvider appState) {
     // SelectionArea: 자식 위젯의 모든 Text를 선택/복사 가능하게 함
     // (GestureDetector의 onTap과 충돌하지 않음 — long-press로 선택 시작)
     final children = <Widget>[];
@@ -270,7 +270,7 @@ class _RemindPanelState extends State<RemindPanel>
       onPointerUp: (e) {
         if (_isResizing) {
           final vel = _velocityTracker?.getVelocity().pixelsPerSecond.dy ?? 0;
-          debugPrint('[RemindPanel] 드래그 종료 velocity=$vel');
+          debugPrint('[QuizPanel] 드래그 종료 velocity=$vel');
           widget.onDragEnd?.call(vel);
           _isResizing = false;
         }
@@ -286,7 +286,7 @@ class _RemindPanelState extends State<RemindPanel>
 
   // ── Level 1: 파일 행 ──────────────────────────────────────────────────────
 
-  Widget _buildTargetRow(BuildContext context, RemindTarget target) {
+  Widget _buildTargetRow(BuildContext context, QuizTarget target) {
     // 요약 그룹별 고유 키 (groupId 우선, 없으면 fileId)
     final groupKey = target.summaryGroupId ?? 'file:${target.fileId}';
     final isOpen = _openTargets.contains(groupKey);
@@ -416,7 +416,7 @@ class _RemindPanelState extends State<RemindPanel>
     );
   }
 
-  void _showEditGroupDialog(BuildContext context, RemindTarget target) {
+  void _showEditGroupDialog(BuildContext context, QuizTarget target) {
     final controller = TextEditingController(text: target.fileName);
     showDialog(
       context: context,
@@ -441,14 +441,14 @@ class _RemindPanelState extends State<RemindPanel>
               if (newName.isEmpty) return;
               final appState = Provider.of<AppStateProvider>(context, listen: false);
               for (final item in target.items) {
-                final updated = RemindItem(
+                final updated = QuizItem(
                   id: item.id,
                   fileId: item.fileId,
                   fileType: item.fileType,
                   fileName: newName,
                   littenId: item.littenId,
                   title: item.title,
-                  remindAt: item.remindAt,
+                  quizAt: item.quizAt,
                   content: item.content,
                   isDone: item.isDone,
                   createdAt: item.createdAt,
@@ -457,7 +457,7 @@ class _RemindPanelState extends State<RemindPanel>
                   contentType: item.contentType,
                   summaryText: item.summaryText,
                 );
-                appState.updateRemindItem(updated);
+                appState.updateQuizItem(updated);
               }
               Navigator.pop(ctx);
             },
@@ -468,12 +468,12 @@ class _RemindPanelState extends State<RemindPanel>
     );
   }
 
-  void _confirmDeleteGroup(BuildContext context, RemindTarget target) {
+  void _confirmDeleteGroup(BuildContext context, QuizTarget target) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('리마인드 그룹 삭제'),
-        content: Text('"${target.fileName}"의 리마인드 ${target.items.length}개를 모두 삭제할까요?'),
+        title: const Text('퀴즈 그룹 삭제'),
+        content: Text('"${target.fileName}"의 퀴즈 ${target.items.length}개를 모두 삭제할까요?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -483,7 +483,7 @@ class _RemindPanelState extends State<RemindPanel>
             onPressed: () {
               Navigator.pop(ctx);
               final appState = Provider.of<AppStateProvider>(context, listen: false);
-              appState.deleteRemindGroup(
+              appState.deleteQuizGroup(
                 summaryGroupId: target.summaryGroupId,
                 fileId: target.fileId,
               );
@@ -518,8 +518,8 @@ class _RemindPanelState extends State<RemindPanel>
     5: '전체',
   };
 
-  // 요약 내용 팝업 표시 (리마인드 섹션은 제외하고 본문만)
-  void _showSummaryDialog(BuildContext context, RemindTarget target) {
+  // 요약 내용 팝업 표시 (퀴즈 섹션은 제외하고 본문만)
+  void _showSummaryDialog(BuildContext context, QuizTarget target) {
     final color = Theme.of(context).primaryColor;
     final levelLabel = target.summaryLevel != null
         ? _kLevelLabels[target.summaryLevel!] ?? 'Lv.${target.summaryLevel}'
@@ -531,12 +531,12 @@ class _RemindPanelState extends State<RemindPanel>
             '${firstCreated.hour.toString().padLeft(2, '0')}:${firstCreated.minute.toString().padLeft(2, '0')}'
         : '';
 
-    // ⭐ 리마인드 섹션 제거 (본문 요약만 표시)
+    // ⭐ 퀴즈 섹션 제거 (본문 요약만 표시)
     final fullText = target.summaryText ?? '';
-    const reminderMarker = '─── 📌 리마인드 ───';
-    final reminderIdx = fullText.indexOf(reminderMarker);
-    final summaryOnly = reminderIdx != -1
-        ? fullText.substring(0, reminderIdx).trim()
+    const quizMarker = '─── 📌 퀴즈 ───';
+    final quizIdx = fullText.indexOf(quizMarker);
+    final summaryOnly = quizIdx != -1
+        ? fullText.substring(0, quizIdx).trim()
         : fullText;
 
     showDialog(
@@ -608,15 +608,15 @@ class _RemindPanelState extends State<RemindPanel>
     );
   }
 
-  // ── Level 2: 리마인드 항목 행 ─────────────────────────────────────────────
+  // ── Level 2: 퀴즈 항목 행 ─────────────────────────────────────────────
 
-  Widget _buildItemRow(BuildContext context, RemindItem item, AppStateProvider appState) {
+  Widget _buildItemRow(BuildContext context, QuizItem item, AppStateProvider appState) {
     final isOpen = _openItems.contains(item.id);
     final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () {
-        if (item.content.isNotEmpty || item.remindAt != null) {
+        if (item.content.isNotEmpty || item.quizAt != null) {
           _toggleItem(item.id);
         }
       },
@@ -634,8 +634,8 @@ class _RemindPanelState extends State<RemindPanel>
             // 체크 아이콘 — 탭 시 완료 토글
             GestureDetector(
               onTap: () {
-                debugPrint('[RemindPanel] 체크 토글: ${item.id}');
-                appState.toggleRemindDone(item.id);
+                debugPrint('[QuizPanel] 체크 토글: ${item.id}');
+                appState.toggleQuizDone(item.id);
               },
               child: Padding(
                 padding: const EdgeInsets.only(right: 10),
@@ -669,14 +669,14 @@ class _RemindPanelState extends State<RemindPanel>
                       decoration: item.isDone ? TextDecoration.lineThrough : null,
                     ),
                   ),
-                  if (item.remindAt != null) ...[
+                  if (item.quizAt != null) ...[
                     const SizedBox(height: 2),
                     Row(
                       children: [
                         Icon(Icons.schedule, size: 11, color: Colors.grey.shade600),
                         const SizedBox(width: 3),
                         Text(
-                          DateFormat('M/d HH:mm').format(item.remindAt!),
+                          DateFormat('M/d HH:mm').format(item.quizAt!),
                           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                         ),
                       ],
@@ -685,7 +685,7 @@ class _RemindPanelState extends State<RemindPanel>
                 ],
               ),
             ),
-            if (item.content.isNotEmpty || item.remindAt != null)
+            if (item.content.isNotEmpty || item.quizAt != null)
               SizedBox(
                 width: 24,
                 height: 24,
@@ -741,11 +741,11 @@ class _RemindPanelState extends State<RemindPanel>
     );
   }
 
-  void _confirmDeleteItem(BuildContext context, RemindItem item, AppStateProvider appState) {
+  void _confirmDeleteItem(BuildContext context, QuizItem item, AppStateProvider appState) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('리마인드 항목 삭제'),
+        title: const Text('퀴즈 항목 삭제'),
         content: Text('"${item.title}"을(를) 삭제할까요?'),
         actions: [
           TextButton(
@@ -755,7 +755,7 @@ class _RemindPanelState extends State<RemindPanel>
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              appState.deleteRemindItem(item.id);
+              appState.deleteQuizItem(item.id);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('삭제'),
@@ -765,17 +765,17 @@ class _RemindPanelState extends State<RemindPanel>
     );
   }
 
-  void _showEditItemDialog(BuildContext context, RemindItem item, AppStateProvider appState) {
+  void _showEditItemDialog(BuildContext context, QuizItem item, AppStateProvider appState) {
     final titleController = TextEditingController(text: item.title);
     final contentController = TextEditingController(text: item.content);
-    DateTime? remindAt = item.remindAt;
+    DateTime? quizAt = item.quizAt;
     final color = Theme.of(context).primaryColor;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('리마인드 수정'),
+          title: const Text('퀴즈 수정'),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -806,8 +806,8 @@ class _RemindPanelState extends State<RemindPanel>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        remindAt != null
-                            ? '${remindAt!.year}-${remindAt!.month.toString().padLeft(2, '0')}-${remindAt!.day.toString().padLeft(2, '0')} ${remindAt!.hour.toString().padLeft(2, '0')}:${remindAt!.minute.toString().padLeft(2, '0')}'
+                        quizAt != null
+                            ? '${quizAt!.year}-${quizAt!.month.toString().padLeft(2, '0')}-${quizAt!.day.toString().padLeft(2, '0')} ${quizAt!.hour.toString().padLeft(2, '0')}:${quizAt!.minute.toString().padLeft(2, '0')}'
                             : '알림 시간 없음',
                         style: const TextStyle(fontSize: 13),
                       ),
@@ -816,7 +816,7 @@ class _RemindPanelState extends State<RemindPanel>
                       onPressed: () async {
                         final pickedDate = await showDatePicker(
                           context: ctx,
-                          initialDate: remindAt ?? DateTime.now(),
+                          initialDate: quizAt ?? DateTime.now(),
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2100),
                         );
@@ -824,11 +824,11 @@ class _RemindPanelState extends State<RemindPanel>
                         if (!ctx.mounted) return;
                         final pickedTime = await showTimePicker(
                           context: ctx,
-                          initialTime: TimeOfDay.fromDateTime(remindAt ?? DateTime.now()),
+                          initialTime: TimeOfDay.fromDateTime(quizAt ?? DateTime.now()),
                         );
                         if (pickedTime == null) return;
                         setStateDialog(() {
-                          remindAt = DateTime(
+                          quizAt = DateTime(
                             pickedDate.year,
                             pickedDate.month,
                             pickedDate.day,
@@ -839,10 +839,10 @@ class _RemindPanelState extends State<RemindPanel>
                       },
                       child: const Text('변경'),
                     ),
-                    if (remindAt != null)
+                    if (quizAt != null)
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => setStateDialog(() => remindAt = null),
+                        onPressed: () => setStateDialog(() => quizAt = null),
                       ),
                   ],
                 ),
@@ -859,10 +859,10 @@ class _RemindPanelState extends State<RemindPanel>
                 final updated = item.copyWith(
                   title: titleController.text.trim(),
                   content: contentController.text.trim(),
-                  remindAt: remindAt,
-                  clearRemindAt: remindAt == null,
+                  quizAt: quizAt,
+                  clearQuizAt: quizAt == null,
                 );
-                appState.updateRemindItem(updated);
+                appState.updateQuizItem(updated);
                 Navigator.pop(ctx);
               },
               child: const Text('저장'),
@@ -875,7 +875,7 @@ class _RemindPanelState extends State<RemindPanel>
 
   // ── Level 3: 내용 행 ──────────────────────────────────────────────────────
 
-  Widget _buildContentRow(BuildContext context, RemindItem item, AppStateProvider appState) {
+  Widget _buildContentRow(BuildContext context, QuizItem item, AppStateProvider appState) {
     // Level 2 padding(36) + 체크아이콘(20) + 우측 padding(10) = 66 (체크 아이콘 안쪽으로 들여쓰기)
     return Container(
       padding: const EdgeInsets.only(left: 66, right: 14, top: 6, bottom: 10),
@@ -897,7 +897,7 @@ class _RemindPanelState extends State<RemindPanel>
                 height: 1.6,
               ),
             ),
-          if (item.remindAt != null) ...[
+          if (item.quizAt != null) ...[
             if (item.content.isNotEmpty) const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -911,7 +911,7 @@ class _RemindPanelState extends State<RemindPanel>
                   Icon(Icons.schedule, size: 13, color: Colors.grey.shade700),
                   const SizedBox(width: 5),
                   Text(
-                    DateFormat('yyyy년 M월 d일 HH:mm').format(item.remindAt!),
+                    DateFormat('yyyy년 M월 d일 HH:mm').format(item.quizAt!),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -974,17 +974,17 @@ class _RemindPanelState extends State<RemindPanel>
     final IconData icon;
     final String message;
     switch (widget.doneFilter) {
-      case RemindDoneFilter.pending:
+      case QuizDoneFilter.pending:
         icon = Icons.check_circle_outline;
-        message = '미완료 리마인드가 없습니다';
+        message = '미완료 퀴즈가 없습니다';
         break;
-      case RemindDoneFilter.done:
+      case QuizDoneFilter.done:
         icon = Icons.history;
-        message = '완료한 리마인드가 없습니다';
+        message = '완료한 퀴즈가 없습니다';
         break;
-      case RemindDoneFilter.all:
+      case QuizDoneFilter.all:
         icon = Icons.folder_open_outlined;
-        message = l10n?.noRemindItems ?? '요약에서 리마인드를\n추출하면 여기 표시됩니다';
+        message = l10n?.noQuizItems ?? '요약에서 퀴즈를\n추출하면 여기 표시됩니다';
         break;
     }
 
@@ -1011,14 +1011,14 @@ class _RemindPanelState extends State<RemindPanel>
 
   /// 완료 상태 필터 적용 — 그룹(타깃) 내 항목을 필터에 맞게 추려내고,
   /// 남은 항목이 없는 그룹은 제외한다. (미완료/완료 분할 표시용)
-  List<RemindTarget> _applyDoneFilter(List<RemindTarget> targets) {
-    if (widget.doneFilter == RemindDoneFilter.all) return targets;
-    final wantDone = widget.doneFilter == RemindDoneFilter.done;
-    final result = <RemindTarget>[];
+  List<QuizTarget> _applyDoneFilter(List<QuizTarget> targets) {
+    if (widget.doneFilter == QuizDoneFilter.all) return targets;
+    final wantDone = widget.doneFilter == QuizDoneFilter.done;
+    final result = <QuizTarget>[];
     for (final t in targets) {
       final items = t.items.where((i) => i.isDone == wantDone).toList();
       if (items.isEmpty) continue;
-      result.add(RemindTarget(
+      result.add(QuizTarget(
         fileId: t.fileId,
         fileType: t.fileType,
         fileName: t.fileName,
@@ -1032,8 +1032,8 @@ class _RemindPanelState extends State<RemindPanel>
     return result;
   }
 
-  List<RemindTarget> _sortedTargets(List<RemindTarget> targets) {
-    final list = List<RemindTarget>.from(targets);
+  List<QuizTarget> _sortedTargets(List<QuizTarget> targets) {
+    final list = List<QuizTarget>.from(targets);
     list.sort((a, b) {
       final aLatest = a.items.map((i) => i.createdAt).reduce((x, y) => x.isAfter(y) ? x : y);
       final bLatest = b.items.map((i) => i.createdAt).reduce((x, y) => x.isAfter(y) ? x : y);
@@ -1042,8 +1042,8 @@ class _RemindPanelState extends State<RemindPanel>
     return list;
   }
 
-  List<RemindItem> _sortedItems(List<RemindItem> items) {
-    final list = List<RemindItem>.from(items);
+  List<QuizItem> _sortedItems(List<QuizItem> items) {
+    final list = List<QuizItem>.from(items);
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }

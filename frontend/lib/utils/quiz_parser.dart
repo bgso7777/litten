@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import '../models/remind_item.dart';
+import '../models/quiz_item.dart';
 
-/// AI 요약 텍스트에서 "─── 📌 리마인드 ───" 섹션을 파싱해 RemindItem 목록으로 변환
-class RemindParser {
-  static const _sectionMarker = '─── 📌 리마인드 ───';
+/// AI 요약 텍스트에서 "─── 📌 퀴즈 ───" 섹션을 파싱해 QuizItem 목록으로 변환
+class QuizParser {
+  static const _sectionMarker = '─── 📌 퀴즈 ───';
 
   /// 요약 응답 첫 줄의 "콘텐츠 유형: [기타]" 패턴에서 유형 추출
   static String? _extractContentType(String summaryText) {
@@ -25,12 +25,12 @@ class RemindParser {
     return text.replaceFirst(RegExp(r'^\s*\[[^\]]+\]\s*'), '').trim();
   }
 
-  static List<RemindItem> parse({
+  static List<QuizItem> parse({
     required String summaryText,
     required String fileId,
     required String fileName,
     required String littenId,
-    RemindFileType fileType = RemindFileType.text,
+    QuizFileType fileType = QuizFileType.text,
     int? summaryLevel,
     String? summaryGroupId, // 호출자가 미지정 시 자동 생성 (요약 단위 그룹)
   }) {
@@ -41,14 +41,14 @@ class RemindParser {
 
     final groupId = summaryGroupId ?? const Uuid().v4();
     final contentType = _extractContentType(summaryText);
-    // ⭐ 변수명 충돌 회피: 함수 매개변수와 RemindItem 필드 이름이 동일하므로 별도 변수로 분리
+    // ⭐ 변수명 충돌 회피: 함수 매개변수와 QuizItem 필드 이름이 동일하므로 별도 변수로 분리
     final String fullSummaryText = summaryText;
-    debugPrint('[RemindParser] parse 시작 - groupId: $groupId, summaryText length: ${fullSummaryText.length}');
+    debugPrint('[QuizParser] parse 시작 - groupId: $groupId, summaryText length: ${fullSummaryText.length}');
 
     final section = summaryText.substring(startIdx + _sectionMarker.length);
     final lines = section.split('\n');
 
-    final items = <RemindItem>[];
+    final items = <QuizItem>[];
     String? pendingTitle;
     final detailBuf = StringBuffer();
 
@@ -59,8 +59,8 @@ class RemindParser {
       // 첫 번째 항목에만 전체 요약 텍스트 저장 (그룹 대표)
       final isFirst = items.isEmpty;
       final stored = isFirst ? fullSummaryText : null;
-      debugPrint('[RemindParser] flush - title: $cleanTitle, isFirst: $isFirst, summaryText stored: ${stored != null}');
-      items.add(RemindItem(
+      debugPrint('[QuizParser] flush - title: $cleanTitle, isFirst: $isFirst, summaryText stored: ${stored != null}');
+      items.add(QuizItem(
         fileId: fileId,
         fileType: fileType,
         fileName: fileName,
@@ -79,7 +79,7 @@ class RemindParser {
     for (final raw in lines) {
       final line = raw.trim();
       if (line.isEmpty) continue;
-      if (line.startsWith('리마인드 총') || line.startsWith('없음')) break;
+      if (line.startsWith('퀴즈 총') || line.startsWith('없음')) break;
 
       if (line.startsWith('📂')) {
         flush();

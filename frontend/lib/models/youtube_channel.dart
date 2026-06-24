@@ -22,9 +22,9 @@ class SummaryTypes {
   }
 }
 
-/// 리마인드 종류 — 백엔드 remind_type 컬럼과 매핑 (단일 선택)
-/// CUSTOM 선택 시 remindCustomCount 사용
-class RemindTypes {
+/// 퀴즈 종류 — 백엔드 quiz_type 컬럼과 매핑 (단일 선택)
+/// CUSTOM 선택 시 quizCustomCount 사용
+class QuizTypes {
   static const String one    = 'ONE';
   static const String three  = 'THREE';
   static const String five   = 'FIVE';
@@ -59,9 +59,9 @@ class YoutubeChannel {
   final bool autoMemo;
   final bool autoSummary;
   final String? summaryType;
-  final bool autoRemind;
-  final String? remindType;
-  final int? remindCustomCount;
+  final bool autoQuiz;
+  final String? quizType;
+  final int? quizCustomCount;
   // 채널 구독(등록)일시 — 서버 응답(subscribedAt). 전체탭 "등록일 기준" 정렬에 사용.
   final DateTime? registeredAt;
 
@@ -76,9 +76,9 @@ class YoutubeChannel {
     this.autoMemo = false,
     this.autoSummary = false,
     this.summaryType,
-    this.autoRemind = false,
-    this.remindType,
-    this.remindCustomCount,
+    this.autoQuiz = false,
+    this.quizType,
+    this.quizCustomCount,
     this.registeredAt,
   });
 
@@ -93,9 +93,9 @@ class YoutubeChannel {
         autoMemo: json['autoMemo'] ?? false,
         autoSummary: json['autoSummary'] ?? false,
         summaryType: json['summaryType'] as String?,
-        autoRemind: json['autoRemind'] ?? false,
-        remindType: json['remindType'] as String?,
-        remindCustomCount: (json['remindCustomCount'] as num?)?.toInt(),
+        autoQuiz: json['autoQuiz'] ?? false,
+        quizType: json['quizType'] as String?,
+        quizCustomCount: (json['quizCustomCount'] as num?)?.toInt(),
         registeredAt: json['subscribedAt'] != null
             ? DateTime.tryParse(json['subscribedAt'].toString())
             : null,
@@ -112,9 +112,9 @@ class YoutubeChannel {
         'autoMemo': autoMemo,
         'autoSummary': autoSummary,
         'summaryType': summaryType,
-        'autoRemind': autoRemind,
-        'remindType': remindType,
-        'remindCustomCount': remindCustomCount,
+        'autoQuiz': autoQuiz,
+        'quizType': quizType,
+        'quizCustomCount': quizCustomCount,
         'subscribedAt': registeredAt?.toIso8601String(),
       };
 
@@ -124,11 +124,11 @@ class YoutubeChannel {
     bool? autoSummary,
     String? summaryType,
     bool clearSummaryType = false,
-    bool? autoRemind,
-    String? remindType,
-    bool clearRemindType = false,
-    int? remindCustomCount,
-    bool clearRemindCustomCount = false,
+    bool? autoQuiz,
+    String? quizType,
+    bool clearQuizType = false,
+    int? quizCustomCount,
+    bool clearQuizCustomCount = false,
   }) => YoutubeChannel(
         id: id,
         memberId: memberId,
@@ -140,11 +140,11 @@ class YoutubeChannel {
         autoMemo: autoMemo ?? this.autoMemo,
         autoSummary: autoSummary ?? this.autoSummary,
         summaryType: clearSummaryType ? null : (summaryType ?? this.summaryType),
-        autoRemind: autoRemind ?? this.autoRemind,
-        remindType: clearRemindType ? null : (remindType ?? this.remindType),
-        remindCustomCount: clearRemindCustomCount
+        autoQuiz: autoQuiz ?? this.autoQuiz,
+        quizType: clearQuizType ? null : (quizType ?? this.quizType),
+        quizCustomCount: clearQuizCustomCount
             ? null
-            : (remindCustomCount ?? this.remindCustomCount),
+            : (quizCustomCount ?? this.quizCustomCount),
         registeredAt: registeredAt,
       );
 }

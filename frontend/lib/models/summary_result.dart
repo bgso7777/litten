@@ -1,11 +1,11 @@
-/// 백엔드 `/note/v1/summary/process` 응답 모델 (요약 + 리마인드 계층)
+/// 백엔드 `/note/v1/summary/process` 응답 모델 (요약 + 퀴즈 계층)
 class SummaryResult {
   final bool success;
   final String summary;        // 전체 텍스트 (기존 호환)
-  final String summaryOnly;    // 리마인드 제거된 순수 요약
+  final String summaryOnly;    // 퀴즈 제거된 순수 요약
   final List<SummarySection> sections;
-  final List<RemindGroup> reminds;
-  final int totalRemindCount;
+  final List<QuizGroup> quizzes;
+  final int totalQuizCount;
   final int? summaryLevel; // 저장/적용된 요약 수준 1~5 (응답에 있으면)
   final String? error;
 
@@ -14,8 +14,8 @@ class SummaryResult {
     required this.summary,
     required this.summaryOnly,
     required this.sections,
-    required this.reminds,
-    required this.totalRemindCount,
+    required this.quizzes,
+    required this.totalQuizCount,
     this.summaryLevel,
     this.error,
   });
@@ -30,10 +30,10 @@ class SummaryResult {
         sections: ((json['summarySections'] as List?) ?? [])
             .map((e) => SummarySection.fromJson(e as Map<String, dynamic>))
             .toList(),
-        reminds: ((json['reminds'] as List?) ?? [])
-            .map((e) => RemindGroup.fromJson(e as Map<String, dynamic>))
+        quizzes: ((json['quizzes'] as List?) ?? [])
+            .map((e) => QuizGroup.fromJson(e as Map<String, dynamic>))
             .toList(),
-        totalRemindCount: (json['totalRemindCount'] as num?)?.toInt() ?? 0,
+        totalQuizCount: (json['totalQuizCount'] as num?)?.toInt() ?? 0,
         summaryLevel: (json['summaryLevel'] as num?)?.toInt(),
         error: json['error'] as String?,
       );
@@ -50,28 +50,28 @@ class SummarySection {
       );
 }
 
-/// 리마인드 1단(그룹)
-class RemindGroup {
+/// 퀴즈 1단(그룹)
+class QuizGroup {
   final String groupName;
-  final List<RemindItem> items;
-  const RemindGroup({required this.groupName, required this.items});
+  final List<QuizItem> items;
+  const QuizGroup({required this.groupName, required this.items});
 
-  factory RemindGroup.fromJson(Map<String, dynamic> json) => RemindGroup(
+  factory QuizGroup.fromJson(Map<String, dynamic> json) => QuizGroup(
         groupName: json['groupName'] as String? ?? '',
         items: ((json['items'] as List?) ?? [])
-            .map((e) => RemindItem.fromJson(e as Map<String, dynamic>))
+            .map((e) => QuizItem.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }
 
-/// 리마인드 2~3단(세부 항목 + 부가설명)
-class RemindItem {
+/// 퀴즈 2~3단(세부 항목 + 부가설명)
+class QuizItem {
   final String type;       // 일정|액션|핵심개념|적용포인트|학습할것|외부대기|리스크|기타
   final String content;
   final String? assignee;
   final String? deadline;
   final List<String> details;
-  const RemindItem({
+  const QuizItem({
     required this.type,
     required this.content,
     this.assignee,
@@ -79,7 +79,7 @@ class RemindItem {
     required this.details,
   });
 
-  factory RemindItem.fromJson(Map<String, dynamic> json) => RemindItem(
+  factory QuizItem.fromJson(Map<String, dynamic> json) => QuizItem(
         type: json['type'] as String? ?? '기타',
         content: json['content'] as String? ?? '',
         assignee: json['assignee'] as String?,

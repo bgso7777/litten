@@ -236,7 +236,7 @@ public class OpenAiSummaryService {
             case 5 -> 1.10; // 거의 전체 (오버헤드 포함 여유)
             default -> 0.55;
         };
-        int needed = (int)(estimatedInputTokens * ratio) + 800; // 포맷+리마인드 오버헤드
+        int needed = (int)(estimatedInputTokens * ratio) + 800; // 포맷+퀴즈 오버헤드
 
         // gpt-4o-mini 최대 출력 토큰 = 16384 (Lv.5의 경우 maxTokens(8192) 무시하고 16384까지 허용)
         int hardLimit = (level == 5) ? 16384 : maxTokens;
@@ -271,12 +271,12 @@ public class OpenAiSummaryService {
     }
 
     /**
-     * 리마인드 전용 OpenAI 호출.
-     * systemPrompt는 RemindService에서 조합하여 전달.
+     * 퀴즈 전용 OpenAI 호출.
+     * systemPrompt는 QuizService에서 조합하여 전달.
      * 성공 시 AI 원본 응답 텍스트 반환, 실패 시 null.
      */
-    public String generateRemind(String systemPrompt, String userContent) {
-        log.debug("[OpenAiSummaryService] generateRemind() 진입");
+    public String generateQuiz(String systemPrompt, String userContent) {
+        log.debug("[OpenAiSummaryService] generateQuiz() 진입");
 
         String apiKey = apiKeyProperties.getOpenaiKey();
         if (apiKey == null || apiKey.isBlank()) {
@@ -293,19 +293,19 @@ public class OpenAiSummaryService {
             headers.setBearerAuth(apiKey);
 
             HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-            log.debug("[OpenAiSummaryService] OpenAI remind API 호출 - model: {}", model);
+            log.debug("[OpenAiSummaryService] OpenAI quiz API 호출 - model: {}", model);
             ResponseEntity<String> response = restTemplate.exchange(
                     OPENAI_API_URL, HttpMethod.POST, entity, String.class);
-            log.info("[OpenAiSummaryService] OpenAI remind 응답 - status: {}", response.getStatusCode());
+            log.info("[OpenAiSummaryService] OpenAI quiz 응답 - status: {}", response.getStatusCode());
 
             return extractSummary(response.getBody());
 
         } catch (HttpClientErrorException e) {
-            log.error("[OpenAiSummaryService] OpenAI remind 오류 - status: {}, body: {}",
+            log.error("[OpenAiSummaryService] OpenAI quiz 오류 - status: {}, body: {}",
                     e.getStatusCode(), e.getResponseBodyAsString());
             return null;
         } catch (Exception e) {
-            log.error("[OpenAiSummaryService] OpenAI remind 처리 중 오류", e);
+            log.error("[OpenAiSummaryService] OpenAI quiz 처리 중 오류", e);
             return null;
         }
     }

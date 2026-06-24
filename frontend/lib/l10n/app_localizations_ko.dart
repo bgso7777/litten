@@ -887,11 +887,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noteOption => '노트';
 
   @override
-  String get reminderLabel => '리마인드';
+  String get quizLabel => '퀴즈';
 
   @override
-  String reminderCount(int count) {
-    return '리마인드 $count개';
+  String quizCount(int count) {
+    return '퀴즈 $count개';
   }
 
   @override
@@ -990,7 +990,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fileNameHint => '파일 이름';
 
   @override
-  String get noRemindItems => '요약에서 리마인드를\n추출하면 여기 표시됩니다';
+  String get noQuizItems => '요약에서 퀴즈를\n추출하면 여기 표시됩니다';
 
   @override
   String cloudSyncPlanChanged(String plan) {
@@ -1219,8 +1219,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get summaryAdded => '요약이 파일에 추가되었습니다.';
 
   @override
-  String summaryAddedWithRemind(int count) {
-    return '요약이 추가되었습니다. 리마인드 $count개 생성';
+  String summaryAddedWithQuiz(int count) {
+    return '요약이 추가되었습니다. 퀴즈 $count개 생성';
   }
 
   @override

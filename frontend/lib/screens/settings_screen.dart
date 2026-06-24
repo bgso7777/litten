@@ -641,7 +641,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildUsageRow('• 영상 구독', '최대 ${PlanLimits.youtubeChannels(SubscriptionType.free)}개', ''),
               _buildUsageRow('• 일정', '최대 ${PlanLimits.schedules(SubscriptionType.free)}개', ''),
               _buildUsageRow('• 요약', '${PlanLimits.summaryPerMonth(SubscriptionType.free)}회 (누적)', ''),
-              _buildUsageRow('• 리마인드', '${PlanLimits.remindPerMonth(SubscriptionType.free)}회 (누적)', ''),
+              _buildUsageRow('• 퀴즈', '${PlanLimits.quizPerMonth(SubscriptionType.free)}회 (누적)', ''),
               _buildUsageRow('• 파일 변환', '${PlanLimits.fileConvertTotal(SubscriptionType.free)}회 (누적)', ''),
             ],
           ],
@@ -1321,11 +1321,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 업그레이드·스탠다드→무료 전환 시 보여줄 안내 문구 (전환별 차등)
   String _planChangeInfoMessage(SubscriptionType from, SubscriptionType to) {
     if (to == SubscriptionType.standard) {
-      // 무료 → 스탠다드: 개수 제한 해제, 요약·리마인드는 월별 제한
+      // 무료 → 스탠다드: 개수 제한 해제, 요약·퀴즈는 월별 제한
       return '스탠다드 플랜으로 변경되었습니다.\n\n'
           '• 리튼·파일 개수 제한이 모두 해제됩니다 (무제한).\n'
           '• 광고가 제거됩니다.\n'
-          '• 영상 요약·리마인드는 매월 10회로 제한됩니다.';
+          '• 영상 요약·퀴즈는 매월 10회로 제한됩니다.';
     }
     if (to == SubscriptionType.premium) {
       if (from == SubscriptionType.free) {
@@ -1333,19 +1333,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return '프리미엄 플랜으로 변경되었습니다.\n\n'
             '• 리튼·파일 개수 제한이 모두 해제됩니다 (무제한).\n'
             '• 광고가 제거됩니다.\n'
-            '• 영상 요약·리마인드가 무제한입니다.\n'
+            '• 영상 요약·퀴즈가 무제한입니다.\n'
             '• 설정 > 계정에서 로그인하면 클라우드 파일 동기화가 제공됩니다.';
       }
       // 스탠다드 → 프리미엄: 클라우드 동기화 추가
       return '프리미엄 플랜으로 변경되었습니다.\n\n'
-          '• 영상 요약·리마인드가 무제한이 됩니다.\n'
+          '• 영상 요약·퀴즈가 무제한이 됩니다.\n'
           '• 설정 > 계정에서 로그인하면 클라우드 파일 동기화가 제공됩니다.';
     }
-    // 스탠다드 → 무료: 개수 제한 재적용, 광고, 요약·리마인드 월 2회
+    // 스탠다드 → 무료: 개수 제한 재적용, 광고, 요약·퀴즈 월 2회
     return '무료 플랜으로 변경되었습니다.\n\n'
         '• 리튼·파일 개수 제한이 다시 적용됩니다.\n'
         '• 광고가 표시됩니다.\n'
-        '• 영상 요약·리마인드는 매월 2회로 제한됩니다.';
+        '• 영상 요약·퀴즈는 매월 2회로 제한됩니다.';
   }
 
   void _showPlanChangeInfoDialog(
@@ -1383,7 +1383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return '프리미엄에서 스탠다드 플랜으로 변경합니다.\n\n'
           '• 클라우드 파일 동기화가 해지되고 자동으로 로그아웃됩니다.\n'
           '• 리튼·파일 개수 제한은 없습니다 (무제한 유지).\n'
-          '• 영상 요약·리마인드는 매월 10회로 제한됩니다.\n\n'
+          '• 영상 요약·퀴즈는 매월 10회로 제한됩니다.\n\n'
           '계속하시겠습니까?';
     }
     // 프리미엄 → 무료: 개수 제한 재적용 + 로그아웃 + 동기화 해지
@@ -1391,7 +1391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         '• 클라우드 파일 동기화가 해지되고 자동으로 로그아웃됩니다.\n'
         '• 리튼·파일 개수 제한이 다시 적용됩니다.\n'
         '• 광고가 표시됩니다.\n'
-        '• 영상 요약·리마인드는 매월 2회로 제한됩니다.\n\n'
+        '• 영상 요약·퀴즈는 매월 2회로 제한됩니다.\n\n'
         '계속하시겠습니까?';
   }
 

@@ -1491,12 +1491,12 @@
   "noteOption": "Note",
   "@noteOption": { "description": "Note option in start screen dialog" },
 
-  "reminderLabel": "Reminder",
-  "@reminderLabel": { "description": "Reminder chip label when count is 0" },
+  "quizLabel": "Quiz",
+  "@quizLabel": { "description": "Quiz chip label when count is 0" },
 
-  "reminderCount": "Reminder {count}",
-  "@reminderCount": {
-    "description": "Reminder chip label with pending count",
+  "quizCount": "Quiz {count}",
+  "@quizCount": {
+    "description": "Quiz chip label with pending count",
     "placeholders": { "count": { "type": "int" } }
   },
 
@@ -1599,8 +1599,8 @@
   "fileNameHint": "File name",
   "@fileNameHint": { "description": "File name input hint text" },
 
-  "noRemindItems": "Extract from summaries\nand they'll appear here",
-  "@noRemindItems": { "description": "Remind panel empty state message" },
+  "noQuizItems": "Extract from summaries\nand they'll appear here",
+  "@noQuizItems": { "description": "Quiz panel empty state message" },
 
   "cloudSyncPlanChanged": "Changed to {plan} plan.\n\nTo use cloud sync, please login at Settings > Account.",
   "@cloudSyncPlanChanged": {
@@ -1845,9 +1845,9 @@
   "summaryAdded": "Summary added to file.",
   "@summaryAdded": { "description": "Snackbar when summary is successfully added to file" },
 
-  "summaryAddedWithRemind": "Summary added. {count} remind(s) created.",
-  "@summaryAddedWithRemind": {
-    "description": "Snackbar when summary is added and remind items are created",
+  "summaryAddedWithQuiz": "Summary added. {count} quiz(s) created.",
+  "@summaryAddedWithQuiz": {
+    "description": "Snackbar when summary is added and quiz items are created",
     "placeholders": { "count": { "type": "int" } }
   },
 

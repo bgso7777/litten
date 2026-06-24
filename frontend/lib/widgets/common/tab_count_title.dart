@@ -20,8 +20,8 @@ class TabCount {
 ///
 /// [groups]의 각 그룹 내부 요소는 좁은 간격으로 나열되고,
 /// 그룹과 그룹 사이에는 [separator](기본 '/')가 들어간다.
-///   - 홈:       groups = [[일정, 리마인드, 공유한것, 공유받은것]]            (구분자 없음)
-///   - 리마인드: groups = [[신규, 확인], [전체]]                              (… / 전체)
+///   - 홈:       groups = [[일정, 퀴즈, 공유한것, 공유받은것]]            (구분자 없음)
+///   - 퀴즈: groups = [[신규, 확인], [전체]]                              (… / 전체)
 ///   - 캘린더:   groups = [[도래할], [전체]]                                  (도래할 / 전체)
 class TabCountTitle extends StatelessWidget {
   final List<List<TabCount>> groups;

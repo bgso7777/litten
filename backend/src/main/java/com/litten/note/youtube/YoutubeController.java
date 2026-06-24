@@ -45,21 +45,21 @@ public class YoutubeController {
         Boolean autoTitle       = asBool(body.get("autoTitle"), true);
         Boolean autoMemo        = asBool(body.get("autoMemo"), false);
         Boolean autoSummary     = asBool(body.get("autoSummary"), false);
-        Boolean autoRemind      = asBool(body.get("autoRemind"), false);
+        Boolean autoQuiz      = asBool(body.get("autoQuiz"), false);
         String summaryType      = asString(body.get("summaryType"));
-        String remindType       = asString(body.get("remindType"));
-        Integer remindCustomCount = asInt(body.get("remindCustomCount"));
+        String quizType       = asString(body.get("quizType"));
+        Integer quizCustomCount = asInt(body.get("quizCustomCount"));
 
         if (channelId == null || channelId.isBlank()) {
             return badRequest("channelId는 필수입니다.");
         }
 
-        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
-                memberId, channelId, autoSummary, summaryType, autoRemind, remindType,
-                "CUSTOM".equals(remindType) && remindCustomCount != null ? "=" + remindCustomCount : "");
+        log.info("[YoutubeController] 채널 구독 요청 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoQuiz: {} ({}{})",
+                memberId, channelId, autoSummary, summaryType, autoQuiz, quizType,
+                "CUSTOM".equals(quizType) && quizCustomCount != null ? "=" + quizCustomCount : "");
 
         MemberYoutubeChannel sub = youtubeService.subscribe(memberId, channelId, channelName, channelThumbnail,
-                autoTitle, autoMemo, autoSummary, autoRemind, summaryType, remindType, remindCustomCount);
+                autoTitle, autoMemo, autoSummary, autoQuiz, summaryType, quizType, quizCustomCount);
         return ok(Map.of("channel", YoutubeSubscriptionDto.of(sub)));
     }
 
@@ -75,17 +75,17 @@ public class YoutubeController {
         Boolean autoTitle   = body.get("autoTitle")   instanceof Boolean b ? b : null;
         Boolean autoMemo    = body.get("autoMemo")    instanceof Boolean b ? b : null;
         Boolean autoSummary = body.get("autoSummary") instanceof Boolean b ? b : null;
-        Boolean autoRemind  = body.get("autoRemind")  instanceof Boolean b ? b : null;
+        Boolean autoQuiz  = body.get("autoQuiz")  instanceof Boolean b ? b : null;
         String  summaryType = body.containsKey("summaryType") ? asString(body.get("summaryType")) : null;
-        String  remindType  = body.containsKey("remindType")  ? asString(body.get("remindType"))  : null;
-        Integer remindCustomCount     = body.containsKey("remindCustomCount") ? asInt(body.get("remindCustomCount")) : null;
+        String  quizType  = body.containsKey("quizType")  ? asString(body.get("quizType"))  : null;
+        Integer quizCustomCount     = body.containsKey("quizCustomCount") ? asInt(body.get("quizCustomCount")) : null;
         boolean clearSummaryType      = body.containsKey("summaryType") && body.get("summaryType") == null;
-        boolean clearRemindType       = body.containsKey("remindType")  && body.get("remindType")  == null;
-        boolean clearRemindCustomCount = body.containsKey("remindCustomCount") && body.get("remindCustomCount") == null;
+        boolean clearQuizType       = body.containsKey("quizType")  && body.get("quizType")  == null;
+        boolean clearQuizCustomCount = body.containsKey("quizCustomCount") && body.get("quizCustomCount") == null;
 
         log.info("[YoutubeController] 설정 업데이트 - memberId: {}, subscriptionId: {}", memberId, id);
-        boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoRemind,
-                summaryType, clearSummaryType, remindType, clearRemindType, remindCustomCount, clearRemindCustomCount);
+        boolean updated = youtubeService.updateSettings(memberId, id, autoTitle, autoMemo, autoSummary, autoQuiz,
+                summaryType, clearSummaryType, quizType, clearQuizType, quizCustomCount, clearQuizCustomCount);
         if (!updated) return badRequest("구독 정보를 찾을 수 없습니다.");
         return ok(Map.of("message", "설정 업데이트 완료"));
     }

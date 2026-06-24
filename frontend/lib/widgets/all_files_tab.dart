@@ -30,8 +30,8 @@ import '../services/youtube_http_transcript_service.dart';
 import 'youtube_transcript_sheet.dart';
 import 'dialogs/summary_dialog.dart';
 import 'dialogs/stt_memo_settings_dialog.dart';
-import '../models/remind_item.dart';
-import '../utils/remind_parser.dart';
+import '../models/quiz_item.dart';
+import '../utils/quiz_parser.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -723,7 +723,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       'title'   => ch.copyWith(autoTitle: !ch.autoTitle),
       'memo'    => ch.copyWith(autoMemo: !ch.autoMemo),
       'summary' => ch.copyWith(autoSummary: !ch.autoSummary),
-      'remind'  => ch.copyWith(autoRemind: !ch.autoRemind),
+      'quiz'  => ch.copyWith(autoQuiz: !ch.autoQuiz),
       _ => ch,
     };
     setState(() {
@@ -736,7 +736,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       autoTitle: updated.autoTitle,
       autoMemo: updated.autoMemo,
       autoSummary: updated.autoSummary,
-      autoRemind: updated.autoRemind,
+      autoQuiz: updated.autoQuiz,
     );
     if (!ok && mounted) {
       setState(() {
@@ -1550,9 +1550,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   /// 퀴즈 아이콘 — 파일에 추출된 항목이 있으면 활성(테마색),
   /// 없으면 비활성(연회색). 활성 상태에서 탭하면 인사이트 탭으로 이동.
   /// 아이콘: 전구(lightbulb) 안에 소문자 'q'를 넣은 합성 모양.
-  Widget _buildRemindIcon(String fileId, Color color) {
+  Widget _buildQuizIcon(String fileId, Color color) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final count = appState.remindItemsForFile(fileId).length;
+    final count = appState.quizItemsForFile(fileId).length;
     final active = count > 0;
     final iconColor = active ? color : Colors.grey.shade400;
     return SizedBox(
@@ -1741,7 +1741,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
+                    // 순서: 요약 · 퀴즈 · 클라우드 · 공유
                     _iconBtn(
                       icon: Icons.auto_awesome,
                       color: file.hasSummary ? color : Colors.grey.shade400,
@@ -1750,7 +1750,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                           : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
                       onPressed: () => _showSummaryDialog(file),
                     ),
-                    _buildRemindIcon(file.id, color),
+                    _buildQuizIcon(file.id, color),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
@@ -1865,8 +1865,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                    // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                    // 순서: 요약 · 퀴즈 · 클라우드 · 공유
+                    // 요약/퀴즈는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
                     _iconBtn(icon: null),
                     _iconBtn(icon: null),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
@@ -2300,8 +2300,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                  // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                  // 순서: 요약 · 퀴즈 · 클라우드 · 공유
+                  // 요약/퀴즈는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
                   _iconBtn(icon: null),
                   _iconBtn(icon: null),
                   _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
@@ -2723,8 +2723,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // 순서: 요약 · 리마인드 · 클라우드 · 공유
-                    // 요약/리마인드는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
+                    // 순서: 요약 · 퀴즈 · 클라우드 · 공유
+                    // 요약/퀴즈는 메모(텍스트) 파일만 지원 — 그 외 파일은 빈 자리(간격 유지)
                     _iconBtn(icon: null),
                     _iconBtn(icon: null),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
@@ -2909,23 +2909,23 @@ class _AllFilesTabState extends State<AllFilesTab> {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       await _loadFiles(appState);
 
-      // 리마인드 추출 및 저장 (요약 단위로 그룹화)
-      final remindItems = RemindParser.parse(
+      // 퀴즈 추출 및 저장 (요약 단위로 그룹화)
+      final quizItems = QuizParser.parse(
         summaryText: result.summary,
         fileId: file.id,
         fileName: file.displayTitle,
         littenId: file.littenId,
-        fileType: RemindFileType.text,
+        fileType: QuizFileType.text,
         summaryLevel: result.summaryLevel,
       );
-      if (remindItems.isNotEmpty) {
-        appState.addRemindItems(remindItems);
-        debugPrint('✨ [AllFilesTab] 리마인드 ${remindItems.length}개 추가 완료');
+      if (quizItems.isNotEmpty) {
+        appState.addQuizItems(quizItems);
+        debugPrint('✨ [AllFilesTab] 퀴즈 ${quizItems.length}개 추가 완료');
       }
 
-      // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (리마인드 마커 제거한 순수 요약)
+      // 인사이트 '요약' 섹션 + 로컬 별도 파일에 요약 기록 (퀴즈 마커 제거한 순수 요약)
       final fullSummary = result.summary;
-      final markerIdx = fullSummary.indexOf('─── 📌 리마인드 ───');
+      final markerIdx = fullSummary.indexOf('─── 📌 퀴즈 ───');
       final pureSummary =
           markerIdx != -1 ? fullSummary.substring(0, markerIdx).trim() : fullSummary.trim();
       await appState.recordSummary(
@@ -2936,7 +2936,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         summaryText: pureSummary,
         summaryLevel: result.summaryLevel,
         summaryGroupId:
-            remindItems.isNotEmpty ? remindItems.first.summaryGroupId : null,
+            quizItems.isNotEmpty ? quizItems.first.summaryGroupId : null,
       );
 
       debugPrint('✨ [AllFilesTab] 요약 저장 완료');
@@ -2945,8 +2945,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
         final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(remindItems.isNotEmpty
-                ? (l10n?.summaryAddedWithRemind(remindItems.length) ?? '요약이 추가되었습니다. 리마인드 ${remindItems.length}개 생성')
+            content: Text(quizItems.isNotEmpty
+                ? (l10n?.summaryAddedWithQuiz(quizItems.length) ?? '요약이 추가되었습니다. 퀴즈 ${quizItems.length}개 생성')
                 : (l10n?.summaryAdded ?? '요약이 파일에 추가되었습니다.')),
             duration: const Duration(seconds: 2),
           ),

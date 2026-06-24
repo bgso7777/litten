@@ -18,18 +18,18 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * 리마인드 전용 AI 호출 서비스.
+ * 퀴즈 전용 AI 호출 서비스.
  *
- * note_remind_config 에서 읽은 파라미터와 note_prompt_config 의 DB 프롬프트를 조합하여
- * 독립적인 AI 호출로 리마인드만 생성한다.
+ * note_quiz_config 에서 읽은 파라미터와 note_prompt_config 의 DB 프롬프트를 조합하여
+ * 독립적인 AI 호출로 퀴즈만 생성한다.
  *
- * ai.provider=openai → OpenAiSummaryService.generateRemind() 위임
+ * ai.provider=openai → OpenAiSummaryService.generateQuiz() 위임
  * ai.provider=claude → Claude API 직접 호출 (DB 프롬프트 없을 때 하드코딩 fallback)
  */
 @Log4j2
 @Service
 @RequiredArgsConstructor
-public class RemindService {
+public class QuizService {
 
     @Value("${ai.provider:openai}")
     private String aiProvider;
@@ -53,7 +53,7 @@ public class RemindService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 원본 텍스트에서 리마인드만 생성한다.
+     * 원본 텍스트에서 퀴즈만 생성한다.
      *
      * @param sourceText    원본 자막/텍스트
      * @param fileType      파일 유형 — 로그용
@@ -63,58 +63,58 @@ public class RemindService {
      * @param maxGroup      최대 그룹 수 (null=무제한)
      * @param typeFilter    유형 필터, 쉼표 구분 (null=전체)
      */
-    public RemindResponseVo generate(String sourceText, String fileType,
+    public QuizResponseVo generate(String sourceText, String fileType,
                                      String outputLang, String systemPrompt,
                                      Integer maxCount, Integer maxGroup, String typeFilter) {
-        log.debug("[RemindService] generate() - provider: {}, fileType: {}, maxCount: {}, maxGroup: {}, dbPrompt: {}",
+        log.debug("[QuizService] generate() - provider: {}, fileType: {}, maxCount: {}, maxGroup: {}, dbPrompt: {}",
                 aiProvider, fileType, maxCount, maxGroup, systemPrompt != null);
 
         if (sourceText == null || sourceText.isBlank()) {
-            log.warn("[RemindService] 원본 텍스트 없음");
-            return RemindResponseVo.fail("리마인드를 생성할 원본 텍스트가 없습니다.");
+            log.warn("[QuizService] 원본 텍스트 없음");
+            return QuizResponseVo.fail("퀴즈를 생성할 원본 텍스트가 없습니다.");
         }
 
         String lang = (outputLang == null || outputLang.isBlank()) ? "ko" : outputLang;
 
         if ("openai".equalsIgnoreCase(aiProvider)) {
-            log.info("[RemindService] OpenAI로 리마인드 생성 위임");
+            log.info("[QuizService] OpenAI로 퀴즈 생성 위임");
             return generateViaOpenAi(sourceText, lang, systemPrompt, maxCount, maxGroup, typeFilter);
         }
 
-        log.info("[RemindService] Claude로 리마인드 생성");
+        log.info("[QuizService] Claude로 퀴즈 생성");
         return generateViaClaude(sourceText, lang, systemPrompt, maxCount, maxGroup, typeFilter);
     }
 
     // ── OpenAI 경로 ──────────────────────────────────────────────────────────
 
-    private RemindResponseVo generateViaOpenAi(String sourceText, String lang,
+    private QuizResponseVo generateViaOpenAi(String sourceText, String lang,
                                                String systemPrompt, Integer maxCount,
                                                Integer maxGroup, String typeFilter) {
         if (systemPrompt == null || systemPrompt.isBlank()) {
-            log.warn("[RemindService] OpenAI DB 프롬프트 없음 - Claude fallback 사용");
+            log.warn("[QuizService] OpenAI DB 프롬프트 없음 - Claude fallback 사용");
             return generateViaClaude(sourceText, lang, null, maxCount, maxGroup, typeFilter);
         }
 
         String userContent = buildUserContent(sourceText, lang, maxCount, maxGroup, typeFilter);
-        log.info("[RemindService] OpenAI remind 호출 - systemPrompt 길이: {}, userContent 길이: {}",
+        log.info("[QuizService] OpenAI quiz 호출 - systemPrompt 길이: {}, userContent 길이: {}",
                 systemPrompt.length(), userContent.length());
 
-        String rawResponse = openAiSummaryService.generateRemind(systemPrompt, userContent);
+        String rawResponse = openAiSummaryService.generateQuiz(systemPrompt, userContent);
         if (rawResponse == null) {
-            return RemindResponseVo.fail("리마인드 생성에 실패했습니다.");
+            return QuizResponseVo.fail("퀴즈 생성에 실패했습니다.");
         }
-        return parseRemindResponse(rawResponse);
+        return parseQuizResponse(rawResponse);
     }
 
     // ── Claude 경로 ──────────────────────────────────────────────────────────
 
-    private RemindResponseVo generateViaClaude(String sourceText, String lang,
+    private QuizResponseVo generateViaClaude(String sourceText, String lang,
                                                String systemPrompt, Integer maxCount,
                                                Integer maxGroup, String typeFilter) {
         String apiKey = apiKeyProperties.getClaudeKey();
         if (apiKey == null || apiKey.isBlank()) {
-            log.error("[RemindService] Claude API 키 미설정");
-            return RemindResponseVo.fail("Claude API 키가 설정되지 않았습니다.");
+            log.error("[QuizService] Claude API 키 미설정");
+            return QuizResponseVo.fail("Claude API 키가 설정되지 않았습니다.");
         }
 
         try {
@@ -124,7 +124,7 @@ public class RemindService {
                     : buildFallbackPrompt(sourceText, lang, maxCount, maxGroup, typeFilter);
 
             int computedMaxTokens = computeMaxTokens(maxCount);
-            log.info("[RemindService] Claude remind 호출 - content 길이: {}, max_tokens: {}",
+            log.info("[QuizService] Claude quiz 호출 - content 길이: {}, max_tokens: {}",
                     userContent.length(), computedMaxTokens);
 
             ObjectNode root = objectMapper.createObjectNode();
@@ -142,22 +142,22 @@ public class RemindService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(root), headers);
             ResponseEntity<String> response = restTemplate.exchange(CLAUDE_API_URL, HttpMethod.POST, entity, String.class);
-            log.info("[RemindService] Claude API 응답 - status: {}", response.getStatusCode());
+            log.info("[QuizService] Claude API 응답 - status: {}", response.getStatusCode());
 
             JsonNode responseRoot = objectMapper.readTree(response.getBody());
             JsonNode content = responseRoot.path("content");
             if (!content.isArray() || content.size() == 0) {
                 throw new RuntimeException("Claude 응답에서 텍스트를 찾을 수 없음");
             }
-            return parseRemindResponse(content.get(0).path("text").asText());
+            return parseQuizResponse(content.get(0).path("text").asText());
 
         } catch (HttpClientErrorException e) {
-            log.error("[RemindService] Claude API 오류 - status: {}, body: {}",
+            log.error("[QuizService] Claude API 오류 - status: {}, body: {}",
                     e.getStatusCode(), e.getResponseBodyAsString());
-            return RemindResponseVo.fail("Claude API 오류: " + e.getStatusCode());
+            return QuizResponseVo.fail("Claude API 오류: " + e.getStatusCode());
         } catch (Exception e) {
-            log.error("[RemindService] 리마인드 생성 중 오류", e);
-            return RemindResponseVo.fail("리마인드 생성 중 오류가 발생했습니다.");
+            log.error("[QuizService] 퀴즈 생성 중 오류", e);
+            return QuizResponseVo.fail("퀴즈 생성 중 오류가 발생했습니다.");
         }
     }
 
@@ -181,7 +181,7 @@ public class RemindService {
     private String buildFallbackPrompt(String text, String lang,
                                        Integer maxCount, Integer maxGroup, String typeFilter) {
         StringBuilder sb = new StringBuilder();
-        sb.append("다음 콘텐츠에서 리마인드 항목을 추출해줘.\n\n");
+        sb.append("다음 콘텐츠에서 퀴즈 항목을 추출해줘.\n\n");
         sb.append("출력 언어: ").append(lang).append("\n");
         if (maxCount != null) sb.append("최대 세부항목 수: ").append(maxCount).append("개\n");
         if (maxGroup != null) sb.append("최대 그룹 수: ").append(maxGroup).append("개\n");
@@ -191,7 +191,7 @@ public class RemindService {
         sb.append("콘텐츠:\n").append(text).append("\n\n");
 
         sb.append("────────────────────────────────────────\n");
-        sb.append("[리마인드 3단 계층 구조]\n");
+        sb.append("[퀴즈 3단 계층 구조]\n");
         sb.append("────────────────────────────────────────\n");
         sb.append("[1단: 항목 (Group)] - 주제·영역 단위 그룹, 짧은 명사구");
         if (maxGroup != null) sb.append(", 최대 ").append(maxGroup).append("개");
@@ -211,24 +211,24 @@ public class RemindService {
         sb.append("중요도 순 정렬: 기한 임박 → 외부 의존 → 리스크 → 핵심개념 → 일반 액션\n\n");
 
         sb.append("[출력 형식]\n");
-        sb.append("─── 📌 리마인드 ───\n");
+        sb.append("─── 📌 퀴즈 ───\n");
         sb.append("📂 [그룹명]\n");
         sb.append("   ▸ [유형] 세부항목 / 담당자 / 기한\n");
         sb.append("     └ 부가 설명\n");
-        sb.append("리마인드 총 N개\n");
+        sb.append("퀴즈 총 N개\n");
 
         return sb.toString();
     }
 
     // ── 파싱 ────────────────────────────────────────────────────────────────
 
-    private RemindResponseVo parseRemindResponse(String rawResponse) {
-        log.debug("[RemindService] AI 응답 파싱 - 길이: {}", rawResponse.length());
-        RemindParser.ParseResult result = RemindParser.parse(rawResponse);
-        List<RemindGroup> groups = result.getGroups();
+    private QuizResponseVo parseQuizResponse(String rawResponse) {
+        log.debug("[QuizService] AI 응답 파싱 - 길이: {}", rawResponse.length());
+        QuizParser.ParseResult result = QuizParser.parse(rawResponse);
+        List<QuizGroup> groups = result.getGroups();
         int total = groups.stream().mapToInt(g -> g.getItems().size()).sum();
-        log.info("[RemindService] 파싱 완료 - 그룹: {}, 항목: {}", groups.size(), total);
-        return RemindResponseVo.ok(groups);
+        log.info("[QuizService] 파싱 완료 - 그룹: {}, 항목: {}", groups.size(), total);
+        return QuizResponseVo.ok(groups);
     }
 
     // ── 유틸 ────────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import '../models/litten.dart';
 import '../services/app_state_provider.dart';
 
 /// 홈 탭 — 대시보드.
-/// 최근/최신 일정, 미완료 리마인드 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
+/// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
 
@@ -113,10 +113,10 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _RemindSummaryCard extends StatelessWidget {
+class _QuizSummaryCard extends StatelessWidget {
   final int pendingCount;
   final VoidCallback onTap;
-  const _RemindSummaryCard({required this.pendingCount, required this.onTap});
+  const _QuizSummaryCard({required this.pendingCount, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -138,8 +138,8 @@ class _RemindSummaryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   pendingCount > 0
-                      ? '미완료 리마인드 $pendingCount개'
-                      : '미완료 리마인드가 없습니다',
+                      ? '미완료 퀴즈 $pendingCount개'
+                      : '미완료 퀴즈가 없습니다',
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w500),
                 ),

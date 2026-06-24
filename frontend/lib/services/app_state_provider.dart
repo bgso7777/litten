@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
-import '../models/remind_item.dart';
+import '../models/quiz_item.dart';
 import '../models/summary_entry.dart';
 import '../services/summary_storage_service.dart';
 import '../services/litten_service.dart';
@@ -166,20 +166,20 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ⭐ 리마인드 상태
-  List<RemindItem> _remindItems = [];
-  String? _selectedRemindFileId;
+  // ⭐ 퀴즈 상태
+  List<QuizItem> _quizItems = [];
+  String? _selectedQuizFileId;
 
-  List<RemindItem> get remindItems => _remindItems;
-  String? get selectedRemindFileId => _selectedRemindFileId;
+  List<QuizItem> get quizItems => _quizItems;
+  String? get selectedQuizFileId => _selectedQuizFileId;
 
-  List<RemindItem> remindItemsForFile(String fileId) =>
-      _remindItems.where((i) => i.fileId == fileId).toList();
+  List<QuizItem> quizItemsForFile(String fileId) =>
+      _quizItems.where((i) => i.fileId == fileId).toList();
 
-  List<RemindTarget> get remindTargets {
+  List<QuizTarget> get quizTargets {
     // ⭐ 요약 그룹별로 묶음 (summaryGroupId가 없는 기존 데이터는 fileId로 폴백)
-    final Map<String, List<RemindItem>> grouped = {};
-    for (final item in _remindItems) {
+    final Map<String, List<QuizItem>> grouped = {};
+    for (final item in _quizItems) {
       final groupKey = item.summaryGroupId ?? 'file:${item.fileId}';
       grouped.putIfAbsent(groupKey, () => []).add(item);
     }
@@ -193,8 +193,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           break;
         }
       }
-      debugPrint('[AppStateProvider] remindTarget - groupId: ${first.summaryGroupId}, summaryText length: ${summaryText?.length ?? 0}, items: ${e.value.length}');
-      return RemindTarget(
+      debugPrint('[AppStateProvider] quizTarget - groupId: ${first.summaryGroupId}, summaryText length: ${summaryText?.length ?? 0}, items: ${e.value.length}');
+      return QuizTarget(
         fileId: first.fileId,
         fileType: first.fileType,
         fileName: first.fileName,
@@ -214,107 +214,107 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return targets;
   }
 
-  void setSelectedRemindFileId(String? fileId) {
-    _selectedRemindFileId = fileId;
+  void setSelectedQuizFileId(String? fileId) {
+    _selectedQuizFileId = fileId;
     notifyListeners();
   }
 
-  void addRemindItem(RemindItem item) {
-    debugPrint('[AppStateProvider] addRemindItem: ${item.title}');
-    _remindItems.add(item);
-    if (_selectedRemindFileId == null) _selectedRemindFileId = item.fileId;
-    _saveRemindItems();
+  void addQuizItem(QuizItem item) {
+    debugPrint('[AppStateProvider] addQuizItem: ${item.title}');
+    _quizItems.add(item);
+    if (_selectedQuizFileId == null) _selectedQuizFileId = item.fileId;
+    _saveQuizItems();
     notifyListeners();
   }
 
-  void addRemindItems(List<RemindItem> items) {
+  void addQuizItems(List<QuizItem> items) {
     if (items.isEmpty) return;
-    debugPrint('[AppStateProvider] addRemindItems: ${items.length}개');
-    _remindItems.addAll(items);
-    if (_selectedRemindFileId == null && items.isNotEmpty) {
-      _selectedRemindFileId = items.first.fileId;
+    debugPrint('[AppStateProvider] addQuizItems: ${items.length}개');
+    _quizItems.addAll(items);
+    if (_selectedQuizFileId == null && items.isNotEmpty) {
+      _selectedQuizFileId = items.first.fileId;
     }
-    _saveRemindItems();
+    _saveQuizItems();
     notifyListeners();
   }
 
-  void toggleRemindDone(String itemId) {
-    final index = _remindItems.indexWhere((i) => i.id == itemId);
+  void toggleQuizDone(String itemId) {
+    final index = _quizItems.indexWhere((i) => i.id == itemId);
     if (index == -1) return;
-    debugPrint('[AppStateProvider] toggleRemindDone: $itemId');
-    _remindItems[index] = _remindItems[index].copyWith(isDone: !_remindItems[index].isDone);
-    _saveRemindItems();
+    debugPrint('[AppStateProvider] toggleQuizDone: $itemId');
+    _quizItems[index] = _quizItems[index].copyWith(isDone: !_quizItems[index].isDone);
+    _saveQuizItems();
     notifyListeners();
   }
 
-  void deleteRemindItem(String itemId) {
-    debugPrint('[AppStateProvider] deleteRemindItem: $itemId');
-    _remindItems.removeWhere((i) => i.id == itemId);
-    _saveRemindItems();
+  void deleteQuizItem(String itemId) {
+    debugPrint('[AppStateProvider] deleteQuizItem: $itemId');
+    _quizItems.removeWhere((i) => i.id == itemId);
+    _saveQuizItems();
     notifyListeners();
   }
 
-  /// 단일 리마인드 항목 수정
-  void updateRemindItem(RemindItem updated) {
-    final index = _remindItems.indexWhere((i) => i.id == updated.id);
+  /// 단일 퀴즈 항목 수정
+  void updateQuizItem(QuizItem updated) {
+    final index = _quizItems.indexWhere((i) => i.id == updated.id);
     if (index == -1) return;
-    debugPrint('[AppStateProvider] updateRemindItem: ${updated.id} - ${updated.title}');
-    _remindItems[index] = updated;
-    _saveRemindItems();
+    debugPrint('[AppStateProvider] updateQuizItem: ${updated.id} - ${updated.title}');
+    _quizItems[index] = updated;
+    _saveQuizItems();
     notifyListeners();
   }
 
   /// 그룹 전체 삭제 (요약 그룹 단위)
-  void deleteRemindGroup({String? summaryGroupId, String? fileId}) {
-    debugPrint('[AppStateProvider] deleteRemindGroup - groupId: $summaryGroupId, fileId: $fileId');
+  void deleteQuizGroup({String? summaryGroupId, String? fileId}) {
+    debugPrint('[AppStateProvider] deleteQuizGroup - groupId: $summaryGroupId, fileId: $fileId');
     if (summaryGroupId != null) {
-      _remindItems.removeWhere((i) => i.summaryGroupId == summaryGroupId);
+      _quizItems.removeWhere((i) => i.summaryGroupId == summaryGroupId);
     } else if (fileId != null) {
       // 폴백: groupId 없는 항목들을 fileId로 삭제
-      _remindItems.removeWhere((i) => i.summaryGroupId == null && i.fileId == fileId);
+      _quizItems.removeWhere((i) => i.summaryGroupId == null && i.fileId == fileId);
     }
-    _saveRemindItems();
+    _saveQuizItems();
     notifyListeners();
   }
 
-  Future<void> _saveRemindItems() async {
+  Future<void> _saveQuizItems() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_remindItems.map((i) => i.toJson()).toList());
-      await prefs.setString('remind_items', json);
-      debugPrint('[AppStateProvider] 리마인드 항목 저장 완료: ${_remindItems.length}개');
+      final json = jsonEncode(_quizItems.map((i) => i.toJson()).toList());
+      await prefs.setString('quiz_items', json);
+      debugPrint('[AppStateProvider] 퀴즈 항목 저장 완료: ${_quizItems.length}개');
     } catch (e) {
-      debugPrint('[AppStateProvider] 리마인드 항목 저장 실패: $e');
+      debugPrint('[AppStateProvider] 퀴즈 항목 저장 실패: $e');
     }
   }
 
-  Future<void> _loadRemindItems() async {
+  Future<void> _loadQuizItems() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final json = prefs.getString('remind_items');
+      final json = prefs.getString('quiz_items');
       if (json != null && json.isNotEmpty) {
         final list = jsonDecode(json) as List;
-        _remindItems = list.map((e) => RemindItem.fromJson(e as Map<String, dynamic>)).toList();
-        debugPrint('[AppStateProvider] 리마인드 항목 로드 완료: ${_remindItems.length}개');
+        _quizItems = list.map((e) => QuizItem.fromJson(e as Map<String, dynamic>)).toList();
+        debugPrint('[AppStateProvider] 퀴즈 항목 로드 완료: ${_quizItems.length}개');
       } else {
-        _remindItems = [];
-        debugPrint('[AppStateProvider] 리마인드 항목 없음 - 빈 목록으로 시작');
+        _quizItems = [];
+        debugPrint('[AppStateProvider] 퀴즈 항목 없음 - 빈 목록으로 시작');
       }
     } catch (e) {
-      debugPrint('[AppStateProvider] 리마인드 항목 로드 실패: $e');
+      debugPrint('[AppStateProvider] 퀴즈 항목 로드 실패: $e');
     }
   }
 
-  List<RemindItem> _sampleRemindItems() {
+  List<QuizItem> _sampleQuizItems() {
     final now = DateTime.now();
     const file1Id = 'sample-file-1';
     const file2Id = 'sample-file-2';
     return [
-      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-1', createdAt: now.subtract(const Duration(minutes: 3))),
-      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-2', content: '내용~~~~~~~~~~~~\n내용~~~~~~~~~~~~', createdAt: now.subtract(const Duration(minutes: 2))),
-      RemindItem(fileId: file1Id, fileType: RemindFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-3', createdAt: now.subtract(const Duration(minutes: 1))),
-      RemindItem(fileId: file2Id, fileType: RemindFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-1', createdAt: now.subtract(const Duration(seconds: 30))),
-      RemindItem(fileId: file2Id, fileType: RemindFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-2', createdAt: now),
+      QuizItem(fileId: file1Id, fileType: QuizFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-1', createdAt: now.subtract(const Duration(minutes: 3))),
+      QuizItem(fileId: file1Id, fileType: QuizFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-2', content: '내용~~~~~~~~~~~~\n내용~~~~~~~~~~~~', createdAt: now.subtract(const Duration(minutes: 2))),
+      QuizItem(fileId: file1Id, fileType: QuizFileType.audio, fileName: '항목1', littenId: 'sample', title: '세부항목1-3', createdAt: now.subtract(const Duration(minutes: 1))),
+      QuizItem(fileId: file2Id, fileType: QuizFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-1', createdAt: now.subtract(const Duration(seconds: 30))),
+      QuizItem(fileId: file2Id, fileType: QuizFileType.text,  fileName: '항목2', littenId: 'sample', title: '세부항목2-2', createdAt: now),
     ];
   }
 
@@ -549,7 +549,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _isInitializing = true;
 
     await _loadSettings();
-    await _loadRemindItems();
+    await _loadQuizItems();
     await loadSummaries();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();

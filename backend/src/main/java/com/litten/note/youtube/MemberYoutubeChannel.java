@@ -63,17 +63,17 @@ public class MemberYoutubeChannel extends BaseEntity implements Serializable {
             columnDefinition = "VARCHAR(32) NULL COMMENT '요약 수준 (ONE_LINE/SHORT/NORMAL/DETAILED/FULL)'")
     private String summaryType;
 
-    @Column(name = "auto_remind", nullable = false,
-            columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '리마인드 자동 생성'")
-    private Boolean autoRemind = false;
+    @Column(name = "auto_quiz", nullable = false,
+            columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE COMMENT '퀴즈 자동 생성'")
+    private Boolean autoQuiz = false;
 
-    @Column(name = "remind_type",
-            columnDefinition = "VARCHAR(32) NULL COMMENT '리마인드 종류 (ONE/THREE/FIVE/TEN/TWENTY/CUSTOM)'")
-    private String remindType;
+    @Column(name = "quiz_type",
+            columnDefinition = "VARCHAR(32) NULL COMMENT '퀴즈 종류 (ONE/THREE/FIVE/TEN/TWENTY/CUSTOM)'")
+    private String quizType;
 
-    @Column(name = "remind_custom_count",
-            columnDefinition = "INT NULL COMMENT '리마인드 CUSTOM 개수'")
-    private Integer remindCustomCount;
+    @Column(name = "quiz_custom_count",
+            columnDefinition = "INT NULL COMMENT '퀴즈 CUSTOM 개수'")
+    private Integer quizCustomCount;
 
     // ── 채널 정보 (조회 편의용 — 쓰기 제외) ──────────────────────────────────
 

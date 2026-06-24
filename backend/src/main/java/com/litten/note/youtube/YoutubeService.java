@@ -68,23 +68,23 @@ public class YoutubeService {
 
     @Transactional
     public MemberYoutubeChannel subscribe(String memberId, String channelId, String channelName, String channelThumbnail,
-                                          Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
-                                          String summaryType, String remindType, Integer remindCustomCount) {
+                                          Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoQuiz,
+                                          String summaryType, String quizType, Integer quizCustomCount) {
         log.debug("[YoutubeService] subscribe 진입 - memberId: {}, channelId: {}", memberId, channelId);
 
-        // 게스트는 자동 요약/리마인드 비활성 강제 (AI 서버 비용 보호)
+        // 게스트는 자동 요약/퀴즈 비활성 강제 (AI 서버 비용 보호)
         // 채널 수 제한은 프론트(plan_limits)에서 관리.
         boolean isGuest = memberId != null && memberId.startsWith(GUEST_PREFIX);
         if (isGuest) {
             autoSummary = false;
-            autoRemind  = false;
+            autoQuiz  = false;
         }
 
         boolean useSummary = autoSummary != null && autoSummary;
-        boolean useRemind  = autoRemind  != null && autoRemind;
+        boolean useQuiz  = autoQuiz  != null && autoQuiz;
         String normalizedSummaryType  = useSummary ? (summaryType == null || summaryType.isBlank() ? "NORMAL" : summaryType) : null;
-        String normalizedRemindType   = useRemind  ? (remindType  == null || remindType.isBlank()  ? "FIVE"   : remindType)  : null;
-        Integer normalizedRemindCount = "CUSTOM".equals(normalizedRemindType) ? remindCustomCount : null;
+        String normalizedQuizType   = useQuiz  ? (quizType  == null || quizType.isBlank()  ? "FIVE"   : quizType)  : null;
+        Integer normalizedQuizCount = "CUSTOM".equals(normalizedQuizType) ? quizCustomCount : null;
 
         // 1) youtube_channel 없으면 생성, 있으면 채널 정보 갱신
         YoutubeChannel channel = channelRepository.findByChannelId(channelId).orElseGet(() -> {
@@ -112,23 +112,23 @@ public class YoutubeService {
         sub.setAutoTitle(autoTitle != null ? autoTitle : true);
         sub.setAutoMemo(autoMemo != null ? autoMemo : false);
         sub.setAutoSummary(useSummary);
-        sub.setAutoRemind(useRemind);
+        sub.setAutoQuiz(useQuiz);
         sub.setSummaryType(normalizedSummaryType);
-        sub.setRemindType(normalizedRemindType);
-        sub.setRemindCustomCount(normalizedRemindCount);
+        sub.setQuizType(normalizedQuizType);
+        sub.setQuizCustomCount(normalizedQuizCount);
 
-        log.info("[YoutubeService] 채널 구독 등록/갱신 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoRemind: {} ({}{})",
-                memberId, channelId, useSummary, normalizedSummaryType, useRemind, normalizedRemindType,
-                normalizedRemindCount != null ? "=" + normalizedRemindCount : "");
+        log.info("[YoutubeService] 채널 구독 등록/갱신 - memberId: {}, channelId: {}, autoSummary: {} ({}), autoQuiz: {} ({}{})",
+                memberId, channelId, useSummary, normalizedSummaryType, useQuiz, normalizedQuizType,
+                normalizedQuizCount != null ? "=" + normalizedQuizCount : "");
         return memberChannelRepository.save(sub);
     }
 
     @Transactional
     public boolean updateSettings(String memberId, Long subscriptionId,
-                                  Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoRemind,
+                                  Boolean autoTitle, Boolean autoMemo, Boolean autoSummary, Boolean autoQuiz,
                                   String summaryType, boolean clearSummaryType,
-                                  String remindType, boolean clearRemindType,
-                                  Integer remindCustomCount, boolean clearRemindCustomCount) {
+                                  String quizType, boolean clearQuizType,
+                                  Integer quizCustomCount, boolean clearQuizCustomCount) {
         log.debug("[YoutubeService] updateSettings 진입 - memberId: {}, subscriptionId: {}", memberId, subscriptionId);
         return memberChannelRepository.findById(subscriptionId).map(sub -> {
             if (!sub.getMemberId().equals(memberId)) return false;
@@ -149,39 +149,39 @@ public class YoutubeService {
             } else if (clearSummaryType) {
                 sub.setSummaryType(null);
             }
-            if (autoRemind != null) {
-                sub.setAutoRemind(autoRemind);
-                if (autoRemind) {
-                    String t = remindType != null && !remindType.isBlank()
-                            ? remindType
-                            : (sub.getRemindType() != null ? sub.getRemindType() : "FIVE");
-                    sub.setRemindType(t);
+            if (autoQuiz != null) {
+                sub.setAutoQuiz(autoQuiz);
+                if (autoQuiz) {
+                    String t = quizType != null && !quizType.isBlank()
+                            ? quizType
+                            : (sub.getQuizType() != null ? sub.getQuizType() : "FIVE");
+                    sub.setQuizType(t);
                     if ("CUSTOM".equals(t)) {
-                        if (remindCustomCount != null) sub.setRemindCustomCount(remindCustomCount);
+                        if (quizCustomCount != null) sub.setQuizCustomCount(quizCustomCount);
                     } else {
-                        sub.setRemindCustomCount(null);
+                        sub.setQuizCustomCount(null);
                     }
                 } else {
-                    sub.setRemindType(null);
-                    sub.setRemindCustomCount(null);
+                    sub.setQuizType(null);
+                    sub.setQuizCustomCount(null);
                 }
             } else {
-                if (remindType != null && !remindType.isBlank()) {
-                    sub.setRemindType(remindType);
-                    if (!"CUSTOM".equals(remindType)) sub.setRemindCustomCount(null);
-                } else if (clearRemindType) {
-                    sub.setRemindType(null);
-                    sub.setRemindCustomCount(null);
+                if (quizType != null && !quizType.isBlank()) {
+                    sub.setQuizType(quizType);
+                    if (!"CUSTOM".equals(quizType)) sub.setQuizCustomCount(null);
+                } else if (clearQuizType) {
+                    sub.setQuizType(null);
+                    sub.setQuizCustomCount(null);
                 }
-                if (remindCustomCount != null) {
-                    sub.setRemindCustomCount(remindCustomCount);
-                } else if (clearRemindCustomCount) {
-                    sub.setRemindCustomCount(null);
+                if (quizCustomCount != null) {
+                    sub.setQuizCustomCount(quizCustomCount);
+                } else if (clearQuizCustomCount) {
+                    sub.setQuizCustomCount(null);
                 }
             }
             memberChannelRepository.save(sub);
-            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}, summaryType: {}, remindType: {}",
-                    sub.getChannelId(), sub.getSummaryType(), sub.getRemindType());
+            log.info("[YoutubeService] 설정 업데이트 완료 - channelId: {}, summaryType: {}, quizType: {}",
+                    sub.getChannelId(), sub.getSummaryType(), sub.getQuizType());
             return true;
         }).orElse(false);
     }

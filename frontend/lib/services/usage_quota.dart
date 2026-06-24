@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 기능별 사용량(횟수) 로컬 카운터.
 ///
-/// - 월별(monthly): 'YYYY-MM' 키를 사용해 매월 자동으로 0부터 시작(리셋). 요약/리마인드.
+/// - 월별(monthly): 'YYYY-MM' 키를 사용해 매월 자동으로 0부터 시작(리셋). 요약/퀴즈.
 /// - 누적(total): 리셋 없이 평생 누적. 파일변환.
 ///
 /// 프리미엄(로그인) 확장 시 이 카운터를 서버와 동기화하면 기기 간 합산이 된다.
@@ -12,7 +12,7 @@ class UsageQuota {
 
   // feature 식별자
   static const String summary = 'summary';
-  static const String remind = 'remind';
+  static const String quiz = 'quiz';
   static const String fileConvert = 'fileconvert';
 
   // ── 월별 (매월 리셋) ────────────────────────────────────────────

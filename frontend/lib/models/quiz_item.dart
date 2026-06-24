@@ -1,15 +1,15 @@
 import 'package:uuid/uuid.dart';
 
-enum RemindFileType { audio, text }
+enum QuizFileType { audio, text }
 
-class RemindItem {
+class QuizItem {
   final String id;
   final String fileId;
-  final RemindFileType fileType;
+  final QuizFileType fileType;
   final String fileName;
   final String littenId;
   final String title;
-  final DateTime? remindAt;
+  final DateTime? quizAt;
   final String content;
   final bool isDone;
   final DateTime createdAt;
@@ -19,14 +19,14 @@ class RemindItem {
   final String? contentType;    // 콘텐츠 유형 (회의/강의/발표/...)
   final String? summaryText;    // 전체 요약 텍스트 (그룹 첫 항목에만 저장)
 
-  RemindItem({
+  QuizItem({
     String? id,
     required this.fileId,
     required this.fileType,
     required this.fileName,
     required this.littenId,
     required this.title,
-    this.remindAt,
+    this.quizAt,
     this.content = '',
     this.isDone = false,
     DateTime? createdAt,
@@ -37,10 +37,10 @@ class RemindItem {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  RemindItem copyWith({
+  QuizItem copyWith({
     String? title,
-    DateTime? remindAt,
-    bool clearRemindAt = false,
+    DateTime? quizAt,
+    bool clearQuizAt = false,
     String? content,
     bool? isDone,
     String? summaryGroupId,
@@ -48,14 +48,14 @@ class RemindItem {
     String? contentType,
     String? summaryText,
   }) {
-    return RemindItem(
+    return QuizItem(
       id: id,
       fileId: fileId,
       fileType: fileType,
       fileName: fileName,
       littenId: littenId,
       title: title ?? this.title,
-      remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
+      quizAt: clearQuizAt ? null : (quizAt ?? this.quizAt),
       content: content ?? this.content,
       isDone: isDone ?? this.isDone,
       createdAt: createdAt,
@@ -73,7 +73,7 @@ class RemindItem {
         'fileName': fileName,
         'littenId': littenId,
         'title': title,
-        'remindAt': remindAt?.toIso8601String(),
+        'quizAt': quizAt?.toIso8601String(),
         'content': content,
         'isDone': isDone,
         'createdAt': createdAt.toIso8601String(),
@@ -83,17 +83,17 @@ class RemindItem {
         'summaryText': summaryText,
       };
 
-  factory RemindItem.fromJson(Map<String, dynamic> json) => RemindItem(
+  factory QuizItem.fromJson(Map<String, dynamic> json) => QuizItem(
         id: json['id'],
         fileId: json['fileId'],
-        fileType: RemindFileType.values.firstWhere(
+        fileType: QuizFileType.values.firstWhere(
           (t) => t.name == (json['fileType'] as String? ?? 'text'),
-          orElse: () => RemindFileType.text,
+          orElse: () => QuizFileType.text,
         ),
         fileName: json['fileName'] ?? '',
         littenId: json['littenId'],
         title: json['title'],
-        remindAt: json['remindAt'] != null ? DateTime.parse(json['remindAt']) : null,
+        quizAt: json['quizAt'] != null ? DateTime.parse(json['quizAt']) : null,
         content: json['content'] as String? ?? '',
         isDone: json['isDone'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt']),
@@ -104,18 +104,18 @@ class RemindItem {
       );
 }
 
-/// 한 번의 요약으로 추출된 리마인드 항목 그룹 (요약 단위로 그룹화)
-class RemindTarget {
+/// 한 번의 요약으로 추출된 퀴즈 항목 그룹 (요약 단위로 그룹화)
+class QuizTarget {
   final String fileId;
-  final RemindFileType fileType;
+  final QuizFileType fileType;
   final String fileName;
-  final List<RemindItem> items;
+  final List<QuizItem> items;
   final String? summaryGroupId;
   final int? summaryLevel;     // 요약 수준
   final String? contentType;   // 콘텐츠 유형
   final String? summaryText;   // 전체 요약 텍스트
 
-  const RemindTarget({
+  const QuizTarget({
     required this.fileId,
     required this.fileType,
     required this.fileName,

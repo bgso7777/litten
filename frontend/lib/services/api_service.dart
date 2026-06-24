@@ -554,7 +554,7 @@ class ApiService {
         summaryLanguage: summaryLanguage,
         token: token,
       );
-      // 전체 텍스트(summary) 우선 — 기존 RemindParser 호환. 없으면 순수 요약.
+      // 전체 텍스트(summary) 우선 — 기존 QuizParser 호환. 없으면 순수 요약.
       final summary = result.summary.isNotEmpty ? result.summary : result.displaySummary;
       debugPrint('[ApiService] summarizeText(process) - Success, length: ${summary.length}');
       return summary;
@@ -583,7 +583,7 @@ class ApiService {
     return lines.join('\n\n');
   }
 
-  /// 통합 요약 처리 (요약 + 리마인드 + 캐시/저장)
+  /// 통합 요약 처리 (요약 + 퀴즈 + 캐시/저장)
   /// POST /litten/note/v1/summary/process
   /// 유튜브: youtubeVideoId 기준 DB 캐시 확인 후 없으면 생성·저장
   Future<SummaryResult> processSummary({
@@ -617,7 +617,7 @@ class ApiService {
     debugPrint('[ApiService] processSummary - status: ${response.statusCode}');
     if (response.statusCode == 200) {
       final result = SummaryResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-      debugPrint('[ApiService] processSummary - success: ${result.success}, remind: ${result.totalRemindCount}');
+      debugPrint('[ApiService] processSummary - success: ${result.success}, quiz: ${result.totalQuizCount}');
       if (!result.success) throw Exception(result.error ?? '요약 실패');
       return result;
     }
@@ -1149,11 +1149,11 @@ class ApiService {
     bool autoMemo = false,
     bool autoSummary = false,
     String? summaryType,
-    bool autoRemind = false,
-    String? remindType,
-    int? remindCustomCount,
+    bool autoQuiz = false,
+    String? quizType,
+    int? quizCustomCount,
   }) async {
-    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId, autoSummary: $autoSummary($summaryType), autoRemind: $autoRemind($remindType${remindType == 'CUSTOM' ? '=$remindCustomCount' : ''})');
+    debugPrint('[ApiService] subscribeYoutubeChannel 진입 - channelId: $channelId, autoSummary: $autoSummary($summaryType), autoQuiz: $autoQuiz($quizType${quizType == 'CUSTOM' ? '=$quizCustomCount' : ''})');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint');
       final body = jsonEncode({
@@ -1164,10 +1164,10 @@ class ApiService {
         'autoMemo': autoMemo,
         'autoSummary': autoSummary,
         if (autoSummary && summaryType != null) 'summaryType': summaryType,
-        'autoRemind': autoRemind,
-        if (autoRemind && remindType != null) 'remindType': remindType,
-        if (autoRemind && remindType == 'CUSTOM' && remindCustomCount != null)
-          'remindCustomCount': remindCustomCount,
+        'autoQuiz': autoQuiz,
+        if (autoQuiz && quizType != null) 'quizType': quizType,
+        if (autoQuiz && quizType == 'CUSTOM' && quizCustomCount != null)
+          'quizCustomCount': quizCustomCount,
       });
       final response = await http.post(url, headers: _getHeaders(token: token), body: body).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] subscribeYoutubeChannel - status: ${response.statusCode}');
@@ -1187,7 +1187,7 @@ class ApiService {
   /// 유튜브 채널 자동화 설정 업데이트
   ///
   /// `null` 인 boolean/string은 PATCH body에서 제외되어 백엔드에서 무시된다.
-  /// `summaryType`, `remindType`, `remindCustomCount`는 명시적으로 null 전달을 원할 때 `clear*` 플래그 사용.
+  /// `summaryType`, `quizType`, `quizCustomCount`는 명시적으로 null 전달을 원할 때 `clear*` 플래그 사용.
   Future<bool> updateYoutubeChannelSettings({
     required String token,
     required int channelPk,
@@ -1196,13 +1196,13 @@ class ApiService {
     bool? autoSummary,
     String? summaryType,
     bool clearSummaryType = false,
-    bool? autoRemind,
-    String? remindType,
-    bool clearRemindType = false,
-    int? remindCustomCount,
-    bool clearRemindCustomCount = false,
+    bool? autoQuiz,
+    String? quizType,
+    bool clearQuizType = false,
+    int? quizCustomCount,
+    bool clearQuizCustomCount = false,
   }) async {
-    debugPrint('[ApiService] updateYoutubeChannelSettings 진입 - channelPk: $channelPk, autoSummary: $autoSummary($summaryType), autoRemind: $autoRemind($remindType${remindType == 'CUSTOM' ? '=$remindCustomCount' : ''})');
+    debugPrint('[ApiService] updateYoutubeChannelSettings 진입 - channelPk: $channelPk, autoSummary: $autoSummary($summaryType), autoQuiz: $autoQuiz($quizType${quizType == 'CUSTOM' ? '=$quizCustomCount' : ''})');
     try {
       final url = Uri.parse('$baseUrl$_youtubeChannelsEndpoint/$channelPk');
       final body = <String, dynamic>{};
@@ -1214,16 +1214,16 @@ class ApiService {
       } else if (clearSummaryType) {
         body['summaryType'] = null;
       }
-      if (autoRemind != null) body['autoRemind'] = autoRemind;
-      if (remindType != null) {
-        body['remindType'] = remindType;
-      } else if (clearRemindType) {
-        body['remindType'] = null;
+      if (autoQuiz != null) body['autoQuiz'] = autoQuiz;
+      if (quizType != null) {
+        body['quizType'] = quizType;
+      } else if (clearQuizType) {
+        body['quizType'] = null;
       }
-      if (remindCustomCount != null) {
-        body['remindCustomCount'] = remindCustomCount;
-      } else if (clearRemindCustomCount) {
-        body['remindCustomCount'] = null;
+      if (quizCustomCount != null) {
+        body['quizCustomCount'] = quizCustomCount;
+      } else if (clearQuizCustomCount) {
+        body['quizCustomCount'] = null;
       }
       final response = await http.patch(url, headers: _getHeaders(token: token), body: jsonEncode(body)).timeout(const Duration(seconds: 15));
       debugPrint('[ApiService] updateYoutubeChannelSettings - status: ${response.statusCode}');

@@ -30,9 +30,9 @@ public class YoutubeSubscriptionDto {
     private Boolean autoMemo;
     private Boolean autoSummary;
     private String  summaryType;
-    private Boolean autoRemind;
-    private String  remindType;
-    private Integer remindCustomCount;
+    private Boolean autoQuiz;
+    private String  quizType;
+    private Integer quizCustomCount;
 
     // 채널 구독(등록)일시 — 전체탭에서 채널을 "등록일 기준"으로 정렬하기 위해 내려준다.
     // (BaseEntity.insertDateTime = @CreatedDate)
@@ -53,9 +53,9 @@ public class YoutubeSubscriptionDto {
         dto.autoMemo         = sub.getAutoMemo();
         dto.autoSummary      = sub.getAutoSummary();
         dto.summaryType      = sub.getSummaryType();
-        dto.autoRemind       = sub.getAutoRemind();
-        dto.remindType       = sub.getRemindType();
-        dto.remindCustomCount = sub.getRemindCustomCount();
+        dto.autoQuiz       = sub.getAutoQuiz();
+        dto.quizType       = sub.getQuizType();
+        dto.quizCustomCount = sub.getQuizCustomCount();
         dto.subscribedAt     = sub.getInsertDateTime(); // 등록일시(BaseEntity) → 전체탭 등록일 정렬용
         return dto;
     }

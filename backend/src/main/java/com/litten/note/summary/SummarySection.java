@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * AI 요약 결과의 각 섹션 (RemindItem과 대응되는 요약 구조체).
+ * AI 요약 결과의 각 섹션 (QuizItem과 대응되는 요약 구조체).
  *
  * AI 출력 예:
  *   ## 전체 목적 / 주제

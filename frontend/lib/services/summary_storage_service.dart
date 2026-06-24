@@ -7,7 +7,7 @@ import '../models/summary_entry.dart';
 /// 요약을 로컬에 '별도 파일'로 저장/관리하는 서비스.
 ///
 /// 저장 위치: `{앱문서}/summaries/{id}.json` — 요약 1건당 파일 1개.
-/// 리튼/리마인드 저장소와 분리하여, 향후 개별 동기화·공유가 쉽도록 설계.
+/// 리튼/퀴즈 저장소와 분리하여, 향후 개별 동기화·공유가 쉽도록 설계.
 class SummaryStorageService {
   static final SummaryStorageService _instance =
       SummaryStorageService._internal();

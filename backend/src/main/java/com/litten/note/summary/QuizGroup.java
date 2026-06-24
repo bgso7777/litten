@@ -10,7 +10,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RemindGroup {
+public class QuizGroup {
     private String groupName;                      // 1단 항목명
-    private List<RemindItem> items = new ArrayList<>();  // 2~3단 세부항목
+    private List<QuizItem> items = new ArrayList<>();  // 2~3단 세부항목
 }

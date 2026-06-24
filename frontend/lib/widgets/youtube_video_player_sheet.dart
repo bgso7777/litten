@@ -1274,7 +1274,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     }
     setState(() { _loading = true; _error = null; _summary = null; _result = null; _memoSaved = false; });
     try {
-      // 통합 처리 API — 레벨별 캐시 재사용(forceRegenerate:false) + 저장 + 리마인드
+      // 통합 처리 API — 레벨별 캐시 재사용(forceRegenerate:false) + 저장 + 퀴즈
       // fileType:'youtube' 이어야 백엔드가 youtube_video_id 를 키로 저장/조회한다.
       // ('text'로 보내면 youtube_video_id 가 NULL 인 고아 레코드로 저장되어 재조회/아이콘 활성화가 동작하지 않음)
       final r = await ApiService().processSummary(
@@ -1302,7 +1302,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       //    같은 영상·레벨은 summaryGroupId로 중복 갱신.
       final appState = Provider.of<AppStateProvider>(context, listen: false);
       final fullSummary = r.displaySummary;
-      final markerIdx = fullSummary.indexOf('─── 📌 리마인드 ───');
+      final markerIdx = fullSummary.indexOf('─── 📌 퀴즈 ───');
       final pureSummary = markerIdx != -1
           ? fullSummary.substring(0, markerIdx).trim()
           : fullSummary.trim();
@@ -1405,8 +1405,8 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     }
   }
 
-  // 리마인드 그룹(1단) → 항목(2단) → 부가설명(3단) 표시
-  Widget _buildRemindGroup(RemindGroup g) {
+  // 퀴즈 그룹(1단) → 항목(2단) → 부가설명(3단) 표시
+  Widget _buildQuizGroup(QuizGroup g) {
     final color = Theme.of(context).primaryColor;
     return Container(
       width: double.infinity,
@@ -1470,7 +1470,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         onChanged: onChanged,
       );
 
-  // 요약 보기 전용 본문: 요약 수준 + 설명 + (하단 버튼 위까지 채우는) 요약/리마인드 박스
+  // 요약 보기 전용 본문: 요약 수준 + 설명 + (하단 버튼 위까지 채우는) 요약/퀴즈 박스
   Widget _buildSummaryOnlyBody(Color color) {
     const levels = [(1,'1. 한줄 요약'),(2,'2. 간단 요약'),(3,'3. 일반 요약'),(4,'4. 상세 요약'),(5,'5. 거의 전체')];
     final levelRow = Padding(
@@ -1548,16 +1548,16 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SelectableText(_summary!, style: const TextStyle(fontSize: 13, height: 1.65)),
-                        if (_result != null && _result!.reminds.isNotEmpty) ...[
+                        if (_result != null && _result!.quizzes.isNotEmpty) ...[
                           const SizedBox(height: 14),
                           Row(children: [
                             Icon(Icons.checklist_rtl, size: 16, color: color),
                             const SizedBox(width: 6),
-                            Text('리마인드 ${_result!.totalRemindCount}개',
+                            Text('퀴즈 ${_result!.totalQuizCount}개',
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ]),
                           const SizedBox(height: 6),
-                          ..._result!.reminds.map(_buildRemindGroup),
+                          ..._result!.quizzes.map(_buildQuizGroup),
                         ],
                       ],
                     ),
@@ -1702,17 +1702,17 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                       ),
                     ),
                   ],
-                  // 리마인드(계층) 표시
-                  if (_result != null && _result!.reminds.isNotEmpty) ...[
+                  // 퀴즈(계층) 표시
+                  if (_result != null && _result!.quizzes.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     Row(children: [
                       Icon(Icons.checklist_rtl, size: 16, color: color),
                       const SizedBox(width: 6),
-                      Text('리마인드 ${_result!.totalRemindCount}개',
+                      Text('퀴즈 ${_result!.totalQuizCount}개',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ]),
                     const SizedBox(height: 6),
-                    ..._result!.reminds.map(_buildRemindGroup),
+                    ..._result!.quizzes.map(_buildQuizGroup),
                   ],
                   if (_error != null) ...[
                     const SizedBox(height: 10),

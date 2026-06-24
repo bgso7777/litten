@@ -216,9 +216,9 @@ public class SecurityConfiguration {
 //        .requestMatchers("/litten/changepassword*.html").permitAll()
 
         // litten
-        // 요약/리마인드 — 게스트(device-uuid) + 로그인 모두 허용
+        // 요약/퀴즈 — 게스트(device-uuid) + 로그인 모두 허용
         .requestMatchers("/note/v1/summary/**").permitAll()
-        .requestMatchers("/note/v1/remind/**").permitAll()
+        .requestMatchers("/note/v1/quiz/**").permitAll()
 
         // 유튜브 — 로그인 전용 엔드포인트 (게스트 차단)
         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/note/v1/youtube/channels/*").authenticated()

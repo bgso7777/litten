@@ -17,7 +17,7 @@ import java.util.Optional;
  *   3) AI 요약 생성 (SummaryService)
  *   4) 요약 → note_summary_result 저장
  *
- * 리마인드는 RemindProcessService 에서 별도 처리.
+ * 퀴즈는 QuizProcessService 에서 별도 처리.
  */
 @Log4j2
 @Service
@@ -119,7 +119,7 @@ public class SummaryProcessService {
         entity.setSummaryLevel(aiReq.getSummaryLevel());
         entity.setSummaryFull(resp.getSummary());
         entity.setSummaryOnly(resp.getSummaryOnly());
-        entity.setTotalRemindCount(resp.getTotalRemindCount());
+        entity.setTotalQuizCount(resp.getTotalQuizCount());
         entity.setStatus("done");
         entity.setProcessedAt(LocalDateTime.now());
         entity.setErrorMessage(null);
@@ -185,7 +185,7 @@ public class SummaryProcessService {
                 entity.getSummaryFull() != null ? entity.getSummaryFull() : "",
                 entity.getSummaryLevel() != null ? entity.getSummaryLevel() : 0);
         vo.setSummaryResultId(entity.getSequence());
-        vo.setTotalRemindCount(entity.getTotalRemindCount());
+        vo.setTotalQuizCount(entity.getTotalQuizCount());
         return vo;
     }
 

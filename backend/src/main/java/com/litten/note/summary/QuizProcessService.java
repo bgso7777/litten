@@ -9,133 +9,133 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 리마인드 처리 오케스트레이션 서비스.
+ * 퀴즈 처리 오케스트레이션 서비스.
  *
  * 처리 흐름:
  *   1) summaryResultId 로 note_summary_result 조회 → sourceText 획득
- *   2) 캐시 확인 (forceRegenerate=false & 기존 remind 존재 → 바로 반환)
- *   3) note_prompt_config 에서 (type=remind, fileType, level) 기준 설정+프롬프트 단일 조회
- *   4) RemindService.generate() 호출 (AI 실행)
- *   5) note_remind_result 저장
- *   6) note_summary_result.total_remind_count 업데이트
+ *   2) 캐시 확인 (forceRegenerate=false & 기존 quiz 존재 → 바로 반환)
+ *   3) note_prompt_config 에서 (type=quiz, fileType, level) 기준 설정+프롬프트 단일 조회
+ *   4) QuizService.generate() 호출 (AI 실행)
+ *   5) note_quiz_result 저장
+ *   6) note_summary_result.total_quiz_count 업데이트
  */
 @Log4j2
 @Service
 @RequiredArgsConstructor
-public class RemindProcessService {
+public class QuizProcessService {
 
-    private static final int DEFAULT_REMIND_LEVEL = 3;
+    private static final int DEFAULT_QUIZ_LEVEL = 3;
 
     private final SummaryResultRepository summaryResultRepository;
-    private final RemindResultRepository  remindResultRepository;
+    private final QuizResultRepository  quizResultRepository;
     private final PromptConfigRepository  promptConfigRepository;
-    private final RemindService           remindService;
+    private final QuizService           quizService;
 
     // ── 공개 메서드 ──────────────────────────────────────────────────────────
 
     @Transactional
-    public RemindResponseVo process(RemindProcessRequestVo req) {
-        log.debug("[RemindProcessService] process() - summaryResultId: {}, remindLevel: {}, forceRegenerate: {}",
-                req.getSummaryResultId(), req.getRemindLevel(), req.isForceRegenerate());
+    public QuizResponseVo process(QuizProcessRequestVo req) {
+        log.debug("[QuizProcessService] process() - summaryResultId: {}, quizLevel: {}, forceRegenerate: {}",
+                req.getSummaryResultId(), req.getQuizLevel(), req.isForceRegenerate());
 
         if (req.getSummaryResultId() == null) {
-            return RemindResponseVo.fail("summaryResultId는 필수입니다.");
+            return QuizResponseVo.fail("summaryResultId는 필수입니다.");
         }
 
         // 1) 요약 결과 조회
         SummaryResult summaryResult = summaryResultRepository.findById(req.getSummaryResultId()).orElse(null);
         if (summaryResult == null || !"done".equals(summaryResult.getStatus())) {
-            log.warn("[RemindProcessService] 요약 결과 없음 또는 미완료 - summaryResultId: {}", req.getSummaryResultId());
-            return RemindResponseVo.fail("요약 결과를 찾을 수 없거나 아직 처리 중입니다.");
+            log.warn("[QuizProcessService] 요약 결과 없음 또는 미완료 - summaryResultId: {}", req.getSummaryResultId());
+            return QuizResponseVo.fail("요약 결과를 찾을 수 없거나 아직 처리 중입니다.");
         }
 
         String sourceText = summaryResult.getSourceText();
         if (sourceText == null || sourceText.isBlank()) {
-            log.warn("[RemindProcessService] sourceText 없음 - summaryResultId: {}", req.getSummaryResultId());
-            return RemindResponseVo.fail("원본 텍스트가 저장되어 있지 않아 리마인드를 생성할 수 없습니다.");
+            log.warn("[QuizProcessService] sourceText 없음 - summaryResultId: {}", req.getSummaryResultId());
+            return QuizResponseVo.fail("원본 텍스트가 저장되어 있지 않아 퀴즈를 생성할 수 없습니다.");
         }
 
         // 2) 캐시 확인
         if (!req.isForceRegenerate()) {
-            List<RemindResult> cached = remindResultRepository
+            List<QuizResult> cached = quizResultRepository
                     .findBySummaryResultIdAndIsDeletedFalseOrderByGroupOrderAscSortOrderAsc(req.getSummaryResultId());
             if (!cached.isEmpty()) {
-                log.info("[RemindProcessService] 리마인드 캐시 히트 - summaryResultId: {}, count: {}",
+                log.info("[QuizProcessService] 퀴즈 캐시 히트 - summaryResultId: {}, count: {}",
                         req.getSummaryResultId(), cached.size());
-                return toResponseVo(cached, summaryResult.getTotalRemindCount());
+                return toResponseVo(cached, summaryResult.getTotalQuizCount());
             }
         }
 
         // 3) note_prompt_config 에서 설정+프롬프트 단일 조회
         String fileType   = summaryResult.getFileType() != null ? summaryResult.getFileType() : "text";
-        int remindLevel   = req.getRemindLevel() > 0 ? req.getRemindLevel() : DEFAULT_REMIND_LEVEL;
+        int quizLevel   = req.getQuizLevel() > 0 ? req.getQuizLevel() : DEFAULT_QUIZ_LEVEL;
         String outputLang = req.getSummaryLanguage();
 
         PromptConfig config = promptConfigRepository
-                .findByTypeAndFileTypeAndLevelAndIsActiveTrue("remind", fileType, remindLevel)
-                .orElseGet(() -> defaultConfig(fileType, remindLevel));
+                .findByTypeAndFileTypeAndLevelAndIsActiveTrue("quiz", fileType, quizLevel)
+                .orElseGet(() -> defaultConfig(fileType, quizLevel));
 
         if (Boolean.FALSE.equals(config.getIsActive())) {
-            return RemindResponseVo.fail("이 파일 유형은 리마인드 생성이 비활성화되어 있습니다.");
+            return QuizResponseVo.fail("이 파일 유형은 퀴즈 생성이 비활성화되어 있습니다.");
         }
 
         // CUSTOM count override
-        Integer maxCount  = req.getRemindCustomCount() != null && req.getRemindCustomCount() > 0
-                ? req.getRemindCustomCount() : config.getRemindMaxCount();
-        Integer maxGroup  = config.getRemindMaxGroup();
-        String typeFilter = config.getRemindTypeFilter();
+        Integer maxCount  = req.getQuizCustomCount() != null && req.getQuizCustomCount() > 0
+                ? req.getQuizCustomCount() : config.getQuizMaxCount();
+        Integer maxGroup  = config.getQuizMaxGroup();
+        String typeFilter = config.getQuizTypeFilter();
 
         // 프롬프트 플레이스홀더 치환
         String systemPrompt = applyPlaceholders(config.getPrompt(), outputLang, maxCount, maxGroup, typeFilter);
 
-        log.info("[RemindProcessService] 리마인드 생성 시작 - summaryResultId: {}, fileType: {}, level: {}, maxCount: {}, dbPrompt: {}",
-                req.getSummaryResultId(), fileType, remindLevel, maxCount, systemPrompt != null);
+        log.info("[QuizProcessService] 퀴즈 생성 시작 - summaryResultId: {}, fileType: {}, level: {}, maxCount: {}, dbPrompt: {}",
+                req.getSummaryResultId(), fileType, quizLevel, maxCount, systemPrompt != null);
 
         // 4) AI 호출
-        RemindResponseVo aiResp = remindService.generate(
+        QuizResponseVo aiResp = quizService.generate(
                 sourceText, fileType, outputLang, systemPrompt, maxCount, maxGroup, typeFilter);
         if (!aiResp.isSuccess()) {
-            log.error("[RemindProcessService] AI 리마인드 생성 실패: {}", aiResp.getError());
+            log.error("[QuizProcessService] AI 퀴즈 생성 실패: {}", aiResp.getError());
             return aiResp;
         }
 
-        // 5) 기존 remind 삭제 후 저장
-        remindResultRepository.deleteBySummaryResultId(req.getSummaryResultId());
-        saveRemindResults(req.getSummaryResultId(), aiResp.getReminds());
+        // 5) 기존 quiz 삭제 후 저장
+        quizResultRepository.deleteBySummaryResultId(req.getSummaryResultId());
+        saveQuizResults(req.getSummaryResultId(), aiResp.getQuizzes());
 
-        // 6) totalRemindCount 업데이트
-        summaryResult.setTotalRemindCount(aiResp.getTotalRemindCount());
+        // 6) totalQuizCount 업데이트
+        summaryResult.setTotalQuizCount(aiResp.getTotalQuizCount());
         summaryResultRepository.save(summaryResult);
 
-        log.info("[RemindProcessService] 리마인드 처리 완료 - summaryResultId: {}, count: {}",
-                req.getSummaryResultId(), aiResp.getTotalRemindCount());
+        log.info("[QuizProcessService] 퀴즈 처리 완료 - summaryResultId: {}, count: {}",
+                req.getSummaryResultId(), aiResp.getTotalQuizCount());
         return aiResp;
     }
 
-    public RemindResponseVo getRemind(Long summaryResultId) {
-        log.debug("[RemindProcessService] getRemind() - summaryResultId: {}", summaryResultId);
-        List<RemindResult> rows = remindResultRepository
+    public QuizResponseVo getQuiz(Long summaryResultId) {
+        log.debug("[QuizProcessService] getQuiz() - summaryResultId: {}", summaryResultId);
+        List<QuizResult> rows = quizResultRepository
                 .findBySummaryResultIdAndIsDeletedFalseOrderByGroupOrderAscSortOrderAsc(summaryResultId);
         if (rows.isEmpty()) return null;
 
         SummaryResult summaryResult = summaryResultRepository.findById(summaryResultId).orElse(null);
-        int total = summaryResult != null ? summaryResult.getTotalRemindCount() : rows.size();
+        int total = summaryResult != null ? summaryResult.getTotalQuizCount() : rows.size();
         return toResponseVo(rows, total);
     }
 
     // ── 내부: 저장 ───────────────────────────────────────────────────────────
 
-    private void saveRemindResults(Long summaryResultId, List<RemindGroup> groups) {
+    private void saveQuizResults(Long summaryResultId, List<QuizGroup> groups) {
         if (groups == null || groups.isEmpty()) {
-            log.debug("[RemindProcessService] 저장할 리마인드 항목 없음 - summaryResultId: {}", summaryResultId);
+            log.debug("[QuizProcessService] 저장할 퀴즈 항목 없음 - summaryResultId: {}", summaryResultId);
             return;
         }
-        List<RemindResult> rows = new ArrayList<>();
+        List<QuizResult> rows = new ArrayList<>();
         int groupOrder = 0;
-        for (RemindGroup group : groups) {
+        for (QuizGroup group : groups) {
             int sortOrder = 0;
-            for (RemindItem item : group.getItems()) {
-                RemindResult row = new RemindResult();
+            for (QuizItem item : group.getItems()) {
+                QuizResult row = new QuizResult();
                 row.setSummaryResultId(summaryResultId);
                 row.setGroupName(group.getGroupName());
                 row.setGroupOrder(groupOrder);
@@ -150,22 +150,22 @@ public class RemindProcessService {
             }
             groupOrder++;
         }
-        remindResultRepository.saveAll(rows);
-        log.info("[RemindProcessService] note_remind_result 저장 - {}행", rows.size());
+        quizResultRepository.saveAll(rows);
+        log.info("[QuizProcessService] note_quiz_result 저장 - {}행", rows.size());
     }
 
     // ── 내부: 변환 ───────────────────────────────────────────────────────────
 
-    private RemindResponseVo toResponseVo(List<RemindResult> rows, int total) {
-        List<RemindGroup> groups = new ArrayList<>();
-        RemindGroup currentGroup = null;
-        for (RemindResult row : rows) {
+    private QuizResponseVo toResponseVo(List<QuizResult> rows, int total) {
+        List<QuizGroup> groups = new ArrayList<>();
+        QuizGroup currentGroup = null;
+        for (QuizResult row : rows) {
             if (currentGroup == null || !currentGroup.getGroupName().equals(row.getGroupName())) {
-                currentGroup = new RemindGroup();
+                currentGroup = new QuizGroup();
                 currentGroup.setGroupName(row.getGroupName());
                 groups.add(currentGroup);
             }
-            RemindItem item = new RemindItem();
+            QuizItem item = new QuizItem();
             item.setType(row.getItemType());
             item.setContent(row.getItemContent());
             item.setAssignee(row.getAssignee());
@@ -175,8 +175,8 @@ public class RemindProcessService {
             }
             currentGroup.getItems().add(item);
         }
-        RemindResponseVo vo = RemindResponseVo.ok(groups);
-        vo.setTotalRemindCount(total);
+        QuizResponseVo vo = QuizResponseVo.ok(groups);
+        vo.setTotalQuizCount(total);
         return vo;
     }
 
@@ -199,15 +199,15 @@ public class RemindProcessService {
 
     // ── 내부: 기본값 ─────────────────────────────────────────────────────────
 
-    private PromptConfig defaultConfig(String fileType, int remindLevel) {
-        log.warn("[RemindProcessService] PromptConfig 없음 - fileType: {}, level: {} → 기본값 사용", fileType, remindLevel);
+    private PromptConfig defaultConfig(String fileType, int quizLevel) {
+        log.warn("[QuizProcessService] PromptConfig 없음 - fileType: {}, level: {} → 기본값 사용", fileType, quizLevel);
         PromptConfig c = new PromptConfig();
-        c.setType("remind");
+        c.setType("quiz");
         c.setFileType(fileType);
-        c.setLevel(remindLevel);
+        c.setLevel(quizLevel);
         c.setIsActive(true);
-        c.setRemindMaxCount(defaultMaxCount(remindLevel));
-        c.setRemindMaxGroup(3);
+        c.setQuizMaxCount(defaultMaxCount(quizLevel));
+        c.setQuizMaxGroup(3);
         return c;
     }
 

@@ -9,17 +9,17 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 
 /**
- * 요약/리마인드 통합 설정 테이블 (note_prompt_config).
+ * 요약/퀴즈 통합 설정 테이블 (note_prompt_config).
  *
- * note_summary_config + note_remind_config + 프롬프트 텍스트를 하나로 통합.
+ * note_summary_config + note_quiz_config + 프롬프트 텍스트를 하나로 통합.
  * type + file_type + level 조합으로 유일하게 식별.
  *
  * type=summary 행: ai_provider, ai_model, max_tokens 사용
- * type=remind  행: remind_max_count, remind_max_group, remind_type_filter 사용
+ * type=quiz  행: quiz_max_count, quiz_max_group, quiz_type_filter 사용
  *
  * 레벨(1~5):
  *   summary: 1=한줄 / 2=간단 / 3=일반 / 4=상세 / 5=전체
- *   remind : 1=핵심1개 / 2=간단3개 / 3=일반5개 / 4=상세10개 / 5=전체20개
+ *   quiz : 1=핵심1개 / 2=간단3개 / 3=일반5개 / 4=상세10개 / 5=전체20개
  */
 @Getter
 @Setter
@@ -45,14 +45,14 @@ public class PromptConfig extends BaseEntity implements Serializable {
 
     // ── 식별 키 ──────────────────────────────────────────────────────────────
     @Column(name = "type", nullable = false,
-            columnDefinition = "VARCHAR(20) NOT NULL COMMENT '유형 (summary|remind)'")
+            columnDefinition = "VARCHAR(20) NOT NULL COMMENT '유형 (summary|quiz)'")
     private String type;
 
     @Column(name = "file_type", nullable = false,
             columnDefinition = "VARCHAR(50) NOT NULL COMMENT '파일 유형 (text|youtube|audio|pdf 등)'")
     private String fileType;
 
-    /** summary_level 컬럼을 summary/remind 공통 level로 재사용 */
+    /** summary_level 컬럼을 summary/quiz 공통 level로 재사용 */
     @Column(name = "summary_level", nullable = false,
             columnDefinition = "TINYINT NOT NULL DEFAULT 3 COMMENT '수준 1~5'")
     private Integer level = 3;
@@ -70,7 +70,7 @@ public class PromptConfig extends BaseEntity implements Serializable {
      * 실제 프롬프트 내용.
      * 사용 가능한 플레이스홀더:
      *   공통  : {{OUTPUT_LANG}}
-     *   remind: {{MAX_COUNT}}, {{MAX_GROUP}}, {{TYPE_FILTER}}
+     *   quiz: {{MAX_COUNT}}, {{MAX_GROUP}}, {{TYPE_FILTER}}
      */
     @Lob
     @Column(name = "prompt",
@@ -90,18 +90,18 @@ public class PromptConfig extends BaseEntity implements Serializable {
             columnDefinition = "INT NULL COMMENT '최대 토큰 수 (NULL=서버 기본값) — summary 전용'")
     private Integer maxTokens;
 
-    // ── remind 전용 파라미터 ──────────────────────────────────────────────────
-    @Column(name = "remind_max_count",
-            columnDefinition = "INT NULL COMMENT '최대 세부항목 수 (NULL=무제한) — remind 전용'")
-    private Integer remindMaxCount;
+    // ── quiz 전용 파라미터 ──────────────────────────────────────────────────
+    @Column(name = "quiz_max_count",
+            columnDefinition = "INT NULL COMMENT '최대 세부항목 수 (NULL=무제한) — quiz 전용'")
+    private Integer quizMaxCount;
 
-    @Column(name = "remind_max_group",
-            columnDefinition = "INT NULL COMMENT '최대 그룹 수 (NULL=무제한) — remind 전용'")
-    private Integer remindMaxGroup;
+    @Column(name = "quiz_max_group",
+            columnDefinition = "INT NULL COMMENT '최대 그룹 수 (NULL=무제한) — quiz 전용'")
+    private Integer quizMaxGroup;
 
-    @Column(name = "remind_type_filter",
-            columnDefinition = "VARCHAR(500) NULL COMMENT '유형 필터, 콤마 구분 (NULL=전체) — remind 전용'")
-    private String remindTypeFilter;
+    @Column(name = "quiz_type_filter",
+            columnDefinition = "VARCHAR(500) NULL COMMENT '유형 필터, 콤마 구분 (NULL=전체) — quiz 전용'")
+    private String quizTypeFilter;
 
     // ── 공통 ─────────────────────────────────────────────────────────────────
     @Column(name = "is_active", nullable = false,

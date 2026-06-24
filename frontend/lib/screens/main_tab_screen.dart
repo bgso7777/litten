@@ -296,8 +296,8 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     );
   }
 
-  // 인사이트(요약+리마인드 통합) 탭 — 별표(반짝임) 요약 아이콘을 메인으로,
-  // 우상단에 작은 전구(아이디어/리마인드) 배지를 겹쳐 표현한다.
+  // 인사이트(요약+퀴즈 통합) 탭 — 별표(반짝임) 요약 아이콘을 메인으로,
+  // 우상단에 작은 전구(아이디어/퀴즈) 배지를 겹쳐 표현한다.
   // 색은 지정하지 않아 메인·배지 모두 BottomNavigationBar 상태색
   // (비선택 회색 / 선택 시 테마색)을 따른다.
   Widget _buildInsightIcon(bool isActive) {

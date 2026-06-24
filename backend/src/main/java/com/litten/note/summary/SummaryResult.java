@@ -10,14 +10,14 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 파일별 요약/리마인드 처리 결과 엔티티.
+ * 파일별 요약/퀴즈 처리 결과 엔티티.
  *
  * YouTube : is_shared=true, youtube_video_id 기준 1건 → 공통 사용
  * 개인 파일: is_shared=false, fileUuid + memberUuid 기준
  *
  * 처리 흐름:
  *   1) note_summary_config 에서 file_type 기준 파라미터 조회
- *   2) AI 요약/리마인드 생성
+ *   2) AI 요약/퀴즈 생성
  *   3) 이 테이블에 결과 저장
  *   4) YouTube 는 다음 요청부터 DB 조회로 반환 (재생성 없음)
  */
@@ -78,18 +78,18 @@ public class SummaryResult extends BaseEntity implements Serializable {
     // ── 요약 결과 ───────────────────────────────────────────────────
     @Lob
     @Column(name = "summary_full",
-            columnDefinition = "LONGTEXT NULL COMMENT 'AI 응답 전체 텍스트 (요약+리마인드)'")
+            columnDefinition = "LONGTEXT NULL COMMENT 'AI 응답 전체 텍스트 (요약+퀴즈)'")
     private String summaryFull;
 
     @Lob
     @Column(name = "summary_only",
-            columnDefinition = "LONGTEXT NULL COMMENT '순수 요약 텍스트 (리마인드 구분선 이전)'")
+            columnDefinition = "LONGTEXT NULL COMMENT '순수 요약 텍스트 (퀴즈 구분선 이전)'")
     private String summaryOnly;
 
-    // ── 리마인드 집계 (상세는 note_remind_result 별도 테이블) ───────
-    @Column(name = "total_remind_count", nullable = false,
-            columnDefinition = "INT NOT NULL DEFAULT 0 COMMENT '리마인드 총 세부항목 수 (빠른 조회용)'")
-    private Integer totalRemindCount = 0;
+    // ── 퀴즈 집계 (상세는 note_quiz_result 별도 테이블) ───────
+    @Column(name = "total_quiz_count", nullable = false,
+            columnDefinition = "INT NOT NULL DEFAULT 0 COMMENT '퀴즈 총 세부항목 수 (빠른 조회용)'")
+    private Integer totalQuizCount = 0;
 
     // ── 처리 상태 ───────────────────────────────────────────────────
     @Column(name = "status", nullable = false,

@@ -68,9 +68,9 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
   bool _autoMemo = false;
   bool _autoSummary = false;
   String _summaryType = SummaryTypes.defaultValue;
-  bool _autoRemind = false;
-  String _remindType = RemindTypes.defaultValue;
-  final _remindCustomCtrl = TextEditingController(text: '7');
+  bool _autoQuiz = false;
+  String _quizType = QuizTypes.defaultValue;
+  final _quizCustomCtrl = TextEditingController(text: '7');
 
   @override
   void initState() {
@@ -84,7 +84,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
     _channelIdCtrl.removeListener(_onIdChanged);
     _channelIdCtrl.dispose();
     _focusNode.dispose();
-    _remindCustomCtrl.dispose();
+    _quizCustomCtrl.dispose();
     super.dispose();
   }
 
@@ -267,7 +267,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       debugPrint('[_YoutubeChannelSheet] _subscribe(local) - channelId: $channelId');
       setState(() => _subscribing = true);
       // 비로그인 게스트도 서버에 채널을 등록한다 (device-uuid 헤더 인증 → 백엔드 스케줄러가 영상 수집).
-      // 자동 요약/리마인드는 프리미엄 전용이므로 false로 강제한다.
+      // 자동 요약/퀴즈는 프리미엄 전용이므로 false로 강제한다.
       final serverChannel = await _apiService.subscribeYoutubeChannel(
         channelId: channelId,
         channelName: channelName,
@@ -275,7 +275,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
         autoTitle: true,
         autoMemo: false,
         autoSummary: false,
-        autoRemind: false,
+        autoQuiz: false,
       );
       debugPrint('[_YoutubeChannelSheet] _subscribe(local) - 서버 등록 결과 PK: ${serverChannel?.id}');
       // 서버 PK가 있으면 그대로 로컬에 저장(해제 시 unsubscribe 가능). 서버 실패 시 로컬 합성 ID로 폴백.
@@ -313,13 +313,13 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       return;
     }
 
-    final remindCustomCount = _remindType == RemindTypes.custom
-        ? int.tryParse(_remindCustomCtrl.text.trim())
+    final quizCustomCount = _quizType == QuizTypes.custom
+        ? int.tryParse(_quizCustomCtrl.text.trim())
         : null;
-    if (_autoRemind && _remindType == RemindTypes.custom &&
-        (remindCustomCount == null || remindCustomCount <= 0)) {
+    if (_autoQuiz && _quizType == QuizTypes.custom &&
+        (quizCustomCount == null || quizCustomCount <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('리마인드 개수를 1 이상의 숫자로 입력해 주세요.')),
+        const SnackBar(content: Text('퀴즈 개수를 1 이상의 숫자로 입력해 주세요.')),
       );
       return;
     }
@@ -334,9 +334,9 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       autoMemo: _autoMemo,
       autoSummary: _autoSummary,
       summaryType: _autoSummary ? _summaryType : null,
-      autoRemind: _autoRemind,
-      remindType: _autoRemind ? _remindType : null,
-      remindCustomCount: remindCustomCount,
+      autoQuiz: _autoQuiz,
+      quizType: _autoQuiz ? _quizType : null,
+      quizCustomCount: quizCustomCount,
     );
     debugPrint('[_YoutubeChannelSheet] 구독 결과: ${result?.channelId}');
     if (mounted) {
@@ -353,8 +353,8 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
           _autoMemo = false;
           _autoSummary = false;
           _summaryType = SummaryTypes.defaultValue;
-          _autoRemind = false;
-          _remindType = RemindTypes.defaultValue;
+          _autoQuiz = false;
+          _quizType = QuizTypes.defaultValue;
         }
       });
       if (result != null) {
@@ -462,8 +462,8 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                       ),
                       child: Text(
                         limit == -1
-                            ? '로그인 없이 채널을 등록할 수 있어요.\n자동 요약·리마인드는 로그인 후 사용 가능합니다.'
-                            : '로그인 없이 채널 $limit개를 등록할 수 있어요.\n자동 요약·리마인드는 로그인 후 사용 가능합니다.',
+                            ? '로그인 없이 채널을 등록할 수 있어요.\n자동 요약·퀴즈는 로그인 후 사용 가능합니다.'
+                            : '로그인 없이 채널 $limit개를 등록할 수 있어요.\n자동 요약·퀴즈는 로그인 후 사용 가능합니다.',
                         style: TextStyle(fontSize: 12, color: color, height: 1.4),
                       ),
                     ),
@@ -622,22 +622,22 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                       ),
                     _OptionCheckbox(
                       icon: Icons.notifications_none,
-                      label: '리마인드',
-                      description: '요약 내용을 리마인드 항목으로 등록',
-                      value: _autoRemind,
-                      onChanged: (v) => setState(() => _autoRemind = v),
+                      label: '퀴즈',
+                      description: '요약 내용을 퀴즈 항목으로 등록',
+                      value: _autoQuiz,
+                      onChanged: (v) => setState(() => _autoQuiz = v),
                     ),
-                    if (_autoRemind)
+                    if (_autoQuiz)
                       _ExpandedRadioOptions(
-                        values: RemindTypes.values,
-                        selected: _remindType,
-                        labelOf: (t) => RemindTypes.label(t),
-                        onChanged: (v) => setState(() => _remindType = v),
-                        trailingFor: (v) => v == RemindTypes.custom
+                        values: QuizTypes.values,
+                        selected: _quizType,
+                        labelOf: (t) => QuizTypes.label(t),
+                        onChanged: (v) => setState(() => _quizType = v),
+                        trailingFor: (v) => v == QuizTypes.custom
                             ? SizedBox(
                                 width: 64,
                                 child: TextField(
-                                  controller: _remindCustomCtrl,
+                                  controller: _quizCustomCtrl,
                                   keyboardType: TextInputType.number,
                                   textAlign: TextAlign.center,
                                   decoration: const InputDecoration(
@@ -730,7 +730,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
   Future<void> _toggleChannelOption(YoutubeChannel ch, String option) async {
     if (widget.token == null) return;
     debugPrint('[_YoutubeChannelSheet] _toggleChannelOption - channelPk: ${ch.id}, option: $option');
-    // 요약/리마인드: type 선택 시트
+    // 요약/퀴즈: type 선택 시트
     if (option == 'summary') {
       await showSummarySettingSheet(
         context,
@@ -744,8 +744,8 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
       );
       return;
     }
-    if (option == 'remind') {
-      await showRemindSettingSheet(
+    if (option == 'quiz') {
+      await showQuizSettingSheet(
         context,
         token: widget.token!,
         channel: ch,
@@ -848,7 +848,7 @@ class _YoutubeChannelSheetState extends State<_YoutubeChannelSheet> {
                 YoutubeToggleChip(label: '제목',   color: Colors.teal,   active: ch.autoTitle,   onTap: () => _toggleChannelOption(ch, 'title')),
                 YoutubeToggleChip(label: '메모',   color: Colors.indigo, active: ch.autoMemo,    onTap: () => _toggleChannelOption(ch, 'memo')),
                 YoutubeToggleChip(label: '요약',   color: Colors.blue,   active: ch.autoSummary, onTap: () => _toggleChannelOption(ch, 'summary')),
-                YoutubeToggleChip(label: '리마인드', color: Colors.orange, active: ch.autoRemind,  onTap: () => _toggleChannelOption(ch, 'remind')),
+                YoutubeToggleChip(label: '퀴즈', color: Colors.orange, active: ch.autoQuiz,  onTap: () => _toggleChannelOption(ch, 'quiz')),
               ],
             ),
           ],
@@ -1179,7 +1179,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
 
   Future<void> _toggleChannelOption(YoutubeChannel ch, String option) async {
     if (_token == null) return;
-    // 요약/리마인드는 type 선택이 필요하므로 시트로 분기
+    // 요약/퀴즈는 type 선택이 필요하므로 시트로 분기
     if (option == 'summary') {
       await showSummarySettingSheet(
         context,
@@ -1193,8 +1193,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
       );
       return;
     }
-    if (option == 'remind') {
-      await showRemindSettingSheet(
+    if (option == 'quiz') {
+      await showQuizSettingSheet(
         context,
         token: _token!,
         channel: ch,
@@ -1644,8 +1644,8 @@ Future<bool> showSummarySettingSheet(
   return result ?? false;
 }
 
-/// 구독 채널의 리마인드 설정 변경 시트 (auto + remindType + CUSTOM 시 N).
-Future<bool> showRemindSettingSheet(
+/// 구독 채널의 퀴즈 설정 변경 시트 (auto + quizType + CUSTOM 시 N).
+Future<bool> showQuizSettingSheet(
   BuildContext context, {
   required String token,
   required YoutubeChannel channel,
@@ -1658,7 +1658,7 @@ Future<bool> showRemindSettingSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (_) => _RemindSettingSheet(
+    builder: (_) => _QuizSettingSheet(
       token: token, channel: channel, apiService: apiService, onUpdated: onUpdated,
     ),
   );
@@ -1726,23 +1726,23 @@ class _SummarySettingSheetState extends State<_SummarySettingSheet> {
   }
 }
 
-class _RemindSettingSheet extends StatefulWidget {
+class _QuizSettingSheet extends StatefulWidget {
   final String token;
   final YoutubeChannel channel;
   final ApiService apiService;
   final void Function(YoutubeChannel updated) onUpdated;
-  const _RemindSettingSheet({
+  const _QuizSettingSheet({
     required this.token, required this.channel, required this.apiService, required this.onUpdated,
   });
   @override
-  State<_RemindSettingSheet> createState() => _RemindSettingSheetState();
+  State<_QuizSettingSheet> createState() => _QuizSettingSheetState();
 }
 
-class _RemindSettingSheetState extends State<_RemindSettingSheet> {
-  late bool _enabled = widget.channel.autoRemind;
-  late String _type = widget.channel.remindType ?? RemindTypes.defaultValue;
+class _QuizSettingSheetState extends State<_QuizSettingSheet> {
+  late bool _enabled = widget.channel.autoQuiz;
+  late String _type = widget.channel.quizType ?? QuizTypes.defaultValue;
   late final TextEditingController _customCtrl = TextEditingController(
-    text: (widget.channel.remindCustomCount ?? 7).toString(),
+    text: (widget.channel.quizCustomCount ?? 7).toString(),
   );
   bool _saving = false;
 
@@ -1754,11 +1754,11 @@ class _RemindSettingSheetState extends State<_RemindSettingSheet> {
 
   Future<void> _save() async {
     int? customCount;
-    if (_enabled && _type == RemindTypes.custom) {
+    if (_enabled && _type == QuizTypes.custom) {
       customCount = int.tryParse(_customCtrl.text.trim());
       if (customCount == null || customCount <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('리마인드 개수를 1 이상의 숫자로 입력해 주세요.')),
+          const SnackBar(content: Text('퀴즈 개수를 1 이상의 숫자로 입력해 주세요.')),
         );
         return;
       }
@@ -1767,20 +1767,20 @@ class _RemindSettingSheetState extends State<_RemindSettingSheet> {
     final ok = await widget.apiService.updateYoutubeChannelSettings(
       token: widget.token,
       channelPk: widget.channel.id,
-      autoRemind: _enabled,
-      remindType: _enabled ? _type : null,
-      clearRemindType: !_enabled,
-      remindCustomCount: customCount,
-      clearRemindCustomCount: !_enabled || _type != RemindTypes.custom,
+      autoQuiz: _enabled,
+      quizType: _enabled ? _type : null,
+      clearQuizType: !_enabled,
+      quizCustomCount: customCount,
+      clearQuizCustomCount: !_enabled || _type != QuizTypes.custom,
     );
     if (!mounted) return;
     if (ok) {
       widget.onUpdated(widget.channel.copyWith(
-        autoRemind: _enabled,
-        remindType: _enabled ? _type : null,
-        clearRemindType: !_enabled,
-        remindCustomCount: customCount,
-        clearRemindCustomCount: !_enabled || _type != RemindTypes.custom,
+        autoQuiz: _enabled,
+        quizType: _enabled ? _type : null,
+        clearQuizType: !_enabled,
+        quizCustomCount: customCount,
+        clearQuizCustomCount: !_enabled || _type != QuizTypes.custom,
       ));
       Navigator.of(context).pop(true);
     } else {
@@ -1795,17 +1795,17 @@ class _RemindSettingSheetState extends State<_RemindSettingSheet> {
   Widget build(BuildContext context) {
     return _SettingSheetScaffold(
       icon: Icons.notifications_none,
-      title: '리마인드 설정',
+      title: '퀴즈 설정',
       enabled: _enabled,
       onToggle: (v) => setState(() => _enabled = v),
       saving: _saving,
       onSave: _save,
       child: _ExpandedRadioOptions(
-        values: RemindTypes.values,
+        values: QuizTypes.values,
         selected: _type,
-        labelOf: (t) => RemindTypes.label(t),
+        labelOf: (t) => QuizTypes.label(t),
         onChanged: (v) => setState(() => _type = v),
-        trailingFor: (v) => v == RemindTypes.custom
+        trailingFor: (v) => v == QuizTypes.custom
             ? SizedBox(
                 width: 64,
                 child: TextField(

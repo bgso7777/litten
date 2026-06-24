@@ -908,11 +908,11 @@ class AppLocalizationsTa extends AppLocalizations {
   String get noteOption => 'Note';
 
   @override
-  String get reminderLabel => 'Reminder';
+  String get quizLabel => 'Quiz';
 
   @override
-  String reminderCount(int count) {
-    return 'Reminder $count';
+  String quizCount(int count) {
+    return 'Quiz $count';
   }
 
   @override
@@ -1011,8 +1011,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get fileNameHint => 'File name';
 
   @override
-  String get noRemindItems =>
-      'Extract from summaries\nand they\'ll appear here';
+  String get noQuizItems => 'Extract from summaries\nand they\'ll appear here';
 
   @override
   String cloudSyncPlanChanged(String plan) {
@@ -1241,8 +1240,8 @@ class AppLocalizationsTa extends AppLocalizations {
   String get summaryAdded => 'Summary added to file.';
 
   @override
-  String summaryAddedWithRemind(int count) {
-    return 'Summary added. $count remind(s) created.';
+  String summaryAddedWithQuiz(int count) {
+    return 'Summary added. $count quiz(s) created.';
   }
 
   @override
