@@ -351,6 +351,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Litten? get operationLockedLitten => _operationLockedLitten;
   int get selectedTabIndex => _selectedTabIndex;
   String? get targetWritingTabId => _targetWritingTabId;
+
+  // 칩 바(캘린더 하단 일정 칩 / 노트 액션 칩)의 가로 스크롤을 처음으로 되돌리기 위한 토큰.
+  // 캘린더·노트(+) 탭을 누를 때 증가시키면, 각 칩 바가 이 값 변화를 보고 스크롤을 0으로 리셋한다.
+  int _chipScrollResetToken = 0;
+  int get chipScrollResetToken => _chipScrollResetToken;
+  void requestChipScrollReset() {
+    _chipScrollResetToken++;
+    notifyListeners();
+  }
   int get homeBottomTabIndex => _homeBottomTabIndex;
   SubscriptionType get subscriptionType => _subscriptionType;
   bool get isPremiumUser => _subscriptionType != SubscriptionType.free;

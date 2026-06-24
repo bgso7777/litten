@@ -208,6 +208,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
 
     _logCurrentPlaybackState();
 
+    // 캘린더·노트(+) 탭을 누르면 칩 바 가로 스크롤을 처음으로 되돌린다(스크롤 위치 유지로 정리 안 되는 문제 해결).
+    if (index == _createTab || index == _calendarTab) {
+      appState.requestChipScrollReset();
+    }
+
     // ⭐ 가운데 +(노트) 탭 → 노트로 전환만. 파일 생성은 노트 안의 + 버튼으로.
     if (index == _createTab) {
       appState.syncNoteTab(); // 노트 진입 시 클라우드 동기화

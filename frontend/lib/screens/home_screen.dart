@@ -46,6 +46,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   Map<String, Set<String>> _notificationDateCache = {}; // 날짜별 알림이 있는 리튼 ID Set (YYYY-MM-DD -> Set<littenId>)
   Set<String> _collapsedLittenIds = {}; // 숨겨진 리튼 ID Set
   late ValueNotifier<DateTime> _calendarFocusedDate; // 캘린더 focusedDate (스크롤 위치 유지용)
+  final ScrollController _hintChipScrollController = ScrollController(); // 하단 일정 칩 가로 스크롤
+  int _lastChipResetToken = 0; // 마지막으로 처리한 칩 스크롤 리셋 토큰
   bool _scheduleListVisible = false; // 일정 리스트 표시 여부 (false: 캘린더 전체화면, true: 50/50 분할)
   double? _pointerDownY;           // 터치 시작 Y 좌표 (글로벌 - 이동 거리 계산용)
   double? _pointerDownX;           // 터치 시작 X 좌표 (글로벌 - 이동 거리 계산용)
@@ -76,6 +78,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     }
 
     _scrollController.dispose();
+    _hintChipScrollController.dispose();
     _calendarFocusedDate.dispose();
     super.dispose();
   }
@@ -2293,6 +2296,16 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final upcoming = _getUpcomingSchedules(appState.littens, languageCode);
     final color = Theme.of(context).primaryColor;
 
+    // 캘린더 탭을 (재)진입하면 토큰이 증가 → 칩 가로 스크롤을 처음으로 되돌린다.
+    if (appState.chipScrollResetToken != _lastChipResetToken) {
+      _lastChipResetToken = appState.chipScrollResetToken;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_hintChipScrollController.hasClients) {
+          _hintChipScrollController.jumpTo(0);
+        }
+      });
+    }
+
     // 칩 탭 / 위로 스와이프 → 일정 목록 펼침 토글 (기존 단일 칩 동작 유지)
     void toggleList() {
       debugPrint('📅 [HomeScreen] 힌트 칩 탭 → 일정 목록 토글 (현재: $_scheduleListVisible)');
@@ -2340,8 +2353,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           color: color.withValues(alpha: 0.08),
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        // 바(칩 영역) 자체 높이를 약간 키움 (세로 패딩 4 → 7)
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: SingleChildScrollView(
+          controller: _hintChipScrollController,
           scrollDirection: Axis.horizontal,
           child: Row(children: chips),
         ),
@@ -2367,8 +2382,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 세로 패딩(7)으로 칩 높이를 아주 약간 키움 (노트 액션 칩과 동일)
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            // 개별 칩(알약) 자체 높이를 더 줄여(5→3) 바 안에서 영역 구분이 잘 되게 함
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: color.withValues(alpha: 0.2), width: 1),

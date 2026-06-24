@@ -3283,7 +3283,7 @@ class _BottomFabRowState extends State<_BottomFabRow> {
 /// 메인메뉴 바로 위에 항상 표시되는 "생성 칩 행"(가로 스크롤).
 /// 기존 스피드다이얼(_BottomFabRow)의 항목/순서/표시조건(fabVis)을 그대로 따르되,
 /// 2단계 펼침 없이 칩 한 번 탭으로 즉시 생성한다. 스타일은 캘린더 힌트칩과 통일.
-class _CreateChipBar extends StatelessWidget {
+class _CreateChipBar extends StatefulWidget {
   final VoidCallback onText;
   final VoidCallback onTextWithSTT;
   final VoidCallback onFiles;
@@ -3307,6 +3307,20 @@ class _CreateChipBar extends StatelessWidget {
     this.isRecording = false,
     this.recordingDuration = Duration.zero,
   });
+
+  @override
+  State<_CreateChipBar> createState() => _CreateChipBarState();
+}
+
+class _CreateChipBarState extends State<_CreateChipBar> {
+  final ScrollController _scrollController = ScrollController(); // 액션 칩 가로 스크롤
+  int _lastChipResetToken = 0; // 마지막으로 처리한 칩 스크롤 리셋 토큰
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   String _formatDuration(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -3332,8 +3346,8 @@ class _CreateChipBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 칩 높이를 약간 줄여(7→5) 영역 구분이 더 잘 되게 함 (캘린더 칩과 동일)
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            // 개별 칩(알약) 자체 높이를 더 줄여(5→3) 바 안에서 영역 구분이 잘 되게 함
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
@@ -3364,52 +3378,63 @@ class _CreateChipBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
     final l10n = AppLocalizations.of(context);
-    final fabVis = Provider.of<AppStateProvider>(context).allTabFabVisibility;
+    final appState = Provider.of<AppStateProvider>(context);
+    final fabVis = appState.allTabFabVisibility;
+
+    // 노트(+) 탭을 (재)진입하면 토큰이 증가 → 칩 가로 스크롤을 처음으로 되돌린다.
+    if (appState.chipScrollResetToken != _lastChipResetToken) {
+      _lastChipResetToken = appState.chipScrollResetToken;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
+    }
 
     final chips = <Widget>[];
     // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 사진 → 비디오 → 영상 채널 → 파일
     if (fabVis.contains('text')) {
       chips.add(_chip(context,
-          icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: onText));
+          icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: widget.onText));
     }
     if (fabVis.contains('canvas')) {
       chips.add(_chip(context,
-          icon: Icons.draw, label: l10n?.handwritingTab ?? '필기', color: color, onTap: onCanvas));
+          icon: Icons.draw, label: l10n?.handwritingTab ?? '필기', color: color, onTap: widget.onCanvas));
     }
     if (fabVis.contains('audio')) {
       chips.add(_chip(context,
-          icon: isRecording ? Icons.stop : Icons.mic,
-          label: isRecording
-              ? (l10n?.recordingStatus(_formatDuration(recordingDuration)) ??
-                  '녹음중... ${_formatDuration(recordingDuration)}')
+          icon: widget.isRecording ? Icons.stop : Icons.mic,
+          label: widget.isRecording
+              ? (l10n?.recordingStatus(_formatDuration(widget.recordingDuration)) ??
+                  '녹음중... ${_formatDuration(widget.recordingDuration)}')
               : (l10n?.audioTab ?? '녹음'),
           color: color,
-          onTap: onAudio,
-          active: isRecording));
+          onTap: widget.onAudio,
+          active: widget.isRecording));
     }
     if (fabVis.contains('stt')) {
       chips.add(_chip(context,
           icon: Icons.record_voice_over,
           label: l10n?.voiceMemoLabel ?? '녹음 메모',
           color: color,
-          onTap: onTextWithSTT));
+          onTap: widget.onTextWithSTT));
     }
     // 사진 / 비디오 — 첨부파일로 저장된다.
-    if (onPhoto != null) {
+    if (widget.onPhoto != null) {
       chips.add(_chip(context,
-          icon: Icons.photo_camera, label: '사진', color: color, onTap: onPhoto!));
+          icon: Icons.photo_camera, label: '사진', color: color, onTap: widget.onPhoto!));
     }
-    if (onVideo != null) {
+    if (widget.onVideo != null) {
       chips.add(_chip(context,
-          icon: Icons.videocam, label: '비디오', color: color, onTap: onVideo!));
+          icon: Icons.videocam, label: '비디오', color: color, onTap: widget.onVideo!));
     }
-    if (fabVis.contains('youtube') && onYoutube != null) {
+    if (fabVis.contains('youtube') && widget.onYoutube != null) {
       chips.add(_chip(context,
-          icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: onYoutube!));
+          icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: widget.onYoutube!));
     }
     if (fabVis.contains('files')) {
       chips.add(_chip(context,
-          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: onFiles));
+          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: widget.onFiles));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -3421,8 +3446,10 @@ class _CreateChipBar extends StatelessWidget {
         color: color.withValues(alpha: 0.08),
         border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      // 바(칩 영역) 자체 높이를 약간 키움 (세로 패딩 4 → 7)
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       child: SingleChildScrollView(
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
         child: Row(children: chips),
       ),
