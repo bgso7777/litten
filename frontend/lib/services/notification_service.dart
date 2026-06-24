@@ -612,12 +612,42 @@ class NotificationService extends ChangeNotifier {
       // 저장소에서 모든 알림 가져오기
       final allStoredNotifications = await _orchestrator.getAllNotifications();
 
-      // 향후 30일 이내의 알림만 OS에 등록
-      final upcomingNotifications = allStoredNotifications
-          .where((n) => n.triggerTime.isAfter(now) && n.triggerTime.isBefore(thirtyDaysLater))
+      // 미래 알림만 (이미 지난 알림 제외)
+      final futureNotifications = allStoredNotifications
+          .where((n) => n.triggerTime.isAfter(now))
+          .toList()
+        ..sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+
+      // 1) 향후 30일 이내 알림 (매일/매주/매월 등 단기 주기)
+      final upcomingNotifications = futureNotifications
+          .where((n) => n.triggerTime.isBefore(thirtyDaysLater))
           .toList();
 
-      debugPrint('   ℹ️ 향후 30일 이내 알림: ${upcomingNotifications.length}개');
+      // 2) ⭐ 30일을 벗어나도 각 (리튼·빈도·타이밍) 그룹의 가장 가까운 미래 1건은 보장
+      //    매년(yearly)/매월(monthly)의 다음 발생일이 30일 밖이라 OS에 등록되지 않아
+      //    앱이 닫혀 있으면 알림이 울리지 않던 버그 수정
+      String groupKey(StoredNotification n) =>
+          '${n.littenId}_${n.rule.frequency.value}_${n.rule.timing.minutesOffset}';
+
+      final coveredGroups = upcomingNotifications.map(groupKey).toSet();
+      for (final n in futureNotifications) {
+        if (n.triggerTime.isBefore(thirtyDaysLater)) continue; // 이미 1)에 포함
+        final key = groupKey(n);
+        if (coveredGroups.contains(key)) continue; // 이미 더 가까운 발생일이 등록됨
+        coveredGroups.add(key);
+        upcomingNotifications.add(n);
+        debugPrint('   📌 장기 주기 다음 발생 보장 등록: ${n.rule.frequency.label} ${DateFormat('yyyy-MM-dd HH:mm').format(n.triggerTime)}');
+      }
+
+      // 3) iOS 미확인 알림(pending) 한도(64개) 보호: 가까운 순으로 최대 60개만 등록
+      upcomingNotifications.sort((a, b) => a.triggerTime.compareTo(b.triggerTime));
+      const maxNativeNotifications = 60;
+      if (upcomingNotifications.length > maxNativeNotifications) {
+        debugPrint('   ⚠️ OS 등록 한도 초과: ${upcomingNotifications.length}개 → $maxNativeNotifications개로 제한');
+        upcomingNotifications.removeRange(maxNativeNotifications, upcomingNotifications.length);
+      }
+
+      debugPrint('   ℹ️ OS 네이티브 등록 대상: ${upcomingNotifications.length}개');
 
       for (int i = 0; i < upcomingNotifications.length; i++) {
         final stored = upcomingNotifications[i];

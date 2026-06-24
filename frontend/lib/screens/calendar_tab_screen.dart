@@ -60,12 +60,14 @@ class _CalendarTabScreenState extends State<CalendarTabScreen> {
                       child: Icon(Icons.chevron_left),
                     ),
                   ),
-                  const SizedBox(width: 40),
+                  const SizedBox(width: 80),
                   Text(
                     DateFormat.yMMMM(appState.locale.languageCode)
                         .format(appState.focusedDate),
+                    // 캘린더 탭 제목(년월)만 키움 (부모 DefaultTextStyle 13 → 15)
+                    style: const TextStyle(fontSize: 15),
                   ),
-                  const SizedBox(width: 40),
+                  const SizedBox(width: 80),
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () {

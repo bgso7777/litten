@@ -1553,6 +1553,53 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       }
     }
 
+    // 매월/매년 반복 일정의 발생일도 캘린더에 단일일 바로 추가.
+    // 매주(위)와 달리 등록월/년 이후의 달·해에는 기존엔 아무 바도 안 그려져
+    // "2027년에 매년 일정이 안 보이는" 문제가 있었다. 여기서 보강한다.
+    // (등록 연/월은 위 base 블록이 이미 그렸으므로 중복 방지를 위해 제외)
+    for (final litten in appState.littens) {
+      if (litten.title == 'undefined' || litten.schedule == null) continue;
+      final schedule = litten.schedule!;
+
+      final hasMonthly = schedule.notificationRules.any(
+          (r) => r.isEnabled && r.frequency == NotificationFrequency.monthly);
+      final hasYearly = schedule.notificationRules.any(
+          (r) => r.isEnabled && r.frequency == NotificationFrequency.yearly);
+      if (!hasMonthly && !hasYearly) continue;
+
+      final base =
+          DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      final baseMonthFirst = DateTime(base.year, base.month, 1);
+
+      // 매년: 등록월과 같은 월 + 등록 연도 이후
+      if (hasYearly && focusedMonth == base.month && focusedYear > base.year) {
+        final occ = DateTime(focusedYear, focusedMonth, base.day);
+        if (occ.month == focusedMonth) {
+          // 2/29 등 해당 날짜가 없는 해는 건너뜀 (DateTime 롤오버 방지)
+          schedules.add({
+            'title': litten.title,
+            'startDate': occ,
+            'endDate': occ,
+          });
+          debugPrint('📅 매년 반복 일정 바 추가: ${litten.title}, $occ');
+        }
+      }
+
+      // 매월: 등록월 이후의 모든 달
+      if (hasMonthly && firstDayOfFocusedMonth.isAfter(baseMonthFirst)) {
+        final occ = DateTime(focusedYear, focusedMonth, base.day);
+        if (occ.month == focusedMonth) {
+          // 31일 등 해당 날짜가 없는 달은 건너뜀 (DateTime 롤오버 방지)
+          schedules.add({
+            'title': litten.title,
+            'startDate': occ,
+            'endDate': occ,
+          });
+          debugPrint('📅 매월 반복 일정 바 추가: ${litten.title}, $occ');
+        }
+      }
+    }
+
     debugPrint('📅 총 ${schedules.length}개 일정 표시');
 
     if (schedules.isEmpty) {
@@ -1844,7 +1891,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               }
                             },
                             onPageChanged: (focusedDay) {
+                              // 좌우 스와이프로 월 이동 시: 로컬 + 전역 모두 갱신
+                              // 전역 focusedDate를 함께 갱신해야 상단 탭 제목(년월)이 따라온다.
+                              // _calendarFocusedDate를 먼저 같은 값으로 세팅하므로
+                              // _syncCalendarFocusedDate는 no-op → 캘린더 재점프/루프 없음.
                               _calendarFocusedDate.value = focusedDay;
+                              currentAppState.changeFocusedDate(focusedDay);
                             },
                             calendarFormat: CalendarFormat.month,
                             availableCalendarFormats: const {
