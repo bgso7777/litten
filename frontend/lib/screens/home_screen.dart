@@ -2359,8 +2359,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        // + 칩(노트 액션 버튼)과 동일하게 짙은 테마색 바탕 + 흰색 아이콘/글씨.
-        color: color,
+        // "전체 0" 탭 버튼 기반 3색 구성(바탕은 약간 더 진하게):
+        //   바탕 primaryColor alpha 0.15 / 테두리 alpha 0.2 / 아이콘·글씨 primaryColor.
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -2370,21 +2371,21 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color, width: 1),
+              border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 16, color: Colors.white),
+                  Icon(icon, size: 16, color: color),
                   const SizedBox(width: 6),
                 ],
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: color,
                   ),
                 ),
               ],

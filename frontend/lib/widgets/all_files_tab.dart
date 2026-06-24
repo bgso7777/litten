@@ -3323,30 +3323,33 @@ class _CreateChipBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        // + 버튼과 동일하게 짙은 테마색 바탕 + 흰색 아이콘/글씨.
-        color: color,
+        // "전체 0" 탭 버튼 기반 3색 구성(바탕은 약간 더 진하게):
+        //   바탕 primaryColor alpha 0.15 / 테두리 alpha 0.2 / 아이콘·글씨 primaryColor.
+        //   (녹음 중일 때만 짙은 바탕 + 흰색으로 강조)
+        color: active ? color : color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            // 캘린더 힌트칩과 동일한 세로 패딩(7)으로 높이를 맞춘다. (항목이 많을 때 구분 ↑)
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            // 칩 높이를 약간 줄여(7→5) 영역 구분이 더 잘 되게 함 (캘린더 칩과 동일)
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color, width: 1),
+              border: Border.all(
+                  color: color.withValues(alpha: active ? 1.0 : 0.2), width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: Colors.white),
+                Icon(icon, size: 16, color: active ? Colors.white : color),
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: active ? Colors.white : color,
                   ),
                 ),
               ],
