@@ -3422,12 +3422,12 @@ class _CreateChipBarState extends State<_CreateChipBar> {
           color: color,
           onTap: widget.onTextWithSTT));
     }
-    // 사진 / 비디오 — 첨부파일로 저장된다.
-    if (widget.onPhoto != null) {
+    // 사진 / 비디오 — 첨부파일로 저장된다. (설정 '전체탭 빠른 추가 표시'로 on/off)
+    if (fabVis.contains('photo') && widget.onPhoto != null) {
       chips.add(_chip(context,
           icon: Icons.photo_camera, label: '사진', color: color, onTap: widget.onPhoto!));
     }
-    if (widget.onVideo != null) {
+    if (fabVis.contains('video') && widget.onVideo != null) {
       chips.add(_chip(context,
           icon: Icons.videocam, label: '비디오', color: color, onTap: widget.onVideo!));
     }
@@ -3628,17 +3628,17 @@ class AllFilesTabButton extends StatelessWidget {
         final memoCount = (textCount - sttTextCount).clamp(0, 1 << 31);
         final recordingCount = (audioCount - sttAudioCount).clamp(0, 1 << 31);
         final sttCount = sttTextCount + sttAudioCount;
-        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 녹음 → 녹음메모 → 필기(캔버스+PDF) → 파일 → 사진 → 비디오 → 영상채널
+        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 필기(+PDF) → 녹음 → 녹음메모 → 사진 → 비디오 → 영상채널 → 파일
         maybeAdd('text', Icons.notes, memoCount);
-        maybeAdd('audio', Icons.mic, recordingCount);
-        maybeAdd('stt', Icons.record_voice_over, sttCount);
         maybeAdd('canvas', Icons.draw, canvasCount);
         addIfPositive('pdf', Icons.picture_as_pdf, pdfCount);
-        maybeAdd('files', Icons.description, otherFiles);
+        maybeAdd('audio', Icons.mic, recordingCount);
+        maybeAdd('stt', Icons.record_voice_over, sttCount);
         addIfPositive('photo', Icons.photo_camera, photoCount);
         addIfPositive('video', Icons.videocam, videoCount);
-        // 영상 채널(구독) — 채널이 1개 이상일 때 표시 (생성 칩 순서와 동일하게 맨 뒤)
+        // 영상 채널(구독) — 채널이 1개 이상일 때 표시
         addIfPositive('youtube', Icons.subscriptions, appState.actualYoutubeChannelCount);
+        maybeAdd('files', Icons.description, otherFiles);
 
         return Row(
           mainAxisSize: MainAxisSize.min,

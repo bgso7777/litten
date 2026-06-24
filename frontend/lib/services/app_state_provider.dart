@@ -277,7 +277,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> _noteTabVisibility = {'all'};
 
   // ⭐ 전체탭 FAB 버튼 가시성 (기본: 모두 표시)
-  Set<String> _allTabFabVisibility = {'youtube', 'files', 'canvas', 'stt', 'audio', 'text'};
+  // 순서는 노트 '+' 빠른추가 칩과 동일: 메모 → 필기 → 녹음 → 녹음메모 → 사진 → 비디오 → 영상채널 → 파일
+  Set<String> _allTabFabVisibility = {'text', 'canvas', 'audio', 'stt', 'photo', 'video', 'youtube', 'files'};
 
   // ⭐ 시작 화면 설정 (기본: note)
   String _startScreen = 'note'; // 'note' | 'calendar'
@@ -717,8 +718,17 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (savedFabVisibility != null) {
       // 'pdf'는 빠른추가 항목에서 제외됨(타이틀바 카운트는 설정과 무관하게 항상 표시) → 복원 시 제거
       _allTabFabVisibility = savedFabVisibility.toSet()..remove('pdf');
+      // 사진/비디오 토글 신설 마이그레이션(1회): 기존 사용자는 이전에 사진/비디오가 항상 표시됐으므로
+      // 처음 한 번 켜진 상태로 보정한다. 이후 사용자가 끄면 그 선택을 유지한다.
+      final pvMigrated = prefs.getBool('all_tab_fab_pv_migrated') ?? false;
+      if (!pvMigrated) {
+        _allTabFabVisibility.addAll({'photo', 'video'});
+        await prefs.setStringList('all_tab_fab_visibility', _allTabFabVisibility.toList());
+        await prefs.setBool('all_tab_fab_pv_migrated', true);
+      }
     } else {
-      _allTabFabVisibility = {'youtube', 'files', 'canvas', 'stt', 'audio', 'text'};
+      _allTabFabVisibility = {'text', 'canvas', 'audio', 'stt', 'photo', 'video', 'youtube', 'files'};
+      await prefs.setBool('all_tab_fab_pv_migrated', true);
     }
     debugPrint('✅ [AppStateProvider] 전체탭 FAB 가시성 복원: $_allTabFabVisibility');
 
