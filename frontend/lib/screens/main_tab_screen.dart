@@ -316,13 +316,32 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               size: 17,
             ),
           ),
-          // 전구(아이디어/리마인드) — 그만큼 크게, 우상단
+          // 전구 안에 소문자 q(퀴즈) — 파일 리스트 퀴즈 아이콘과 동일, 우상단
           Positioned(
             top: 0,
             right: 0,
-            child: Icon(
-              isActive ? Icons.lightbulb : Icons.lightbulb_outline,
-              size: 15,
+            child: SizedBox(
+              width: 15,
+              height: 15,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 채운 전구(색은 네비 선택/비선택 색 상속) + 흰 q
+                  const Icon(Icons.lightbulb, size: 15),
+                  Positioned(
+                    top: 15 * 0.05,
+                    child: const Text(
+                      'q',
+                      style: TextStyle(
+                        fontSize: 15 * 0.52,
+                        height: 1.0,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
