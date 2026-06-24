@@ -2297,11 +2297,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final color = Theme.of(context).primaryColor;
 
     // 캘린더 탭을 (재)진입하면 토큰이 증가 → 칩 가로 스크롤을 처음으로 되돌린다.
-    if (appState.chipScrollResetToken != _lastChipResetToken) {
-      _lastChipResetToken = appState.chipScrollResetToken;
+    // 점프가 실제로 성공(hasClients)했을 때만 토큰을 소비해, 화면 밖 리빌드로 토큰만
+    // 소비되고 정작 스크롤은 안 되는 경우를 방지한다.
+    final resetToken = appState.chipScrollResetToken;
+    if (resetToken != _lastChipResetToken) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_hintChipScrollController.hasClients) {
           _hintChipScrollController.jumpTo(0);
+          _lastChipResetToken = resetToken;
         }
       });
     }
