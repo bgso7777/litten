@@ -51,9 +51,11 @@ public class QuizController {
         log.debug("[QuizController] POST /note/v1/quiz/process 진입 - summaryResultId: {}",
                 request.getSummaryResultId());
 
-        if (request.getSummaryResultId() == null) {
-            log.warn("[QuizController] summaryResultId 누락");
-            return ResponseEntity.badRequest().body(QuizResponseVo.fail("summaryResultId는 필수 파라미터입니다."));
+        if (request.getSummaryResultId() == null
+                && (request.getYoutubeVideoId() == null || request.getYoutubeVideoId().isBlank())) {
+            log.warn("[QuizController] summaryResultId/youtubeVideoId 모두 누락");
+            return ResponseEntity.badRequest()
+                    .body(QuizResponseVo.fail("summaryResultId 또는 youtubeVideoId가 필요합니다."));
         }
 
         QuizResponseVo response = quizProcessService.process(request);
@@ -78,6 +80,25 @@ public class QuizController {
 
         log.info("[QuizController] 퀴즈 반환 - summaryResultId: {}, count: {}",
                 summaryResultId, result.getTotalQuizCount());
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /note/v1/quiz/youtube/{videoId}
+     * 영상 ID로 저장된 퀴즈 조회 (요약 선행 없이 만든 퀴즈 포함). 없으면 404.
+     */
+    @GetMapping("/youtube/{videoId}")
+    public ResponseEntity<QuizResponseVo> getQuizByVideo(@PathVariable String videoId) {
+        log.debug("[QuizController] GET /note/v1/quiz/youtube/{} 진입", videoId);
+
+        QuizResponseVo result = quizProcessService.getQuizByVideoId(videoId);
+        if (result == null) {
+            log.info("[QuizController] 영상 퀴즈 없음 - videoId: {}", videoId);
+            return ResponseEntity.notFound().build();
+        }
+
+        log.info("[QuizController] 영상 퀴즈 반환 - videoId: {}, count: {}",
+                videoId, result.getTotalQuizCount());
         return ResponseEntity.ok(result);
     }
 }

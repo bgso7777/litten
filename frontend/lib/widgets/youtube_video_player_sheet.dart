@@ -8,6 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'package:provider/provider.dart';
 import '../models/summary_result.dart';
+import '../models/quiz_item.dart' as qmodel; // 리마인드 퀴즈 항목 모델 (summary_result.QuizItem과 이름 충돌 회피)
 import '../models/youtube_channel.dart';
 import '../models/text_file.dart';
 import '../services/api_service.dart';
@@ -1129,6 +1130,7 @@ Future<void> showYoutubeSummarySheet({
   required String channelName,
   required String videoTitle,
   String? token,
+  String initialMode = 'summary', // 'summary' | 'quiz' — 시작 시 강조할 생성 모드
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -1143,6 +1145,7 @@ Future<void> showYoutubeSummarySheet({
       channelName: channelName,
       videoTitle: videoTitle,
       summaryOnly: true,
+      initialMode: initialMode,
     ),
   );
 }
@@ -1154,6 +1157,7 @@ class _ScriptSummarySheet extends StatefulWidget {
   final String channelName;
   final String videoTitle;
   final bool summaryOnly; // true = 저장된 요약만 보기(스크립트/언어/다시요약 숨김)
+  final String initialMode; // 'summary' | 'quiz' — 시작 시 강조할 생성 모드
   const _ScriptSummarySheet({
     this.transcript = '',
     this.token,
@@ -1161,6 +1165,7 @@ class _ScriptSummarySheet extends StatefulWidget {
     required this.channelName,
     required this.videoTitle,
     this.summaryOnly = false,
+    this.initialMode = 'summary',
   });
 
   @override
@@ -1171,10 +1176,17 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
   String _textLanguage = 'ko';
   String _summaryLanguage = 'ko';
   int _summaryLevel = 3;
+  String _genMode = 'summary'; // 'summary' | 'quiz' — 생성/표시 모드
   bool _loading = false;
   String? _summary;
   SummaryResult? _result;
   String? _error;
+
+  // 퀴즈(요약과 독립) — 영상당 1세트, 레벨 1~5(핵심1/간단3/일반5/상세10/전체20)
+  int _quizLevel = 3;
+  SummaryResult? _quizResult; // 퀴즈 응답(quizzes/summaryResultId)
+  bool _quizChecking = true;  // 퀴즈 캐시 조회 중
+  bool _quizMemoSaved = false; // 현재 퀴즈를 메모로 저장했는지
   final ScrollController _scriptScrollCtrl = ScrollController();
   final ScrollController _summaryScrollCtrl = ScrollController();
 
@@ -1190,6 +1202,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
   @override
   void initState() {
     super.initState();
+    _genMode = widget.initialMode == 'quiz' ? 'quiz' : 'summary';
     final subType = Provider.of<AppStateProvider>(context, listen: false).subscriptionType;
     _summaryLimit = PlanLimits.summaryPerMonth(subType);
     _summaryIsFree = subType == SubscriptionType.free;
@@ -1199,6 +1212,129 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       });
     }
     _loadCachedSummary();
+    _loadCachedQuiz();
+  }
+
+  // 영상에 저장된 퀴즈가 있으면 불러온다(요약 선행 없이 만든 퀴즈 포함).
+  Future<void> _loadCachedQuiz() async {
+    final r = await ApiService().getYoutubeQuizCache(videoId: widget.videoId, token: widget.token);
+    if (!mounted) return;
+    setState(() {
+      _quizChecking = false;
+      if (r != null && r.quizzes.isNotEmpty) _quizResult = r;
+    });
+    debugPrint('[ScriptSummary] 저장된 퀴즈: ${_quizResult?.totalQuizCount ?? 0}개');
+  }
+
+  // 퀴즈 생성 — 요약 선행 없이 자막(transcript)으로 직접 생성·저장. 요약이 있으면 그 결과를 재사용.
+  Future<void> _generateQuiz() async {
+    setState(() { _loading = true; _error = null; _quizMemoSaved = false; });
+    try {
+      final r = await ApiService().processQuiz(
+        summaryResultId: _result?.summaryResultId,
+        youtubeVideoId: widget.videoId,
+        sourceText: widget.transcript,
+        fileType: 'youtube',
+        quizLevel: _quizLevel,
+        summaryLanguage: _summaryLanguage,
+        forceRegenerate: _quizResult != null, // 이미 있으면 재생성
+        token: widget.token,
+      );
+      if (!mounted) return;
+      setState(() { _loading = false; _quizResult = r; });
+      // 생성된 퀴즈를 리마인드 탭의 퀴즈 항목(미완료)에 추가
+      _recordQuizToRemind(r);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _error = '퀴즈 생성 실패: $e'; });
+    }
+  }
+
+  // 생성된 퀴즈를 리마인드(퀴즈 항목)에 추가 — 같은 영상·레벨은 그룹으로 갱신.
+  void _recordQuizToRemind(SummaryResult r) {
+    if (r.quizzes.isEmpty) return;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final littenId = appState.selectedLitten?.id ?? '';
+    final groupId = 'youtube-quiz:${widget.videoId}:$_quizLevel';
+    final fileName = widget.videoTitle.trim().isNotEmpty ? widget.videoTitle.trim() : widget.videoId;
+    // 같은 그룹 기존 퀴즈 제거 후 재추가 (재생성 시 중복 방지)
+    appState.deleteQuizGroup(summaryGroupId: groupId);
+    final items = <qmodel.QuizItem>[];
+    for (final g in r.quizzes) {
+      for (final it in g.items) {
+        items.add(qmodel.QuizItem(
+          fileId: widget.videoId,
+          fileType: qmodel.QuizFileType.text,
+          fileName: fileName,
+          littenId: littenId,
+          title: it.content,
+          content: it.details.join('\n'),
+          summaryGroupId: groupId,
+          summaryLevel: _quizLevel,
+        ));
+      }
+    }
+    if (items.isNotEmpty) {
+      appState.addQuizItems(items);
+      debugPrint('✨ [ScriptSummary] 리마인드에 퀴즈 ${items.length}개 추가 (group: $groupId)');
+    }
+  }
+
+  String _quizLevelDesc() => switch (_quizLevel) {
+    1 => '핵심만 콕 · 1문항',
+    2 => '기본 개념 위주 · 3문항',
+    3 => '개념·원리 표준 · 5문항',
+    4 => '원리·사례 상세 · 10문항',
+    5 => '응용·심화까지 · 20문항',
+    _ => '개념·원리 표준 · 5문항',
+  };
+
+  // 퀴즈 수준 드롭다운 (5유형: 핵심1/간단3/일반5/상세10/전체20)
+  Widget _quizLevelDropdown() {
+    const quizLevels = [
+      (1, '1. 핵심 (1문항)'), (2, '2. 간단 (3문항)'), (3, '3. 일반 (5문항)'),
+      (4, '4. 상세 (10문항)'), (5, '5. 전체 (20문항)'),
+    ];
+    return DropdownButtonFormField<int>(
+      initialValue: _quizLevel,
+      isDense: true,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      items: quizLevels
+          .map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2, style: const TextStyle(fontSize: 13))))
+          .toList(),
+      onChanged: (v) { if (v != null) setState(() => _quizLevel = v); },
+    );
+  }
+
+  // 퀴즈 결과 표시 (확인 중 / 목록 / 없음 안내)
+  Widget _quizDisplay(Color color) {
+    if (_quizChecking && _quizResult == null) {
+      return Row(children: const [
+        SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+        SizedBox(width: 8),
+        Text('저장된 퀴즈 확인 중…', style: TextStyle(fontSize: 12, color: Colors.grey)),
+      ]);
+    }
+    if (_quizResult != null && _quizResult!.quizzes.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.checklist_rtl, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text('퀴즈 ${_quizResult!.totalQuizCount}개',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 6),
+          ..._quizResult!.quizzes.map(_buildQuizGroup),
+        ],
+      );
+    }
+    return Text("아직 생성된 퀴즈가 없습니다. 아래 '퀴즈' 버튼으로 생성하세요.",
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade600));
   }
 
   // 레벨 1~5의 저장 여부를 병렬 조회해 _savedLevels 구성, 저장된 레벨이 있으면 하나 표시
@@ -1321,6 +1457,67 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() { _loading = false; _error = '요약 실패: $e'; });
+    }
+  }
+
+  /// 생성된 퀴즈를 메모(텍스트 파일)로 저장. 제목 = 채널명 앞 5자 + "-" + 제목 7자 + " 퀴즈"
+  Future<void> _saveQuizAsMemo(SummaryResult result) async {
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final litten = appState.selectedLitten;
+      if (litten == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('선택된 리튼이 없어 저장할 수 없습니다.')),
+          );
+        }
+        return;
+      }
+
+      String head(String s, int n) => s.length > n ? s.substring(0, n) : s;
+      final title = '${head(widget.channelName.trim(), 5)}-${head(widget.videoTitle.trim(), 7)} 퀴즈';
+
+      String esc(String s) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+      final buf = StringBuffer()..write('<p><strong>💡 퀴즈</strong></p>');
+      for (final g in result.quizzes) {
+        if (g.groupName.isNotEmpty) {
+          buf.write('<p><strong>${esc(g.groupName)}</strong></p>');
+        }
+        for (final it in g.items) {
+          buf.write('<p>▸ ${esc(it.content)}</p>');
+          for (final d in it.details) {
+            buf.write('<p>　└ ${esc(d)}</p>');
+          }
+        }
+      }
+      final content = buf.toString();
+
+      final memo = TextFile(
+        littenId: litten.id,
+        title: title,
+        content: content,
+      );
+      final storage = FileStorageService.instance;
+      await storage.saveTextFileContent(memo);
+      final list = await storage.loadTextFiles(litten.id);
+      list.insert(0, memo);
+      await storage.saveTextFiles(litten.id, list);
+      await appState.updateFileCount();
+      appState.notifyFileListChanged();
+      debugPrint('[퀴즈메모저장] 완료 - "$title" (litten: ${litten.id})');
+      if (mounted) {
+        setState(() => _quizMemoSaved = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('퀴즈를 메모로 저장: $title')),
+        );
+      }
+    } catch (e) {
+      debugPrint('[퀴즈메모저장] 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('퀴즈 메모 저장에 실패했습니다.')),
+        );
+      }
     }
   }
 
@@ -1470,6 +1667,31 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         onChanged: onChanged,
       );
 
+  // 생성/표시 모드 선택기 (요약 ↔ 퀴즈). 데이터 흐름은 동일하고 강조 대상만 전환한다.
+  Widget _buildModeSelector(Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        const SizedBox(width: 76, child: Text('생성', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+        Expanded(
+          child: SegmentedButton<String>(
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStatePropertyAll(const TextStyle(fontSize: 13)),
+            ),
+            segments: const [
+              ButtonSegment(value: 'summary', label: Text('요약'), icon: Icon(Icons.auto_awesome, size: 15)),
+              ButtonSegment(value: 'quiz', label: Text('퀴즈'), icon: Icon(Icons.lightbulb_outline, size: 15)),
+            ],
+            selected: {_genMode},
+            onSelectionChanged: (s) => setState(() => _genMode = s.first),
+          ),
+        ),
+      ]),
+    );
+  }
+
   // 요약 보기 전용 본문: 요약 수준 + 설명 + (하단 버튼 위까지 채우는) 요약/퀴즈 박스
   Widget _buildSummaryOnlyBody(Color color) {
     const levels = [(1,'1. 한줄 요약'),(2,'2. 간단 요약'),(3,'3. 일반 요약'),(4,'4. 상세 요약'),(5,'5. 거의 전체')];
@@ -1506,63 +1728,73 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
       ]),
     );
 
+    final quizLevelRow = Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        const SizedBox(width: 76, child: Text('퀴즈 수준', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+        Expanded(child: _quizLevelDropdown()),
+      ]),
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          levelRow,
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
-            child: Text(_levelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-          ),
-          if (_checkingCache && _summary == null) ...[
-            const SizedBox(height: 12),
-            Row(children: const [
-              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-              SizedBox(width: 8),
-              Text('저장된 요약 확인 중…', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            ]),
-          ],
-          if (_summary != null) ...[
-            const SizedBox(height: 14),
-            // 하단 버튼 위까지 남은 공간을 모두 채움
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withValues(alpha: 0.2)),
-                ),
-                child: Scrollbar(
-                  controller: _summaryScrollCtrl,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
+          _buildModeSelector(color),
+          if (_genMode == 'summary') ...[
+            levelRow,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+              child: Text(_levelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            ),
+            if (_checkingCache && _summary == null) ...[
+              const SizedBox(height: 12),
+              Row(children: const [
+                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                SizedBox(width: 8),
+                Text('저장된 요약 확인 중…', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ]),
+            ],
+            if (_summary != null)
+              // 하단 버튼 위까지 남은 공간을 모두 채움
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withValues(alpha: 0.2)),
+                  ),
+                  child: Scrollbar(
                     controller: _summaryScrollCtrl,
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SelectableText(_summary!, style: const TextStyle(fontSize: 13, height: 1.65)),
-                        if (_result != null && _result!.quizzes.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Row(children: [
-                            Icon(Icons.checklist_rtl, size: 16, color: color),
-                            const SizedBox(width: 6),
-                            Text('퀴즈 ${_result!.totalQuizCount}개',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          ]),
-                          const SizedBox(height: 6),
-                          ..._result!.quizzes.map(_buildQuizGroup),
-                        ],
-                      ],
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _summaryScrollCtrl,
+                      padding: const EdgeInsets.only(right: 8),
+                      child: SelectableText(_summary!, style: const TextStyle(fontSize: 13, height: 1.65)),
                     ),
                   ),
                 ),
+              ),
+          ] else ...[
+            // 퀴즈 모드: 퀴즈 수준 + 결과(남은 공간 채움)
+            quizLevelRow,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+              child: Text(_quizLevelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(top: 14),
+                width: double.infinity,
+                child: SingleChildScrollView(child: _quizDisplay(color)),
               ),
             ),
           ],
@@ -1637,82 +1869,86 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                     const SizedBox(height: 8),
                   ],
                   // ③ 요약 설정 (언어 선택은 요약 보기 전용에서는 숨김)
+                  // 모드 선택(요약/퀴즈)은 대상 언어 위에 항상 표시
+                  _buildModeSelector(color),
                   if (!widget.summaryOnly) ...[
                     row('대상 언어', _langDropdown(_textLanguage, (v){ if(v!=null) setState(()=>_textLanguage=v); })),
                     row('요약 언어', _langDropdown(_summaryLanguage, (v){ if(v!=null) setState(()=>_summaryLanguage=v); })),
                   ],
-                  row('요약 수준', DropdownButtonFormField<int>(
-                    initialValue: _summaryLevel,
-                    isDense: true,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    items: levels.map((e) {
-                      // 이미 요약된 수준 항목에 '✓ 요약됨' 표시
-                      final isSaved = _savedLevels.contains(e.$1);
-                      return DropdownMenuItem(
-                        value: e.$1,
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Text(e.$2, style: const TextStyle(fontSize: 13)),
-                          if (isSaved) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.check_circle, size: 13, color: Colors.green),
-                            const SizedBox(width: 2),
-                            const Text('요약됨', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
-                          ],
-                        ]),
-                      );
-                    }).toList(),
-                    onChanged: (v){ if(v!=null) _onLevelChanged(v); },
-                  )),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
-                    child: Text(_levelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                  ),
-                  if (_checkingCache && _summary == null) ...[
-                    const SizedBox(height: 12),
-                    Row(children: const [
-                      SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 8),
-                      Text('저장된 요약 확인 중…', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ]),
-                  ],
-                  if (_summary != null) ...[
-                    const SizedBox(height: 14),
+                  // ④ 수준 + 결과 — 모드별 분기
+                  if (_genMode == 'summary') ...[
+                    row('요약 수준', DropdownButtonFormField<int>(
+                      initialValue: _summaryLevel,
+                      isDense: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      items: levels.map((e) {
+                        // 이미 요약된 수준 항목에 '✓ 요약됨' 표시
+                        final isSaved = _savedLevels.contains(e.$1);
+                        return DropdownMenuItem(
+                          value: e.$1,
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(e.$2, style: const TextStyle(fontSize: 13)),
+                            if (isSaved) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.check_circle, size: 13, color: Colors.green),
+                              const SizedBox(width: 2),
+                              const Text('요약됨', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
+                            ],
+                          ]),
+                        );
+                      }).toList(),
+                      onChanged: (v){ if(v!=null) _onLevelChanged(v); },
+                    )),
                     Container(
                       width: double.infinity,
-                      constraints: const BoxConstraints(maxHeight: 240),
-                      padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: color.withValues(alpha: 0.2)),
-                      ),
-                      child: Scrollbar(
-                        controller: _summaryScrollCtrl,
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+                      child: Text(_levelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    ),
+                    if (_checkingCache && _summary == null) ...[
+                      const SizedBox(height: 12),
+                      Row(children: const [
+                        SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 8),
+                        Text('저장된 요약 확인 중…', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ]),
+                    ],
+                    if (_summary != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: color.withValues(alpha: 0.2)),
+                        ),
+                        child: Scrollbar(
                           controller: _summaryScrollCtrl,
-                          padding: const EdgeInsets.only(right: 8),
-                          child: SelectableText(_summary!, style: const TextStyle(fontSize: 13, height: 1.65)),
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _summaryScrollCtrl,
+                            padding: const EdgeInsets.only(right: 8),
+                            child: SelectableText(_summary!, style: const TextStyle(fontSize: 13, height: 1.65)),
+                          ),
                         ),
                       ),
+                    ],
+                  ] else ...[
+                    // 퀴즈 모드: 퀴즈 수준 + 결과
+                    row('퀴즈 수준', _quizLevelDropdown()),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+                      child: Text(_quizLevelDesc(), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                     ),
-                  ],
-                  // 퀴즈(계층) 표시
-                  if (_result != null && _result!.quizzes.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    Row(children: [
-                      Icon(Icons.checklist_rtl, size: 16, color: color),
-                      const SizedBox(width: 6),
-                      Text('퀴즈 ${_result!.totalQuizCount}개',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ]),
-                    const SizedBox(height: 6),
-                    ..._result!.quizzes.map(_buildQuizGroup),
+                    _quizDisplay(color),
                   ],
                   if (_error != null) ...[
                     const SizedBox(height: 10),
@@ -1751,8 +1987,33 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                     child: const Text('닫기'),
                   ),
                   const SizedBox(width: 8),
-                  // 요약 보기 전용에서는 '다시 요약' 버튼 제거, '메모로 저장'을 넓게
-                  if (widget.summaryOnly)
+                  if (_genMode == 'quiz') ...[
+                    // 퀴즈 모드: 퀴즈 생성 버튼 + 메모 저장 버튼
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _loading ? null : _generateQuiz,
+                        style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        icon: _loading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.lightbulb_outline, size: 18),
+                        label: Text(_quizResult != null ? '다시 퀴즈' : '퀴즈'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: (_quizResult != null && _quizResult!.quizzes.isNotEmpty && !_loading && !_quizMemoSaved)
+                          ? () => _saveQuizAsMemo(_quizResult!)
+                          : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: color,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      ),
+                      icon: Icon(_quizMemoSaved ? Icons.check : Icons.save_alt, size: 18),
+                      label: Text(_quizMemoSaved ? '저장됨' : '메모로 저장'),
+                    ),
+                  ]
+                  // 요약 모드 — 요약 보기 전용에서는 '다시 요약' 제거, '메모로 저장'을 넓게
+                  else if (widget.summaryOnly)
                     Expanded(child: saveMemoButton)
                   else ...[
                     Expanded(
@@ -1764,7 +2025,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
                             : const Icon(Icons.auto_awesome, size: 18),
                         label: Text(
                           () {
-                            final base = _summary == null ? '요약하기' : '다시 요약';
+                            final base = _summary != null ? '다시 요약' : '요약';
                             if (_summaryLimit < 0) return base; // 무제한 플랜
                             final used = _summaryUsed.clamp(0, _summaryLimit);
                             return '$base (${_summaryIsFree ? "무료 " : "이번달 "}$used/$_summaryLimit)';

@@ -7,6 +7,7 @@ class SummaryResult {
   final List<QuizGroup> quizzes;
   final int totalQuizCount;
   final int? summaryLevel; // 저장/적용된 요약 수준 1~5 (응답에 있으면)
+  final int? summaryResultId; // note_summary_result PK — 퀴즈 생성/조회에 사용
   final String? error;
 
   const SummaryResult({
@@ -17,6 +18,7 @@ class SummaryResult {
     required this.quizzes,
     required this.totalQuizCount,
     this.summaryLevel,
+    this.summaryResultId,
     this.error,
   });
 
@@ -35,6 +37,7 @@ class SummaryResult {
             .toList(),
         totalQuizCount: (json['totalQuizCount'] as num?)?.toInt() ?? 0,
         summaryLevel: (json['summaryLevel'] as num?)?.toInt(),
+        summaryResultId: (json['summaryResultId'] as num?)?.toInt(),
         error: json['error'] as String?,
       );
 }

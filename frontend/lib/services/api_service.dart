@@ -644,6 +644,62 @@ class ApiService {
     }
   }
 
+  /// 퀴즈 생성 (요약과 독립). 요약 없이도 youtubeVideoId+sourceText로 생성 가능.
+  /// POST /litten/note/v1/quiz/process
+  /// 응답은 SummaryResult 구조 재사용 (quizzes/totalQuizCount/summaryResultId).
+  Future<SummaryResult> processQuiz({
+    int? summaryResultId,
+    String? youtubeVideoId,
+    String? sourceText,
+    String fileType = 'youtube',
+    required int quizLevel,
+    String? summaryLanguage,
+    bool forceRegenerate = false,
+    String? token,
+  }) async {
+    debugPrint('[ApiService] processQuiz - videoId: $youtubeVideoId, srId: $summaryResultId, level: $quizLevel');
+    final url = Uri.parse('$baseUrl/litten/note/v1/quiz/process');
+    final body = jsonEncode({
+      'summaryResultId': summaryResultId,
+      'youtubeVideoId': youtubeVideoId,
+      'sourceText': sourceText,
+      'fileType': fileType,
+      'quizLevel': quizLevel,
+      'summaryLanguage': summaryLanguage,
+      'forceRegenerate': forceRegenerate,
+    });
+    final response = await http
+        .post(url, headers: _getHeaders(token: token), body: body)
+        .timeout(const Duration(seconds: 300));
+    debugPrint('[ApiService] processQuiz - status: ${response.statusCode}');
+    if (response.statusCode == 200) {
+      final result = SummaryResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      debugPrint('[ApiService] processQuiz - success: ${result.success}, quiz: ${result.totalQuizCount}');
+      if (!result.success) throw Exception(result.error ?? '퀴즈 생성 실패');
+      return result;
+    }
+    debugPrint('[ApiService] processQuiz - 실패 body: ${response.body}');
+    throw Exception('서버 오류: ${response.statusCode} ${response.body}');
+  }
+
+  /// 영상 퀴즈 캐시 조회 (없으면 null)
+  /// GET /litten/note/v1/quiz/youtube/{videoId}
+  Future<SummaryResult?> getYoutubeQuizCache({required String videoId, String? token}) async {
+    try {
+      final url = Uri.parse('$baseUrl/litten/note/v1/quiz/youtube/$videoId');
+      final response = await http.get(url, headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] getYoutubeQuizCache - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final result = SummaryResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        return result.success ? result : null;
+      }
+      return null; // 404 = 캐시 없음
+    } catch (e) {
+      debugPrint('[ApiService] getYoutubeQuizCache - 오류: $e');
+      return null;
+    }
+  }
+
   /// 내 구독 플랜 조회
   /// GET /litten/note/v1/members/me
   /// Response: {"result": 1, "subscriptionPlan": "free|standard|premium"}

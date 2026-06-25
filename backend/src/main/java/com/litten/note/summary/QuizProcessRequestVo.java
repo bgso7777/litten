@@ -16,8 +16,20 @@ import lombok.Setter;
 @NoArgsConstructor
 public class QuizProcessRequestVo {
 
-    /** 필수 — note_summary_result PK. 원본 텍스트(sourceText) 조회에 사용 */
+    /**
+     * note_summary_result PK. 원본 텍스트(sourceText) 조회에 사용.
+     * null이면 요약 없이 퀴즈 생성 모드 — youtubeVideoId + sourceText 로 레코드를 확보한다.
+     */
     private Long summaryResultId;
+
+    /** 요약 없이 퀴즈 생성 시 — 유튜브 영상 ID (summaryResultId 없을 때 사용) */
+    private String youtubeVideoId;
+
+    /** 요약 없이 퀴즈 생성 시 — 원본 자막/텍스트 (summaryResultId 없을 때 사용) */
+    private String sourceText;
+
+    /** 요약 없이 퀴즈 생성 시 — 파일 유형 (기본 youtube) */
+    private String fileType;
 
     /**
      * 퀴즈 수준 1~5 (0이면 note_quiz_config 기본값=3 사용).

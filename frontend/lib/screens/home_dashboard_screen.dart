@@ -9,9 +9,9 @@ import '../services/app_state_provider.dart';
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
 
-  // 5탭 인덱스: 홈0 · 캘린더1 · +2 · 기억3 · 설정4
+  // 5탭 인덱스: 홈0 · 캘린더1 · +2 · 리마인드3 · 설정4
   static const int _calendarTabIndex = 1;
-  static const int _memoryTabIndex = 3;
+  static const int _remindTabIndex = 3;
 
   @override
   Widget build(BuildContext context) {

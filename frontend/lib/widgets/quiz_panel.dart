@@ -56,7 +56,7 @@ class _QuizPanelState extends State<QuizPanel>
   bool _isResizing = false;
   VelocityTracker? _velocityTracker;
 
-  // ⭐ 기억 탭: 미완료 항목 기억 유도용 깜빡이 애니메이션
+  // ⭐ 리마인드 탭: 미완료 항목 기억 유도용 깜빡이 애니메이션
   late final AnimationController _blinkController;
   late final Animation<double> _blinkAnim;
 
@@ -133,7 +133,7 @@ class _QuizPanelState extends State<QuizPanel>
     );
   }
 
-  // ── 기억 탭 헤더 ──────────────────────────────────────────────────────────
+  // ── 리마인드 탭 헤더 ──────────────────────────────────────────────────────
 
   Widget _buildHeader(AppStateProvider appState) {
     final primaryColor = Theme.of(context).primaryColor;

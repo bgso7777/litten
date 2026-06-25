@@ -881,6 +881,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
   final Set<int> _loadingVideoDetails = {};
   // 영상별 요약 존재 여부 (videoId → 요약 1개 이상 저장됨) — 요약 아이콘 활성화 판단용
   final Map<String, bool> _videoHasSummary = {};
+  final Map<String, bool> _videoHasQuiz = {}; // 영상별 저장된 퀴즈 존재 여부
   final _transcriptService = YoutubeTranscriptService();
   final _webViewTranscriptService = YoutubeWebViewTranscriptService();
   final _rssService = YoutubeRssService();
@@ -1062,15 +1063,22 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
       final cache = await _apiService.getYoutubeSummaryCache(videoId: vid, token: _token);
       if (!mounted) return;
       setState(() => _videoHasSummary[vid] = cache != null);
+      // 퀴즈 존재 여부도 조회 (요약과 독립 — 요약 없이 만든 퀴즈 포함)
+      final quiz = await _apiService.getYoutubeQuizCache(videoId: vid, token: _token);
+      if (!mounted) return;
+      setState(() => _videoHasQuiz[vid] = quiz != null);
     }
   }
 
-  /// 단일 영상의 요약 존재 여부 재조회 (요약 시트를 닫은 직후 아이콘 갱신용)
+  /// 단일 영상의 요약/퀴즈 존재 여부 재조회 (요약 시트를 닫은 직후 아이콘 갱신용)
   Future<void> _refreshVideoSummaryFlag(String videoId) async {
     if (videoId.isEmpty) return;
     final cache = await _apiService.getYoutubeSummaryCache(videoId: videoId, token: _token);
     if (!mounted) return;
     setState(() => _videoHasSummary[videoId] = cache != null);
+    final quiz = await _apiService.getYoutubeQuizCache(videoId: videoId, token: _token);
+    if (!mounted) return;
+    setState(() => _videoHasQuiz[videoId] = quiz != null);
   }
 
   void _toggleChannel(YoutubeChannel ch) {
@@ -1431,6 +1439,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
             ? Colors.orange
             : Colors.blue;
     final hasSummary = _videoHasSummary[video.videoId] == true;
+    final hasQuiz = _videoHasQuiz[video.videoId] == true;
 
     return InkWell(
       // ⭐ 흐릿한 항목도 클릭 가능 — YouTube 플레이어 시트 표시
@@ -1466,6 +1475,7 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
                         channelName: ch.channelName,
                         videoTitle: video.title,
                         token: _token,
+                        initialMode: 'summary',
                       )
                   : null,
               child: Padding(
@@ -1474,6 +1484,28 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
                   Icons.auto_awesome,
                   size: 18,
                   color: hasSummary ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                ),
+              ),
+            ),
+            // 퀴즈 아이콘: 저장된 퀴즈가 있으면 활성(탭하면 퀴즈 보기). 생성은 영상 플레이어 시트에서.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasQuiz
+                  ? () => showYoutubeSummarySheet(
+                        context: context,
+                        videoId: video.videoId,
+                        channelName: ch.channelName,
+                        videoTitle: video.title,
+                        token: _token,
+                        initialMode: 'quiz',
+                      )
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Icon(
+                  Icons.lightbulb_outline,
+                  size: 18,
+                  color: hasQuiz ? Theme.of(context).primaryColor : Colors.grey.shade300,
                 ),
               ),
             ),

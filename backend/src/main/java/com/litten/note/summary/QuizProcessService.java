@@ -5,6 +5,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,34 +36,31 @@ public class QuizProcessService {
 
     @Transactional
     public QuizResponseVo process(QuizProcessRequestVo req) {
-        log.debug("[QuizProcessService] process() - summaryResultId: {}, quizLevel: {}, forceRegenerate: {}",
-                req.getSummaryResultId(), req.getQuizLevel(), req.isForceRegenerate());
+        log.debug("[QuizProcessService] process() - summaryResultId: {}, youtubeVideoId: {}, quizLevel: {}, forceRegenerate: {}",
+                req.getSummaryResultId(), req.getYoutubeVideoId(), req.getQuizLevel(), req.isForceRegenerate());
 
-        if (req.getSummaryResultId() == null) {
-            return QuizResponseVo.fail("summaryResultId는 필수입니다.");
+        // 1) 요약 결과 확보 (summaryResultId 없으면 youtubeVideoId+sourceText로 자막 전용 레코드 확보 = 요약 없이 퀴즈)
+        SummaryResult summaryResult = resolveSummaryResult(req);
+        if (summaryResult == null) {
+            return QuizResponseVo.fail("퀴즈를 생성할 요약 결과 또는 원본 텍스트를 찾을 수 없습니다.");
         }
-
-        // 1) 요약 결과 조회
-        SummaryResult summaryResult = summaryResultRepository.findById(req.getSummaryResultId()).orElse(null);
-        if (summaryResult == null || !"done".equals(summaryResult.getStatus())) {
-            log.warn("[QuizProcessService] 요약 결과 없음 또는 미완료 - summaryResultId: {}", req.getSummaryResultId());
-            return QuizResponseVo.fail("요약 결과를 찾을 수 없거나 아직 처리 중입니다.");
-        }
+        final Long sid = summaryResult.getSequence();
 
         String sourceText = summaryResult.getSourceText();
         if (sourceText == null || sourceText.isBlank()) {
-            log.warn("[QuizProcessService] sourceText 없음 - summaryResultId: {}", req.getSummaryResultId());
+            log.warn("[QuizProcessService] sourceText 없음 - summaryResultId: {}", sid);
             return QuizResponseVo.fail("원본 텍스트가 저장되어 있지 않아 퀴즈를 생성할 수 없습니다.");
         }
 
         // 2) 캐시 확인
         if (!req.isForceRegenerate()) {
             List<QuizResult> cached = quizResultRepository
-                    .findBySummaryResultIdAndIsDeletedFalseOrderByGroupOrderAscSortOrderAsc(req.getSummaryResultId());
+                    .findBySummaryResultIdAndIsDeletedFalseOrderByGroupOrderAscSortOrderAsc(sid);
             if (!cached.isEmpty()) {
-                log.info("[QuizProcessService] 퀴즈 캐시 히트 - summaryResultId: {}, count: {}",
-                        req.getSummaryResultId(), cached.size());
-                return toResponseVo(cached, summaryResult.getTotalQuizCount());
+                log.info("[QuizProcessService] 퀴즈 캐시 히트 - summaryResultId: {}, count: {}", sid, cached.size());
+                QuizResponseVo cachedVo = toResponseVo(cached, summaryResult.getTotalQuizCount());
+                cachedVo.setSummaryResultId(sid);
+                return cachedVo;
             }
         }
 
@@ -89,7 +87,7 @@ public class QuizProcessService {
         String systemPrompt = applyPlaceholders(config.getPrompt(), outputLang, maxCount, maxGroup, typeFilter);
 
         log.info("[QuizProcessService] 퀴즈 생성 시작 - summaryResultId: {}, fileType: {}, level: {}, maxCount: {}, dbPrompt: {}",
-                req.getSummaryResultId(), fileType, quizLevel, maxCount, systemPrompt != null);
+                sid, fileType, quizLevel, maxCount, systemPrompt != null);
 
         // 4) AI 호출
         QuizResponseVo aiResp = quizService.generate(
@@ -100,16 +98,70 @@ public class QuizProcessService {
         }
 
         // 5) 기존 quiz 삭제 후 저장
-        quizResultRepository.deleteBySummaryResultId(req.getSummaryResultId());
-        saveQuizResults(req.getSummaryResultId(), aiResp.getQuizzes());
+        quizResultRepository.deleteBySummaryResultId(sid);
+        saveQuizResults(sid, aiResp.getQuizzes());
 
         // 6) totalQuizCount 업데이트
         summaryResult.setTotalQuizCount(aiResp.getTotalQuizCount());
         summaryResultRepository.save(summaryResult);
 
-        log.info("[QuizProcessService] 퀴즈 처리 완료 - summaryResultId: {}, count: {}",
-                req.getSummaryResultId(), aiResp.getTotalQuizCount());
+        aiResp.setSummaryResultId(sid);
+        log.info("[QuizProcessService] 퀴즈 처리 완료 - summaryResultId: {}, count: {}", sid, aiResp.getTotalQuizCount());
         return aiResp;
+    }
+
+    /**
+     * 퀴즈를 생성할 SummaryResult를 확보한다.
+     * - summaryResultId가 있으면 해당 레코드(done 상태)를 반환.
+     * - 없으면 youtubeVideoId로 기존 레코드를 찾고(요약/자막 전용), 없으면 sourceText로 자막 전용 레코드를 생성한다.
+     */
+    private SummaryResult resolveSummaryResult(QuizProcessRequestVo req) {
+        if (req.getSummaryResultId() != null) {
+            SummaryResult sr = summaryResultRepository.findById(req.getSummaryResultId()).orElse(null);
+            if (sr == null || !"done".equals(sr.getStatus())) {
+                log.warn("[QuizProcessService] 요약 결과 없음/미완료 - summaryResultId: {}", req.getSummaryResultId());
+                return null;
+            }
+            return sr;
+        }
+
+        // 요약 없이 퀴즈 생성 — youtubeVideoId 필수
+        String videoId = req.getYoutubeVideoId();
+        if (videoId == null || videoId.isBlank()) {
+            log.warn("[QuizProcessService] summaryResultId/youtubeVideoId 모두 없음");
+            return null;
+        }
+        String src = req.getSourceText();
+
+        // 기존 영상 레코드(요약 또는 자막 전용) 재사용
+        SummaryResult existing = summaryResultRepository
+                .findTopByYoutubeVideoIdAndIsDeletedFalseOrderBySummaryLevelDesc(videoId)
+                .orElse(null);
+        if (existing != null) {
+            if ((existing.getSourceText() == null || existing.getSourceText().isBlank())
+                    && src != null && !src.isBlank()) {
+                existing.setSourceText(src);
+                summaryResultRepository.save(existing);
+            }
+            return existing;
+        }
+
+        // 자막 전용 레코드 신규 생성 (요약 본문 없이 sourceText만)
+        if (src == null || src.isBlank()) {
+            log.warn("[QuizProcessService] 자막(sourceText) 없음 - videoId: {}", videoId);
+            return null;
+        }
+        SummaryResult created = new SummaryResult();
+        created.setFileType(req.getFileType() != null && !req.getFileType().isBlank() ? req.getFileType() : "youtube");
+        created.setYoutubeVideoId(videoId);
+        created.setSourceText(src);
+        created.setIsShared(true);
+        created.setSummaryLevel(req.getQuizLevel() > 0 ? req.getQuizLevel() : DEFAULT_QUIZ_LEVEL);
+        created.setStatus("done");
+        created.setProcessedAt(LocalDateTime.now());
+        SummaryResult saved = summaryResultRepository.save(created);
+        log.info("[QuizProcessService] 자막 전용 요약 레코드 생성 - summaryResultId: {}, videoId: {}", saved.getSequence(), videoId);
+        return saved;
     }
 
     public QuizResponseVo getQuiz(Long summaryResultId) {
@@ -120,7 +172,19 @@ public class QuizProcessService {
 
         SummaryResult summaryResult = summaryResultRepository.findById(summaryResultId).orElse(null);
         int total = summaryResult != null ? summaryResult.getTotalQuizCount() : rows.size();
-        return toResponseVo(rows, total);
+        QuizResponseVo vo = toResponseVo(rows, total);
+        vo.setSummaryResultId(summaryResultId);
+        return vo;
+    }
+
+    /** 영상 ID로 저장된 퀴즈 조회 (요약 선행 없이 만든 퀴즈 포함). 없으면 null. */
+    public QuizResponseVo getQuizByVideoId(String youtubeVideoId) {
+        log.debug("[QuizProcessService] getQuizByVideoId() - videoId: {}", youtubeVideoId);
+        SummaryResult sr = summaryResultRepository
+                .findTopByYoutubeVideoIdAndIsDeletedFalseOrderBySummaryLevelDesc(youtubeVideoId)
+                .orElse(null);
+        if (sr == null) return null;
+        return getQuiz(sr.getSequence());
     }
 
     // ── 내부: 저장 ───────────────────────────────────────────────────────────

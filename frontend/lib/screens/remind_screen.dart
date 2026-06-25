@@ -7,19 +7,20 @@ import '../widgets/draggable_tab_layout.dart';
 import '../widgets/common/tab_count_title.dart';
 import '../widgets/quiz_panel.dart';
 
-/// 퀴즈 영역 — 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성.
-/// 현재는 '퀴즈' 탭 하나만 있고, 향후 개인화로 탭을 추가/재배치할 수 있다.
+/// 리마인드 영역(하단 4번째 탭) — 생성된 요약·퀴즈를 모아 재기억/인사이트를 돕는 메뉴.
+/// 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성한다.
+/// 현재는 통합 탭 하나만 있고, 향후 개인화로 탭을 추가/재배치할 수 있다.
 ///
 /// ⭐ 개인화 확장 지점:
-///   [_tabs] 리스트에 TabItem을 추가하면 퀴즈 영역에 탭이 늘어난다.
-class MemoryScreen extends StatefulWidget {
-  const MemoryScreen({super.key});
+///   [_tabs] 리스트에 TabItem을 추가하면 리마인드 영역에 탭이 늘어난다.
+class RemindScreen extends StatefulWidget {
+  const RemindScreen({super.key});
 
   @override
-  State<MemoryScreen> createState() => _MemoryScreenState();
+  State<RemindScreen> createState() => _RemindScreenState();
 }
 
-class _MemoryScreenState extends State<MemoryScreen> {
+class _RemindScreenState extends State<RemindScreen> {
   late final List<TabItem> _tabs;
 
   @override
@@ -28,25 +29,25 @@ class _MemoryScreenState extends State<MemoryScreen> {
     // ⭐ 개인화 확장 지점: 여기에 TabItem을 추가하면 탭이 늘어난다.
     _tabs = [
       TabItem(
-        id: 'quiz',
-        title: '퀴즈',
+        id: 'remind',
+        title: '리마인드',
         icon: Icons.lightbulb_outline,
-        // 제목란: 요약(요약 그룹) 카운트 + 퀴즈(개별 항목) 카운트
+        // 제목란: 요약(저장된 요약) 카운트 + 퀴즈(개별 항목) 카운트
         customTabWidget: Consumer<AppStateProvider>(
           builder: (context, appState, _) {
-            final summaryCount = appState.quizTargets.length;
-            final quizCount = appState.quizItems.length;
+            final summaryCount = appState.summaries.length;   // 요약(SummaryEntry) 개수
+            final quizCount = appState.quizItems.length;       // 퀴즈 항목 개수
             return TabCountTitle([
               [
                 TabCount(Icons.auto_awesome, summaryCount),     // 요약
-                TabCount(Icons.lightbulb_outline, quizCount), // 퀴즈
+                TabCount(Icons.lightbulb_outline, quizCount),   // 퀴즈
               ],
             ]);
           },
         ),
         // 탭 버튼이 제목 역할을 하므로 자체 헤더는 숨김(깜빡이는 유지)
-        // 상(2/3)=미완료 · 하(1/3)=완료로 분할
-        content: const _SplitQuizView(),
+        // 요약 · 미완료 · 완료 3분할 본문
+        content: const _SplitRemindView(),
         position: TabPosition.topLeft,
         // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김
         isDraggable: false,
@@ -56,10 +57,10 @@ class _MemoryScreenState extends State<MemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('🧠 [MemoryScreen] build - 탭 ${_tabs.length}개');
+    debugPrint('🧠 [RemindScreen] build - 탭 ${_tabs.length}개');
     return DraggableTabLayout(
       tabs: _tabs,
-      initialActiveTabId: 'quiz',
+      initialActiveTabId: 'remind',
       visibleAreas: const {'topLeft'},
       onTabPositionChanged: (tabId, newPosition) {
         setState(() {
@@ -70,19 +71,19 @@ class _MemoryScreenState extends State<MemoryScreen> {
             }
           }
         });
-        debugPrint('[MemoryScreen] 탭 위치 변경: $tabId -> $newPosition');
+        debugPrint('[RemindScreen] 탭 위치 변경: $tabId -> $newPosition');
       },
       onTabChanged: (tabId) {
-        debugPrint('[MemoryScreen] 탭 변경: $tabId');
+        debugPrint('[RemindScreen] 탭 변경: $tabId');
       },
     );
   }
 }
 
-/// 퀴즈 탭 본문 — 상(2/3) 미완료 · 하(1/3) 완료로 분할.
+/// 리마인드 탭 본문 — 요약(상) · 미완료(중) · 완료(하) 3분할.
 /// 미완료는 기억을 유도(깜빡이)하고, 완료는 아래에서 모아 본다.
-class _SplitQuizView extends StatelessWidget {
-  const _SplitQuizView();
+class _SplitRemindView extends StatelessWidget {
+  const _SplitRemindView();
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +100,7 @@ class _SplitQuizView extends StatelessWidget {
             // 최상단 (3/8) — 요약
             Expanded(
               flex: 3,
-              child: _QuizSection(
+              child: _RemindSection(
                 icon: Icons.auto_awesome,
                 label: '요약',
                 count: summaries.length,
@@ -111,7 +112,7 @@ class _SplitQuizView extends StatelessWidget {
             // 중간 (3/8) — 미완료
             Expanded(
               flex: 3,
-              child: _QuizSection(
+              child: _RemindSection(
                 icon: Icons.fiber_new,
                 label: '미완료',
                 count: pendingCount,
@@ -127,7 +128,7 @@ class _SplitQuizView extends StatelessWidget {
             // 하단 (2/8) — 완료
             Expanded(
               flex: 2,
-              child: _QuizSection(
+              child: _RemindSection(
                 icon: Icons.check_circle,
                 label: '완료',
                 count: doneCount,
@@ -146,15 +147,15 @@ class _SplitQuizView extends StatelessWidget {
   }
 }
 
-/// 분할 섹션 — 작은 라벨 헤더(아이콘+이름+카운트) + 퀴즈 목록.
-class _QuizSection extends StatelessWidget {
+/// 분할 섹션 — 작은 라벨 헤더(아이콘+이름+카운트) + 항목 목록(요약/미완료/완료 공용).
+class _RemindSection extends StatelessWidget {
   final IconData icon;
   final String label;
   final int count;
   final Color color;
   final Widget child;
 
-  const _QuizSection({
+  const _RemindSection({
     required this.icon,
     required this.label,
     required this.count,

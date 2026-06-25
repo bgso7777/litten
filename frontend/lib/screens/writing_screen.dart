@@ -246,7 +246,7 @@ class _WritingScreenState extends State<WritingScreen>
           },
         );
 
-        // 퀴즈 칩/패널은 '기억' 탭으로 이동됨 — 노트는 파일 작업에 집중
+        // 퀴즈 칩/패널은 '리마인드' 탭으로 이동됨 — 노트는 파일 작업에 집중
         return draggableTabLayout;
       },
     );

@@ -9,10 +9,10 @@ import 'home_tab_screen.dart';
 import 'home_screen.dart';
 import 'calendar_tab_screen.dart';
 import 'writing_screen.dart';
-import 'memory_screen.dart';
+import 'remind_screen.dart';
 import 'settings_screen.dart';
 
-/// 메인 5탭: 홈(0) · 캘린더(1) · +(2, 노트) · 기억(3) · 설정(4)
+/// 메인 5탭: 홈(0) · 캘린더(1) · +(2, 노트) · 리마인드(3) · 설정(4)
 /// 가운데 +는 페이지가 아니라 "파일 생성" 진입점 — 탭하면 바텀시트를 띄우고,
 /// 종류 선택 시 노트(index 2)로 진입한다.
 class MainTabScreen extends StatefulWidget {
@@ -27,7 +27,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   final GlobalKey<HomeScreenState> _homeScreenKey = GlobalKey<HomeScreenState>();
   late PageController _pageController; // ⭐ PageView 컨트롤러
 
-  // 5탭 인덱스 상수: 홈0 · 캘린더1 · +2(노트) · 기억3 · 설정4
+  // 5탭 인덱스 상수: 홈0 · 캘린더1 · +2(노트) · 리마인드3 · 설정4
   static const int _homeTab = 0;
   static const int _calendarTab = 1;
   static const int _createTab = 2; // 노트(+) — 액션 탭
@@ -131,7 +131,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                       const HomeTabScreen(),                              // 0: 홈(탭 레이아웃)
                       CalendarTabScreen(homeScreenKey: _homeScreenKey),   // 1: 캘린더(탭 레이아웃)
                       WritingScreen(),                   // 2: 노트(+)
-                      const MemoryScreen(),              // 3: 기억
+                      const RemindScreen(),              // 3: 리마인드
                       SettingsScreen(),                  // 4: 설정
                     ],
                   ),
