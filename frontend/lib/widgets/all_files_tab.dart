@@ -1305,6 +1305,15 @@ class _AllFilesTabState extends State<AllFilesTab> {
     //     시간순 목록으로 섞어 내림차순 정렬.
     final epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
+    // 전체(all) 필터에서 "새 영상이 있는(NEW 핀) 채널"이 있으면:
+    //  위 50% = 새 영상 채널, 아래 50% = 나머지(파일 + 새 영상 없는 일반 채널 시간순 통합).
+    // 새 영상 채널이 없으면 분할하지 않고 기존 통합 리스트를 유지한다.
+    final hasNewVideoChannels = showYoutubeSection &&
+        _youtubeChannels.any((ch) => _newPinnedChannels.contains(ch.channelId));
+    if (_fileFilter == _FileFilter.all && hasNewVideoChannels) {
+      return _buildSplitChannelFileView(merged, epoch);
+    }
+
     final topChannels = showYoutubeSection
         ? _youtubeChannels.where((ch) => _newPinnedChannels.contains(ch.channelId)).toList()
         : <YoutubeChannel>[];
@@ -1372,6 +1381,96 @@ class _AllFilesTabState extends State<AllFilesTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [listSliver],
       ),
+    );
+  }
+
+  /// 전체(all) 필터 전용 분할 뷰.
+  ///  • 위 50%  = 새 영상이 있는(NEW 핀) 채널만 (최신 영상 게시일 내림차순)
+  ///  • 아래 50% = 파일 + 새 영상 없는 일반 채널을 시간순(수정일/등록일)으로 통합
+  Widget _buildSplitChannelFileView(List<_MergedFile> merged, DateTime epoch) {
+    final color = Theme.of(context).primaryColor;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    // 위 50%: 새 영상이 있는(NEW 핀) 채널 — 최신 영상 게시일 내림차순
+    final newChannels = _youtubeChannels
+        .where((ch) => _newPinnedChannels.contains(ch.channelId))
+        .toList()
+      ..sort((a, b) => (_latestVideoAt[b.channelId] ?? epoch)
+          .compareTo(_latestVideoAt[a.channelId] ?? epoch));
+
+    // 아래 50%: 파일 + 새 영상 없는 일반 채널 — 시간순 통합 내림차순
+    final baseItems = <({DateTime sortAt, _MergedFile? file, YoutubeChannel? channel})>[
+      for (final f in merged) (sortAt: f.sortAt, file: f, channel: null),
+      for (final ch in _youtubeChannels)
+        if (!_newPinnedChannels.contains(ch.channelId))
+          (sortAt: ch.registeredAt ?? _channelAddedAt[ch.channelId] ?? epoch, file: null, channel: ch),
+    ]..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+      children: [
+        // ── 위: 새 영상이 있는 채널 — 채널 수만큼만 차지(최대 50%), 넘치면 내부 스크롤 ──
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.5),
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            itemCount: newChannels.length,
+            itemBuilder: (context, index) => _buildYoutubeChannelCard(newChannels[index]),
+          ),
+        ),
+        Divider(height: 1, color: color.withValues(alpha: 0.2)),
+        // ── 아래: 파일 + 일반 채널(시간순 통합) — 남은 공간 전부 ──
+        Expanded(
+          child: baseItems.isEmpty
+              ? Center(
+                  child: Text('항목이 없습니다.',
+                      style: TextStyle(color: Colors.grey[500])),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _refreshFilesAndVideos(appState),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 80),
+                        sliver: SliverList.builder(
+                          itemCount: baseItems.length,
+                          itemBuilder: (context, index) {
+                            final entry = baseItems[index];
+                            final at = entry.sortAt;
+                            final currentDate = DateTime(at.year, at.month, at.day);
+                            final prevAt = index == 0 ? null : baseItems[index - 1].sortAt;
+                            final showDateHeader = at.year >= 2000 &&
+                                (prevAt == null ||
+                                    DateTime(prevAt.year, prevAt.month, prevAt.day) != currentDate);
+                            final f = entry.file;
+                            final Widget card = f != null
+                                ? switch (f.type) {
+                                    _FileType.text => _buildTextCard(f.file as TextFile),
+                                    _FileType.handwriting => _buildHandwritingCard(f.file as HandwritingFile),
+                                    _FileType.audio => _buildAudioCard(f.file as AudioFile),
+                                    _FileType.attachment => _buildAttachmentCard(f.file as AttachmentFile),
+                                  }
+                                : _buildYoutubeChannelCard(entry.channel!);
+                            if (showDateHeader) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [_buildDateHeader(currentDate), card],
+                              );
+                            }
+                            return card;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+        );
+      },
     );
   }
 

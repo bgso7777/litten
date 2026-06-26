@@ -9,7 +9,11 @@ class TabCount {
   /// (DraggableTabLayout의 customTabWidget은 활성/비활성 색을 자동 적용)
   final Color? color;
 
-  const TabCount(this.icon, this.count, {this.color});
+  /// 지정하면 [icon] 대신 이 위젯을 아이콘으로 사용한다.
+  /// (예: 전구+q 합성 퀴즈 아이콘처럼 단일 [IconData]로 표현 불가한 경우)
+  final Widget? iconWidget;
+
+  const TabCount(this.icon, this.count, {this.color, this.iconWidget});
 }
 
 /// 탭 제목란용 "아이콘+카운트" 가로 배열 위젯.
@@ -61,7 +65,7 @@ class TabCountTitle extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(c.icon, color: c.color),
+        c.iconWidget ?? Icon(c.icon, color: c.color),
         const SizedBox(width: 4),
         Text('${c.count}'),
       ],

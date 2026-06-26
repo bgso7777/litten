@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/quiz_item.dart';
 import '../services/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
+import 'common/quiz_bulb_icon.dart';
 
 /// 퀴즈 패널의 완료 상태 필터.
 /// - all: 전체(기본) · pending: 미완료만 · done: 완료만
@@ -150,7 +151,7 @@ class _QuizPanelState extends State<QuizPanel>
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline, size: 20, color: primaryColor),
+          QuizBulbIcon(size: 20, color: primaryColor),
           const SizedBox(width: 8),
           Text(
             '퀴즈',
@@ -311,7 +312,7 @@ class _QuizPanelState extends State<QuizPanel>
         ),
         child: Row(
           children: [
-            Icon(Icons.lightbulb_outline, size: 16, color: primaryColor),
+            QuizBulbIcon(size: 16, color: primaryColor),
             const SizedBox(width: 10),
             // 제목만
             Expanded(
