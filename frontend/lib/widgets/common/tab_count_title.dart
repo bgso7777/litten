@@ -13,7 +13,14 @@ class TabCount {
   /// (예: 전구+q 합성 퀴즈 아이콘처럼 단일 [IconData]로 표현 불가한 경우)
   final Widget? iconWidget;
 
-  const TabCount(this.icon, this.count, {this.color, this.iconWidget});
+  /// 지정하면 이 요소(아이콘+숫자)를 탭할 수 있다(필터 토글 등).
+  final VoidCallback? onTap;
+
+  /// false면 비활성(필터 꺼짐)으로 흐리게 표시한다.
+  final bool active;
+
+  const TabCount(this.icon, this.count,
+      {this.color, this.iconWidget, this.onTap, this.active = true});
 }
 
 /// 탭 제목란용 "아이콘+카운트" 가로 배열 위젯.
@@ -50,7 +57,7 @@ class TabCountTitle extends StatelessWidget {
       final group = groups[g];
       for (var i = 0; i < group.length; i++) {
         if (i > 0) children.add(const SizedBox(width: 11));
-        children.add(_buildItem(group[i]));
+        children.add(_buildItem(context, group[i]));
       }
     }
 
@@ -61,14 +68,30 @@ class TabCountTitle extends StatelessWidget {
     );
   }
 
-  Widget _buildItem(TabCount c) {
-    return Row(
+  Widget _buildItem(BuildContext context, TabCount c) {
+    // 전체탭 제목과 동일하게: 카운트 숫자를 아이콘보다 약간 작게(상속 폰트의 0.8배),
+    // 아이콘 하단에 맞추고 아이콘에 바짝 붙인다.
+    final countFontSize = (DefaultTextStyle.of(context).style.fontSize ?? 13) * 0.8;
+    Widget item = Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         c.iconWidget ?? Icon(c.icon, color: c.color),
-        const SizedBox(width: 4),
-        Text('${c.count}'),
+        const SizedBox(width: 2),
+        Text('${c.count}', style: TextStyle(fontSize: countFontSize)),
       ],
     );
+    // 비활성(필터 꺼짐)이면 흐리게.
+    if (!c.active) {
+      item = Opacity(opacity: 0.35, child: item);
+    }
+    if (c.onTap != null) {
+      item = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: c.onTap,
+        child: item,
+      );
+    }
+    return item;
   }
 }

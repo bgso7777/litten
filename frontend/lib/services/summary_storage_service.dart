@@ -74,6 +74,12 @@ class SummaryStorageService {
     }
   }
 
+  /// 특정 리튼의 요약만 조회 (동기화 업로드 스윕용)
+  Future<List<SummaryEntry>> getByLitten(String littenId) async {
+    final all = await getAllSummaries();
+    return all.where((s) => s.littenId == littenId).toList();
+  }
+
   /// 단일 요약 조회
   Future<SummaryEntry?> getSummary(String id) async {
     try {

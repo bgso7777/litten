@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'audio_file.dart' show SyncStatus;
 
 /// 요약 1건 — 리마인드 '요약' 섹션 표시 + 로컬 별도 파일 저장용 모델.
 ///
@@ -21,7 +22,10 @@ class SummaryEntry {
   final String? summaryGroupId; // 퀴즈 그룹과 연결 (중복 기록 방지/매칭)
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isDone;         // 확인(완료) 여부 — 리마인드 하단(확인함) 영역 분류용
   final String? cloudId;     // 서버 동기화용 (미동기화 시 null)
+  final DateTime? cloudUpdatedAt; // 서버 버전 수정시각 (LWW 비교용)
+  final SyncStatus syncStatus;    // 동기화 상태 (파일 모델과 동일)
 
   SummaryEntry({
     String? id,
@@ -35,7 +39,10 @@ class SummaryEntry {
     this.summaryGroupId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.isDone = false,
     this.cloudId,
+    this.cloudUpdatedAt,
+    this.syncStatus = SyncStatus.none,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? (createdAt ?? DateTime.now());
@@ -47,7 +54,11 @@ class SummaryEntry {
     String? contentType,
     String? summaryGroupId,
     DateTime? updatedAt,
+    bool? isDone,
     String? cloudId,
+    DateTime? cloudUpdatedAt,
+    SyncStatus? syncStatus,
+    bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
   }) {
     return SummaryEntry(
       id: id,
@@ -61,7 +72,10 @@ class SummaryEntry {
       summaryGroupId: summaryGroupId ?? this.summaryGroupId,
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
-      cloudId: cloudId ?? this.cloudId,
+      isDone: isDone ?? this.isDone,
+      cloudId: clearCloud ? null : (cloudId ?? this.cloudId),
+      cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
+      syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
     );
   }
 
@@ -78,7 +92,10 @@ class SummaryEntry {
         'summaryGroupId': summaryGroupId,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'isDone': isDone,
         'cloudId': cloudId,
+        'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
+        'syncStatus': syncStatus.name,
       };
 
   factory SummaryEntry.fromJson(Map<String, dynamic> json) => SummaryEntry(
@@ -97,7 +114,15 @@ class SummaryEntry {
         updatedAt: json['updatedAt'] != null
             ? DateTime.parse(json['updatedAt'] as String)
             : null,
+        isDone: json['isDone'] as bool? ?? false,
         cloudId: json['cloudId'] as String?,
+        cloudUpdatedAt: json['cloudUpdatedAt'] != null
+            ? DateTime.parse(json['cloudUpdatedAt'] as String)
+            : null,
+        syncStatus: SyncStatus.values.firstWhere(
+          (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
+          orElse: () => SyncStatus.none,
+        ),
       );
 
   /// 공유용 평문 (제목 + 날짜 + 요약 본문)

@@ -8,9 +8,13 @@ import '../models/audio_file.dart';
 import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../models/attachment_file.dart';
+import '../models/summary_entry.dart';
+import '../models/quiz_item.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 import 'file_storage_service.dart';
+import 'summary_storage_service.dart';
+import 'quiz_storage_service.dart';
 import 'litten_service.dart';
 import '../models/litten.dart';
 
@@ -25,6 +29,8 @@ class SyncService {
 
   final ApiService _api = ApiService();
   final LittenService _littenService = LittenService();
+  final SummaryStorageService _summaryStorage = SummaryStorageService();
+  final QuizStorageService _quizStorage = QuizStorageService();
   AuthServiceImpl? _authService;
   VoidCallback? _onSyncStatusChanged;
   VoidCallback? _onLittenChanged; // 리튼 목록이 바뀌었을 때만 호출(무거운 리튼 리로드용)
@@ -66,6 +72,17 @@ class SyncService {
       if (hws.any((f) => f.cloudId != null || f.syncStatus != SyncStatus.none)) {
         await _fileStorage.saveHandwritingFiles(littenId,
             hws.map((f) => f.copyWith(clearCloud: true, updatedAt: f.updatedAt)).toList());
+      }
+      // 요약·퀴즈도 클라우드 상태 초기화 (개별 파일 저장소)
+      for (final s in await _summaryStorage.getByLitten(littenId)) {
+        if (s.cloudId != null || s.syncStatus != SyncStatus.none) {
+          await _summaryStorage.saveSummary(s.copyWith(clearCloud: true, updatedAt: s.updatedAt));
+        }
+      }
+      for (final q in await _quizStorage.getByLitten(littenId)) {
+        if (q.cloudId != null || q.syncStatus != SyncStatus.none) {
+          await _quizStorage.saveQuiz(q.copyWith(clearCloud: true, updatedAt: q.updatedAt));
+        }
       }
     }
     _onSyncStatusChanged?.call();
@@ -328,6 +345,44 @@ class SyncService {
         await uploadFile(
           littenId: littenId, localId: file.id, fileType: 'attachment',
           fileName: file.fileName, filePath: attachPath, localUpdatedAt: file.updatedAt,
+        );
+      }
+    }
+
+    // 요약 (텍스트형 — 내용 변경 가능: 신규 + 수정 둘 다 업로드. 파일 본문 = summaries/{id}.json)
+    final summaries = await _summaryStorage.getByLitten(littenId);
+    for (final s in summaries) {
+      final path = await _summaryStorage.summaryFilePath(s.id);
+      if (!await File(path).exists()) continue;
+      if (s.cloudId == null) {
+        await uploadFile(
+          littenId: littenId, localId: s.id, fileType: 'summary',
+          fileName: '${s.id}.json', filePath: path, localUpdatedAt: s.updatedAt,
+        );
+      } else if (_isModifiedLocally(s.updatedAt, s.cloudUpdatedAt)) {
+        debugPrint('[SyncService] 요약 수정 감지 - localId: ${s.id}');
+        await updateFile(
+          littenId: littenId, localId: s.id, cloudId: s.cloudId!,
+          fileType: 'summary', filePath: path, localUpdatedAt: s.updatedAt,
+        );
+      }
+    }
+
+    // 퀴즈 (텍스트형 — 완료 토글/편집 등 변경 가능: 신규 + 수정. 파일 본문 = quizzes/{id}.json)
+    final quizzes = await _quizStorage.getByLitten(littenId);
+    for (final q in quizzes) {
+      final path = await _quizStorage.quizFilePath(q.id);
+      if (!await File(path).exists()) continue;
+      if (q.cloudId == null) {
+        await uploadFile(
+          littenId: littenId, localId: q.id, fileType: 'quiz',
+          fileName: '${q.id}.json', filePath: path, localUpdatedAt: q.updatedAt,
+        );
+      } else if (_isModifiedLocally(q.updatedAt, q.cloudUpdatedAt)) {
+        debugPrint('[SyncService] 퀴즈 수정 감지 - localId: ${q.id}');
+        await updateFile(
+          littenId: littenId, localId: q.id, cloudId: q.cloudId!,
+          fileType: 'quiz', filePath: path, localUpdatedAt: q.updatedAt,
         );
       }
     }
@@ -790,6 +845,10 @@ class SyncService {
       final files = await _fileStorage.loadAttachmentFiles(littenId);
       files.removeWhere((f) => f.id == localId);
       await _fileStorage.saveAttachmentFiles(littenId, files);
+    } else if (fileType == 'summary') {
+      await _summaryStorage.deleteSummary(localId);
+    } else if (fileType == 'quiz') {
+      await _quizStorage.deleteQuiz(localId);
     }
     _onSyncStatusChanged?.call();
   }
@@ -807,6 +866,10 @@ class SyncService {
     } else if (fileType == 'attachment') {
       final files = await _fileStorage.loadAttachmentFiles(littenId);
       try { return files.firstWhere((f) => f.id == localId); } catch (_) { return null; }
+    } else if (fileType == 'summary') {
+      return _summaryStorage.getSummary(localId); // id 전역 고유 → littenId 불필요
+    } else if (fileType == 'quiz') {
+      return _quizStorage.getQuiz(localId);
     }
     return null;
   }
@@ -816,6 +879,8 @@ class SyncService {
     if (file is HandwritingFile) return file.updatedAt;
     if (file is AudioFile) return file.updatedAt;
     if (file is AttachmentFile) return file.updatedAt;
+    if (file is SummaryEntry) return file.updatedAt;
+    if (file is QuizItem) return file.updatedAt;
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
@@ -838,12 +903,23 @@ class SyncService {
     if (file is HandwritingFile) return _resolveLocalPath(file.imagePath, littenId, 'handwriting');
     if (file is AudioFile) return _resolveLocalPath(file.filePath, littenId, 'audio');
     if (file is AttachmentFile) return _resolveLocalPath(file.filePath, littenId, 'attachments');
+    // 요약·퀴즈는 본문 = 개별 JSON 파일 (전역 저장소 경로)
+    if (file is SummaryEntry) return _summaryStorage.summaryFilePath(file.id);
+    if (file is QuizItem) return _quizStorage.quizFilePath(file.id);
     return null;
   }
 
   Future<String?> _saveDownloadedFile(String littenId, String localId, String fileType, Uint8List bytes,
       [String cloudFileName = '']) async {
     try {
+      // 요약·퀴즈는 전역 저장소 파일(summaries/quizzes/{id}.json)로 바로 기록
+      if (fileType == 'summary' || fileType == 'quiz') {
+        final path = fileType == 'summary'
+            ? await _summaryStorage.summaryFilePath(localId)
+            : await _quizStorage.quizFilePath(localId);
+        await File(path).writeAsBytes(bytes);
+        return path;
+      }
       final appDir = await getApplicationDocumentsDirectory();
       // 첨부파일은 'attachments' 폴더에 원본 확장자로 저장 (확장자 가변)
       final dirName = fileType == 'attachment' ? 'attachments' : fileType;
@@ -988,6 +1064,34 @@ class SyncService {
       }
       await _fileStorage.saveAttachmentFiles(littenId, files);
       _onSyncStatusChanged?.call();
+    } else if (fileType == 'summary') {
+      // 다운로드한 JSON 본문을 파싱해 모델 복원 후, 동기화 메타는 cloud 값으로 덮어쓴다.
+      // (updatedAt=cloud로 맞춰 재업로드 핑퐁 방지 — 텍스트 패턴과 동일)
+      try {
+        final json = jsonDecode(await File(localPath).readAsString()) as Map<String, dynamic>;
+        final downloaded = SummaryEntry.fromJson(json);
+        await _summaryStorage.saveSummary(downloaded.copyWith(
+          cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 요약 다운로드 적용 - localId: $localId');
+        _onSyncStatusChanged?.call();
+      } catch (e) {
+        debugPrint('[SyncService] 요약 다운로드 파싱 실패: $e');
+      }
+    } else if (fileType == 'quiz') {
+      try {
+        final json = jsonDecode(await File(localPath).readAsString()) as Map<String, dynamic>;
+        final downloaded = QuizItem.fromJson(json);
+        await _quizStorage.saveQuiz(downloaded.copyWith(
+          cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt,
+          syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt,
+        ));
+        debugPrint('[SyncService] 퀴즈 다운로드 적용 - localId: $localId');
+        _onSyncStatusChanged?.call();
+      } catch (e) {
+        debugPrint('[SyncService] 퀴즈 다운로드 파싱 실패: $e');
+      }
     }
   }
 
@@ -1034,6 +1138,23 @@ class SyncService {
         await _fileStorage.saveAttachmentFiles(littenId, files);
         _onSyncStatusChanged?.call();
       }
+    } else if (fileType == 'summary') {
+      final s = await _summaryStorage.getSummary(localId);
+      if (s != null) {
+        // cloudUpdatedAt=updatedAt로 맞춰 다음 스윕에서 "로컬이 더 최신" 오판(재업로드 루프) 방지
+        await _summaryStorage.saveSummary(s.copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: s.updatedAt, updatedAt: s.updatedAt));
+        _onSyncStatusChanged?.call();
+      }
+    } else if (fileType == 'quiz') {
+      final q = await _quizStorage.getQuiz(localId);
+      if (q != null) {
+        await _quizStorage.saveQuiz(q.copyWith(
+          cloudId: cloudId, syncStatus: status,
+          cloudUpdatedAt: q.updatedAt, updatedAt: q.updatedAt));
+        _onSyncStatusChanged?.call();
+      }
     }
   }
 
@@ -1042,6 +1163,8 @@ class SyncService {
       case 'audio': return 'audio/m4a';
       case 'text': return 'text/plain';
       case 'handwriting': return 'image/png';
+      case 'summary':
+      case 'quiz': return 'application/json';
       default: return 'application/octet-stream'; // attachment 등
     }
   }
@@ -1051,6 +1174,8 @@ class SyncService {
       case 'audio': return '.m4a';
       case 'text': return '.html';
       case 'handwriting': return '.png';
+      case 'summary':
+      case 'quiz': return '.json';
       default: return '.bin';
     }
   }

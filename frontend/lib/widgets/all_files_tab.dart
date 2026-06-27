@@ -1886,7 +1886,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: color,
+                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
                         onPressed: () {},
                       ),
@@ -2004,7 +2004,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: color,
+                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
                         onPressed: () {},
                       ),
@@ -2439,7 +2439,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   if (_isPremiumPlus)
                     _iconBtn(
                       icon: Icons.share_outlined,
-                      color: color,
+                      color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                       tooltip: AppLocalizations.of(context)?.share ?? '공유',
                       onPressed: () => _shareAttachment(file),
                     ),
@@ -2862,7 +2862,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: color,
+                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: '공유',
                         onPressed: () {},
                       ),

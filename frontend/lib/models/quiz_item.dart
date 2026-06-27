@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'audio_file.dart' show SyncStatus;
 
 enum QuizFileType { audio, text }
 
@@ -18,6 +19,11 @@ class QuizItem {
   final int? summaryLevel;      // 요약 수준 (1~5)
   final String? contentType;    // 콘텐츠 유형 (회의/강의/발표/...)
   final String? summaryText;    // 전체 요약 텍스트 (그룹 첫 항목에만 저장)
+  // ⭐ 동기화용 필드 (파일 모델과 동일)
+  final DateTime updatedAt;        // 로컬 수정시각 (수정 감지/LWW)
+  final String? cloudId;           // 서버 동기화용 (미동기화 시 null)
+  final DateTime? cloudUpdatedAt;  // 서버 버전 수정시각 (LWW 비교용)
+  final SyncStatus syncStatus;     // 동기화 상태
 
   QuizItem({
     String? id,
@@ -34,8 +40,13 @@ class QuizItem {
     this.summaryLevel,
     this.contentType,
     this.summaryText,
+    DateTime? updatedAt,
+    this.cloudId,
+    this.cloudUpdatedAt,
+    this.syncStatus = SyncStatus.none,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? (createdAt ?? DateTime.now());
 
   QuizItem copyWith({
     String? title,
@@ -47,6 +58,11 @@ class QuizItem {
     int? summaryLevel,
     String? contentType,
     String? summaryText,
+    DateTime? updatedAt,
+    String? cloudId,
+    DateTime? cloudUpdatedAt,
+    SyncStatus? syncStatus,
+    bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
   }) {
     return QuizItem(
       id: id,
@@ -63,6 +79,11 @@ class QuizItem {
       summaryLevel: summaryLevel ?? this.summaryLevel,
       contentType: contentType ?? this.contentType,
       summaryText: summaryText ?? this.summaryText,
+      // 명시하면 그 값 유지(다운로드 머지 시 cloud 시각), 아니면 수정 시각 갱신
+      updatedAt: updatedAt ?? DateTime.now(),
+      cloudId: clearCloud ? null : (cloudId ?? this.cloudId),
+      cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
+      syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
     );
   }
 
@@ -81,6 +102,10 @@ class QuizItem {
         'summaryLevel': summaryLevel,
         'contentType': contentType,
         'summaryText': summaryText,
+        'updatedAt': updatedAt.toIso8601String(),
+        'cloudId': cloudId,
+        'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
+        'syncStatus': syncStatus.name,
       };
 
   factory QuizItem.fromJson(Map<String, dynamic> json) => QuizItem(
@@ -101,6 +126,17 @@ class QuizItem {
         summaryLevel: json['summaryLevel'] as int?,
         contentType: json['contentType'] as String?,
         summaryText: json['summaryText'] as String?,
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.parse(json['updatedAt'] as String)
+            : null,
+        cloudId: json['cloudId'] as String?,
+        cloudUpdatedAt: json['cloudUpdatedAt'] != null
+            ? DateTime.parse(json['cloudUpdatedAt'] as String)
+            : null,
+        syncStatus: SyncStatus.values.firstWhere(
+          (s) => s.name == (json['syncStatus'] as String? ?? 'none'),
+          orElse: () => SyncStatus.none,
+        ),
       );
 }
 

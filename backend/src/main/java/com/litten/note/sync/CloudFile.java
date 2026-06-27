@@ -30,7 +30,7 @@ public class CloudFile extends BaseEntity implements Serializable {
     @Column(name = "local_id", columnDefinition = "VARCHAR(128) NOT NULL COMMENT '로컬 파일 ID'")
     private String localId;
 
-    @Column(name = "file_type", columnDefinition = "VARCHAR(20) NOT NULL COMMENT '파일 유형 (audio/text/handwriting)'")
+    @Column(name = "file_type", columnDefinition = "VARCHAR(20) NOT NULL COMMENT '파일 유형 (audio/text/handwriting/attachment/summary/quiz)'")
     private String fileType;
 
     @Column(name = "file_name", columnDefinition = "VARCHAR(255) NOT NULL COMMENT '파일명'")

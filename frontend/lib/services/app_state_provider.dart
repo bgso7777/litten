@@ -1,12 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
 import '../models/quiz_item.dart';
 import '../models/summary_entry.dart';
 import '../services/summary_storage_service.dart';
+import '../services/quiz_storage_service.dart';
 import '../services/litten_service.dart';
 import '../services/notification_service.dart';
 import '../services/background_notification_service.dart';
@@ -159,14 +160,66 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// 요약 삭제 (파일 + 상태)
-  Future<void> deleteSummary(String id) async {
-    _summaries.removeWhere((s) => s.id == id);
-    await _summaryStorage.deleteSummary(id);
+  /// 리마인드에서 수동으로 메모를 추가할 때 사용할 리튼 id.
+  /// (선택된 리튼 → 없으면 첫 리튼 → 그것도 없으면 빈 문자열)
+  String _manualRemindLittenId() =>
+      _selectedLitten?.id ?? (_littens.isNotEmpty ? _littens.first.id : '');
+
+  /// 메모를 '요약'으로 직접 추가 (리마인드 + 버튼).
+  Future<void> addManualSummary({required String title, required String content}) async {
+    await recordSummary(
+      littenId: _manualRemindLittenId(),
+      sourceFileId: const Uuid().v4(), // 수동 메모 — 원본 파일 없음
+      sourceType: 'text',
+      title: title.isEmpty ? '메모' : title,
+      summaryText: content,
+    );
+  }
+
+  /// 메모를 '퀴즈'로 직접 추가 (리마인드 + 버튼). 단일 문항 그룹으로 들어간다.
+  void addManualQuiz({required String title, required String content}) {
+    final item = QuizItem(
+      fileId: const Uuid().v4(), // 자체 그룹(file:fileId)으로 묶임
+      fileType: QuizFileType.text,
+      fileName: title.isEmpty ? '메모' : title,
+      littenId: _manualRemindLittenId(),
+      title: title.isEmpty ? '메모' : title,
+      content: content,
+    );
+    addQuizItem(item);
+  }
+
+  /// 요약 확인(완료) 토글 — 리마인드 하단(확인함) 영역 분류용.
+  /// updatedAt이 갱신되어 동기화 스윕이 변경을 감지·업로드한다.
+  Future<void> toggleSummaryDone(String id) async {
+    final idx = _summaries.indexWhere((s) => s.id == id);
+    if (idx == -1) return;
+    final updated = _summaries[idx].copyWith(isDone: !_summaries[idx].isDone);
+    _summaries[idx] = updated;
+    await _summaryStorage.saveSummary(updated);
+    debugPrint('[AppStateProvider] toggleSummaryDone: $id -> ${updated.isDone}');
     notifyListeners();
   }
 
-  // ⭐ 퀴즈 상태
+  /// 요약 삭제 (파일 + 상태 + 서버 전파)
+  Future<void> deleteSummary(String id) async {
+    SummaryEntry? removed;
+    final idx = _summaries.indexWhere((s) => s.id == id);
+    if (idx >= 0) removed = _summaries[idx];
+    _summaries.removeWhere((s) => s.id == id);
+    await _summaryStorage.deleteSummary(id);
+    // 서버에 업로드된 적이 있으면(cloudId 존재) 삭제를 전파해 다른 기기에서 부활하지 않게 한다.
+    if (removed?.cloudId != null) {
+      SyncService.instance.deleteFile(
+        littenId: removed!.littenId, localId: id,
+        cloudId: removed.cloudId!, fileType: 'summary',
+      );
+    }
+    notifyListeners();
+  }
+
+  // ⭐ 퀴즈 상태 (개별 파일 저장 — 파일 동기화 파이프라인 fileType 'quiz')
+  final QuizStorageService _quizStorage = QuizStorageService();
   List<QuizItem> _quizItems = [];
   String? _selectedQuizFileId;
 
@@ -247,11 +300,48 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 퀴즈 그룹 전체의 완료 여부를 일괄 설정 — 리마인드 확인(완료) 토글용.
+  /// (그룹의 모든 문항 isDone을 done으로. 변경된 항목만 updatedAt 갱신되어 동기화 전파)
+  void setQuizGroupDone({String? summaryGroupId, String? fileId, required bool done}) {
+    bool match(QuizItem i) {
+      if (summaryGroupId != null) return i.summaryGroupId == summaryGroupId;
+      if (fileId != null) return i.summaryGroupId == null && i.fileId == fileId;
+      return false;
+    }
+    bool changed = false;
+    for (int i = 0; i < _quizItems.length; i++) {
+      if (match(_quizItems[i]) && _quizItems[i].isDone != done) {
+        _quizItems[i] = _quizItems[i].copyWith(isDone: done);
+        changed = true;
+      }
+    }
+    if (changed) {
+      debugPrint('[AppStateProvider] setQuizGroupDone($done) - groupId: $summaryGroupId, fileId: $fileId');
+      _saveQuizItems();
+      notifyListeners();
+    }
+  }
+
   void deleteQuizItem(String itemId) {
     debugPrint('[AppStateProvider] deleteQuizItem: $itemId');
+    QuizItem? removed;
+    final idx = _quizItems.indexWhere((i) => i.id == itemId);
+    if (idx >= 0) removed = _quizItems[idx];
     _quizItems.removeWhere((i) => i.id == itemId);
     _saveQuizItems();
+    if (removed != null) _deleteQuizFileAndPropagate(removed);
     notifyListeners();
+  }
+
+  /// 퀴즈 1건의 로컬 파일 삭제 + (업로드된 적 있으면) 서버 삭제 전파
+  void _deleteQuizFileAndPropagate(QuizItem item) {
+    _quizStorage.deleteQuiz(item.id);
+    if (item.cloudId != null) {
+      SyncService.instance.deleteFile(
+        littenId: item.littenId, localId: item.id,
+        cloudId: item.cloudId!, fileType: 'quiz',
+      );
+    }
   }
 
   /// 단일 퀴즈 항목 수정
@@ -267,21 +357,24 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// 그룹 전체 삭제 (요약 그룹 단위)
   void deleteQuizGroup({String? summaryGroupId, String? fileId}) {
     debugPrint('[AppStateProvider] deleteQuizGroup - groupId: $summaryGroupId, fileId: $fileId');
-    if (summaryGroupId != null) {
-      _quizItems.removeWhere((i) => i.summaryGroupId == summaryGroupId);
-    } else if (fileId != null) {
-      // 폴백: groupId 없는 항목들을 fileId로 삭제
-      _quizItems.removeWhere((i) => i.summaryGroupId == null && i.fileId == fileId);
+    bool match(QuizItem i) {
+      if (summaryGroupId != null) return i.summaryGroupId == summaryGroupId;
+      if (fileId != null) return i.summaryGroupId == null && i.fileId == fileId; // 폴백
+      return false;
     }
+    final removed = _quizItems.where(match).toList();
+    _quizItems.removeWhere(match);
     _saveQuizItems();
+    for (final item in removed) {
+      _deleteQuizFileAndPropagate(item);
+    }
     notifyListeners();
   }
 
+  /// 퀴즈 항목을 개별 파일로 저장(동기화 업로드 스윕이 인식). 현재 목록 전체를 기록한다.
   Future<void> _saveQuizItems() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_quizItems.map((i) => i.toJson()).toList());
-      await prefs.setString('quiz_items', json);
+      await _quizStorage.saveQuizzes(_quizItems);
       debugPrint('[AppStateProvider] 퀴즈 항목 저장 완료: ${_quizItems.length}개');
     } catch (e) {
       debugPrint('[AppStateProvider] 퀴즈 항목 저장 실패: $e');
@@ -290,18 +383,28 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _loadQuizItems() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = prefs.getString('quiz_items');
-      if (json != null && json.isNotEmpty) {
-        final list = jsonDecode(json) as List;
-        _quizItems = list.map((e) => QuizItem.fromJson(e as Map<String, dynamic>)).toList();
-        debugPrint('[AppStateProvider] 퀴즈 항목 로드 완료: ${_quizItems.length}개');
-      } else {
-        _quizItems = [];
-        debugPrint('[AppStateProvider] 퀴즈 항목 없음 - 빈 목록으로 시작');
-      }
+      // 최초 로드 시 레거시(SharedPreferences) → 개별 파일 1회 마이그레이션 포함
+      _quizItems = await _quizStorage.getAllQuizzes();
+      debugPrint('[AppStateProvider] 퀴즈 항목 로드 완료: ${_quizItems.length}개');
     } catch (e) {
       debugPrint('[AppStateProvider] 퀴즈 항목 로드 실패: $e');
+    }
+  }
+
+  /// 동기화로 서버에서 내려받은 요약·퀴즈를 디스크에서 다시 읽어 UI에 반영.
+  /// (파일 다운로드 콜백[onSyncStatusChanged]에서 호출 — 중복 호출은 in-flight 플래그로 합침)
+  bool _remindReloadInFlight = false;
+  Future<void> reloadRemindsFromDisk() async {
+    if (_remindReloadInFlight) return;
+    _remindReloadInFlight = true;
+    try {
+      _summaries = await _summaryStorage.getAllSummaries();
+      _quizItems = await _quizStorage.getAllQuizzes();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AppStateProvider] 리마인드 리로드 실패: $e');
+    } finally {
+      _remindReloadInFlight = false;
     }
   }
 
@@ -1150,6 +1253,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   void notifyFileListChanged() {
     _fileListVersion++;
     debugPrint('📄 AppStateProvider: 파일 목록 변경 알림 - UI 강제 새로고침 (version: $_fileListVersion)');
+    // 동기화로 내려받은 요약·퀴즈도 디스크에서 다시 읽어 리마인드 화면에 반영 (fire-and-forget)
+    reloadRemindsFromDisk();
     notifyListeners();
   }
 
