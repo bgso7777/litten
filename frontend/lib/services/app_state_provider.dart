@@ -1,7 +1,14 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/api_service.dart';
+import '../models/text_file.dart';
+import '../models/audio_file.dart';
+import '../models/attachment_file.dart';
 import '../config/themes.dart';
 import '../models/litten.dart';
 import '../models/quiz_item.dart';
@@ -19,7 +26,7 @@ import '../services/auth_service.dart';
 import '../services/notification_storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/schedule_sync_service.dart';
-import '../models/handwriting_file.dart' show HandwritingType;
+import '../models/handwriting_file.dart' show HandwritingType, HandwritingFile;
 
 class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final LittenService _littenService = LittenService();
@@ -1247,6 +1254,225 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   void setTargetWritingTab(String? tabId) {
     _targetWritingTabId = tabId;
     notifyListeners();
+  }
+
+  // ───────────────────────── 사용자 간 공유 / 그룹 ─────────────────────────
+  final ApiService _shareApi = ApiService();
+  List<Map<String, dynamic>> _sharesReceived = [];
+  List<Map<String, dynamic>> _sharesSent = [];
+  List<Map<String, dynamic>> _shareGroups = [];
+  List<Map<String, dynamic>> get sharesReceived => _sharesReceived;
+  List<Map<String, dynamic>> get sharesSent => _sharesSent;
+  List<Map<String, dynamic>> get shareGroups => _shareGroups;
+  // 받은 공유 중 대기(미응답) 건수 — 홈 배지/카운트용
+  int get pendingReceivedShareCount =>
+      _sharesReceived.where((s) => s['status'] == 'pending').length;
+
+  Future<String?> _shareToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  /// 받은/보낸 공유 + 그룹 로드 (로그인 시/홈 진입 시).
+  Future<void> loadShares() async {
+    final token = await _shareToken();
+    if (token == null) {
+      _sharesReceived = [];
+      _sharesSent = [];
+      _shareGroups = [];
+      notifyListeners();
+      return;
+    }
+    _sharesReceived = await _shareApi.getSharesReceived(token: token);
+    _sharesSent = await _shareApi.getSharesSent(token: token);
+    _shareGroups = await _shareApi.getGroups(token: token);
+    notifyListeners();
+  }
+
+  Future<List<Map<String, dynamic>>> reloadShareGroups() async {
+    final token = await _shareToken();
+    if (token == null) return [];
+    _shareGroups = await _shareApi.getGroups(token: token);
+    notifyListeners();
+    return _shareGroups;
+  }
+
+  /// 파일을 개인(이메일/이름) 또는 그룹에 공유. 반환: {success, message?}
+  Future<Map<String, dynamic>> shareFile({
+    required String filePath,
+    required String fileType,
+    required String fileName,
+    String? contentType,
+    String? littenTitle,
+    required String targetType, // 'user' | 'group'
+    String? recipientKey,
+    int? groupId,
+    String? message,
+  }) async {
+    final token = await _shareToken();
+    if (token == null) return {'success': false, 'message': '로그인이 필요합니다.'};
+    final f = File(filePath);
+    if (!await f.exists()) return {'success': false, 'message': '파일을 찾을 수 없습니다.'};
+    final res = await _shareApi.shareFile(
+      token: token, targetType: targetType, recipientKey: recipientKey, groupId: groupId,
+      littenTitle: littenTitle, fileType: fileType, fileName: fileName,
+      contentType: contentType, message: message, file: f,
+    );
+    if (res['success'] == true) await loadShares();
+    return res;
+  }
+
+  // ── 그룹 관리 ──
+  Future<Map<String, dynamic>?> createShareGroup(String name,
+      {String? password, List<String>? members}) async {
+    final token = await _shareToken();
+    if (token == null) return null;
+    final g = await _shareApi.createGroup(
+        token: token, name: name, password: password, members: members);
+    await reloadShareGroups();
+    return g;
+  }
+
+  Future<bool> deleteShareGroup(int groupId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.deleteGroup(token: token, groupId: groupId);
+    if (ok) await reloadShareGroups();
+    return ok;
+  }
+
+  Future<Map<String, dynamic>> addShareGroupMember(int groupId, String key) async {
+    final token = await _shareToken();
+    if (token == null) return {'success': false, 'message': '로그인이 필요합니다.'};
+    final r = await _shareApi.addGroupMember(token: token, groupId: groupId, key: key);
+    if (r['success'] == true) await reloadShareGroups();
+    return r;
+  }
+
+  Future<List<Map<String, dynamic>>> getShareGroupMembers(int groupId) async {
+    final token = await _shareToken();
+    if (token == null) return [];
+    return _shareApi.getGroupMembers(token: token, groupId: groupId);
+  }
+
+  Future<bool> removeShareGroupMember(int groupId, String memberId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.removeGroupMember(token: token, groupId: groupId, memberId: memberId);
+    if (ok) await reloadShareGroups();
+    return ok;
+  }
+
+  // ── 받은 공유 응답 ──
+  /// 수락 → 본문 다운로드 → 로컬 리튼에 저장. 성공 시 true.
+  Future<bool> acceptReceivedShare(Map<String, dynamic> share) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final deliveryId = (share['deliveryId'] as num).toInt();
+    final acc = await _shareApi.acceptShare(token: token, deliveryId: deliveryId);
+    if (acc == null || acc['success'] != true) return false;
+    final shareId = (acc['shareId'] as num).toInt();
+    final bytes = await _shareApi.downloadShare(token: token, shareId: shareId);
+    if (bytes == null) {
+      await loadShares();
+      return false;
+    }
+    await _saveSharedFileLocally(
+      fileType: share['fileType'] as String? ?? 'attachment',
+      fileName: share['fileName'] as String? ?? 'shared',
+      bytes: bytes,
+    );
+    await loadShares();
+    notifyFileListChanged();
+    return true;
+  }
+
+  Future<bool> rejectReceivedShare(Map<String, dynamic> share) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.rejectShare(token: token, deliveryId: (share['deliveryId'] as num).toInt());
+    if (ok) await loadShares();
+    return ok;
+  }
+
+  Future<bool> cancelSentShare(int shareId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.cancelShare(token: token, shareId: shareId);
+    if (ok) await loadShares();
+    return ok;
+  }
+
+  String _stripExt(String name) {
+    final d = name.lastIndexOf('.');
+    return d > 0 ? name.substring(0, d) : name;
+  }
+
+  /// 공유 받은 파일을 담을 리튼 id (선택 리튼 → 첫 리튼 → 신규 '공유 받은').
+  Future<String> _resolveInboxLittenId() async {
+    if (_selectedLitten != null) return _selectedLitten!.id;
+    final littens = await _littenService.getAllLittens();
+    if (littens.isNotEmpty) return littens.first.id;
+    final created = await createLitten('공유 받은');
+    return created.id;
+  }
+
+  /// 수락한 공유 파일을 로컬 파일로 저장(파일 유형별).
+  Future<void> _saveSharedFileLocally({
+    required String fileType,
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    final littenId = await _resolveInboxLittenId();
+    final fs = FileStorageService.instance;
+    final appDir = await getApplicationDocumentsDirectory();
+    if (fileType == 'text') {
+      final content = utf8.decode(bytes, allowMalformed: true);
+      final tf = TextFile(littenId: littenId, title: _stripExt(fileName), content: content);
+      final list = await fs.loadTextFiles(littenId);
+      list.add(tf);
+      await fs.saveTextFiles(littenId, list);
+      await _littenService.addTextFileToLitten(littenId, tf.id);
+    } else if (fileType == 'audio') {
+      final id = const Uuid().v4();
+      final dir = Directory('${appDir.path}/littens/$littenId/audio');
+      await dir.create(recursive: true);
+      final path = '${dir.path}/$id.m4a';
+      await File(path).writeAsBytes(bytes);
+      final af = AudioFile(id: id, littenId: littenId, fileName: _stripExt(fileName), filePath: path, fileSize: bytes.length);
+      final list = await fs.loadAudioFiles(littenId);
+      list.add(af);
+      await fs.saveAudioFiles(littenId, list);
+      await _littenService.addAudioFileToLitten(littenId, id);
+    } else if (fileType == 'handwriting') {
+      final id = const Uuid().v4();
+      final isPdf = fileName.toLowerCase().endsWith('.pdf');
+      final dir = Directory('${appDir.path}/littens/$littenId/handwriting');
+      await dir.create(recursive: true);
+      final path = '${dir.path}/$id${isPdf ? '.pdf' : '.png'}';
+      await File(path).writeAsBytes(bytes);
+      final hf = HandwritingFile(
+        id: id, littenId: littenId, title: _stripExt(fileName), imagePath: path,
+        type: isPdf ? HandwritingType.pdfConvert : HandwritingType.drawing,
+      );
+      final list = await fs.loadHandwritingFiles(littenId);
+      list.add(hf);
+      await fs.saveHandwritingFiles(littenId, list);
+      await _littenService.addHandwritingFileToLitten(littenId, id);
+    } else {
+      // attachment
+      final id = const Uuid().v4();
+      final dir = Directory('${appDir.path}/littens/$littenId/attachments');
+      await dir.create(recursive: true);
+      final path = '${dir.path}/$fileName';
+      await File(path).writeAsBytes(bytes);
+      final at = AttachmentFile(id: id, littenId: littenId, fileName: fileName, filePath: path, sizeBytes: bytes.length);
+      final list = await fs.loadAttachmentFiles(littenId);
+      list.add(at);
+      await fs.saveAttachmentFiles(littenId, list);
+      await _littenService.addAttachmentFileToLitten(littenId, id);
+    }
+    await refreshLittens();
   }
 
   // 파일 목록 변경 알림 (PDF 변환 등으로 파일이 추가/삭제될 때 호출)

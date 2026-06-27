@@ -34,6 +34,7 @@ import '../models/quiz_item.dart';
 import '../utils/quiz_parser.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'share_compose_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'youtube_tab.dart';
 import 'dart:io';
@@ -1888,7 +1889,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         icon: Icons.share_outlined,
                         color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                        onPressed: () {},
+                        onPressed: () => _openShareSheet(
+                          title: file.displayTitle,
+                          onUser: () => _shareTextFileToUser(file),
+                          onExternal: () => _shareTextFile(file),
+                        ),
                       ),
                     _moreMenuBtn(
                       color: color,
@@ -2006,7 +2011,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         icon: Icons.share_outlined,
                         color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                        onPressed: () {},
+                        onPressed: () => _openShareSheet(
+                          title: file.displayTitle,
+                          onUser: () => _shareHandwritingFileToUser(file),
+                          onExternal: () => _shareHandwritingFile(file),
+                        ),
                       ),
                     _moreMenuBtn(
                       color: color,
@@ -2441,7 +2450,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       icon: Icons.share_outlined,
                       color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                       tooltip: AppLocalizations.of(context)?.share ?? '공유',
-                      onPressed: () => _shareAttachment(file),
+                      onPressed: () => _openShareSheet(
+                        title: file.fileName,
+                        onUser: () => _shareAttachmentFileToUser(file),
+                        onExternal: () => _shareAttachment(file),
+                      ),
                     ),
                   // ... 더보기 메뉴
                   SizedBox(
@@ -2510,6 +2523,196 @@ class _AllFilesTabState extends State<AllFilesTab> {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)}GB';
+  }
+
+  /// 텍스트 파일을 외부 앱으로 공유 (HTML 제거한 평문 + 제목).
+  Future<void> _shareTextFile(TextFile file) async {
+    try {
+      final plain = file.preview.trim();
+      if (plain.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('공유할 내용이 없습니다')),
+          );
+        }
+        return;
+      }
+      final text =
+          file.displayTitle.isNotEmpty ? '${file.displayTitle}\n\n$plain' : plain;
+      await Share.share(text, subject: file.displayTitle);
+    } catch (e) {
+      debugPrint('❌ 텍스트 공유 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 필기 파일(PNG/PDF)을 외부 앱으로 공유.
+  Future<void> _shareHandwritingFile(HandwritingFile file) async {
+    try {
+      final f = File(file.imagePath);
+      if (!await f.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('파일을 찾을 수 없습니다')),
+          );
+        }
+        return;
+      }
+      await Share.shareXFiles([XFile(file.imagePath)], subject: file.displayTitle);
+    } catch (e) {
+      debugPrint('❌ 필기 공유 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 오디오 파일(m4a)을 외부 앱으로 공유.
+  Future<void> _shareAudioFile(AudioFile file) async {
+    try {
+      final f = File(file.filePath);
+      if (!await f.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('파일을 찾을 수 없습니다')),
+          );
+        }
+        return;
+      }
+      await Share.shareXFiles([XFile(file.filePath)], subject: file.fileName);
+    } catch (e) {
+      debugPrint('❌ 오디오 공유 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  // ── 사용자에게 공유 (백엔드 경유) ──
+  /// 공유 작성 다이얼로그를 띄우고, 선택한 대상(개인/그룹)에게 파일을 공유한다.
+  Future<void> _shareFileToUser({
+    required String fileType,
+    required String filePath,
+    required String fileName,
+    String? contentType,
+  }) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    if (!appState.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인 후 사용자 공유가 가능합니다.')));
+      return;
+    }
+    // 최신 그룹 목록 확보(다이얼로그 그룹 선택용)
+    await appState.reloadShareGroups();
+    if (!mounted) return;
+    final result = await showShareComposeDialog(context, fileLabel: fileName);
+    if (result == null || !mounted) return;
+    final res = await appState.shareFile(
+      filePath: filePath,
+      fileType: fileType,
+      fileName: fileName,
+      contentType: contentType,
+      littenTitle: appState.selectedLitten?.title,
+      targetType: result.targetType,
+      recipientKey: result.recipientKey,
+      groupId: result.groupId,
+      message: result.message,
+    );
+    if (!mounted) return;
+    final ok = res['success'] == true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? '공유했습니다 (${res['recipientCount'] ?? 1}명)'
+          : (res['message']?.toString() ?? '공유에 실패했습니다.')),
+    ));
+  }
+
+  Future<void> _shareTextFileToUser(TextFile file) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final path = '${appDir.path}/littens/${file.littenId}/text/${file.id}.html';
+    await _shareFileToUser(
+        fileType: 'text', filePath: path,
+        fileName: '${file.displayTitle}.html', contentType: 'text/html');
+  }
+
+  Future<void> _shareAudioFileToUser(AudioFile file) async {
+    await _shareFileToUser(
+        fileType: 'audio', filePath: file.filePath,
+        fileName: '${file.fileName}.m4a', contentType: 'audio/m4a');
+  }
+
+  Future<void> _shareHandwritingFileToUser(HandwritingFile file) async {
+    final isPdf = file.imagePath.toLowerCase().endsWith('.pdf');
+    await _shareFileToUser(
+        fileType: 'handwriting', filePath: file.imagePath,
+        fileName: '${file.displayTitle}${isPdf ? '.pdf' : '.png'}',
+        contentType: isPdf ? 'application/pdf' : 'image/png');
+  }
+
+  Future<void> _shareAttachmentFileToUser(AttachmentFile file) async {
+    await _shareFileToUser(
+        fileType: 'attachment', filePath: file.filePath,
+        fileName: file.fileName, contentType: file.mimeType);
+  }
+
+  /// 공유 아이콘 탭 시: '사용자에게 공유 / 외부 앱' 선택 시트.
+  void _openShareSheet({
+    required String title,
+    required VoidCallback onUser,
+    required VoidCallback onExternal,
+  }) {
+    final color = Theme.of(context).primaryColor;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Row(children: [
+                Icon(Icons.share, size: 18, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ]),
+            ),
+            ListTile(
+              leading: Icon(Icons.send, color: color),
+              title: const Text('사용자에게 공유'),
+              subtitle: const Text('리튼 사용자/그룹에게 보내기'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onUser();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.ios_share, color: color),
+              title: const Text('외부 앱으로 공유'),
+              subtitle: const Text('카카오톡·메일 등 다른 앱'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onExternal();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _shareAttachment(AttachmentFile file) async {
@@ -2864,7 +3067,11 @@ class _AllFilesTabState extends State<AllFilesTab> {
                         icon: Icons.share_outlined,
                         color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
                         tooltip: '공유',
-                        onPressed: () {},
+                        onPressed: () => _openShareSheet(
+                          title: file.fileName,
+                          onUser: () => _shareAudioFileToUser(file),
+                          onExternal: () => _shareAudioFile(file),
+                        ),
                       ),
                     _moreMenuBtn(
                       color: color,

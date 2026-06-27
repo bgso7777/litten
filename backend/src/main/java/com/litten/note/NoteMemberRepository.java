@@ -18,6 +18,11 @@ public interface NoteMemberRepository extends JpaRepository<NoteMember,String> {
 
     List<NoteMember> findByUuid(String uuid);
 
+    // 사용자 간 공유 — 수신자 조회(이메일/표시이름). 첫 일치 1건.
+    NoteMember findFirstByEmail(String email);
+
+    NoteMember findFirstByName(String name);
+
     @Override
     Page<NoteMember> findAll(Pageable pageable);
 

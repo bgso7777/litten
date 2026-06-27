@@ -31,6 +31,8 @@ class ApiService {
   static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
   static const String _littensEndpoint = '/litten/note/v1/littens';
   static const String _schedulesEndpoint = '/litten/note/v1/schedules';
+  static const String _sharesEndpoint = '/litten/note/v1/shares';
+  static const String _shareGroupsEndpoint = '/litten/note/v1/share-groups';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -936,6 +938,225 @@ class ApiService {
       return false;
     } catch (e) {
       debugPrint('[ApiService] deleteSchedule - 오류: $e');
+      return false;
+    }
+  }
+
+  // ───────────────────────── 사용자 간 공유 / 그룹 ─────────────────────────
+
+  /// 파일을 사용자(개인) 또는 그룹에 공유. 본문을 multipart로 업로드.
+  /// 반환: {success, shareId?, recipientCount?, message?}
+  Future<Map<String, dynamic>> shareFile({
+    required String token,
+    required String targetType, // 'user' | 'group'
+    String? recipientKey, // user일 때 이메일/이름
+    int? groupId, // group일 때
+    String? littenTitle,
+    required String fileType,
+    required String fileName,
+    String? contentType,
+    String? message,
+    required File file,
+  }) async {
+    debugPrint('[ApiService] shareFile 진입 - target: $targetType, file: $fileName');
+    try {
+      final uri = Uri.parse('$baseUrl$_sharesEndpoint');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(_getHeaders(token: token))
+        ..fields['targetType'] = targetType
+        ..fields['fileType'] = fileType
+        ..fields['fileName'] = fileName;
+      if (recipientKey != null) request.fields['recipientKey'] = recipientKey;
+      if (groupId != null) request.fields['groupId'] = '$groupId';
+      if (littenTitle != null) request.fields['littenTitle'] = littenTitle;
+      if (contentType != null) request.fields['contentType'] = contentType;
+      if (message != null && message.isNotEmpty) request.fields['message'] = message;
+      request.files.add(await http.MultipartFile.fromPath('file', file.path,
+          contentType: _parseMediaType(contentType ?? 'application/octet-stream')));
+
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamed);
+      debugPrint('[ApiService] shareFile - status: ${response.statusCode}, body: ${response.body}');
+      if (response.body.isNotEmpty) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'message': '응답이 없습니다'};
+    } catch (e) {
+      debugPrint('[ApiService] shareFile - 오류: $e');
+      return {'success': false, 'message': '$e'};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSharesReceived({required String token}) async {
+    return _getShareList('$baseUrl$_sharesEndpoint/received', token);
+  }
+
+  Future<List<Map<String, dynamic>>> getSharesSent({required String token}) async {
+    return _getShareList('$baseUrl$_sharesEndpoint/sent', token);
+  }
+
+  Future<List<Map<String, dynamic>>> _getShareList(String url, String token) async {
+    try {
+      final response = await http.get(Uri.parse(url), headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['shares'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] _getShareList - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 수락. 반환: {success, shareId?, status?} (shareId로 다운로드)
+  Future<Map<String, dynamic>?> acceptShare({required String token, required int deliveryId}) async {
+    return _postShareAction('$baseUrl$_sharesEndpoint/deliveries/$deliveryId/accept', token);
+  }
+
+  Future<bool> rejectShare({required String token, required int deliveryId}) async {
+    final r = await _postShareAction('$baseUrl$_sharesEndpoint/deliveries/$deliveryId/reject', token);
+    return r?['success'] == true;
+  }
+
+  /// 발신자 공유 취소(회수)
+  Future<bool> cancelShare({required String token, required int shareId}) async {
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl$_sharesEndpoint/$shareId'),
+          headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] cancelShare - 오류: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _postShareAction(String url, String token) async {
+    try {
+      final response = await http.post(Uri.parse(url), headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] _postShareAction - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 수락한 공유 본문 다운로드
+  Future<Uint8List?> downloadShare({required String token, required int shareId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$_sharesEndpoint/$shareId/download');
+      final response = await http.get(uri, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 200) return response.bodyBytes;
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] downloadShare - 오류: $e');
+      return null;
+    }
+  }
+
+  // ── 그룹 ──
+  Future<Map<String, dynamic>?> createGroup({
+    required String token,
+    required String name,
+    String? password,
+    List<String>? members,
+  }) async {
+    try {
+      final body = <String, dynamic>{'name': name};
+      if (password != null && password.isNotEmpty) body['password'] = password;
+      if (members != null && members.isNotEmpty) body['members'] = members;
+      final response = await http.post(Uri.parse('$baseUrl$_shareGroupsEndpoint'),
+          headers: _getHeaders(token: token), body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data['group']);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] createGroup - 오류: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getGroups({required String token}) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$_shareGroupsEndpoint'),
+          headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) return List<Map<String, dynamic>>.from(data['groups'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getGroups - 오류: $e');
+      return [];
+    }
+  }
+
+  Future<bool> deleteGroup({required String token, required int groupId}) async {
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId'),
+          headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      return response.statusCode == 200 &&
+          (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+    } catch (e) {
+      debugPrint('[ApiService] deleteGroup - 오류: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getGroupMembers({required String token, required int groupId}) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/members'),
+          headers: _getHeaders(token: token)).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) return List<Map<String, dynamic>>.from(data['members'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getGroupMembers - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 멤버 추가. 반환: {success, member?, message?}
+  Future<Map<String, dynamic>> addGroupMember({required String token, required int groupId, required String key}) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/members'),
+          headers: _getHeaders(token: token), body: jsonEncode({'key': key}))
+          .timeout(const Duration(seconds: 20));
+      if (response.body.isNotEmpty) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'message': '응답이 없습니다'};
+    } catch (e) {
+      debugPrint('[ApiService] addGroupMember - 오류: $e');
+      return {'success': false, 'message': '$e'};
+    }
+  }
+
+  Future<bool> removeGroupMember({required String token, required int groupId, required String memberId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/members?memberId=${Uri.encodeComponent(memberId)}');
+      final response = await http.delete(uri, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      return response.statusCode == 200 &&
+          (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+    } catch (e) {
+      debugPrint('[ApiService] removeGroupMember - 오류: $e');
       return false;
     }
   }
