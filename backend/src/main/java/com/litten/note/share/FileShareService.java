@@ -48,6 +48,19 @@ public class FileShareService {
         return m;
     }
 
+    /** 수신자 조회(이메일/닉네임) — 보내기 전 확인용. 반환: {found, name?}. */
+    public Map<String, Object> lookupRecipient(String key) {
+        Map<String, Object> r = new HashMap<>();
+        NoteMember m = resolveMember(key);
+        if (m == null) {
+            r.put("found", false);
+            return r;
+        }
+        r.put("found", true);
+        r.put("name", m.getName() != null ? m.getName() : m.getEmail());
+        return r;
+    }
+
     private String resolveName(String memberId) {
         return noteMemberRepository.findById(memberId)
                 .map(m -> m.getName() != null ? m.getName() : m.getEmail())

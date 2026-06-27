@@ -987,6 +987,22 @@ class ApiService {
     }
   }
 
+  /// 수신자 조회(보내기 전 확인). 반환: {found, name?}
+  Future<Map<String, dynamic>?> lookupRecipient({required String token, required String key}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$_sharesEndpoint/lookup?key=${Uri.encodeComponent(key)}');
+      final response = await http.get(uri, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] lookupRecipient - 오류: $e');
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getSharesReceived({required String token}) async {
     return _getShareList('$baseUrl$_sharesEndpoint/received', token);
   }

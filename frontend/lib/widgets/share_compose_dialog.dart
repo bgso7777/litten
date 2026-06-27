@@ -38,12 +38,29 @@ class _ShareComposeDialogState extends State<_ShareComposeDialog> {
   final _recipientCtrl = TextEditingController();
   final _messageCtrl = TextEditingController();
   int? _selectedGroupId;
+  // 수신자 확인 결과
+  bool? _lookupFound;
+  String? _lookupName;
+  bool _looking = false;
 
   @override
   void dispose() {
     _recipientCtrl.dispose();
     _messageCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _verifyRecipient() async {
+    final key = _recipientCtrl.text.trim();
+    if (key.isEmpty) return;
+    setState(() => _looking = true);
+    final r = await context.read<AppStateProvider>().lookupShareRecipient(key);
+    if (!mounted) return;
+    setState(() {
+      _looking = false;
+      _lookupFound = r == null ? null : (r['found'] == true);
+      _lookupName = r?['name']?.toString();
+    });
   }
 
   @override
@@ -71,17 +88,50 @@ class _ShareComposeDialogState extends State<_ShareComposeDialog> {
               Expanded(child: _segBtn('그룹', _toGroup, () => setState(() => _toGroup = true), color)),
             ]),
             const SizedBox(height: 12),
-            if (!_toGroup)
+            if (!_toGroup) ...[
               TextField(
                 controller: _recipientCtrl,
-                decoration: const InputDecoration(
+                autofocus: true,
+                onChanged: (_) {
+                  if (_lookupFound != null) {
+                    setState(() {
+                      _lookupFound = null;
+                      _lookupName = null;
+                    });
+                  }
+                },
+                onSubmitted: (_) => _verifyRecipient(),
+                decoration: InputDecoration(
                   labelText: '받는 사람 (이메일 또는 닉네임)',
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: _looking
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                        )
+                      : TextButton(onPressed: _verifyRecipient, child: const Text('확인')),
                 ),
-                autofocus: true,
-              )
-            else ...[
+              ),
+              if (_lookupFound == true)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Row(children: [
+                    const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text('${_lookupName ?? ''} 님',
+                        style: const TextStyle(fontSize: 12, color: Colors.green)),
+                  ]),
+                ),
+              if (_lookupFound == false)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, left: 4),
+                  child: Text('해당 사용자를 찾을 수 없습니다.',
+                      style: TextStyle(fontSize: 12, color: Colors.red)),
+                ),
+            ] else ...[
               Row(children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(

@@ -50,6 +50,14 @@ public class FileShareController {
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @GetMapping("/note/v1/shares/lookup")
+    public ResponseEntity<Map<String, Object>> lookup(@RequestParam("key") String key) {
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        return ResponseEntity.ok(shareService.lookupRecipient(key));
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @GetMapping("/note/v1/shares/received")
     public ResponseEntity<Map<String, Object>> received() {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);

@@ -1322,6 +1322,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return res;
   }
 
+  /// 보내기 전 수신자 조회(이메일/닉네임). 반환: {found, name?}
+  Future<Map<String, dynamic>?> lookupShareRecipient(String key) async {
+    final token = await _shareToken();
+    if (token == null) return null;
+    return _shareApi.lookupRecipient(token: token, key: key);
+  }
+
   // ── 그룹 관리 ──
   Future<Map<String, dynamic>?> createShareGroup(String name,
       {String? password, List<String>? members}) async {
