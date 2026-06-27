@@ -21,12 +21,7 @@ class HomeDashboardScreen extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: _ShareSection(),
-          ),
-        ),
+        Expanded(child: _ShareSection()),
       ],
     );
   }
@@ -257,7 +252,47 @@ String _shareWhen(dynamic v) {
   return s.length >= 16 ? s.substring(0, 16) : s;
 }
 
-/// 공유 섹션 — 받은 공유 / 보낸 공유 두 탭. 서버에서 실데이터 로드.
+/// 홈 탭 제목 — 공유 아이콘 + 받은(↓)·한(↑) 카운트. (전체탭 제목 카운트 스타일)
+class ShareTabTitle extends StatelessWidget {
+  const ShareTabTitle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppStateProvider>(
+      builder: (context, app, _) {
+        final inN = app.sharesReceived.length;
+        final outN = app.sharesSent.length;
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.share),
+            const SizedBox(width: 12),
+            _iconCount(Icons.download, inN),
+            const SizedBox(width: 12),
+            _iconCount(Icons.upload, outN),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _iconCount(IconData icon, int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Icon(icon),
+        const SizedBox(width: 2),
+        Builder(builder: (ctx) {
+          final base = DefaultTextStyle.of(ctx).style.fontSize ?? 13;
+          return Text('$count', style: TextStyle(fontSize: base * 0.8));
+        }),
+      ],
+    );
+  }
+}
+
+/// 공유 섹션 — 받은 것 + 한 것을 합쳐 일자순으로 보여준다(전체탭 파일리스트 컨셉).
 class _ShareSection extends StatefulWidget {
   const _ShareSection();
 
@@ -274,6 +309,13 @@ class _ShareSectionState extends State<_ShareSection> {
     });
   }
 
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  static DateTime _parseAt(dynamic v) {
+    final s = (v?.toString() ?? '').replaceFirst(' ', 'T');
+    return DateTime.tryParse(s) ?? DateTime(2000);
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
@@ -286,99 +328,90 @@ class _ShareSectionState extends State<_ShareSection> {
       );
     }
 
-    final received = appState.sharesReceived;
-    final sent = appState.sharesSent;
+    // 받은 것 + 한 것 통합 → 일자순(내림차순)
+    final items = <({bool received, Map<String, dynamic> data, DateTime at})>[];
+    for (final r in appState.sharesReceived) {
+      items.add((received: true, data: r, at: _parseAt(r['sharedAt'])));
+    }
+    for (final s in appState.sharesSent) {
+      items.add((received: false, data: s, at: _parseAt(s['sharedAt'])));
+    }
+    items.sort((a, b) => b.at.compareTo(a.at));
 
-    return DefaultTabController(
-      length: 2,
-      child: Card(
-        elevation: 0,
-        color: color.withValues(alpha: 0.05),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: color.withValues(alpha: 0.35)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            TabBar(
-              labelColor: color,
-              unselectedLabelColor: Colors.grey.shade500,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicatorPadding: const EdgeInsets.all(4),
-              indicator: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: color, width: 1.4),
-              ),
-              dividerColor: color.withValues(alpha: 0.25),
-              tabs: [
-                Tab(child: _tabLabel(Icons.download_outlined, '공유 받은 것', received.length)),
-                Tab(child: _tabLabel(Icons.upload_outlined, '공유한 것', sent.length)),
+    return RefreshIndicator(
+      onRefresh: () => appState.loadShares(),
+      child: items.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Center(
+                    child: Text('주고받은 공유가 없습니다.\n파일 카드의 공유 → 사용자에게 공유로 보낼 수 있어요.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
               ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 4, bottom: 12),
+              itemCount: items.length,
+              itemBuilder: (ctx, i) {
+                final it = items[i];
+                final cur = DateTime(it.at.year, it.at.month, it.at.day);
+                final prev = i == 0 ? null : items[i - 1].at;
+                final showHeader =
+                    prev == null || DateTime(prev.year, prev.month, prev.day) != cur;
+                final card = it.received
+                    ? _ReceivedCard(share: it.data, color: color)
+                    : _SentCard(share: it.data, color: color);
+                if (showHeader) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_dateHeader(cur, color), card],
+                  );
+                }
+                return card;
+              },
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _receivedList(context, appState, received, color),
-                  _sentList(context, appState, sent, color),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _tabLabel(IconData icon, String label, int count) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 13)),
-        const SizedBox(width: 6),
-        Text('$count', style: const TextStyle(fontSize: 14)),
+  Widget _dateHeader(DateTime d, Color color) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(d).inDays;
+    final label = diff == 0
+        ? '오늘'
+        : diff == 1
+            ? '어제'
+            : '${d.year}.${_two(d.month)}.${_two(d.day)}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      child: Row(children: [
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(width: 8),
+        Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.2))),
       ]),
     );
   }
+}
 
-  Widget _receivedList(BuildContext context, AppStateProvider appState,
-      List<Map<String, dynamic>> items, Color color) {
-    return RefreshIndicator(
-      onRefresh: () => appState.loadShares(),
-      child: items.isEmpty
-          ? ListView(children: [
-              const SizedBox(height: 60),
-              Center(child: Text('받은 공유가 없습니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
-            ])
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              itemCount: items.length,
-              itemBuilder: (ctx, i) => _ReceivedCard(share: items[i], color: color),
-            ),
-    );
-  }
-
-  Widget _sentList(BuildContext context, AppStateProvider appState,
-      List<Map<String, dynamic>> items, Color color) {
-    return RefreshIndicator(
-      onRefresh: () => appState.loadShares(),
-      child: items.isEmpty
-          ? ListView(children: [
-              const SizedBox(height: 60),
-              Center(child: Text('보낸 공유가 없습니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
-            ])
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              itemCount: items.length,
-              itemBuilder: (ctx, i) => _SentCard(share: items[i], color: color),
-            ),
-    );
-  }
+/// 방향 배지 (받음 ↓ / 보냄 ↑)
+Widget _dirChip(bool received, Color color) {
+  final c = received ? color : Colors.grey.shade600;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+    decoration: BoxDecoration(
+      color: c.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(received ? Icons.download : Icons.upload, size: 11, color: c),
+      const SizedBox(width: 2),
+      Text(received ? '받음' : '보냄',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: c)),
+    ]),
+  );
 }
 
 /// 받은 공유 카드 — 보낸이·파일·메시지 + 수락/거절(대기 시).
@@ -404,8 +437,10 @@ class _ReceivedCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
+              _dirChip(true, color),
+              const SizedBox(width: 6),
               Icon(_shareFileTypeIcon(share['fileType']?.toString()), size: 18, color: color),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(fileName,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -439,10 +474,10 @@ class _ReceivedCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 FilledButton(
                   onPressed: () async {
-                    final ok = await appState.acceptReceivedShare(share);
+                    final r = await appState.acceptReceivedShare(share);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(ok ? '수락하여 저장했습니다.' : '수락 처리 실패')));
+                          content: Text(r.ok ? '수락하여 저장했습니다.' : (r.message ?? '수락 처리 실패'))));
                     }
                   },
                   style: FilledButton.styleFrom(
@@ -492,8 +527,10 @@ class _SentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
+              _dirChip(false, color),
+              const SizedBox(width: 6),
               Icon(_shareFileTypeIcon(share['fileType']?.toString()), size: 18, color: color),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(fileName,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),

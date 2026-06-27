@@ -27,8 +27,8 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
         id: 'home',
         title: '홈',
         icon: Icons.home_outlined,
-        // 제목란: 공유 아이콘 (홈 body 최상위에 있던 공유 아이콘을 여기로 이동)
-        customTabWidget: const Icon(Icons.share),
+        // 제목란: 공유 아이콘 + 받은(↓)·한(↑) 카운트
+        customTabWidget: const ShareTabTitle(),
         content: const HomeDashboardScreen(),
         position: TabPosition.topLeft,
         // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김

@@ -1887,7 +1887,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
+                        color: Provider.of<AppStateProvider>(context, listen: false).isFileShared(file.id) ? color : Colors.grey.shade400, // 공유했으면 활성(색상)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
                         onPressed: () => _openShareSheet(
                           title: file.displayTitle,
@@ -2009,7 +2009,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
+                        color: Provider.of<AppStateProvider>(context, listen: false).isFileShared(file.id) ? color : Colors.grey.shade400, // 공유했으면 활성(색상)
                         tooltip: AppLocalizations.of(context)?.share ?? '공유',
                         onPressed: () => _openShareSheet(
                           title: file.displayTitle,
@@ -2448,7 +2448,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   if (_isPremiumPlus)
                     _iconBtn(
                       icon: Icons.share_outlined,
-                      color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
+                      color: Provider.of<AppStateProvider>(context, listen: false).isFileShared(file.id) ? color : Colors.grey.shade400, // 공유했으면 활성(색상)
                       tooltip: AppLocalizations.of(context)?.share ?? '공유',
                       onPressed: () => _openShareSheet(
                         title: file.fileName,
@@ -2599,6 +2599,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   // ── 사용자에게 공유 (백엔드 경유) ──
   /// 공유 작성 다이얼로그를 띄우고, 선택한 대상(개인/그룹)에게 파일을 공유한다.
   Future<void> _shareFileToUser({
+    required String fileId,
     required String fileType,
     required String filePath,
     required String fileName,
@@ -2608,6 +2609,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
     if (!appState.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('로그인 후 사용자 공유가 가능합니다.')));
+      return;
+    }
+    // 보내기는 프리미엄 전용 (받기는 모든 플랜 가능)
+    if (!appState.isPremiumPlusUser) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('공유 보내기는 프리미엄 플랜에서 가능합니다.')));
       return;
     }
     // 최신 그룹 목록 확보(다이얼로그 그룹 선택용)
@@ -2628,6 +2635,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
     if (!mounted) return;
     final ok = res['success'] == true;
+    if (ok) await appState.markFileShared(fileId); // 공유 아이콘 활성 표시
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(ok
           ? '공유했습니다 (${res['recipientCount'] ?? 1}명)'
@@ -2639,27 +2648,27 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final appDir = await getApplicationDocumentsDirectory();
     final path = '${appDir.path}/littens/${file.littenId}/text/${file.id}.html';
     await _shareFileToUser(
-        fileType: 'text', filePath: path,
+        fileId: file.id, fileType: 'text', filePath: path,
         fileName: '${file.displayTitle}.html', contentType: 'text/html');
   }
 
   Future<void> _shareAudioFileToUser(AudioFile file) async {
     await _shareFileToUser(
-        fileType: 'audio', filePath: file.filePath,
+        fileId: file.id, fileType: 'audio', filePath: file.filePath,
         fileName: '${file.fileName}.m4a', contentType: 'audio/m4a');
   }
 
   Future<void> _shareHandwritingFileToUser(HandwritingFile file) async {
     final isPdf = file.imagePath.toLowerCase().endsWith('.pdf');
     await _shareFileToUser(
-        fileType: 'handwriting', filePath: file.imagePath,
+        fileId: file.id, fileType: 'handwriting', filePath: file.imagePath,
         fileName: '${file.displayTitle}${isPdf ? '.pdf' : '.png'}',
         contentType: isPdf ? 'application/pdf' : 'image/png');
   }
 
   Future<void> _shareAttachmentFileToUser(AttachmentFile file) async {
     await _shareFileToUser(
-        fileType: 'attachment', filePath: file.filePath,
+        fileId: file.id, fileType: 'attachment', filePath: file.filePath,
         fileName: file.fileName, contentType: file.mimeType);
   }
 
@@ -3065,7 +3074,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (_isPremiumPlus)
                       _iconBtn(
                         icon: Icons.share_outlined,
-                        color: Colors.grey.shade400, // 공유 전: 기본 비활성(회색)
+                        color: Provider.of<AppStateProvider>(context, listen: false).isFileShared(file.id) ? color : Colors.grey.shade400, // 공유했으면 활성(색상)
                         tooltip: '공유',
                         onPressed: () => _openShareSheet(
                           title: file.fileName,

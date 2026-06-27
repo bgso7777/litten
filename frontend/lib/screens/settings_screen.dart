@@ -139,16 +139,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ]),
             AppSpacing.verticalSpaceM,
 
-            // 계정 섹션 - 로그인은 프리미엄 전용. 무료/스탠다드는 비활성화.
+            // 계정 섹션 - 모든 플랜에서 로그인 가능 (로그인 자체는 플랜 무관; 클라우드 동기화만 프리미엄).
             _buildSettingsSection(l10n?.account ?? '계정', [
-              if (appState.subscriptionType != SubscriptionType.premium)
-                // 무료/스탠다드 플랜: 잠금 안내 항목만 표시
-                _buildSettingsItemDisabled(
-                  icon: Icons.lock_outline,
-                  title: l10n?.account ?? '계정',
-                  subtitle: '프리미엄 플랜에서 사용 가능합니다',
-                ),
-              if (appState.subscriptionType == SubscriptionType.premium) ...[
                 _buildSettingsItem(
                   icon: Icons.person,
                   title: l10n?.userStatus ?? '사용자 상태',
@@ -209,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildSettingsItem(
                     icon: Icons.login,
                     title: l10n?.login ?? '로그인',
-                    subtitle: l10n?.loginForCloudSync ?? '클라우드 동기화를 위해 로그인하세요',
+                    subtitle: '로그인하면 공유 받기·동기화를 이용할 수 있습니다',
                     iconColor: Theme.of(context).primaryColor,
                     onTap: () {
                       Navigator.push(
@@ -220,7 +212,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     },
                   ),
-              ],
             ]),
             AppSpacing.verticalSpaceM,
 

@@ -43,7 +43,10 @@ public class FileShareService {
         if (key == null) return null;
         String k = key.trim();
         if (k.isEmpty()) return null;
+        // 이메일 → (소문자 이메일) → 로그인 계정 id(이메일일 수 있음) → 표시이름 순으로 조회
         NoteMember m = noteMemberRepository.findFirstByEmail(k);
+        if (m == null) m = noteMemberRepository.findFirstByEmail(k.toLowerCase());
+        if (m == null) m = noteMemberRepository.findById(k).orElse(null);
         if (m == null) m = noteMemberRepository.findFirstByName(k);
         return m;
     }
@@ -67,6 +70,21 @@ public class FileShareService {
                 .orElse(memberId);
     }
 
+    /** 회원 구독 플랜 (free/standard/premium). 미상이면 free. */
+    private String getPlan(String memberId) {
+        return noteMemberRepository.findById(memberId)
+                .map(m -> m.getSubscriptionPlan() != null ? m.getSubscriptionPlan() : "free")
+                .orElse("free");
+    }
+
+    /** 받기(수락) 누적 개수 — 무료 한도(3개) 비교용. */
+    private long acceptedCount(String memberId) {
+        return deliveryRepository.findByRecipientMemberIdAndIsDeletedFalseOrderByIdDesc(memberId)
+                .stream()
+                .filter(d -> FileShareDelivery.STATUS_ACCEPTED.equals(d.getStatus()))
+                .count();
+    }
+
     /**
      * 파일 공유 생성. targetType=user면 recipientKey(이메일/이름)로 1명, group이면 groupId 멤버 전원에게 fan-out.
      * 본문은 공유 저장소(_shares/{uuid}/{fileName})에 저장한다.
@@ -76,6 +94,13 @@ public class FileShareService {
                                            String littenTitle, String fileType, String fileName, String contentType,
                                            String message, MultipartFile file) {
         Map<String, Object> result = new HashMap<>();
+
+        // 보내기는 프리미엄 전용
+        if (!"premium".equals(getPlan(senderId))) {
+            result.put("success", false);
+            result.put("message", "공유 보내기는 프리미엄 플랜에서 가능합니다.");
+            return result;
+        }
 
         // 1) 수신자 목록 결정
         Set<String> recipientIds = new LinkedHashSet<>();
@@ -232,6 +257,14 @@ public class FileShareService {
             return result;
         }
         FileShareDelivery d = dOpt.get();
+        // 받기(수락) 한도 — 무료 3개(누적) / 스탠다드·프리미엄 무제한
+        if (accept && "free".equals(getPlan(memberId))) {
+            if (acceptedCount(memberId) >= 3) {
+                result.put("success", false);
+                result.put("message", "공유 받기 한도를 초과했습니다 (무료 3개). 스탠다드/프리미엄은 무제한입니다.");
+                return result;
+            }
+        }
         d.setStatus(accept ? FileShareDelivery.STATUS_ACCEPTED : FileShareDelivery.STATUS_REJECTED);
         d.setRespondedAt(LocalDateTime.now());
         d.setUpdateDateTime(LocalDateTime.now());

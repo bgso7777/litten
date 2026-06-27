@@ -30,7 +30,10 @@ public class ShareGroupService {
         if (key == null) return null;
         String k = key.trim();
         if (k.isEmpty()) return null;
+        // 이메일 → (소문자 이메일) → 로그인 계정 id(이메일일 수 있음) → 표시이름 순
         NoteMember m = noteMemberRepository.findFirstByEmail(k);
+        if (m == null) m = noteMemberRepository.findFirstByEmail(k.toLowerCase());
+        if (m == null) m = noteMemberRepository.findById(k).orElse(null);
         if (m == null) m = noteMemberRepository.findFirstByName(k);
         return m;
     }

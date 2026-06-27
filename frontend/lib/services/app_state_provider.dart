@@ -661,6 +661,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadSettings();
     await _loadQuizItems();
     await loadSummaries();
+    await _loadSharedFileIds();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
 
@@ -1273,6 +1274,26 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return prefs.getString('auth_token');
   }
 
+  // 사용자에게 공유한 적이 있는 로컬 파일 id (공유 아이콘 활성 표시용, 기기 로컬 기록)
+  final Set<String> _sharedFileIds = {};
+  bool isFileShared(String fileId) => _sharedFileIds.contains(fileId);
+
+  Future<void> _loadSharedFileIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    _sharedFileIds
+      ..clear()
+      ..addAll(prefs.getStringList('shared_file_ids') ?? const []);
+  }
+
+  Future<void> markFileShared(String fileId) async {
+    if (fileId.isEmpty) return;
+    if (_sharedFileIds.add(fileId)) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('shared_file_ids', _sharedFileIds.toList());
+      notifyListeners();
+    }
+  }
+
   /// 받은/보낸 공유 + 그룹 로드 (로그인 시/홈 진입 시).
   Future<void> loadShares() async {
     final token = await _shareToken();
@@ -1371,18 +1392,23 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ── 받은 공유 응답 ──
-  /// 수락 → 본문 다운로드 → 로컬 리튼에 저장. 성공 시 true.
-  Future<bool> acceptReceivedShare(Map<String, dynamic> share) async {
+  /// 수락 → 본문 다운로드 → 로컬 리튼에 저장. 반환: (ok, message?).
+  /// 받기 한도 초과 등 서버 거부 메시지를 그대로 전달한다.
+  Future<({bool ok, String? message})> acceptReceivedShare(Map<String, dynamic> share) async {
     final token = await _shareToken();
-    if (token == null) return false;
+    if (token == null) return (ok: false, message: '로그인이 필요합니다.');
     final deliveryId = (share['deliveryId'] as num).toInt();
     final acc = await _shareApi.acceptShare(token: token, deliveryId: deliveryId);
-    if (acc == null || acc['success'] != true) return false;
+    if (acc == null) return (ok: false, message: '네트워크 오류로 실패했습니다.');
+    if (acc['success'] != true) {
+      await loadShares();
+      return (ok: false, message: acc['message']?.toString() ?? '수락에 실패했습니다.');
+    }
     final shareId = (acc['shareId'] as num).toInt();
     final bytes = await _shareApi.downloadShare(token: token, shareId: shareId);
     if (bytes == null) {
       await loadShares();
-      return false;
+      return (ok: false, message: '파일 다운로드에 실패했습니다.');
     }
     await _saveSharedFileLocally(
       fileType: share['fileType'] as String? ?? 'attachment',
@@ -1391,7 +1417,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     await loadShares();
     notifyFileListChanged();
-    return true;
+    return (ok: true, message: null);
   }
 
   Future<bool> rejectReceivedShare(Map<String, dynamic> share) async {

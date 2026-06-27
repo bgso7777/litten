@@ -115,52 +115,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// 로그인은 프리미엄 전용. 무료/스탠다드가 진입하면 업그레이드 안내 화면을 보여준다.
-  Widget _buildPremiumOnlyGuard(BuildContext context, AppLocalizations? l10n) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n?.login ?? '로그인'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium, size: 64, color: Theme.of(context).primaryColor),
-              const SizedBox(height: 20),
-              const Text(
-                '로그인은 프리미엄 플랜에서만 이용할 수 있어요.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '프리미엄으로 업그레이드하면 로그인과 클라우드 파일 동기화를 사용할 수 있습니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    // 로그인은 프리미엄(서버 동기화) 전용 — 무료/스탠다드 진입 시 안내 화면으로 차단
-    final appState = Provider.of<AppStateProvider>(context);
-    if (appState.subscriptionType != SubscriptionType.premium) {
-      return _buildPremiumOnlyGuard(context, l10n);
-    }
-
+    // 로그인은 모든 플랜에서 가능 (공유 받기 등은 로그인만 필요. 클라우드 동기화만 프리미엄)
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n?.login ?? '로그인'),
