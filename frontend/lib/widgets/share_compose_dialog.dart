@@ -235,6 +235,15 @@ class _ShareComposeDialogState extends State<_ShareComposeDialog> {
   }
 }
 
+/// 특정 그룹의 멤버 추가/제거 다이얼로그 (홈 그룹 헤더의 멤버 아이콘에서 호출).
+Future<void> showGroupMembersDialog(
+    BuildContext context, int groupId, String groupName) {
+  return showDialog(
+    context: context,
+    builder: (ctx) => _GroupMembersDialog(groupId: groupId, groupName: groupName),
+  );
+}
+
 /// 그룹 관리(생성/삭제 + 멤버 추가/제거) 다이얼로그.
 Future<void> showShareGroupManageDialog(BuildContext context) {
   return showDialog(

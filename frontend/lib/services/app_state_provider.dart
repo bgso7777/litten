@@ -1265,6 +1265,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get sharesReceived => _sharesReceived;
   List<Map<String, dynamic>> get sharesSent => _sharesSent;
   List<Map<String, dynamic>> get shareGroups => _shareGroups;
+
+  // 홈 공유 목록 필터: 'all' | 'received' | 'sent' (제목의 받음/보냄 카운트 탭으로 토글)
+  String _shareFilter = 'all';
+  String get shareFilter => _shareFilter;
+  /// 같은 값을 다시 누르면 'all'로 토글, 아니면 해당 값으로 설정.
+  void setShareFilter(String f) {
+    _shareFilter = (_shareFilter == f) ? 'all' : f;
+    notifyListeners();
+  }
   // 받은 공유 중 대기(미응답) 건수 — 홈 배지/카운트용
   int get pendingReceivedShareCount =>
       _sharesReceived.where((s) => s['status'] == 'pending').length;
@@ -1309,10 +1318,37 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 로드 성공(null 아님)일 때만 반영 — 실패 시 기존 목록 유지(취소 오삭제 방지)
     if (received != null) {
       await _reconcileCancelledShares(received); // 발신자 취소분 로컬 저장본 삭제
-      _sharesReceived = received;
+      final dismissed = await _loadDismissedDeliveries(); // 사용자가 삭제(숨김)한 항목 제외
+      _sharesReceived = received
+          .where((r) => !dismissed.contains((r['deliveryId'] as num?)?.toInt()))
+          .toList();
     }
     if (sent != null) _sharesSent = sent;
     _shareGroups = await _shareApi.getGroups(token: token);
+    notifyListeners();
+  }
+
+  // 받은 공유 중 사용자가 삭제(숨김)한 deliveryId 집합 (로컬 전용)
+  static const String _dismissedSharesKey = 'dismissed_share_deliveries';
+
+  Future<Set<int>> _loadDismissedDeliveries() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_dismissedSharesKey) ?? [])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toSet();
+  }
+
+  /// 받은 공유 카드를 내 목록에서 삭제(숨김). 거절된 항목 정리용 — 로컬 전용.
+  Future<void> dismissReceivedShare(int deliveryId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final set = await _loadDismissedDeliveries();
+    set.add(deliveryId);
+    await prefs.setStringList(
+        _dismissedSharesKey, set.map((e) => e.toString()).toList());
+    _sharesReceived = _sharesReceived
+        .where((r) => (r['deliveryId'] as num?)?.toInt() != deliveryId)
+        .toList();
     notifyListeners();
   }
 

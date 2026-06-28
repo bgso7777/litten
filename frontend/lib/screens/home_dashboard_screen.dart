@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/litten.dart';
 import '../services/app_state_provider.dart';
+import '../widgets/share_compose_dialog.dart';
+import '../widgets/common/tab_count_title.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
@@ -250,6 +253,15 @@ IconData _shareFileTypeIcon(String? t) {
   }
 }
 
+/// 표시용 파일명 — 확장자 제거. (확장자처럼 보이는 경우만: 마지막 '.' 뒤가 공백 없는 1~5자)
+String _stripShareExt(String name) {
+  final d = name.lastIndexOf('.');
+  if (d <= 0) return name;
+  final ext = name.substring(d + 1);
+  if (ext.isEmpty || ext.length > 5 || ext.contains(' ')) return name;
+  return name.substring(0, d);
+}
+
 String _shareWhen(dynamic v) {
   final s = v?.toString() ?? '';
   return s.length >= 16 ? s.substring(0, 16) : s;
@@ -265,32 +277,20 @@ class ShareTabTitle extends StatelessWidget {
       builder: (context, app, _) {
         final inN = app.sharesReceived.length;
         final outN = app.sharesSent.length;
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.share),
-            const SizedBox(width: 12),
-            _iconCount(Icons.download, inN),
-            const SizedBox(width: 12),
-            _iconCount(Icons.upload, outN),
-          ]),
-        );
+        final filter = app.shareFilter;
+        // 리마인드 제목탭과 동일한 스타일: 선택된 필터는 밝게, 비선택은 흐리게(active=false).
+        // 'all'이면 둘 다 밝게(중립), 한쪽 선택 시 다른 쪽만 흐려진다. 같은 항목 재탭 → 전체로 토글.
+        return TabCountTitle([
+          [
+            TabCount(Icons.download, inN,
+                active: filter != 'sent',
+                onTap: () => app.setShareFilter('received')),
+            TabCount(Icons.upload, outN,
+                active: filter != 'received',
+                onTap: () => app.setShareFilter('sent')),
+          ],
+        ]);
       },
-    );
-  }
-
-  Widget _iconCount(IconData icon, int count) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Icon(icon),
-        const SizedBox(width: 2),
-        Builder(builder: (ctx) {
-          final base = DefaultTextStyle.of(ctx).style.fontSize ?? 13;
-          return Text('$count', style: TextStyle(fontSize: base * 0.8));
-        }),
-      ],
     );
   }
 }
@@ -306,13 +306,66 @@ class _ShareSection extends StatefulWidget {
 class _ShareSectionState extends State<_ShareSection> {
   // 접힌 그룹 이름 집합 (기본 펼침 → 여기 없으면 펼침 상태)
   final Set<String> _collapsedGroups = {};
+  // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
+  final Set<String> _unlockedGroups = {};
+  static const String _unlockedGroupsKey = 'unlocked_groups';
 
   @override
   void initState() {
     super.initState();
+    _loadUnlockedGroups();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppStateProvider>().loadShares();
     });
+  }
+
+  Future<void> _loadUnlockedGroups() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_unlockedGroupsKey) ?? [];
+    if (mounted) setState(() => _unlockedGroups.addAll(saved));
+  }
+
+  Future<void> _persistUnlockedGroups() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_unlockedGroupsKey, _unlockedGroups.toList());
+  }
+
+  /// 그룹 비밀번호 입력 다이얼로그 — 맞으면 잠금 해제(영구 기억) 후 펼침.
+  Future<void> _promptGroupPassword(String name, String password) async {
+    final ctrl = TextEditingController();
+    final color = Theme.of(context).primaryColor;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('"$name" 잠금', style: const TextStyle(fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          obscureText: true,
+          decoration: const InputDecoration(
+              labelText: '비밀번호', isDense: true, border: OutlineInputBorder()),
+          onSubmitted: (v) => Navigator.pop(ctx, v == password),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              style: TextButton.styleFrom(foregroundColor: color),
+              onPressed: () => Navigator.pop(ctx, ctrl.text == password),
+              child: const Text('확인')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (ok == true) {
+      setState(() {
+        _unlockedGroups.add(name);
+        _collapsedGroups.remove(name); // 펼침
+      });
+      _persistUnlockedGroups();
+    } else if (ok == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')));
+    }
   }
 
   static String _two(int n) => n.toString().padLeft(2, '0');
@@ -334,17 +387,24 @@ class _ShareSectionState extends State<_ShareSection> {
       );
     }
 
-    // 받은 것 + 한 것 통합
+    // 제목의 받음/보냄 카운트 탭 필터: 'all' | 'received' | 'sent'
+    final filter = appState.shareFilter;
+
+    // 받은 것 + 한 것 통합 (필터 반영)
     final all = <_ShareItem>[];
-    for (final r in appState.sharesReceived) {
-      all.add(_ShareItem(
-          received: true, data: r, at: _parseAt(r['sharedAt']),
-          group: (r['groupName']?.toString() ?? '').trim()));
+    if (filter != 'sent') {
+      for (final r in appState.sharesReceived) {
+        all.add(_ShareItem(
+            received: true, data: r, at: _parseAt(r['sharedAt']),
+            group: (r['groupName']?.toString() ?? '').trim()));
+      }
     }
-    for (final s in appState.sharesSent) {
-      all.add(_ShareItem(
-          received: false, data: s, at: _parseAt(s['sharedAt']),
-          group: (s['groupName']?.toString() ?? '').trim()));
+    if (filter != 'received') {
+      for (final s in appState.sharesSent) {
+        all.add(_ShareItem(
+            received: false, data: s, at: _parseAt(s['sharedAt']),
+            group: (s['groupName']?.toString() ?? '').trim()));
+      }
     }
 
     // 그룹(그룹명 보유) / 개인(1:1) 분리
@@ -357,10 +417,12 @@ class _ShareSectionState extends State<_ShareSection> {
         grouped.putIfAbsent(it.group, () => []).add(it);
       }
     }
-    // 내가 만든 그룹은 공유 파일이 없어도 빈 컨테이너로 항상 표시
-    for (final g in appState.shareGroups) {
-      final name = (g['name']?.toString() ?? '').trim();
-      if (name.isNotEmpty) grouped.putIfAbsent(name, () => []);
+    // 내가 만든 그룹은 공유 파일이 없어도 빈 컨테이너로 표시 (받음만 필터일 땐 제외)
+    if (filter != 'received') {
+      for (final g in appState.shareGroups) {
+        final name = (g['name']?.toString() ?? '').trim();
+        if (name.isNotEmpty) grouped.putIfAbsent(name, () => []);
+      }
     }
     // 각 그룹 내부: 최신순(새 공유가 위로)
     for (final v in grouped.values) {
@@ -378,6 +440,13 @@ class _ShareSectionState extends State<_ShareSection> {
       });
     // 개인: 최신순
     personal.sort((a, b) => b.at.compareTo(a.at));
+
+    // 내가 만든 그룹(소유) 맵: 이름 → 그룹데이터(groupId/hasPassword/password 등)
+    final ownedByName = <String, Map<String, dynamic>>{
+      for (final g in appState.shareGroups)
+        if ((g['name']?.toString() ?? '').trim().isNotEmpty)
+          (g['name']?.toString() ?? '').trim(): g,
+    };
 
     final isEmpty = groupNames.isEmpty && personal.isEmpty;
 
@@ -397,45 +466,84 @@ class _ShareSectionState extends State<_ShareSection> {
           : ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 4, bottom: 12),
-              children: _buildTimeline(groupNames, grouped, personal, color),
+              children: _buildTimeline(groupNames, grouped, personal, color, ownedByName),
             ),
     );
   }
 
   /// 그룹 컨테이너 — 헤더(폴더+이름+개수+펼침아이콘) + 내부 공유 카드(최신순).
-  Widget _buildGroup(String name, List<_ShareItem> items, Color color) {
-    final collapsed = _collapsedGroups.contains(name);
+  /// [owned] 가 null이 아니면 "내가 만든 그룹" — 중간 톤 배경 + 멤버추가 아이콘 + (비밀번호 시) 잠금.
+  Widget _buildGroup(String name, List<_ShareItem> items, Color color, Map<String, dynamic>? owned) {
+    final isOwned = owned != null;
+    final hasPassword = owned?['hasPassword'] == true;
+    final password = owned?['password']?.toString();
+    final groupId = (owned?['groupId'] as num?)?.toInt();
+    final locked = hasPassword && !_unlockedGroups.contains(name);
+    final collapsed = _collapsedGroups.contains(name) || locked;
+
+    // 내가 만든 그룹은 중간 톤 배경으로 구분 (받은 그룹은 옅게)
+    final headerBg = color.withValues(alpha: isOwned ? 0.20 : 0.08);
+    final bodyBg = color.withValues(alpha: isOwned ? 0.10 : 0.04);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 6, 8, 2),
       decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withValues(alpha: isOwned ? 0.45 : 0.25)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: () => setState(() {
-              if (collapsed) {
-                _collapsedGroups.remove(name);
-              } else {
-                _collapsedGroups.add(name);
+            onTap: () {
+              // 비밀번호 그룹은 잠금 해제 전까지 펼치기 전 비번 확인
+              if (locked && password != null && password.isNotEmpty) {
+                _promptGroupPassword(name, password);
+                return;
               }
-            }),
+              setState(() {
+                if (_collapsedGroups.contains(name)) {
+                  _collapsedGroups.remove(name);
+                } else {
+                  _collapsedGroups.add(name);
+                }
+              });
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.08),
+                color: headerBg,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
               ),
               child: Row(children: [
-                Icon(Icons.folder, size: 18, color: color),
+                Icon(isOwned ? Icons.folder_shared : Icons.folder, size: 18, color: color),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(name,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
+                if (locked)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Icon(Icons.lock, size: 15, color: color),
+                  ),
+                // 내가 만든 그룹 — 멤버 추가/관리 (사람 아이콘)
+                if (isOwned && groupId != null)
+                  InkWell(
+                    onTap: () async {
+                      await showGroupMembersDialog(context, groupId, name);
+                      if (mounted) {
+                        context.read<AppStateProvider>().reloadShareGroups();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.group_add, size: 18, color: color),
+                    ),
+                  ),
+                const SizedBox(width: 4),
                 Text('${items.length}개',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                 const SizedBox(width: 4),
@@ -447,9 +555,9 @@ class _ShareSectionState extends State<_ShareSection> {
           if (!collapsed)
             Container(
               width: double.infinity,
-              // 펼친 파일들이 이 그룹 소속임을 나타내는 옅은 배경
+              // 펼친 파일들이 이 그룹 소속임을 나타내는 배경
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.04),
+                color: bodyBg,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
               ),
               padding: const EdgeInsets.symmetric(vertical: 2),
@@ -480,13 +588,14 @@ class _ShareSectionState extends State<_ShareSection> {
       List<String> groupNames,
       Map<String, List<_ShareItem>> grouped,
       List<_ShareItem> personal,
-      Color color) {
+      Color color,
+      Map<String, Map<String, dynamic>> ownedByName) {
     // 날짜 배치 대상(활동 있는 그룹 + 개인) — 시각 내림차순
     final dated = <({DateTime at, Widget child})>[];
     for (final name in groupNames) {
       final its = grouped[name]!;
       if (its.isEmpty) continue; // 빈 그룹은 아래에서 따로
-      dated.add((at: its.first.at, child: _buildGroup(name, its, color)));
+      dated.add((at: its.first.at, child: _buildGroup(name, its, color, ownedByName[name])));
     }
     for (final it in personal) {
       dated.add((
@@ -514,7 +623,7 @@ class _ShareSectionState extends State<_ShareSection> {
     if (emptyGroups.isNotEmpty) {
       widgets.add(_sectionHeader('내 그룹', color));
       for (final n in emptyGroups) {
-        widgets.add(_buildGroup(n, grouped[n]!, color));
+        widgets.add(_buildGroup(n, grouped[n]!, color, ownedByName[n]));
       }
     }
     return widgets;
@@ -593,10 +702,14 @@ class _ReceivedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final status = share['status']?.toString() ?? 'pending';
-    final fileName = share['fileName']?.toString() ?? '';
-    final sender = share['senderName']?.toString() ?? '';
+    final fileName = _stripShareExt(share['fileName']?.toString() ?? '');
+    // 보낸이: 닉네임(이메일). 닉네임이 없거나 이메일과 같으면 이메일만.
+    final senderEmail = share['senderMemberId']?.toString() ?? '';
+    final senderName = share['senderName']?.toString() ?? '';
+    final sender = (senderName.isNotEmpty && senderName != senderEmail && senderEmail.isNotEmpty)
+        ? '$senderName($senderEmail)'
+        : (senderEmail.isNotEmpty ? senderEmail : senderName);
     final message = share['message']?.toString();
-    final group = share['groupName']?.toString();
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -619,7 +732,7 @@ class _ReceivedCard extends StatelessWidget {
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
             ]),
             const SizedBox(height: 4),
-            Text('보낸이: $sender${group != null && group.isNotEmpty ? ' · 그룹 $group' : ''}',
+            Text('보낸이: $sender',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             if (message != null && message.isNotEmpty)
               Padding(
@@ -654,14 +767,29 @@ class _ReceivedCard extends StatelessWidget {
                   child: const Text('수락'),
                 ),
               ])
+            else if (status == 'rejected')
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                const Text('거절됨',
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    final id = (share['deliveryId'] as num?)?.toInt();
+                    if (id != null) appState.dismissReceivedShare(id);
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                  label: const Text('삭제', style: TextStyle(color: Colors.red)),
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8)),
+                ),
+              ])
             else
               Align(
                 alignment: Alignment.centerRight,
-                child: Text(status == 'accepted' ? '수락됨 (저장 완료)' : '거절됨',
+                child: Text('수락됨 (저장 완료)',
                     style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: status == 'accepted' ? color : Colors.grey)),
+                        fontSize: 12, fontWeight: FontWeight.w600, color: color)),
               ),
           ],
         ),
@@ -679,7 +807,7 @@ class _SentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
-    final fileName = share['fileName']?.toString() ?? '';
+    final fileName = _stripShareExt(share['fileName']?.toString() ?? '');
     final isGroup = share['targetType']?.toString() == 'group';
     final group = share['groupName']?.toString() ?? '';
     final message = share['message']?.toString();
@@ -714,9 +842,31 @@ class _SentCard extends StatelessWidget {
               Icon(isGroup ? Icons.group : Icons.person, size: 13, color: Colors.grey.shade600),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(isGroup ? '그룹: $group' : '개인',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: isGroup
+                    ? Text('그룹: $group',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        maxLines: 1, overflow: TextOverflow.ellipsis)
+                    // 개인(1:1) — 수신자를 닉네임(이메일)로 표시 (없으면 이메일만)
+                    : Builder(builder: (context) {
+                        final email = recipients.isNotEmpty
+                            ? ((recipients.first as Map)['memberId']?.toString() ?? '')
+                            : '';
+                        if (email.isEmpty) {
+                          return Text('개인',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600));
+                        }
+                        return FutureBuilder<List<String>>(
+                          future: _resolveRecipientNames(appState, [email]),
+                          builder: (c, snap) {
+                            final label = (snap.hasData && snap.data!.isNotEmpty)
+                                ? snap.data!.first
+                                : email;
+                            return Text(label,
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                maxLines: 1, overflow: TextOverflow.ellipsis);
+                          },
+                        );
+                      }),
               ),
             ]),
             if (message != null && message.isNotEmpty)

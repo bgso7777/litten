@@ -163,6 +163,10 @@ public class ShareGroupService {
         m.put("groupId", g.getId());
         m.put("name", g.getName());
         m.put("memberCount", memberCount);
+        boolean hasPassword = g.getPassword() != null && !g.getPassword().isBlank();
+        m.put("hasPassword", hasPassword);
+        // 소유자 본인 그룹 목록(listGroups는 ownerId로 필터)이므로 잠금 해제 비교용 비밀번호를 함께 반환
+        m.put("password", hasPassword ? g.getPassword() : null);
         return m;
     }
 

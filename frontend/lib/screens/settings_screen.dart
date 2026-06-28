@@ -22,6 +22,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _registeredEmail; // signup 상태의 계정 이메일
+  String? _nickname; // 현재 계정 닉네임 (note_member.name)
   String? _deviceUuid; // 기기 구분용 — 끝 5자리를 설정 하단에 표시
 
   @override
@@ -62,17 +63,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // signup 상태인 경우 이메일 저장
           if (state == 'signup' && email != null) {
+            final nick = (member['name'] as String?)?.trim();
             setState(() {
               _registeredEmail = email;
+              _nickname = (nick != null && nick.isNotEmpty) ? nick : null;
             });
 
             // SharedPreferences에 저장
             await prefs.setString('registered_email', email);
-            debugPrint('[SettingsScreen] 등록된 계정 저장: $email');
+            debugPrint('[SettingsScreen] 등록된 계정 저장: $email, 닉네임: $nick');
           } else {
             // signup 상태가 아니면 삭제
             setState(() {
               _registeredEmail = null;
+              _nickname = null;
             });
             await prefs.remove('registered_email');
             debugPrint('[SettingsScreen] signup 상태 아님 - 등록된 계정 삭제');
@@ -155,7 +159,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildSettingsItem(
                     icon: Icons.badge_outlined,
                     title: '닉네임 변경',
-                    subtitle: '다른 사용자에게 표시될 닉네임을 변경합니다',
+                    subtitle: (_nickname != null && _nickname!.isNotEmpty)
+                        ? '현재 닉네임: $_nickname'
+                        : '닉네임이 없습니다 · 다른 사용자에게 표시될 닉네임을 설정하세요',
                     iconColor: Theme.of(context).primaryColor,
                     onTap: () => _showChangeNicknameDialog(context, appState),
                   ),
@@ -1445,8 +1451,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 닉네임 변경 다이얼로그 — 입력 + 중복확인(필수) + 저장(서버 재검증).
   void _showChangeNicknameDialog(BuildContext context, AppStateProvider appState) {
-    final controller = TextEditingController(
-        text: appState.currentUser?.displayName ?? '');
+    final current = _nickname ?? appState.currentUser?.displayName ?? '';
+    final controller = TextEditingController(text: current);
     bool? available; // null=미확인, true=가능, false=중복
     bool checking = false;
     bool saving = false;
@@ -1462,6 +1468,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    current.isEmpty ? '현재 닉네임: (없음)' : '현재 닉네임: $current',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
                 TextField(
                   controller: controller,
                   autofocus: true,
@@ -1533,6 +1546,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (!ctx.mounted) return;
                         if (r.ok) {
                           Navigator.pop(ctx);
+                          if (mounted) setState(() => _nickname = nick);
+                          _loadRegisteredAccount(); // 서버 값 재동기화
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('닉네임을 변경했습니다.')));
                         } else {
