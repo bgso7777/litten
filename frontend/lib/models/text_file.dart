@@ -66,6 +66,11 @@ class TextFile {
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
   final bool isFromSTT;
+  // 리마인드 요약/퀴즈에서 자동 생성된 메모의 출처 표시(일반 메모는 둘 다 null).
+  //  - sourceKind: 'summary' | 'quiz'
+  //  - sourceRefId: 요약=SummaryEntry.id, 퀴즈=summaryGroupId ?? 'file:{fileId}'
+  final String? sourceKind;
+  final String? sourceRefId;
 
   TextFile({
     String? id,
@@ -81,6 +86,8 @@ class TextFile {
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
     this.isFromSTT = false,
+    this.sourceKind,
+    this.sourceRefId,
   })  : id = id ?? const Uuid().v4(),
         title = title ?? _generateTitleFromContent(content),
         createdAt = createdAt ?? DateTime.now(),
@@ -116,6 +123,8 @@ class TextFile {
     bool? isFromSTT,
     DateTime? updatedAt,
     bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
+    String? sourceKind,
+    String? sourceRefId,
   }) {
     return TextFile(
       id: id,
@@ -132,6 +141,8 @@ class TextFile {
       cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
       syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
       isFromSTT: isFromSTT ?? this.isFromSTT,
+      sourceKind: sourceKind ?? this.sourceKind,
+      sourceRefId: sourceRefId ?? this.sourceRefId,
     );
   }
 
@@ -150,6 +161,8 @@ class TextFile {
       'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
       'syncStatus': syncStatus.name,
       'isFromSTT': isFromSTT,
+      if (sourceKind != null) 'sourceKind': sourceKind,
+      if (sourceRefId != null) 'sourceRefId': sourceRefId,
     };
   }
 
@@ -175,6 +188,8 @@ class TextFile {
         orElse: () => SyncStatus.none,
       ),
       isFromSTT: json['isFromSTT'] as bool? ?? false,
+      sourceKind: json['sourceKind'] as String?,
+      sourceRefId: json['sourceRefId'] as String?,
     );
   }
 }

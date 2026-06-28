@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/audio_file.dart' show SyncStatus;
 import '../models/summary_entry.dart';
 import '../models/quiz_item.dart';
@@ -9,6 +10,7 @@ import '../services/sync_service.dart';
 import '../widgets/draggable_tab_layout.dart';
 import '../widgets/common/tab_count_title.dart';
 import '../widgets/common/quiz_bulb_icon.dart';
+import '../widgets/share_compose_dialog.dart';
 
 /// 리마인드 영역(하단 4번째 탭) — 생성된 요약·퀴즈를 모아 재기억/인사이트를 돕는 메뉴.
 /// 노트의 필기/녹음탭과 동일한 탭 레이아웃(DraggableTabLayout)으로 구성한다.
@@ -250,6 +252,141 @@ class _RemindBodyViewState extends State<_RemindBodyView>
     return buf.toString().trim();
   }
 
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 요약 공유 — 전체탭과 동일한 '사용자에게 공유 / 외부 앱' 선택 시트.
+  void _shareSummary(SummaryEntry s) {
+    final appState = context.read<AppStateProvider>();
+    _openRemindShareSheet(
+      title: s.title.isEmpty ? '요약' : s.title,
+      // 사용자 공유는 메모 파일이 필요 — 아직 메모로 저장 안 했으면 자동 저장 후 공유.
+      onUser: () => _shareRemindToUser(
+          littenId: s.littenId, kind: 'summary', refId: s.id,
+          ensureMemo: () => appState.saveSummaryAsMemo(s)),
+      onExternal: () => Share.share(s.toShareText()),
+    );
+  }
+
+  /// 퀴즈 그룹 공유 — 전체탭과 동일한 선택 시트.
+  void _shareQuizGroup(QuizTarget g) {
+    final appState = context.read<AppStateProvider>();
+    final refId = g.summaryGroupId ?? 'file:${g.fileId}';
+    final littenId = g.items.isNotEmpty ? g.items.first.littenId : '';
+    _openRemindShareSheet(
+      title: g.fileName.isEmpty ? '퀴즈' : g.fileName,
+      onUser: () => _shareRemindToUser(
+          littenId: littenId, kind: 'quiz', refId: refId,
+          ensureMemo: () => appState.saveQuizGroupAsMemo(g)),
+      onExternal: () => Share.share(_quizShareText(g)),
+    );
+  }
+
+  /// '사용자에게 공유 / 외부 앱' 선택 시트 (전체탭 _openShareSheet와 동일 스타일).
+  void _openRemindShareSheet({
+    required String title,
+    required VoidCallback onUser,
+    required VoidCallback onExternal,
+  }) {
+    final color = Theme.of(context).primaryColor;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Row(children: [
+                Icon(Icons.share, size: 18, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ]),
+            ),
+            ListTile(
+              leading: Icon(Icons.send, color: color),
+              title: const Text('사용자에게 공유'),
+              subtitle: const Text('리튼 사용자/그룹에게 보내기'),
+              onTap: () { Navigator.pop(ctx); onUser(); },
+            ),
+            ListTile(
+              leading: Icon(Icons.ios_share, color: color),
+              title: const Text('외부 앱으로 공유'),
+              subtitle: const Text('카카오톡·메일 등 다른 앱'),
+              onTap: () { Navigator.pop(ctx); onExternal(); },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 요약/퀴즈에 연결된 메모 파일을 리튼 사용자/그룹에게 공유
+  /// (전체탭 _shareFileToUser와 동일 흐름 — dual-write로 생성된 .html을 업로드).
+  Future<void> _shareRemindToUser({
+    required String littenId,
+    required String kind,
+    required String refId,
+    Future<void> Function()? ensureMemo,
+  }) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    if (!appState.isLoggedIn) {
+      _snack('로그인 후 사용자 공유가 가능합니다.');
+      return;
+    }
+    if (!appState.isPremiumPlusUser) {
+      _snack('공유 보내기는 프리미엄 플랜에서 가능합니다.');
+      return;
+    }
+    var memo = await appState.findRemindMemoFile(
+        littenId: littenId, kind: kind, refId: refId);
+    // 아직 메모로 저장 안 했으면 자동 저장 후 다시 조회(공유는 메모 파일이 필요).
+    if (memo == null && ensureMemo != null) {
+      await ensureMemo();
+      memo = await appState.findRemindMemoFile(
+          littenId: littenId, kind: kind, refId: refId);
+    }
+    if (memo == null) {
+      _snack('공유할 메모를 만들지 못했습니다.');
+      return;
+    }
+    if (!mounted) return;
+    final appDir = await getApplicationDocumentsDirectory();
+    final path = '${appDir.path}/littens/${memo.littenId}/text/${memo.id}.html';
+    await appState.reloadShareGroups();
+    if (!mounted) return;
+    final result = await showShareComposeDialog(context,
+        fileLabel: '${memo.displayTitle}.html');
+    if (result == null || !mounted) return;
+    final res = await appState.shareFile(
+      filePath: path,
+      fileType: 'text',
+      fileName: '${memo.displayTitle}.html',
+      contentType: 'text/html',
+      littenTitle: appState.selectedLitten?.title,
+      targetType: result.targetType,
+      recipientKey: result.recipientKey,
+      groupId: result.groupId,
+      message: result.message,
+    );
+    if (!mounted) return;
+    final ok = res['success'] == true;
+    if (ok) await appState.markFileShared(memo.id);
+    if (!mounted) return;
+    _snack(ok
+        ? '공유했습니다 (${res['recipientCount'] ?? 1}명)'
+        : (res['message']?.toString() ?? '공유에 실패했습니다.'));
+  }
+
   /// 퀴즈 그룹의 종합 동기화 상태 — 모두 synced면 synced, 일부 미완이면 그 상태.
   SyncStatus _groupSyncStatus(QuizTarget g) {
     if (g.items.isEmpty) return SyncStatus.none;
@@ -404,7 +541,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                     DateTime(prevAt.year, prevAt.month, prevAt.day) != currentDate;
 
                 final row = entry.summary != null
-                    ? _summaryRow(entry.summary!, color)
+                    ? _summaryRow(entry.summary!, color, appState)
                     : _quizGroupRow(entry.quizGroup!, color, appState);
 
                 if (showHeader) {
@@ -469,7 +606,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
 
   /// 요약 항목 행 — 별 아이콘 + 제목 + '...'(삭제) 메뉴. 탭 시 요약 보기 다이얼로그.
   /// (상·하단 공통으로 우측은 일시 대신 '...' 메뉴)
-  Widget _summaryRow(SummaryEntry s, Color color) {
+  Widget _summaryRow(SummaryEntry s, Color color, AppStateProvider appState) {
+    final savedAsMemo = appState.isRemindSavedAsMemo('summary', s.id);
     return InkWell(
       onTap: () => _showSummaryViewDialog(context, s, color),
       child: Padding(
@@ -489,18 +627,27 @@ class _RemindBodyViewState extends State<_RemindBodyView>
             ),
             const SizedBox(width: 8),
             _syncIcon(s.syncStatus),
-            _shareButton(() => Share.share(s.toShareText())),
-            _deleteMenu(() =>
-                Provider.of<AppStateProvider>(context, listen: false)
-                    .deleteSummary(s.id)),
+            _shareButton(() => _shareSummary(s)),
+            _itemMenu(
+              color: color,
+              savedAsMemo: savedAsMemo,
+              onToggleMemo: () => _toggleSummaryMemo(s, appState),
+              onDelete: () => appState.deleteSummary(s.id),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// 확인 영역 우측의 '...' 메뉴 — 삭제만 제공.
-  Widget _deleteMenu(VoidCallback onDelete) {
+  /// 항목 우측 '...' 메뉴 — '메모로 저장'(토글) + 삭제.
+  /// 메모로 저장하면 전체 파일 리스트에 노출된다(다시 누르면 제거).
+  Widget _itemMenu({
+    required Color color,
+    required bool savedAsMemo,
+    required VoidCallback onToggleMemo,
+    required VoidCallback onDelete,
+  }) {
     return SizedBox(
       width: 28,
       height: 28,
@@ -509,9 +656,25 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         padding: EdgeInsets.zero,
         tooltip: '',
         onSelected: (v) {
-          if (v == 'delete') onDelete();
+          if (v == 'memo') {
+            onToggleMemo();
+          } else if (v == 'delete') {
+            onDelete();
+          }
         },
         itemBuilder: (ctx) => [
+          PopupMenuItem<String>(
+            value: 'memo',
+            child: Row(
+              children: [
+                Icon(savedAsMemo ? Icons.bookmark_remove : Icons.note_add_outlined,
+                    size: 18,
+                    color: savedAsMemo ? color : Colors.grey.shade700),
+                const SizedBox(width: 8),
+                Text(savedAsMemo ? '메모에서 제거' : '메모로 저장'),
+              ],
+            ),
+          ),
           PopupMenuItem<String>(
             value: 'delete',
             child: Row(
@@ -525,6 +688,32 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         ],
       ),
     );
+  }
+
+  /// 요약을 전체탭 메모로 저장/제거 토글.
+  Future<void> _toggleSummaryMemo(SummaryEntry s, AppStateProvider appState) async {
+    if (appState.isRemindSavedAsMemo('summary', s.id)) {
+      await appState.removeRemindMemo(
+          littenId: s.littenId, kind: 'summary', refId: s.id);
+      _snack('전체 파일에서 메모를 제거했습니다.');
+    } else {
+      await appState.saveSummaryAsMemo(s);
+      _snack('전체 파일에 메모로 저장했습니다.');
+    }
+  }
+
+  /// 퀴즈 그룹을 전체탭 메모로 저장/제거 토글.
+  Future<void> _toggleQuizMemo(QuizTarget g, AppStateProvider appState) async {
+    final refId = g.summaryGroupId ?? 'file:${g.fileId}';
+    final littenId = g.items.isNotEmpty ? g.items.first.littenId : '';
+    if (appState.isRemindSavedAsMemo('quiz', refId)) {
+      await appState.removeRemindMemo(
+          littenId: littenId, kind: 'quiz', refId: refId);
+      _snack('전체 파일에서 메모를 제거했습니다.');
+    } else {
+      await appState.saveQuizGroupAsMemo(g);
+      _snack('전체 파일에 메모로 저장했습니다.');
+    }
   }
 
   /// 퀴즈 그룹 행 — 전구+q + 파일/영상 제목 + (완료/전체) 배지 + 일시.
@@ -570,9 +759,15 @@ class _RemindBodyViewState extends State<_RemindBodyView>
             ),
             const SizedBox(width: 8),
             _syncIcon(_groupSyncStatus(g)),
-            _shareButton(() => Share.share(_quizShareText(g))),
-            _deleteMenu(() => appState.deleteQuizGroup(
-                summaryGroupId: g.summaryGroupId, fileId: g.fileId)),
+            _shareButton(() => _shareQuizGroup(g)),
+            _itemMenu(
+              color: color,
+              savedAsMemo: appState.isRemindSavedAsMemo(
+                  'quiz', g.summaryGroupId ?? 'file:${g.fileId}'),
+              onToggleMemo: () => _toggleQuizMemo(g, appState),
+              onDelete: () => appState.deleteQuizGroup(
+                  summaryGroupId: g.summaryGroupId, fileId: g.fileId),
+            ),
           ],
         ),
       ),
@@ -600,39 +795,34 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 상단 그래버 라인 — 위(상단 영역)로 펼침/스크롤할 수 있음을 암시
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          // 확인 완료 카운트 — 항상 선택색. 캘린더 하단 일정 칩(_scheduleChip)과
+          // 동일한 알약 구조(세로 패딩 3 + 테두리 + 아이콘 16)로 감싸 높이를 맞춘다.
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
               ),
-              const SizedBox(height: 4),
-              // 확인 완료 카운트 — 항상 선택색.
-              Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
-                // 전체탭 제목과 동일: 아이콘 17 + 작은 카운트(≈0.8×13)를 아이콘 하단에 맞춤
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Icon(Icons.auto_awesome, size: 17, color: color), // 요약
+                  Icon(Icons.auto_awesome, size: 16, color: color), // 요약
                   const SizedBox(width: 2),
                   Text('$doneSummary',
                       style: TextStyle(
                           fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
                   const SizedBox(width: 16),
-                  QuizBulbIcon(size: 17, color: color), // 퀴즈
+                  QuizBulbIcon(size: 16, color: color), // 퀴즈
                   const SizedBox(width: 2),
                   Text('$doneQuiz',
                       style: TextStyle(
                           fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

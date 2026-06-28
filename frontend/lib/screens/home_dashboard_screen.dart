@@ -277,17 +277,16 @@ class ShareTabTitle extends StatelessWidget {
       builder: (context, app, _) {
         final inN = app.sharesReceived.length;
         final outN = app.sharesSent.length;
-        final filter = app.shareFilter;
-        // 리마인드 제목탭과 동일한 스타일: 선택된 필터는 밝게, 비선택은 흐리게(active=false).
-        // 'all'이면 둘 다 밝게(중립), 한쪽 선택 시 다른 쪽만 흐려진다. 같은 항목 재탭 → 전체로 토글.
+        // 각 아이콘은 독립 토글: 켜짐(active=true)이면 밝게 보이고 해당 목록 표시,
+        // 한 번 더 누르면 꺼짐(흐림)이 되어 해당 목록이 숨겨진다.
         return TabCountTitle([
           [
             TabCount(Icons.download, inN,
-                active: filter != 'sent',
-                onTap: () => app.setShareFilter('received')),
+                active: app.showReceivedShares,
+                onTap: () => app.toggleReceivedShares()),
             TabCount(Icons.upload, outN,
-                active: filter != 'received',
-                onTap: () => app.setShareFilter('sent')),
+                active: app.showSentShares,
+                onTap: () => app.toggleSentShares()),
           ],
         ]);
       },
@@ -387,19 +386,17 @@ class _ShareSectionState extends State<_ShareSection> {
       );
     }
 
-    // 제목의 받음/보냄 카운트 탭 필터: 'all' | 'received' | 'sent'
-    final filter = appState.shareFilter;
-
-    // 받은 것 + 한 것 통합 (필터 반영)
+    // 제목의 받음/보냄 카운트 아이콘 독립 토글: 켜진 쪽만 표시.
+    // 받은 것 + 한 것 통합 (토글 반영)
     final all = <_ShareItem>[];
-    if (filter != 'sent') {
+    if (appState.showReceivedShares) {
       for (final r in appState.sharesReceived) {
         all.add(_ShareItem(
             received: true, data: r, at: _parseAt(r['sharedAt']),
             group: (r['groupName']?.toString() ?? '').trim()));
       }
     }
-    if (filter != 'received') {
+    if (appState.showSentShares) {
       for (final s in appState.sharesSent) {
         all.add(_ShareItem(
             received: false, data: s, at: _parseAt(s['sharedAt']),
@@ -417,8 +414,8 @@ class _ShareSectionState extends State<_ShareSection> {
         grouped.putIfAbsent(it.group, () => []).add(it);
       }
     }
-    // 내가 만든 그룹은 공유 파일이 없어도 빈 컨테이너로 표시 (받음만 필터일 땐 제외)
-    if (filter != 'received') {
+    // 내가 만든 그룹은 공유 파일이 없어도 빈 컨테이너로 표시 ('한 것' 토글이 켜졌을 때만)
+    if (appState.showSentShares) {
       for (final g in appState.shareGroups) {
         final name = (g['name']?.toString() ?? '').trim();
         if (name.isNotEmpty) grouped.putIfAbsent(name, () => []);

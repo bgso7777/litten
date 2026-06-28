@@ -163,7 +163,172 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _summaries.insert(0, record);
     }
     await _summaryStorage.saveSummary(record);
+    // 메모(전체탭) 저장은 자동으로 하지 않는다 — 사용자가 '메모로 저장'을 누를 때만(saveSummaryAsMemo).
     debugPrint('[AppStateProvider] recordSummary: ${record.title} (총 ${_summaries.length}건)');
+    notifyListeners();
+  }
+
+  // ───── 리마인드 요약/퀴즈 → 전체탭 텍스트 메모 dual-write 헬퍼 ─────
+  /// 평문을 텍스트 메모용 간단 HTML로 변환(태그 이스케이프 + 줄바꿈 <p>).
+  String _plainToHtml(String text) {
+    final esc = text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    return esc.split('\n').map((l) => '<p>${l.isEmpty ? '<br>' : l}</p>').join();
+  }
+
+  /// 요약/퀴즈를 전체탭 텍스트 메모로 기록(dual-write). 같은 출처(kind/refId)
+  /// 메모가 있으면 내용을 갱신, 없으면 새로 만들어 전체탭/공유에 노출한다.
+  Future<void> _writeRemindMemoFile({
+    required String littenId,
+    required String kind, // 'summary' | 'quiz'
+    required String refId,
+    required String title,
+    required String plainText,
+  }) async {
+    if (littenId.isEmpty || plainText.trim().isEmpty) return;
+    try {
+      final fs = FileStorageService.instance;
+      final list = await fs.loadTextFiles(littenId);
+      final html = _plainToHtml(plainText);
+      final safeTitle = title.trim().isEmpty ? '메모' : title.trim();
+      final idx = list.indexWhere(
+          (t) => t.sourceKind == kind && t.sourceRefId == refId);
+      TextFile tf;
+      bool isNew = false;
+      if (idx >= 0) {
+        tf = list[idx].copyWith(title: safeTitle, content: html);
+        list[idx] = tf;
+      } else {
+        tf = TextFile(
+          littenId: littenId,
+          title: safeTitle,
+          content: html,
+          sourceKind: kind,
+          sourceRefId: refId,
+        );
+        list.insert(0, tf);
+        isNew = true;
+      }
+      await fs.saveTextFileContent(tf);
+      await fs.saveTextFiles(littenId, list);
+      if (isNew) await _littenService.addTextFileToLitten(littenId, tf.id);
+      _remindMemoKeys.add('$kind:$refId'); // 저장됨 캐시 갱신(메뉴 토글/표시용)
+      debugPrint('[AppStateProvider] _writeRemindMemoFile($kind/$refId) '
+          '${isNew ? "생성" : "갱신"}: ${tf.id}');
+    } catch (e) {
+      debugPrint('[AppStateProvider] _writeRemindMemoFile 실패: $e');
+    }
+  }
+
+  /// 출처(kind/refId) 메모 삭제 — 요약/퀴즈 삭제 시 전파.
+  Future<void> _deleteRemindMemoFile({
+    required String littenId,
+    required String kind,
+    required String refId,
+  }) async {
+    if (littenId.isEmpty) return;
+    try {
+      final fs = FileStorageService.instance;
+      final list = await fs.loadTextFiles(littenId);
+      final removed = list
+          .where((t) => t.sourceKind == kind && t.sourceRefId == refId)
+          .toList();
+      if (removed.isEmpty) return;
+      list.removeWhere((t) => t.sourceKind == kind && t.sourceRefId == refId);
+      await fs.saveTextFiles(littenId, list);
+      for (final t in removed) {
+        await fs.deleteTextFile(t); // .html 본문 삭제
+        await _littenService.removeTextFileFromLitten(littenId, t.id);
+        if (t.cloudId != null) {
+          SyncService.instance.deleteFile(
+              littenId: littenId, localId: t.id,
+              cloudId: t.cloudId!, fileType: 'text');
+        }
+      }
+      _remindMemoKeys.remove('$kind:$refId'); // 저장됨 캐시 갱신
+      debugPrint('[AppStateProvider] _deleteRemindMemoFile($kind/$refId) '
+          '${removed.length}건 삭제');
+    } catch (e) {
+      debugPrint('[AppStateProvider] _deleteRemindMemoFile 실패: $e');
+    }
+  }
+
+  /// 요약/퀴즈에 연결된 dual-write 텍스트 메모를 조회(리마인드 사용자 공유용). 없으면 null.
+  Future<TextFile?> findRemindMemoFile({
+    required String littenId,
+    required String kind,
+    required String refId,
+  }) async {
+    if (littenId.isEmpty) return null;
+    try {
+      final list = await FileStorageService.instance.loadTextFiles(littenId);
+      for (final t in list) {
+        if (t.sourceKind == kind && t.sourceRefId == refId) return t;
+      }
+    } catch (e) {
+      debugPrint('[AppStateProvider] findRemindMemoFile 실패: $e');
+    }
+    return null;
+  }
+
+  // ───── 리마인드 항목의 '메모로 저장' 여부 캐시('$kind:$refId') ─────
+  // 메모(전체탭) 저장은 자동이 아니라 사용자가 '메모로 저장'을 누를 때만 일어난다.
+  final Set<String> _remindMemoKeys = {};
+
+  /// 해당 요약/퀴즈가 전체탭 메모로 저장되어 있는지(메뉴 토글/표시용, 동기 조회).
+  bool isRemindSavedAsMemo(String kind, String refId) =>
+      _remindMemoKeys.contains('$kind:$refId');
+
+  /// 디스크의 텍스트 파일을 스캔해 '메모로 저장됨' 캐시를 채운다(앱 초기화 시 1회).
+  Future<void> loadRemindMemoKeys() async {
+    try {
+      final fs = FileStorageService.instance;
+      final keys = <String>{};
+      for (final litten in _littens) {
+        final texts = await fs.loadTextFiles(litten.id);
+        for (final t in texts) {
+          if (t.sourceKind != null && t.sourceRefId != null) {
+            keys.add('${t.sourceKind}:${t.sourceRefId}');
+          }
+        }
+      }
+      _remindMemoKeys
+        ..clear()
+        ..addAll(keys);
+      debugPrint('[AppStateProvider] loadRemindMemoKeys: ${_remindMemoKeys.length}건');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AppStateProvider] loadRemindMemoKeys 실패: $e');
+    }
+  }
+
+  /// 요약을 전체탭 메모로 저장(명시적 액션).
+  Future<void> saveSummaryAsMemo(SummaryEntry s) async {
+    await _writeRemindMemoFile(
+        littenId: s.littenId, kind: 'summary', refId: s.id,
+        title: s.title, plainText: s.summaryText);
+    notifyListeners();
+  }
+
+  /// 퀴즈 그룹을 전체탭 메모로 저장(명시적 액션).
+  Future<void> saveQuizGroupAsMemo(QuizTarget g) async {
+    final refId = g.summaryGroupId ?? 'file:${g.fileId}';
+    final littenId = g.items.isNotEmpty ? g.items.first.littenId : '';
+    await _writeRemindMemoFile(
+        littenId: littenId, kind: 'quiz', refId: refId,
+        title: g.fileName, plainText: _quizGroupPlainText(g));
+    notifyListeners();
+  }
+
+  /// 리마인드 항목의 전체탭 메모를 제거(명시적 액션).
+  Future<void> removeRemindMemo({
+    required String littenId,
+    required String kind,
+    required String refId,
+  }) async {
+    await _deleteRemindMemoFile(littenId: littenId, kind: kind, refId: refId);
     notifyListeners();
   }
 
@@ -215,6 +380,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (idx >= 0) removed = _summaries[idx];
     _summaries.removeWhere((s) => s.id == id);
     await _summaryStorage.deleteSummary(id);
+    // dual-write 메모도 함께 제거
+    if (removed != null) {
+      await _deleteRemindMemoFile(
+          littenId: removed.littenId, kind: 'summary', refId: id);
+    }
     // 서버에 업로드된 적이 있으면(cloudId 존재) 삭제를 전파해 다른 기기에서 부활하지 않게 한다.
     if (removed?.cloudId != null) {
       SyncService.instance.deleteFile(
@@ -284,6 +454,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _quizItems.add(item);
     if (_selectedQuizFileId == null) _selectedQuizFileId = item.fileId;
     _saveQuizItems();
+    // 메모(전체탭) 저장은 자동으로 하지 않는다 — 사용자가 '메모로 저장'을 누를 때만(saveQuizGroupAsMemo).
     notifyListeners();
   }
 
@@ -296,6 +467,20 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     _saveQuizItems();
     notifyListeners();
+  }
+
+  /// 퀴즈 그룹 평문 (제목 + 각 문항 번호·문제·답) — 메모/공유 공용.
+  String _quizGroupPlainText(QuizTarget g) {
+    final sorted = [...g.items]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final buf = StringBuffer()
+      ..writeln('[퀴즈] ${g.fileName.isEmpty ? '제목 없음' : g.fileName}');
+    for (int i = 0; i < sorted.length; i++) {
+      final q = sorted[i];
+      buf.writeln('');
+      buf.writeln('${i + 1}. ${q.title}');
+      if (q.content.trim().isNotEmpty) buf.writeln('   ${q.content.trim()}');
+    }
+    return buf.toString().trim();
   }
 
   void toggleQuizDone(String itemId) {
@@ -374,6 +559,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _saveQuizItems();
     for (final item in removed) {
       _deleteQuizFileAndPropagate(item);
+    }
+    // dual-write 메모도 함께 제거(그룹키 = summaryGroupId ?? file:fileId)
+    if (removed.isNotEmpty) {
+      final groupKey = summaryGroupId ?? 'file:$fileId';
+      _deleteRemindMemoFile(
+          littenId: removed.first.littenId, kind: 'quiz', refId: groupKey);
     }
     notifyListeners();
   }
@@ -664,6 +855,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadSharedFileIds();
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
+    await loadRemindMemoKeys(); // 리마인드 '메모로 저장됨' 캐시 (리튼 로드 후)
 
     // undefined 리튼 확인 및 생성
     await _ensureUndefinedLitten();
@@ -1266,12 +1458,20 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get sharesSent => _sharesSent;
   List<Map<String, dynamic>> get shareGroups => _shareGroups;
 
-  // 홈 공유 목록 필터: 'all' | 'received' | 'sent' (제목의 받음/보냄 카운트 탭으로 토글)
-  String _shareFilter = 'all';
-  String get shareFilter => _shareFilter;
-  /// 같은 값을 다시 누르면 'all'로 토글, 아니면 해당 값으로 설정.
-  void setShareFilter(String f) {
-    _shareFilter = (_shareFilter == f) ? 'all' : f;
+  // 홈 공유 목록 표시 토글: 받은 것/한 것 각각 독립 on/off (제목의 받음/보냄 카운트 아이콘으로 토글)
+  // 기본값은 둘 다 켜짐(보임). 한쪽을 끄면 해당 목록만 숨겨진다.
+  bool _showReceivedShares = true;
+  bool _showSentShares = true;
+  bool get showReceivedShares => _showReceivedShares;
+  bool get showSentShares => _showSentShares;
+  /// 받은 공유 표시 토글 (켜짐↔꺼짐)
+  void toggleReceivedShares() {
+    _showReceivedShares = !_showReceivedShares;
+    notifyListeners();
+  }
+  /// 한 공유 표시 토글 (켜짐↔꺼짐)
+  void toggleSentShares() {
+    _showSentShares = !_showSentShares;
     notifyListeners();
   }
   // 받은 공유 중 대기(미응답) 건수 — 홈 배지/카운트용
@@ -3153,6 +3353,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     for (final litten in _littens) {
       final texts = await fs.loadTextFiles(litten.id);
       for (final t in texts) {
+        // 요약/퀴즈에서 자동 생성된 메모(sourceKind != null)는 사용자 메모 제한에 합산하지 않음
+        if (t.sourceKind != null) continue;
         if (t.isFromSTT) { stt++; } else { text++; }
       }
       final audios = await _audioService.getAudioFiles(litten);
