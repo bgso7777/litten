@@ -199,8 +199,9 @@ class ApiService {
     required String email,
     required String password,
     required String uuid,
+    String? nickname, // 선택 — 입력 시 서버에서 중복 검증 후 name 컬럼에 저장
   }) async {
-    debugPrint('[ApiService] signUp - email: $email, uuid: $uuid');
+    debugPrint('[ApiService] signUp - email: $email, uuid: $uuid, nickname: $nickname');
 
     try {
       final url = Uri.parse('$baseUrl$_signUpEndpoint');
@@ -208,6 +209,7 @@ class ApiService {
         'id': email,
         'password': password,
         'uuid': uuid,
+        if (nickname != null && nickname.trim().isNotEmpty) 'name': nickname.trim(),
       });
 
       debugPrint('[ApiService] signUp - URL: $url');
@@ -242,6 +244,50 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] signUp - Error: $e');
       rethrow;
+    }
+  }
+
+  /// 닉네임 중복 확인. 반환: 사용 가능하면 true, 사용 중이면 false.
+  /// GET /note/v1/members/nickname/check?nickname=xxx (비인증 가능)
+  Future<bool> checkNicknameAvailable(String nickname) async {
+    final n = nickname.trim();
+    if (n.isEmpty) return false;
+    try {
+      final url = Uri.parse(
+          '$baseUrl$_membersEndpoint/nickname/check?nickname=${Uri.encodeComponent(n)}');
+      final response = await http.get(url, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] checkNicknameAvailable - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['available'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] checkNicknameAvailable - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 로그인 회원 닉네임 변경. 반환: {result, message?, name?}.
+  /// PUT /note/v1/members/nickname (인증 필수)
+  Future<Map<String, dynamic>> updateNickname({
+    required String token,
+    required String nickname,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl$_membersEndpoint/nickname');
+      final body = jsonEncode({'name': nickname.trim()});
+      final response = await http.put(url, headers: _getHeaders(token: token), body: body)
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] updateNickname - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'result': -1, 'message': '서버 오류 (${response.statusCode})'};
+    } catch (e) {
+      debugPrint('[ApiService] updateNickname - 오류: $e');
+      return {'result': -1, 'message': '$e'};
     }
   }
 
@@ -1003,15 +1049,18 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getSharesReceived({required String token}) async {
+  /// 받은 공유 목록. **실패 시 null**(빈 목록 []과 구분) — 취소 감지 시 오삭제 방지용.
+  Future<List<Map<String, dynamic>>?> getSharesReceived({required String token}) async {
     return _getShareList('$baseUrl$_sharesEndpoint/received', token);
   }
 
-  Future<List<Map<String, dynamic>>> getSharesSent({required String token}) async {
+  /// 보낸 공유 목록. **실패 시 null**(빈 목록 []과 구분).
+  Future<List<Map<String, dynamic>>?> getSharesSent({required String token}) async {
     return _getShareList('$baseUrl$_sharesEndpoint/sent', token);
   }
 
-  Future<List<Map<String, dynamic>>> _getShareList(String url, String token) async {
+  /// 공유 목록 조회. 성공이면 목록(빈 목록 가능), **네트워크/서버 실패면 null**.
+  Future<List<Map<String, dynamic>>?> _getShareList(String url, String token) async {
     try {
       final response = await http.get(Uri.parse(url), headers: _getHeaders(token: token))
           .timeout(const Duration(seconds: 20));
@@ -1021,10 +1070,10 @@ class ApiService {
           return List<Map<String, dynamic>>.from(data['shares'] ?? []);
         }
       }
-      return [];
+      return null; // 비정상 응답 → 실패로 간주
     } catch (e) {
       debugPrint('[ApiService] _getShareList - 오류: $e');
-      return [];
+      return null; // 네트워크 실패
     }
   }
 

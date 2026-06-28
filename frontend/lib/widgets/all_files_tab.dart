@@ -1507,7 +1507,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     onTap: () => _toggleChannel(ch),
                     child: Text(
                       ch.channelName,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1849,7 +1849,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                       file.title.isNotEmpty
                           ? file.title
                           : '${AppLocalizations.of(context)?.memoLabel ?? '메모'} ${DateFormat('yyMMddHHmm').format(file.createdAt)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1975,7 +1975,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   children: [
                     Text(
                       file.displayTitle,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2405,7 +2405,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 children: [
                   Text(
                     file.displayTitle,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2647,14 +2647,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Future<void> _shareTextFileToUser(TextFile file) async {
     final appDir = await getApplicationDocumentsDirectory();
     final path = '${appDir.path}/littens/${file.littenId}/text/${file.id}.html';
+    // 녹음 메모(STT) 텍스트는 'stt_text'로 보내 수신 측에서 녹음 메모로 복원되게 한다.
     await _shareFileToUser(
-        fileId: file.id, fileType: 'text', filePath: path,
+        fileId: file.id, fileType: file.isFromSTT ? 'stt_text' : 'text', filePath: path,
         fileName: '${file.displayTitle}.html', contentType: 'text/html');
   }
 
   Future<void> _shareAudioFileToUser(AudioFile file) async {
+    // 녹음 메모(STT) 오디오는 'stt_audio'로 보내 수신 측에서 녹음 메모로 복원되게 한다.
     await _shareFileToUser(
-        fileId: file.id, fileType: 'audio', filePath: file.filePath,
+        fileId: file.id, fileType: file.isFromSTT ? 'stt_audio' : 'audio', filePath: file.filePath,
         fileName: '${file.fileName}.m4a', contentType: 'audio/m4a');
   }
 
@@ -3023,7 +3025,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   children: [
                     Text(
                       file.fileName,
-                      style: TextStyle(fontSize: 13, fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal),
+                      style: TextStyle(fontSize: 15, fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

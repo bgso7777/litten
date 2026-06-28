@@ -482,7 +482,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
             Expanded(
               child: Text(
                 s.title.isEmpty ? '제목 없음' : s.title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -546,8 +546,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
               child: Text(
                 g.fileName.isEmpty ? '제목 없음' : g.fileName,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                   // 완료 그룹도 취소선·흐림 없이 진한 기본 색으로 표시(확인 영역으로 이미 구분됨)
                 ),
                 maxLines: 1,

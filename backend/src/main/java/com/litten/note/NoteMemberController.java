@@ -24,6 +24,9 @@ public class NoteMemberController {
     @Autowired
     ControllerDynamicServiceBridge controllerDynamicServiceBridge;
 
+    @Autowired
+    NoteMemberRepository noteMemberRepository;
+
 //    @CrossOrigin(origins="*", allowedHeaders="*")
 //    @PostMapping("/note/v1/members")
 //    @ResponseBody
@@ -69,6 +72,17 @@ public class NoteMemberController {
         String uuid = requestBody.deepCopy().get("uuid").asText();
 
         log.info("회원가입 대상 ID: {}", id);
+
+        // 닉네임(name)은 선택 입력 — 입력된 경우 중복(유일성) 검증
+        String signupNickname = (requestBody.has("name") && !requestBody.get("name").isNull())
+                ? requestBody.get("name").asText().trim() : null;
+        if (signupNickname != null && !signupNickname.isEmpty()
+                && noteMemberRepository.findFirstByName(signupNickname) != null) {
+            log.warn("회원가입 닉네임 중복: {}", signupNickname);
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_ALEADY_EXIST);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이미 사용 중인 닉네임입니다: " + signupNickname);
+            return ResponseEntity.ok(result);
+        }
 
         // 1. stateCode='signup'인 계정이 있는지 확인
         result = controllerDynamicServiceBridge.findDomainByThreeColumn(
@@ -291,6 +305,68 @@ public class NoteMemberController {
         String method = "get";
         String serviceMethodName = "getMyInfo";
         Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /note/v1/members/nickname/check?nickname=xxx
+     * 닉네임(name) 사용 가능 여부 확인. 반환: { result:1, available: true/false }
+     * 비인증 — 가입 화면에서도 호출 가능.
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @GetMapping("/note/v1/members/nickname/check")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> checkNickname(@RequestParam("nickname") String nickname) {
+        Map<String, Object> result = new HashMap<>();
+        result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+        String n = (nickname == null) ? "" : nickname.trim();
+        boolean available = !n.isEmpty() && noteMemberRepository.findFirstByName(n) == null;
+        result.put("available", available);
+        log.info("[NoteMemberController] 닉네임 중복확인 - nickname: {}, available: {}", n, available);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * PUT /note/v1/members/nickname
+     * 로그인 회원의 닉네임(name) 변경. 빈 값이면 닉네임 해제(null).
+     * 중복 시 result=2(RESULT_ALEADY_EXIST). 인증 필수(JWT).
+     * Request Body: { "name": "새닉네임" }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PutMapping("/note/v1/members/nickname")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateNickname(@RequestBody JsonNode requestBody) {
+        Map<String, Object> result = new HashMap<>();
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        log.info("[NoteMemberController] 닉네임 변경 - memberId: {}, body: {}", memberId, requestBody);
+        if (memberId == null) {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "인증 정보가 없습니다.");
+            return ResponseEntity.ok(result);
+        }
+        String nickname = (requestBody.has("name") && !requestBody.get("name").isNull())
+                ? requestBody.get("name").asText().trim() : "";
+        // 중복 체크 (본인은 제외)
+        if (!nickname.isEmpty()) {
+            NoteMember dup = noteMemberRepository.findFirstByName(nickname);
+            if (dup != null && !memberId.equals(dup.getId())) {
+                result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_ALEADY_EXIST);
+                result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이미 사용 중인 닉네임입니다.");
+                return ResponseEntity.ok(result);
+            }
+        }
+        NoteMember me = noteMemberRepository.findByIdAndState(memberId, "signup");
+        if (me == null) {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_NOT_FOUND);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "회원을 찾을 수 없습니다.");
+            return ResponseEntity.ok(result);
+        }
+        me.setName(nickname.isEmpty() ? null : nickname);
+        me.setUpdateDateTime(java.time.LocalDateTime.now());
+        noteMemberRepository.save(me);
+        result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+        result.put("name", me.getName());
+        log.info("[NoteMemberController] 닉네임 변경 완료 - memberId: {} -> {}", memberId, me.getName());
         return ResponseEntity.ok(result);
     }
 

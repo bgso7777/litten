@@ -1304,8 +1304,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return;
     }
-    _sharesReceived = await _shareApi.getSharesReceived(token: token);
-    _sharesSent = await _shareApi.getSharesSent(token: token);
+    final received = await _shareApi.getSharesReceived(token: token);
+    final sent = await _shareApi.getSharesSent(token: token);
+    // 로드 성공(null 아님)일 때만 반영 — 실패 시 기존 목록 유지(취소 오삭제 방지)
+    if (received != null) {
+      await _reconcileCancelledShares(received); // 발신자 취소분 로컬 저장본 삭제
+      _sharesReceived = received;
+    }
+    if (sent != null) _sharesSent = sent;
     _shareGroups = await _shareApi.getGroups(token: token);
     notifyListeners();
   }
@@ -1410,11 +1416,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await loadShares();
       return (ok: false, message: '파일 다운로드에 실패했습니다.');
     }
-    await _saveSharedFileLocally(
+    final saved = await _saveSharedFileLocally(
       fileType: share['fileType'] as String? ?? 'attachment',
       fileName: share['fileName'] as String? ?? 'shared',
       bytes: bytes,
     );
+    // 발신자 취소 시 이 저장본을 삭제할 수 있도록 (공유 → 로컬파일) 매핑 기록
+    await _recordAcceptedShare(share, saved);
     await loadShares();
     notifyFileListChanged();
     return (ok: true, message: null);
@@ -1451,7 +1459,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 수락한 공유 파일을 로컬 파일로 저장(파일 유형별).
-  Future<void> _saveSharedFileLocally({
+  /// 반환: 저장된 (로컬 파일 id, 리튼 id, 정규화 타입 text/audio/handwriting/attachment).
+  /// 발신자 취소 시 이 파일을 되찾아 삭제하기 위한 매핑에 사용한다.
+  Future<({String fileId, String littenId, String type})> _saveSharedFileLocally({
     required String fileType,
     required String fileName,
     required List<int> bytes,
@@ -1459,24 +1469,36 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final littenId = await _resolveInboxLittenId();
     final fs = FileStorageService.instance;
     final appDir = await getApplicationDocumentsDirectory();
-    if (fileType == 'text') {
+    late final String savedId;
+    late final String savedType;
+    if (fileType == 'text' || fileType == 'stt_text') {
       final content = utf8.decode(bytes, allowMalformed: true);
-      final tf = TextFile(littenId: littenId, title: _stripExt(fileName), content: content);
+      // 'stt_text'는 녹음 메모(STT)로 받아 녹음 메모로 분류되게 한다.
+      final tf = TextFile(
+          littenId: littenId, title: _stripExt(fileName), content: content,
+          isFromSTT: fileType == 'stt_text');
       final list = await fs.loadTextFiles(littenId);
       list.add(tf);
       await fs.saveTextFiles(littenId, list);
       await _littenService.addTextFileToLitten(littenId, tf.id);
-    } else if (fileType == 'audio') {
+      savedId = tf.id;
+      savedType = 'text';
+    } else if (fileType == 'audio' || fileType == 'stt_audio') {
       final id = const Uuid().v4();
       final dir = Directory('${appDir.path}/littens/$littenId/audio');
       await dir.create(recursive: true);
       final path = '${dir.path}/$id.m4a';
       await File(path).writeAsBytes(bytes);
-      final af = AudioFile(id: id, littenId: littenId, fileName: _stripExt(fileName), filePath: path, fileSize: bytes.length);
+      // 'stt_audio'는 녹음 메모(STT)로 받아 녹음 메모로 분류되게 한다.
+      final af = AudioFile(
+          id: id, littenId: littenId, fileName: _stripExt(fileName), filePath: path,
+          fileSize: bytes.length, isFromSTT: fileType == 'stt_audio');
       final list = await fs.loadAudioFiles(littenId);
       list.add(af);
       await fs.saveAudioFiles(littenId, list);
       await _littenService.addAudioFileToLitten(littenId, id);
+      savedId = id;
+      savedType = 'audio';
     } else if (fileType == 'handwriting') {
       final id = const Uuid().v4();
       final isPdf = fileName.toLowerCase().endsWith('.pdf');
@@ -1492,6 +1514,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       list.add(hf);
       await fs.saveHandwritingFiles(littenId, list);
       await _littenService.addHandwritingFileToLitten(littenId, id);
+      savedId = id;
+      savedType = 'handwriting';
     } else {
       // attachment
       final id = const Uuid().v4();
@@ -1504,8 +1528,113 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       list.add(at);
       await fs.saveAttachmentFiles(littenId, list);
       await _littenService.addAttachmentFileToLitten(littenId, id);
+      savedId = id;
+      savedType = 'attachment';
     }
     await refreshLittens();
+    return (fileId: savedId, littenId: littenId, type: savedType);
+  }
+
+  // ── 공유 취소 동기화 (발신자 취소 시 수신자 로컬 저장본 삭제) ──
+  static const String _acceptedShareMapKey = 'accepted_share_map';
+
+  /// 수락·저장 시 (공유 deliveryId → 로컬 파일) 매핑을 기록한다.
+  Future<void> _recordAcceptedShare(
+      Map<String, dynamic> share,
+      ({String fileId, String littenId, String type}) saved) async {
+    final deliveryId = (share['deliveryId'] as num?)?.toInt();
+    if (deliveryId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final list = (prefs.getStringList(_acceptedShareMapKey) ?? [])
+        .map((e) => jsonDecode(e) as Map<String, dynamic>)
+        .toList();
+    list.removeWhere((m) => (m['deliveryId'] as num?)?.toInt() == deliveryId);
+    list.add({
+      'deliveryId': deliveryId,
+      'shareId': (share['shareId'] as num?)?.toInt(),
+      'littenId': saved.littenId,
+      'fileId': saved.fileId,
+      'type': saved.type,
+      'fileName': share['fileName'],
+    });
+    await prefs.setStringList(
+        _acceptedShareMapKey, list.map((m) => jsonEncode(m)).toList());
+    debugPrint('[취소동기화] 수락 매핑 기록 - delivery $deliveryId → ${saved.type}/${saved.fileId}');
+  }
+
+  /// 받은 공유 목록을 받아, 이전에 수락·저장했지만 지금 목록에서 사라진 항목
+  /// (= 발신자가 취소함)의 로컬 저장본을 삭제한다.
+  /// ⚠️ received는 **로드 성공한 목록**이어야 한다(네트워크 실패 시 호출 금지 — 오삭제 방지).
+  Future<void> _reconcileCancelledShares(List<Map<String, dynamic>> received) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_acceptedShareMapKey) ?? [];
+    if (raw.isEmpty) return;
+    final list = raw.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+    final currentIds = received
+        .map((r) => (r['deliveryId'] as num?)?.toInt())
+        .whereType<int>()
+        .toSet();
+    final remaining = <Map<String, dynamic>>[];
+    var deleted = 0;
+    for (final m in list) {
+      final did = (m['deliveryId'] as num?)?.toInt();
+      if (did != null && currentIds.contains(did)) {
+        remaining.add(m); // 아직 유효한 공유
+        continue;
+      }
+      // 수신 목록에서 사라짐 → 발신자 취소 → 로컬 저장본 삭제
+      final littenId = m['littenId'] as String?;
+      final fileId = m['fileId'] as String?;
+      final type = m['type'] as String? ?? 'attachment';
+      if (littenId != null && fileId != null) {
+        debugPrint('[취소동기화] 발신자 취소 감지 → 로컬 삭제: $type/$fileId (delivery $did)');
+        await _deleteLocalSharedFileById(littenId, fileId, type);
+        deleted++;
+      }
+    }
+    if (deleted > 0) {
+      await prefs.setStringList(
+          _acceptedShareMapKey, remaining.map((m) => jsonEncode(m)).toList());
+      await updateFileCount();
+      notifyFileListChanged();
+    }
+  }
+
+  /// 공유로 저장됐던 로컬 파일을 id로 찾아 삭제(디스크+목록+리튼).
+  Future<void> _deleteLocalSharedFileById(
+      String littenId, String fileId, String type) async {
+    final fs = FileStorageService.instance;
+    try {
+      if (type == 'text') {
+        final l = await fs.loadTextFiles(littenId);
+        final hit = l.where((e) => e.id == fileId).toList();
+        if (hit.isNotEmpty) await fs.deleteTextFile(hit.first);
+        await fs.saveTextFiles(littenId, l.where((e) => e.id != fileId).toList());
+        await _littenService.removeTextFileFromLitten(littenId, fileId);
+      } else if (type == 'audio') {
+        final l = await fs.loadAudioFiles(littenId);
+        final hit = l.where((e) => e.id == fileId).toList();
+        if (hit.isNotEmpty) {
+          await _audioService.deleteAudioFile(hit.first); // 디스크+목록+리튼 정리
+        } else {
+          await _littenService.removeAudioFileFromLitten(littenId, fileId);
+        }
+      } else if (type == 'handwriting') {
+        final l = await fs.loadHandwritingFiles(littenId);
+        final hit = l.where((e) => e.id == fileId).toList();
+        if (hit.isNotEmpty) await fs.deleteHandwritingFile(hit.first);
+        await fs.saveHandwritingFiles(littenId, l.where((e) => e.id != fileId).toList());
+        await _littenService.removeHandwritingFileFromLitten(littenId, fileId);
+      } else {
+        final l = await fs.loadAttachmentFiles(littenId);
+        final hit = l.where((e) => e.id == fileId).toList();
+        if (hit.isNotEmpty) await fs.deleteAttachmentFile(hit.first);
+        await fs.saveAttachmentFiles(littenId, l.where((e) => e.id != fileId).toList());
+        await _littenService.removeAttachmentFileFromLitten(littenId, fileId);
+      }
+    } catch (e) {
+      debugPrint('[취소동기화] 로컬 파일 삭제 오류: $e');
+    }
   }
 
   // 파일 목록 변경 알림 (PDF 변환 등으로 파일이 추가/삭제될 때 호출)

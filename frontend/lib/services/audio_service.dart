@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/audio_file.dart';
 import '../models/litten.dart';
 import 'file_storage_service.dart';
+import 'litten_service.dart';
 
 class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   static final AudioService _instance = AudioService._internal();
@@ -628,17 +629,33 @@ class AudioService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 오디오 파일 삭제
+  /// 디스크 실파일 + 저장소 목록(audio_files_<littenId>) + 리튼의 audioFileIds를 함께 제거한다.
+  /// (기존 버그: 디스크만 지우고 저장소 목록을 안 비워, 삭제한 녹음이 목록에 그대로 남거나
+  ///  동기화가 "로컬에 synced 상태로 존재"로 오판해 재출현하던 문제 수정.
+  ///  텍스트/필기/첨부 삭제와 동일한 정리 절차로 통일.)
   Future<bool> deleteAudioFile(AudioFile audioFile) async {
     debugPrint('[AudioService] deleteAudioFile 진입 - fileName: ${audioFile.fileName}');
-    
+
     try {
+      // ① 디스크 실파일 삭제 (있을 때만)
       final file = File(audioFile.filePath);
       if (await file.exists()) {
         await file.delete();
-        debugPrint('[AudioService] 오디오 파일 삭제됨: ${audioFile.fileName}');
-        return true;
+        debugPrint('[AudioService] 오디오 실파일 삭제됨: ${audioFile.fileName}');
+      } else {
+        debugPrint('[AudioService] 오디오 실파일이 이미 없음: ${audioFile.filePath}');
       }
-      return false;
+
+      // ② 저장소 목록에서 제거 — 목록 표시/카운트/동기화 판단의 실제 출처
+      final stored = await FileStorageService.instance.loadAudioFiles(audioFile.littenId);
+      final updated = stored.where((f) => f.id != audioFile.id).toList();
+      await FileStorageService.instance.saveAudioFiles(audioFile.littenId, updated);
+
+      // ③ 리튼의 audioFileIds에서도 제거 (텍스트/필기/첨부와 동일)
+      await LittenService().removeAudioFileFromLitten(audioFile.littenId, audioFile.id);
+
+      debugPrint('[AudioService] 오디오 파일 삭제 완료(디스크+목록+리튼): ${audioFile.fileName}');
+      return true;
     } catch (e) {
       debugPrint('[AudioService] 오디오 파일 삭제 오류: $e');
       return false;

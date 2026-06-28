@@ -18,17 +18,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _nicknameController = TextEditingController();
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  bool? _nicknameAvailable; // null=미확인, true=사용가능, false=중복
+  bool _nicknameChecking = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nicknameController.dispose();
     super.dispose();
+  }
+
+  /// 닉네임 중복확인 (선택 입력 — 비어 있으면 확인 불필요)
+  Future<void> _checkNickname() async {
+    final nick = _nicknameController.text.trim();
+    if (nick.isEmpty) return;
+    setState(() => _nicknameChecking = true);
+    final available =
+        await Provider.of<AppStateProvider>(context, listen: false)
+            .authService
+            .checkNicknameAvailable(nick);
+    if (!mounted) return;
+    setState(() {
+      _nicknameChecking = false;
+      _nicknameAvailable = available;
+    });
   }
 
   /// 이메일 유효성 검사
@@ -71,6 +91,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    final nick = _nicknameController.text.trim();
+    // 닉네임을 입력한 경우 중복확인(사용 가능) 필수
+    if (nick.isNotEmpty && _nicknameAvailable != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('닉네임 중복확인을 해주세요.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -79,6 +108,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await appState.authService.signUpWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
+        displayName: nick.isEmpty ? null : nick,
       );
 
       if (mounted) {
@@ -209,6 +239,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         validator: _validateEmail,
                         enabled: !_isLoading,
                       ),
+                      const SizedBox(height: 16),
+
+                      // 닉네임 입력 (선택) + 중복확인
+                      TextFormField(
+                        controller: _nicknameController,
+                        decoration: InputDecoration(
+                          labelText: '닉네임 (선택)',
+                          hintText: '다른 사용자에게 표시될 이름',
+                          prefixIcon: const Icon(Icons.badge_outlined),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _nicknameChecking
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                      width: 16, height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2)),
+                                )
+                              : TextButton(
+                                  onPressed: _isLoading ? null : _checkNickname,
+                                  child: const Text('중복확인'),
+                                ),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        enabled: !_isLoading,
+                        onChanged: (_) {
+                          if (_nicknameAvailable != null) {
+                            setState(() => _nicknameAvailable = null);
+                          }
+                        },
+                      ),
+                      if (_nicknameAvailable == true)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, left: 4),
+                          child: Text('사용 가능한 닉네임입니다.',
+                              style: TextStyle(fontSize: 12, color: Colors.green)),
+                        ),
+                      if (_nicknameAvailable == false)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, left: 4),
+                          child: Text('이미 사용 중인 닉네임입니다.',
+                              style: TextStyle(fontSize: 12, color: Colors.red)),
+                        ),
                       const SizedBox(height: 16),
 
                       // 비밀번호 입력

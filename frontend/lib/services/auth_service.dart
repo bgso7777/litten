@@ -33,11 +33,11 @@ class User {
     this.subscriptionPlan = SubscriptionPlan.free,
   });
 
-  User copyWith({SubscriptionPlan? subscriptionPlan}) {
+  User copyWith({SubscriptionPlan? subscriptionPlan, String? displayName}) {
     return User(
       id: id,
       email: email,
-      displayName: displayName,
+      displayName: displayName ?? this.displayName,
       photoUrl: photoUrl,
       createdAt: createdAt,
       subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
@@ -392,6 +392,7 @@ class AuthServiceImpl extends AuthService {
         email: email,
         password: password,
         uuid: uuid,
+        nickname: displayName, // 선택 닉네임 — 서버가 name 컬럼에 중복 검증 후 저장
       );
 
       // 응답에서 사용자 정보 추출
@@ -660,6 +661,26 @@ class AuthServiceImpl extends AuthService {
         ? '🔐 AuthService: 게스트 데이터 이관 완료'
         : '🔐 AuthService: 게스트 데이터 이관 실패 (다음 로그인 시 재시도)');
   }
+
+  /// 닉네임 변경 (서버 중복 검증 후 반영). 반환: (ok, message?).
+  Future<({bool ok, String? message})> updateNickname(String nickname) async {
+    final token = _token;
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: '로그인이 필요합니다.');
+    }
+    final r = await _apiService.updateNickname(token: token, nickname: nickname);
+    if (r['result'] == 1) {
+      _currentUser = _currentUser?.copyWith(displayName: r['name']?.toString());
+      notifyListeners();
+      debugPrint('🔐 AuthService: 닉네임 변경 성공 - ${r['name']}');
+      return (ok: true, message: null);
+    }
+    return (ok: false, message: r['message']?.toString() ?? '닉네임 변경에 실패했습니다.');
+  }
+
+  /// 닉네임 중복 확인 — 사용 가능하면 true.
+  Future<bool> checkNicknameAvailable(String nickname) =>
+      _apiService.checkNicknameAvailable(nickname);
 
   /// 로컬 구독 플랜 업데이트 (메모리 + SharedPreferences, 서버 API 없이)
   Future<void> updateLocalSubscriptionPlan(SubscriptionPlan plan) async {

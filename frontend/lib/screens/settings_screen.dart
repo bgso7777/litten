@@ -153,6 +153,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // 로그인 상태일 때
                 if (appState.isLoggedIn) ...[
                   _buildSettingsItem(
+                    icon: Icons.badge_outlined,
+                    title: '닉네임 변경',
+                    subtitle: '다른 사용자에게 표시될 닉네임을 변경합니다',
+                    iconColor: Theme.of(context).primaryColor,
+                    onTap: () => _showChangeNicknameDialog(context, appState),
+                  ),
+                  _buildSettingsItem(
                     icon: Icons.lock_reset,
                     title: l10n?.changePassword ?? '비밀번호 변경',
                     subtitle: l10n?.changePasswordSubtitle ?? '계정 비밀번호를 변경합니다',
@@ -1432,6 +1439,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(l10n?.changeAndLogout ?? '변경 및 로그아웃'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 닉네임 변경 다이얼로그 — 입력 + 중복확인(필수) + 저장(서버 재검증).
+  void _showChangeNicknameDialog(BuildContext context, AppStateProvider appState) {
+    final controller = TextEditingController(
+        text: appState.currentUser?.displayName ?? '');
+    bool? available; // null=미확인, true=가능, false=중복
+    bool checking = false;
+    bool saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final color = Theme.of(ctx).primaryColor;
+          return AlertDialog(
+            title: const Text('닉네임 변경', style: TextStyle(fontSize: 16)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: '닉네임',
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: checking
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2)),
+                          )
+                        : TextButton(
+                            onPressed: () async {
+                              final nick = controller.text.trim();
+                              if (nick.isEmpty) return;
+                              setLocal(() => checking = true);
+                              final ok = await appState.authService
+                                  .checkNicknameAvailable(nick);
+                              setLocal(() {
+                                checking = false;
+                                available = ok;
+                              });
+                            },
+                            child: const Text('중복확인'),
+                          ),
+                  ),
+                  onChanged: (_) {
+                    if (available != null) setLocal(() => available = null);
+                  },
+                ),
+                if (available == true)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4, left: 4),
+                    child: Text('사용 가능한 닉네임입니다.',
+                        style: TextStyle(fontSize: 12, color: Colors.green)),
+                  ),
+                if (available == false)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4, left: 4),
+                    child: Text('이미 사용 중인 닉네임입니다.',
+                        style: TextStyle(fontSize: 12, color: Colors.red)),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final nick = controller.text.trim();
+                        if (nick.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('닉네임을 입력하세요.')));
+                          return;
+                        }
+                        if (available != true) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('닉네임 중복확인을 해주세요.')));
+                          return;
+                        }
+                        setLocal(() => saving = true);
+                        final r =
+                            await appState.authService.updateNickname(nick);
+                        if (!ctx.mounted) return;
+                        if (r.ok) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('닉네임을 변경했습니다.')));
+                        } else {
+                          setLocal(() => saving = false);
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                              content: Text(r.message ?? '닉네임 변경 실패')));
+                        }
+                      },
+                style: TextButton.styleFrom(foregroundColor: color),
+                child: const Text('저장'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
