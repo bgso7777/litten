@@ -448,20 +448,11 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                       return Column(
                         children: [
                           // 상단: 남은 공간을 채움(하단이 올라온 만큼 줄어듦).
-                          // 우측 하단에 '+' 플로팅 버튼(상단 영역 전용 — 메모 추가).
+                          // 메모 추가 '+'는 하단 칩 바(_buildConfirmedBar) 우측으로 이동.
                           Expanded(
-                            child: Stack(
-                              children: [
-                                _paneList(topItems, color, appState,
-                                    emptyText:
-                                        '확인하지 않은 항목이 없습니다.\n파일을 요약하거나 퀴즈를 만들면 여기에 모입니다.'),
-                                Positioned(
-                                  right: 14,
-                                  bottom: 14,
-                                  child: _buildAddButton(color, appState),
-                                ),
-                              ],
-                            ),
+                            child: _paneList(topItems, color, appState,
+                                emptyText:
+                                    '확인하지 않은 항목이 없습니다.\n파일을 요약하거나 퀴즈를 만들면 여기에 모입니다.'),
                           ),
                           // 하단: 높이를 0→50%로 키우며, 고정 높이 내용물을 클립해 올라오는 효과
                           SizedBox(
@@ -790,58 +781,58 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         onTap: _filter.toggleConfirmed, // 바 전체가 토글 영역
         child: Container(
           width: double.infinity, // 전체 폭(가운데 정렬, 좌우 잘림 방지)
-          // 생성 칩 바(_CreateChipBar)와 동일한 세로 패딩(7)으로 높이를 맞춘다.
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          // 생성 칩 바(_CreateChipBar)와 동일한 세로 패딩(9)으로 높이를 맞춘다. (전체 높이 약 10% 상향)
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
           ),
-          // 확인 완료 카운트 — 항상 선택색. 캘린더 하단 일정 칩(_scheduleChip)과
-          // 동일한 알약 구조(세로 패딩 3 + 테두리 + 아이콘 16)로 감싸 높이를 맞춘다.
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+          // 가운데: 확인 완료 카운트(아이콘+숫자). 우측 끝: 메모 추가 '+'(홈 칩 +와 동일).
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Icon(Icons.auto_awesome, size: 16, color: color), // 요약
+                    const SizedBox(width: 2),
+                    Text('$doneSummary',
+                        style: TextStyle(
+                            fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                    const SizedBox(width: 16),
+                    QuizBulbIcon(size: 16, color: color), // 퀴즈
+                    const SizedBox(width: 2),
+                    Text('$doneQuiz',
+                        style: TextStyle(
+                            fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Icon(Icons.auto_awesome, size: 16, color: color), // 요약
-                  const SizedBox(width: 2),
-                  Text('$doneSummary',
-                      style: TextStyle(
-                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
-                  const SizedBox(width: 16),
-                  QuizBulbIcon(size: 16, color: color), // 퀴즈
-                  const SizedBox(width: 2),
-                  Text('$doneQuiz',
-                      style: TextStyle(
-                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
-                ],
+              // 우측 끝: 메모 추가 + (홈 _HomeChipBar의 + 와 동일한 원형/크기/위치)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Material(
+                  color: color.withValues(alpha: 0.15),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _showAddMemoDialog(context, color, appState),
+                    child: Container(
+                      padding: const EdgeInsets.all(4.0),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: color.withValues(alpha: 0.2), width: 1),
+                      ),
+                      child: Icon(Icons.add, size: 21.3, color: color),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ),
-      ),
-    );
-  }
-
-  /// 상단 영역 전용 '+' 플로팅 버튼 — 메모 추가 팝업을 띄운다.
-  /// (추가한 메모는 '확인 안 함' 항목이라 상단 영역으로 들어간다.)
-  Widget _buildAddButton(Color color, AppStateProvider appState) {
-    return Material(
-      color: color,
-      shape: const CircleBorder(),
-      elevation: 3,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () => _showAddMemoDialog(context, color, appState),
-        child: const Padding(
-          padding: EdgeInsets.all(11),
-          child: Icon(Icons.add, size: 22, color: Colors.white),
         ),
       ),
     );

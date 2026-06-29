@@ -12,7 +12,7 @@ import '../widgets/common/tab_count_title.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
-class HomeDashboardScreen extends StatelessWidget {
+class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
 
   // 5탭 인덱스: 홈0 · 캘린더1 · +2 · 리마인드3 · 설정4
@@ -20,14 +20,23 @@ class HomeDashboardScreen extends StatelessWidget {
   static const int _remindTabIndex = 3;
 
   @override
+  State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+}
+
+class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+  // 칩 바의 + 버튼에서 공유 섹션의 '새 채팅'을 띄우기 위해 상태에 접근하는 키
+  final GlobalKey<_ShareSectionState> _shareKey = GlobalKey<_ShareSectionState>();
+
+  @override
   Widget build(BuildContext context) {
     debugPrint('🏠 [HomeDashboardScreen] build');
-    // 공유 아이콘은 탭 제목란으로 이동. body에는 공유 본문(전체/공유받은것/공유한것)만 표시.
-    // 탭(DraggableTabLayout)의 content로 사용 — Scaffold/AppBar 없음
-    return const Column(
+    // 공유 본문(전체/공유받은것/공유한것) + 하단 칩 바(_HomeChipBar).
+    // 칩 우측 끝 동그라미 + 버튼이 새 채팅(1:1/그룹) 다이얼로그를 띄운다.
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: _ShareSection()),
+        Expanded(child: _ShareSection(key: _shareKey)),
+        _HomeChipBar(onAdd: () => _shareKey.currentState?.startNewChat()),
       ],
     );
   }
@@ -87,6 +96,50 @@ class HomeDashboardScreen extends StatelessWidget {
           s.date.year, s.date.month, s.date.day, start.hour, start.minute);
     }
     return null;
+  }
+}
+
+/// 홈 탭 하단 칩 바 — 다른 탭(캘린더/+/리마인드)의 칩 바와 동일한 배경/높이.
+/// 우측 끝 동그라미 + 버튼을 누르면 새 채팅(1:1/그룹)을 띄운다(onAdd).
+class _HomeChipBar extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _HomeChipBar({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).primaryColor;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
+      ),
+      // 다른 칩 바와 동일한 세로 패딩(9)으로 높이를 맞춘다.
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Row(
+        children: [
+          const Spacer(), // 동그라미 +를 제일 우측에 고정
+          Material(
+            color: color.withValues(alpha: 0.15),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onAdd,
+              child: Container(
+                // + 버튼 원을 한 번 더 약 10% 확대(지름 26.6 → 29.3) — 우측 강조
+                padding: const EdgeInsets.all(4.0),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: color.withValues(alpha: 0.2), width: 1),
+                ),
+                child: Icon(Icons.add, size: 21.3, color: color),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -299,7 +352,7 @@ class ShareTabTitle extends StatelessWidget {
 
 /// 공유 섹션 — 받은 것 + 한 것을 합쳐 일자순으로 보여준다(전체탭 파일리스트 컨셉).
 class _ShareSection extends StatefulWidget {
-  const _ShareSection();
+  const _ShareSection({super.key});
 
   @override
   State<_ShareSection> createState() => _ShareSectionState();
@@ -423,8 +476,14 @@ class _ShareSectionState extends State<_ShareSection> {
 
     if (!appState.isLoggedIn) {
       return Center(
-        child: Text('로그인하면 공유를 주고받을 수 있습니다.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            '로그인하면 내가 만든 녹음·필기·요약을\n친구·동료와 자유롭게 주고받을 수 있어요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.5),
+          ),
+        ),
       );
     }
 
@@ -547,43 +606,35 @@ class _ShareSectionState extends State<_ShareSection> {
     final convList = convs.values.toList()
       ..sort((a, b) => b.lastAt.compareTo(a.lastAt));
 
-    return Stack(children: [
-      RefreshIndicator(
-        onRefresh: () => appState.loadShares(),
-        child: convList.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 80),
-                  Center(
-                      child: Text('아직 대화가 없습니다.\n우측 하단 + 로 새 채팅을 시작하거나 파일을 공유해 보세요.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
-                ],
-              )
-            : ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 4, bottom: 80),
-                itemCount: convList.length,
-                separatorBuilder: (_, __) =>
-                    Divider(height: 1, color: color.withValues(alpha: 0.08)),
-                itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color),
-              ),
-      ),
-      Positioned(
-        right: 16, bottom: 16,
-        child: FloatingActionButton(
-          heroTag: 'new_chat_fab',
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          onPressed: _startNewChat,
-          child: const Icon(Icons.add),
-        ),
-      ),
-    ]);
+    // 새 채팅 진입점은 하단 칩 바의 + 버튼으로 일원화(기존 우측 하단 FAB 제거).
+    return RefreshIndicator(
+      onRefresh: () => appState.loadShares(),
+      child: convList.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Center(
+                    child: Text('아직 대화가 없습니다.\n아래 + 버튼으로 새 채팅을 시작하거나 파일을 공유해 보세요.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+              ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              itemCount: convList.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: color.withValues(alpha: 0.08)),
+              itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color),
+            ),
+    );
   }
 
   /// 새 채팅 — 탭으로 1:1 / 그룹 분리. 1:1은 이메일/닉네임 입력+대화 시작, 그룹은 새 그룹 만들기/내 그룹 선택.
+  /// 칩 바의 + 버튼 등 외부에서 새 채팅을 띄울 수 있게 공개 래퍼.
+  void startNewChat() => _startNewChat();
+
   Future<void> _startNewChat() async {
     final ctrl = TextEditingController();
     final appState = context.read<AppStateProvider>();

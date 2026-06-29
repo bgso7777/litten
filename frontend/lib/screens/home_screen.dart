@@ -2356,8 +2356,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           color: color.withValues(alpha: 0.08),
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
-        // 바(칩 영역) 자체 높이를 약간 키움 (세로 패딩 4 → 7)
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        // 바(칩 영역) 자체 높이 — 세로 패딩 7 → 9 (전체 높이 약 10% 상향)
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: SingleChildScrollView(
           controller: _hintChipScrollController,
           scrollDirection: Axis.horizontal,

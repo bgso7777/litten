@@ -250,7 +250,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       children: [
         // 탭 헤더
         Container(
-          height: 55,
+          height: 40, // 하단 칩 바 높이와 일치(콘텐츠 ~22 + 세로패딩 18)
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             boxShadow: [
@@ -398,7 +398,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             children: [
               // 탭 헤더 (항상 표시)
               Container(
-                height: 55,
+                height: 40, // 하단 칩 바 높이와 일치(콘텐츠 ~22 + 세로패딩 18)
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   border: Border(

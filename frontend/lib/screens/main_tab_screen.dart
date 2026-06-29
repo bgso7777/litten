@@ -10,7 +10,7 @@ import 'home_screen.dart';
 import 'calendar_tab_screen.dart';
 import 'writing_screen.dart';
 import 'remind_screen.dart';
-import 'settings_screen.dart';
+import 'settings_tab_screen.dart';
 
 /// 메인 5탭: 홈(0) · 캘린더(1) · +(2, 노트) · 리마인드(3) · 설정(4)
 /// 가운데 +는 페이지가 아니라 "파일 생성" 진입점 — 탭하면 바텀시트를 띄우고,
@@ -132,7 +132,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                       CalendarTabScreen(homeScreenKey: _homeScreenKey),   // 1: 캘린더(탭 레이아웃)
                       WritingScreen(),                   // 2: 노트(+)
                       const RemindScreen(),              // 3: 리마인드
-                      SettingsScreen(),                  // 4: 설정
+                      const SettingsTabScreen(),         // 4: 설정(탭 레이아웃)
                     ],
                   ),
                 ),
