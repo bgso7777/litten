@@ -412,6 +412,9 @@ class SyncService {
     final token = await _loadToken();
     if (token == null) return;
 
+    // STT(녹음 메모) 파일이면 'stt_text'/'stt_audio'로 태깅해 서버에 STT 여부 보존
+    fileType = await _effectiveUploadType(littenId, localId, fileType);
+
     final file = File(filePath);
     if (!await file.exists()) {
       await _addToOfflineQueue({
@@ -820,6 +823,7 @@ class SyncService {
 
   /// 로컬 파일의 실제 파일 + 메타데이터를 제거 (다른 기기 삭제 전파용).
   Future<void> _deleteLocalFile(String littenId, String localId, String fileType, dynamic localFile) async {
+    fileType = _baseType(fileType);
     final path = await _getFilePath(localFile, littenId);
     if (path != null) {
       try {
@@ -854,6 +858,7 @@ class SyncService {
   }
 
   Future<dynamic> _findLocalFile(String littenId, String localId, String fileType) async {
+    fileType = _baseType(fileType);
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
       try { return files.firstWhere((f) => f.id == localId); } catch (_) { return null; }
@@ -911,6 +916,7 @@ class SyncService {
 
   Future<String?> _saveDownloadedFile(String littenId, String localId, String fileType, Uint8List bytes,
       [String cloudFileName = '']) async {
+    fileType = _baseType(fileType); // stt_text/stt_audio → text/audio (경로·확장자용)
     try {
       // 요약·퀴즈는 전역 저장소 파일(summaries/quizzes/{id}.json)로 바로 기록
       if (fileType == 'summary' || fileType == 'quiz') {
@@ -949,6 +955,8 @@ class SyncService {
 
   Future<void> _updateLocalFileFromDownload(String littenId, String localId, String fileType,
       String cloudId, String localPath, DateTime cloudUpdatedAt, [String cloudFileName = '']) async {
+    final isStt = _isSttType(fileType); // 'stt_text'/'stt_audio' → 녹음 메모 복원용
+    fileType = _baseType(fileType);
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
@@ -961,6 +969,7 @@ class SyncService {
           content: newContent,
           cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt,
           syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt,
+          isFromSTT: isStt, // 녹음 메모(STT) 여부 보존
         );
       } else {
         // 클라우드에만 있던 신규 파일 → 메타데이터 생성
@@ -977,6 +986,7 @@ class SyncService {
           syncStatus: SyncStatus.synced,
           createdAt: cloudUpdatedAt,
           updatedAt: cloudUpdatedAt,
+          isFromSTT: isStt, // 녹음 메모(STT) 여부 보존
         ));
         debugPrint('[SyncService] 텍스트 신규 파일 생성 - localId: $localId');
       }
@@ -1018,7 +1028,7 @@ class SyncService {
       final idx = files.indexWhere((f) => f.id == localId);
       if (idx >= 0) {
         // updatedAt을 cloud에 맞춰 갱신 — 미설정 시 copyWith가 now()로 올려 재업로드 핑퐁 발생
-        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt);
+        files[idx] = files[idx].copyWith(cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt, syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt, isFromSTT: isStt);
       } else {
         // 클라우드에만 있던 신규 파일 → 중복 이름 방지 후 메타데이터 생성
         final uniqueName = _uniqueName(displayName, files.map((f) => f.fileName).toSet());
@@ -1032,6 +1042,7 @@ class SyncService {
           syncStatus: SyncStatus.synced,
           createdAt: cloudUpdatedAt,
           updatedAt: cloudUpdatedAt,
+          isFromSTT: isStt, // 녹음 메모(STT) 여부 보존
         ));
         debugPrint('[SyncService] 오디오 신규 파일 생성 - localId: $localId, displayName: $uniqueName');
       }
@@ -1096,6 +1107,7 @@ class SyncService {
   }
 
   Future<void> _updateLocalSyncStatus(String littenId, String localId, String fileType, String cloudId, SyncStatus status) async {
+    fileType = _baseType(fileType);
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
       final idx = files.indexWhere((f) => f.id == localId);
@@ -1158,8 +1170,26 @@ class SyncService {
     }
   }
 
+  // STT(녹음 메모) 파일은 fileType에 'stt_' 접두어를 실어 동기화한다(서버에 STT 여부 보존).
+  // 경로/목록 매칭 등 라우팅은 기본 타입(text/audio)으로 처리하고, isFromSTT 복원에만 STT 여부 사용.
+  String _baseType(String t) => t.startsWith('stt_') ? t.substring(4) : t;
+  bool _isSttType(String t) => t == 'stt_text' || t == 'stt_audio';
+
+  /// 업로드 시 STT(녹음 메모) 파일이면 fileType에 'stt_' 접두어를 붙여 서버에 STT 여부 보존.
+  /// (생성 업로드에서만 fileType이 서버에 기록되므로 여기서 한 번 태깅하면 모든 호출 경로 커버)
+  Future<String> _effectiveUploadType(String littenId, String localId, String fileType) async {
+    if (fileType == 'text') {
+      final f = (await _fileStorage.loadTextFiles(littenId)).where((e) => e.id == localId);
+      if (f.isNotEmpty && f.first.isFromSTT) return 'stt_text';
+    } else if (fileType == 'audio') {
+      final f = (await _fileStorage.loadAudioFiles(littenId)).where((e) => e.id == localId);
+      if (f.isNotEmpty && f.first.isFromSTT) return 'stt_audio';
+    }
+    return fileType;
+  }
+
   String _getContentType(String fileType) {
-    switch (fileType) {
+    switch (_baseType(fileType)) {
       case 'audio': return 'audio/m4a';
       case 'text': return 'text/plain';
       case 'handwriting': return 'image/png';
@@ -1170,7 +1200,7 @@ class SyncService {
   }
 
   String _getFileExtension(String fileType) {
-    switch (fileType) {
+    switch (_baseType(fileType)) {
       case 'audio': return '.m4a';
       case 'text': return '.html';
       case 'handwriting': return '.png';

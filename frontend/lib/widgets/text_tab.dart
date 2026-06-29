@@ -51,6 +51,8 @@ class TextTab extends StatefulWidget {
 
 class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   late HtmlEditorController _htmlController;
+  // STT 음성 메모 3단 중 3단(메모 입력창) — 사용자가 직접 입력. 저장 시 전사 아래에 합쳐짐.
+  final TextEditingController _memoController = TextEditingController();
 
   // 파일 목록 관련
   List<TextFile> _textFiles = [];
@@ -159,18 +161,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           // 시스템 자동 중지 에러 (타임아웃 등) — 자동 재시작
           final autoRestartErrors = ['error_speech_timeout', 'error_no_match', 'error_client'];
           if (!_isManualStop && autoRestartErrors.contains(error.errorMsg)) {
-            debugPrint('⚠️ STT 자동 중지 에러 (${error.errorMsg}) - 3초 후 자동 재시작');
+            debugPrint('⚠️ STT 자동 중지 에러 (${error.errorMsg}) - 즉시 자동 재시작');
             setState(() => _isListening = false);
-            Future.delayed(const Duration(seconds: 3), () {
+            // 연속 인식: 에러(타임아웃/무매칭 등) 후에도 짧게 재시작해 누락 최소화 (토스트 제거)
+            Future.delayed(const Duration(milliseconds: 500), () {
               if (mounted && !_isManualStop) {
                 debugPrint('🔄 STT 에러 후 자동 재시작');
                 _startListening();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('음성 인식이 자동으로 재시작됩니다.'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
               }
             });
             return;
@@ -202,20 +199,16 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           if (!mounted) return;
 
           if ((status == 'done' || status == 'notListening') && !_isManualStop) {
-            // 시스템 자동 중지 → 자동 재시작
-            debugPrint('⚠️ STT 시스템 자동 중단 ($status) - 2초 후 자동 재시작');
+            // 시스템 자동 중지 → 즉시 재시작 (연속 인식).
+            // Android 엔진은 발화 끝/침묵마다 세션을 끊으므로, 재시작 공백을 최소화해야
+            // 화자 전환 직후 첫 마디 누락을 줄일 수 있다. (끊김마다 토스트는 깜빡임 방지로 제거)
+            debugPrint('⚠️ STT 시스템 자동 중단 ($status) - 즉시 자동 재시작');
             setState(() => _isListening = false);
 
-            Future.delayed(const Duration(seconds: 2), () {
+            Future.delayed(const Duration(milliseconds: 200), () {
               if (mounted && !_isManualStop) {
                 debugPrint('🔄 STT 자동 재시작 ($status)');
                 _startListening();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('음성 인식이 자동으로 재시작됩니다.'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
               }
             });
           } else if (status == 'done' || status == 'notListening') {
@@ -310,6 +303,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     debugPrint('🗑️ TextTab dispose 진입');
 
     // 메모리 누수 방지를 위한 리소스 정리
+    _memoController.dispose();
     WidgetsBinding.instance.removeObserver(this);
 
     // ⭐ AppStateProvider 리스너 제거
@@ -954,14 +948,23 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final availableLocales = await _speechToText.locales();
     debugPrint('📋 사용 가능한 언어: ${availableLocales.length}개');
 
-    // 한국어 locale 찾기
-    final koreanLocale = availableLocales.firstWhere(
-      (l) => l.localeId.startsWith('ko'),
+    // 전사 언어 설정(_sttSettings.textLanguage)에 맞는 locale 선택.
+    // 예: 'en' → en_US. 기기가 해당 언어를 지원(설치)하지 않으면 한국어 → 첫 번째 순으로 폴백.
+    // (speech_to_text는 OS 엔진을 쓰므로, 온디바이스(onDevice:true)에서는 해당 언어팩이
+    //  기기에 설치돼 있어야 인식됨 — 앱이 언어팩을 받아오지는 않는다.)
+    final wantLang = _sttSettings.textLanguage.toLowerCase();
+    final hasWant = availableLocales
+        .any((l) => l.localeId.toLowerCase().startsWith(wantLang));
+    if (!hasWant) {
+      debugPrint('⚠️ 전사 언어 "$wantLang" 미지원(기기) — 한국어로 폴백');
+    }
+    final selectedLocale = availableLocales.firstWhere(
+      (l) => l.localeId.toLowerCase().startsWith(hasWant ? wantLang : 'ko'),
       orElse: () => availableLocales.first,
     );
 
-    final selectedLocaleId = koreanLocale.localeId;
-    debugPrint('🌐 선택된 언어: $selectedLocaleId (${koreanLocale.name})');
+    final selectedLocaleId = selectedLocale.localeId;
+    debugPrint('🌐 선택된 전사 언어: $selectedLocaleId (요청: $wantLang, ${selectedLocale.name})');
 
     if (!mounted) return;
 
@@ -1630,6 +1633,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('⚠️ HTML 콘텐츠 가져오기 실패, 기존 내용 사용: $e');
           htmlContent = _currentTextFile?.content ?? '';
+        }
+        // STT 음성 메모: 에디터(전사 내용) + 메모 + AI 요약을 한 파일로 결합 저장
+        // (전사 에디터에는 전사만 유지하고, 저장 시점에 메모/요약을 아래로 합친다)
+        if (_isSttMode) {
+          htmlContent = _buildCombinedSttHtml(htmlContent);
         }
       }
 
@@ -2569,16 +2577,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           child: _isSttMode
               ? Column(
                   children: [
-                    // 전사 영역 (1/3)
-                    Expanded(
-                      flex: 1,
-                      child: _buildEditorContainer(),
-                    ),
-                    // 요약 영역 (2/3)
-                    Expanded(
-                      flex: 2,
-                      child: _buildSttSummaryArea(),
-                    ),
+                    // 1단 — STT 시작/중지 + 언어 선택 + 전사창
+                    Expanded(flex: 1, child: _buildEditorContainer()),
+                    // 2단 — 요약 조건(드롭다운) + 요약 내용
+                    Expanded(flex: 1, child: _buildSttSummaryArea()),
+                    // 3단 — 메모 입력창 (저장 시 전사 내용 아래에 위치)
+                    Expanded(flex: 1, child: _buildMemoArea()),
                   ],
                 )
               : _buildEditorContainer(),
@@ -2863,8 +2867,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             );
           }
 
-          // ⭐ 자동 요약 시점에 즉시 에디터에 삽입
-          await _insertSummaryAtCurrentPosition(summary);
+          // 3단 레이아웃: 요약은 전사 에디터에 삽입하지 않고 '요약' 영역(2단)에만 표시.
+          // 파일 저장 시 _buildCombinedSttHtml이 전사 아래(메모 다음)에 요약을 합친다.
+          // (기존 _insertSummaryAtCurrentPosition 인라인 삽입 제거)
         }
       }
     } catch (e) {
@@ -2994,6 +2999,88 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
         debugPrint('⏰ [SttMode] 주기 변경 - 타이머 재시작 (${interval.inMinutes}분)');
       }
     }
+  }
+
+  // STT 3단 중 3단 — 메모 입력창 (단순 텍스트). 저장 시 전사 내용 아래에 합쳐진다.
+  Widget _buildMemoArea() {
+    final color = Theme.of(context).primaryColor;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(children: [
+              Icon(Icons.edit_note, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text('메모',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ]),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: TextField(
+                controller: _memoController,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                style: const TextStyle(fontSize: 14, height: 1.5),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                  hintText: '메모를 입력하세요 (저장 시 전사 내용 아래에 들어갑니다)',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// HTML 특수문자 이스케이프 (메모 평문 → HTML 삽입 안전화).
+  String _escapeHtml(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+  /// STT 음성 메모 저장용 결합 HTML 생성: 전사 내용 → 메모 → AI 요약 (구분 제목 포함).
+  String _buildCombinedSttHtml(String transcriptHtml) {
+    final memo = _memoController.text.trim();
+    final summary = _sttSummary.trim();
+    final buf = StringBuffer();
+    // 1) 전사 내용
+    buf.write('<p><strong>📝 전사 내용</strong></p>');
+    buf.write((transcriptHtml.trim().isEmpty) ? '<p><br></p>' : transcriptHtml);
+    // 2) 메모 (사용자 입력)
+    buf.write('<hr/><p><strong>✏️ 메모</strong></p>');
+    if (memo.isEmpty) {
+      buf.write('<p><br></p>');
+    } else {
+      for (final line in memo.split('\n')) {
+        buf.write(line.trim().isEmpty ? '<p><br></p>' : '<p>${_escapeHtml(line)}</p>');
+      }
+    }
+    // 3) AI 요약 (_summaryToHtml이 '📋 AI 요약' 헤더 + 구분선 포함)
+    if (summary.isNotEmpty) {
+      buf.write(_summaryToHtml(summary));
+    }
+    return buf.toString();
   }
 
   Widget _buildSttSummaryArea() {
