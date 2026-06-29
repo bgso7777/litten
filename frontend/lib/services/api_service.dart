@@ -33,6 +33,7 @@ class ApiService {
   static const String _schedulesEndpoint = '/litten/note/v1/schedules';
   static const String _sharesEndpoint = '/litten/note/v1/shares';
   static const String _shareGroupsEndpoint = '/litten/note/v1/share-groups';
+  static const String _messagesEndpoint = '/litten/note/v1/messages';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -1057,6 +1058,59 @@ class ApiService {
   /// 보낸 공유 목록. **실패 시 null**(빈 목록 []과 구분).
   Future<List<Map<String, dynamic>>?> getSharesSent({required String token}) async {
     return _getShareList('$baseUrl$_sharesEndpoint/sent', token);
+  }
+
+  // ── 채팅 메시지 ──
+  /// 메시지 전송. 반환: {success, messageId?, recipientCount?, message?}
+  Future<Map<String, dynamic>> sendMessage({
+    required String token,
+    required String targetType, // 'user' | 'group'
+    String? recipientKey,
+    int? groupId,
+    required String content,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl$_messagesEndpoint');
+      final body = jsonEncode({
+        'targetType': targetType,
+        if (recipientKey != null) 'recipientKey': recipientKey,
+        if (groupId != null) 'groupId': groupId,
+        'content': content,
+      });
+      final res = await http.post(url, headers: _getHeaders(token: token), body: body)
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] sendMessage - status: ${res.statusCode}, body: ${res.body}');
+      if (res.statusCode == 200) return Map<String, dynamic>.from(jsonDecode(res.body));
+      return {'success': false, 'message': '서버 오류 (${res.statusCode})'};
+    } catch (e) {
+      debugPrint('[ApiService] sendMessage - 오류: $e');
+      return {'success': false, 'message': '$e'};
+    }
+  }
+
+  /// 받은 메시지 목록. 실패 시 null(빈 목록 []과 구분).
+  Future<List<Map<String, dynamic>>?> getMessagesReceived({required String token}) =>
+      _getMessageList('$baseUrl$_messagesEndpoint/received', token);
+
+  /// 보낸 메시지 목록. 실패 시 null.
+  Future<List<Map<String, dynamic>>?> getMessagesSent({required String token}) =>
+      _getMessageList('$baseUrl$_messagesEndpoint/sent', token);
+
+  Future<List<Map<String, dynamic>>?> _getMessageList(String url, String token) async {
+    try {
+      final res = await http.get(Uri.parse(url), headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['messages'] ?? []);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] _getMessageList - 오류: $e');
+      return null;
+    }
   }
 
   /// 공유 목록 조회. 성공이면 목록(빈 목록 가능), **네트워크/서버 실패면 null**.

@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/litten.dart';
 import '../services/app_state_provider.dart';
+import '../services/file_storage_service.dart';
 import '../widgets/share_compose_dialog.dart';
 import '../widgets/common/tab_count_title.dart';
 
@@ -303,16 +306,56 @@ class _ShareSection extends StatefulWidget {
 }
 
 class _ShareSectionState extends State<_ShareSection> {
-  // 접힌 그룹 이름 집합 (기본 펼침 → 여기 없으면 펼침 상태)
-  final Set<String> _collapsedGroups = {};
+  // 현재 열린 대화방 key (null이면 대화 목록 화면). 'g:그룹명' 또는 'u:이메일'
+  String? _openConvKey;
   // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
   final Set<String> _unlockedGroups = {};
   static const String _unlockedGroupsKey = 'unlocked_groups';
+  // 대화방 하단 메시지 입력
+  final TextEditingController _msgCtrl = TextEditingController();
+  // 대화별 마지막 읽은 시각 (미읽음 메시지 뱃지용 — 영구 저장)
+  final Map<String, DateTime> _convLastRead = {};
+  static const String _convReadKey = 'conv_last_read';
+
+  @override
+  void dispose() {
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadConvRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_convReadKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      m.forEach((k, v) {
+        final dt = DateTime.tryParse(v.toString());
+        if (dt != null) _convLastRead[k] = dt;
+      });
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  /// 대화방 진입 — 읽음 처리(미읽음 뱃지 제거) 후 연다.
+  /// [readUpTo]는 "여기까지 읽음" 기준 시각 — 그 대화의 최신 항목 시각을 넘겨 시계 차이와 무관하게
+  /// 현재 항목이 모두 읽음 처리되도록 한다(없으면 기기 현재 시각).
+  void _openConv(String key, [DateTime? readUpTo]) {
+    final now = DateTime.now();
+    var t = readUpTo ?? now;
+    if (t.isBefore(now)) t = now; // 최소 현재 시각 보장
+    _convLastRead[key] = t;
+    SharedPreferences.getInstance().then((p) => p.setString(
+        _convReadKey,
+        jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
+    setState(() => _openConvKey = key);
+  }
 
   @override
   void initState() {
     super.initState();
     _loadUnlockedGroups();
+    _loadConvRead();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppStateProvider>().loadShares();
     });
@@ -329,8 +372,9 @@ class _ShareSectionState extends State<_ShareSection> {
     await prefs.setStringList(_unlockedGroupsKey, _unlockedGroups.toList());
   }
 
-  /// 그룹 비밀번호 입력 다이얼로그 — 맞으면 잠금 해제(영구 기억) 후 펼침.
-  Future<void> _promptGroupPassword(String name, String password) async {
+  /// 그룹 비밀번호 입력 다이얼로그 — 맞으면 잠금 해제(영구 기억) 후 해당 대화방 진입.
+  Future<void> _promptGroupPassword(String name, String password, String convKey,
+      [DateTime? readUpTo]) async {
     final ctrl = TextEditingController();
     final color = Theme.of(context).primaryColor;
     final ok = await showDialog<bool>(
@@ -356,11 +400,9 @@ class _ShareSectionState extends State<_ShareSection> {
     );
     if (!mounted) return;
     if (ok == true) {
-      setState(() {
-        _unlockedGroups.add(name);
-        _collapsedGroups.remove(name); // 펼침
-      });
+      _unlockedGroups.add(name);
       _persistUnlockedGroups();
+      _openConv(convKey, readUpTo); // 잠금 해제 후 대화방 진입(읽음 처리 포함)
     } else if (ok == false) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')));
@@ -403,239 +445,717 @@ class _ShareSectionState extends State<_ShareSection> {
             group: (s['groupName']?.toString() ?? '').trim()));
       }
     }
-
-    // 그룹(그룹명 보유) / 개인(1:1) 분리
-    final Map<String, List<_ShareItem>> grouped = {};
-    final List<_ShareItem> personal = [];
-    for (final it in all) {
-      if (it.group.isEmpty) {
-        personal.add(it);
-      } else {
-        grouped.putIfAbsent(it.group, () => []).add(it);
+    // 채팅 메시지도 대화 항목으로 포함 (공유와 동일 키잉: 받은=보낸이, 보낸=수신자, 그룹=그룹명)
+    if (appState.showReceivedShares) {
+      for (final m in appState.messagesReceived) {
+        all.add(_ShareItem(
+            received: true, data: m, at: _parseAt(m['sentAt']),
+            group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
       }
     }
-    // 내가 만든 그룹은 공유 파일이 없어도 빈 컨테이너로 표시 ('한 것' 토글이 켜졌을 때만)
     if (appState.showSentShares) {
-      for (final g in appState.shareGroups) {
-        final name = (g['name']?.toString() ?? '').trim();
-        if (name.isNotEmpty) grouped.putIfAbsent(name, () => []);
+      for (final m in appState.messagesSent) {
+        all.add(_ShareItem(
+            received: false, data: m, at: _parseAt(m['sentAt']),
+            group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
       }
     }
-    // 각 그룹 내부: 최신순(새 공유가 위로)
-    for (final v in grouped.values) {
-      v.sort((a, b) => b.at.compareTo(a.at));
-    }
-    // 그룹 정렬: 최신 활동 desc, 빈 그룹은 뒤(이름순)
-    final groupNames = grouped.keys.toList()
-      ..sort((a, b) {
-        final la = grouped[a]!.isEmpty ? null : grouped[a]!.first.at;
-        final lb = grouped[b]!.isEmpty ? null : grouped[b]!.first.at;
-        if (la == null && lb == null) return a.compareTo(b);
-        if (la == null) return 1;
-        if (lb == null) return -1;
-        return lb.compareTo(la);
-      });
-    // 개인: 최신순
-    personal.sort((a, b) => b.at.compareTo(a.at));
 
-    // 내가 만든 그룹(소유) 맵: 이름 → 그룹데이터(groupId/hasPassword/password 등)
+    // ── 채팅방 형태: 상대(개인/그룹)별 대화로 묶는다 ──
+    // 개인(1:1)은 상대 이메일, 그룹은 그룹명 기준. 받은 건 좌측 / 보낸 건 우측 말풍선.
     final ownedByName = <String, Map<String, dynamic>>{
       for (final g in appState.shareGroups)
         if ((g['name']?.toString() ?? '').trim().isNotEmpty)
           (g['name']?.toString() ?? '').trim(): g,
     };
 
-    final isEmpty = groupNames.isEmpty && personal.isEmpty;
+    final convs = <String, _Conv>{};
+    for (final it in all) {
+      final group = it.group;
+      String key;
+      String label;
+      bool isGroup = false;
+      String? email;
+      if (group.isNotEmpty) {
+        key = 'g:$group';
+        label = group;
+        isGroup = true;
+      } else {
+        if (it.received) {
+          email = it.data['senderMemberId']?.toString() ?? '';
+        } else {
+          final recips = (it.data['recipients'] as List?) ?? const [];
+          email = recips.isNotEmpty
+              ? ((recips.first as Map)['memberId']?.toString() ?? '')
+              : '';
+        }
+        key = 'u:$email';
+        label = email;
+      }
+      final conv = convs.putIfAbsent(
+          key,
+          () => _Conv(
+              key: key, isGroup: isGroup, email: email, label: label,
+              groupId: (ownedByName[group]?['groupId'] as num?)?.toInt()));
+      conv.items.add(it);
+      // 개인 대화 라벨: 닉네임이 있으면 '닉네임(이메일)', 없으면 이메일만.
+      // 닉네임은 받은 항목의 senderName에서 확보(이메일과 다를 때만 닉네임으로 인정).
+      if (!isGroup && it.received) {
+        final sn = it.data['senderName']?.toString() ?? '';
+        final em = email ?? '';
+        if (sn.isNotEmpty && sn != em) conv.label = '$sn($em)';
+      }
+      // 수신 그룹(남의 그룹)의 비밀번호/그룹id — 수신자 잠금 검증 및 멤버 발신용
+      if (isGroup && it.received) {
+        final gpw = it.data['groupPassword']?.toString();
+        if (gpw != null && gpw.isNotEmpty) conv.recvGroupPassword = gpw;
+        final gid = (it.data['groupId'] as num?)?.toInt();
+        if (gid != null) conv.recvGroupId = gid;
+      }
+    }
+    // 내가 만든 그룹은 공유가 없어도 대화방으로 노출('보낸 것' 토글 켜졌을 때만)
+    if (appState.showSentShares) {
+      for (final g in appState.shareGroups) {
+        final name = (g['name']?.toString() ?? '').trim();
+        if (name.isEmpty) continue;
+        convs.putIfAbsent('g:$name',
+            () => _Conv(key: 'g:$name', isGroup: true, label: name,
+                groupId: (g['groupId'] as num?)?.toInt()));
+      }
+    }
 
-    return RefreshIndicator(
-      onRefresh: () => appState.loadShares(),
-      child: isEmpty
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                const SizedBox(height: 80),
-                Center(
-                    child: Text('주고받은 공유가 없습니다.\n파일 카드의 공유 → 사용자에게 공유로 보낼 수 있어요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
-              ],
-            )
-          : ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(top: 4, bottom: 12),
-              children: _buildTimeline(groupNames, grouped, personal, color, ownedByName),
-            ),
-    );
+    // 열린 대화방 — 없으면(새 채팅 등) key로 임시 대화 생성
+    _Conv? open;
+    if (_openConvKey != null) {
+      open = convs[_openConvKey];
+      if (open == null) {
+        final k = _openConvKey!;
+        if (k.startsWith('g:')) {
+          final name = k.substring(2);
+          open = _Conv(key: k, isGroup: true, label: name,
+              groupId: (ownedByName[name]?['groupId'] as num?)?.toInt());
+        } else if (k.startsWith('u:')) {
+          final email = k.substring(2);
+          open = _Conv(key: k, isGroup: false, email: email, label: email);
+        }
+      }
+    }
+    if (open != null) {
+      return _buildChatRoom(open, ownedByName, color, appState);
+    }
+
+    final convList = convs.values.toList()
+      ..sort((a, b) => b.lastAt.compareTo(a.lastAt));
+
+    return Stack(children: [
+      RefreshIndicator(
+        onRefresh: () => appState.loadShares(),
+        child: convList.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 80),
+                  Center(
+                      child: Text('아직 대화가 없습니다.\n우측 하단 + 로 새 채팅을 시작하거나 파일을 공유해 보세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+                ],
+              )
+            : ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 4, bottom: 80),
+                itemCount: convList.length,
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: color.withValues(alpha: 0.08)),
+                itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color),
+              ),
+      ),
+      Positioned(
+        right: 16, bottom: 16,
+        child: FloatingActionButton(
+          heroTag: 'new_chat_fab',
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          onPressed: _startNewChat,
+          child: const Icon(Icons.add),
+        ),
+      ),
+    ]);
   }
 
-  /// 그룹 컨테이너 — 헤더(폴더+이름+개수+펼침아이콘) + 내부 공유 카드(최신순).
-  /// [owned] 가 null이 아니면 "내가 만든 그룹" — 중간 톤 배경 + 멤버추가 아이콘 + (비밀번호 시) 잠금.
-  Widget _buildGroup(String name, List<_ShareItem> items, Color color, Map<String, dynamic>? owned) {
-    final isOwned = owned != null;
-    final hasPassword = owned?['hasPassword'] == true;
-    final password = owned?['password']?.toString();
-    final groupId = (owned?['groupId'] as num?)?.toInt();
-    final locked = hasPassword && !_unlockedGroups.contains(name);
-    final collapsed = _collapsedGroups.contains(name) || locked;
-
-    // 내가 만든 그룹은 중간 톤 배경으로 구분 (받은 그룹은 옅게)
-    final headerBg = color.withValues(alpha: isOwned ? 0.20 : 0.08);
-    final bodyBg = color.withValues(alpha: isOwned ? 0.10 : 0.04);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 6, 8, 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: isOwned ? 0.45 : 0.25)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () {
-              // 비밀번호 그룹은 잠금 해제 전까지 펼치기 전 비번 확인
-              if (locked && password != null && password.isNotEmpty) {
-                _promptGroupPassword(name, password);
-                return;
-              }
-              setState(() {
-                if (_collapsedGroups.contains(name)) {
-                  _collapsedGroups.remove(name);
-                } else {
-                  _collapsedGroups.add(name);
-                }
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: headerBg,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-              ),
-              child: Row(children: [
-                Icon(isOwned ? Icons.folder_shared : Icons.folder, size: 18, color: color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(name,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+  /// 새 채팅 — 탭으로 1:1 / 그룹 분리. 1:1은 이메일/닉네임 입력+대화 시작, 그룹은 새 그룹 만들기/내 그룹 선택.
+  Future<void> _startNewChat() async {
+    final ctrl = TextEditingController();
+    final appState = context.read<AppStateProvider>();
+    final groups = appState.shareGroups;
+    final color = Theme.of(context).primaryColor;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => DefaultTabController(
+        length: 2,
+        child: AlertDialog(
+          contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          title: const Text('새 채팅', style: TextStyle(fontSize: 16)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 270,
+            child: Column(
+              children: [
+                TabBar(
+                  labelColor: color,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: color,
+                  tabs: const [Tab(text: '1:1'), Tab(text: '그룹')],
                 ),
-                if (locked)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 2),
-                    child: Icon(Icons.lock, size: 15, color: color),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // 1:1 탭 — 이메일/닉네임 입력 후 대화 시작
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: ctrl,
+                              autofocus: true,
+                              decoration: const InputDecoration(
+                                  labelText: '이메일 또는 닉네임',
+                                  isDense: true, border: OutlineInputBorder()),
+                              onSubmitted: (v) => Navigator.pop(
+                                  ctx, v.trim().isEmpty ? null : 'u:${v.trim()}'),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                final k = ctrl.text.trim();
+                                if (k.isEmpty) return;
+                                Navigator.pop(ctx, 'u:$k');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: color, foregroundColor: Colors.white),
+                              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                              label: const Text('대화 시작'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 그룹 탭 — 새 그룹 만들기 + 내 그룹 목록
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(ctx, '__newgroup__'),
+                              icon: Icon(Icons.group_add, color: color, size: 18),
+                              label: const Text('새 그룹 만들기'),
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: groups.isEmpty
+                                  ? Center(
+                                      child: Text('내 그룹이 없습니다.\n위 버튼으로 새 그룹을 만들어 보세요.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              fontSize: 12, color: Colors.grey.shade500)))
+                                  : ListView(
+                                      children: groups
+                                          .map((g) => ListTile(
+                                                dense: true,
+                                                leading: Icon(Icons.group, color: color, size: 20),
+                                                title: Text('${g['name']}'),
+                                                subtitle: Text('${g['memberCount'] ?? 0}명',
+                                                    style: const TextStyle(fontSize: 11)),
+                                                onTap: () =>
+                                                    Navigator.pop(ctx, 'g:${g['name']}'),
+                                              ))
+                                          .toList(),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                // 내가 만든 그룹 — 멤버 추가/관리 (사람 아이콘)
-                if (isOwned && groupId != null)
-                  InkWell(
-                    onTap: () async {
-                      await showGroupMembersDialog(context, groupId, name);
-                      if (mounted) {
-                        context.read<AppStateProvider>().reloadShareGroups();
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(Icons.group_add, size: 18, color: color),
-                    ),
-                  ),
-                const SizedBox(width: 4),
-                Text('${items.length}개',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                const SizedBox(width: 4),
-                Icon(collapsed ? Icons.expand_more : Icons.expand_less,
-                    size: 20, color: color),
-              ]),
+                ),
+              ],
             ),
           ),
-          if (!collapsed)
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
+          ],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    if (result == '__newgroup__') {
+      // 그룹 생성/멤버 관리 다이얼로그 → 생성 후 목록 갱신(빈 그룹도 대화방으로 노출)
+      await showShareGroupManageDialog(context);
+      if (mounted) context.read<AppStateProvider>().reloadShareGroups();
+      return;
+    }
+    _openConv(result);
+  }
+
+  /// 대화 목록 한 줄 (상대/그룹). 탭하면 대화방 진입(잠금 그룹은 비밀번호 확인).
+  Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color) {
+    final owned = c.isGroup ? ownedByName[c.label] : null;
+    final isOwned = owned != null;
+    // 발신자(그룹 소유자)는 항상 열림. 수신자는 그룹 비번이 있으면 한 번 입력해 해제.
+    final recvPw = (c.isGroup && !isOwned) ? c.recvGroupPassword : null;
+    final locked = recvPw != null && recvPw.isNotEmpty && !_unlockedGroups.contains(c.label);
+    final last = c.last;
+    // 뱃지 = 미읽음(마지막으로 연 이후 받은 메시지/공유). 대화방에 들어가면 사라진다.
+    final lastRead = _convLastRead[c.key];
+    final pending = c.items
+        .where((it) => it.received && (lastRead == null || it.at.isAfter(lastRead)))
+        .length;
+
+    String subtitle;
+    if (last == null) {
+      subtitle = '대화를 시작해 보세요';
+    } else if (last.isMessage) {
+      subtitle = '${last.received ? '' : '나: '}${last.data['content']?.toString() ?? ''}';
+    } else {
+      final dir = last.received ? '받음' : '보냄';
+      subtitle = '$dir · ${_stripShareExt(last.data['fileName']?.toString() ?? '')}';
+    }
+
+    return ListTile(
+      leading: CircleAvatar(
+        radius: 20,
+        backgroundColor: color.withValues(alpha: isOwned ? 0.2 : 0.12),
+        child: Icon(
+            c.isGroup ? (isOwned ? Icons.folder_shared : Icons.group) : Icons.person,
+            color: color, size: 22),
+      ),
+      title: Row(children: [
+        Flexible(
+          child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        ),
+        if (locked)
+          Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.lock, size: 14, color: color)),
+      ]),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (last != null)
+            Text(_shareWhen(last.data['sharedAt']),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          if (pending > 0)
             Container(
-              width: double.infinity,
-              // 펼친 파일들이 이 그룹 소속임을 나타내는 배경
-              decoration: BoxDecoration(
-                color: bodyBg,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: items.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text('아직 이 그룹으로 공유된 파일이 없습니다.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                    )
-                  : Column(
-                      children: items
-                          .map((it) => it.received
-                              ? _ReceivedCard(share: it.data, color: color)
-                              : _SentCard(share: it.data, color: color))
-                          .toList(),
-                    ),
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+              child: Text('$pending',
+                  style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
+      onTap: () {
+        if (locked) {
+          _promptGroupPassword(c.label, recvPw, c.key, c.lastAt);
+          return;
+        }
+        _openConv(c.key, c.lastAt);
+      },
     );
   }
 
-  /// 그룹 컨테이너 + 개인 카드를 하나의 날짜순 타임라인으로 구성.
-  /// - 활동 있는 그룹: 가장 최근 공유 시각 기준으로 날짜 섹션(오늘/어제/날짜)에 배치
-  /// - 개인(1:1) 공유: 각 항목 시각 기준 배치
-  /// - 빈 그룹(내가 만들기만 한): 활동이 없으므로 맨 아래 '내 그룹'에 모아 표시
-  List<Widget> _buildTimeline(
-      List<String> groupNames,
-      Map<String, List<_ShareItem>> grouped,
-      List<_ShareItem> personal,
-      Color color,
-      Map<String, Map<String, dynamic>> ownedByName) {
-    // 날짜 배치 대상(활동 있는 그룹 + 개인) — 시각 내림차순
-    final dated = <({DateTime at, Widget child})>[];
-    for (final name in groupNames) {
-      final its = grouped[name]!;
-      if (its.isEmpty) continue; // 빈 그룹은 아래에서 따로
-      dated.add((at: its.first.at, child: _buildGroup(name, its, color, ownedByName[name])));
-    }
-    for (final it in personal) {
-      dated.add((
-        at: it.at,
-        child: it.received
-            ? _ReceivedCard(share: it.data, color: color)
-            : _SentCard(share: it.data, color: color),
-      ));
-    }
-    dated.sort((a, b) => b.at.compareTo(a.at));
-
-    final widgets = <Widget>[];
-    DateTime? prevDay;
-    for (final e in dated) {
-      final cur = DateTime(e.at.year, e.at.month, e.at.day);
-      if (prevDay == null || prevDay != cur) {
-        widgets.add(_dateHeader(cur, color));
-        prevDay = cur;
-      }
-      widgets.add(e.child);
-    }
-
-    // 빈 그룹(활동 없음, 내가 만들기만 한)은 맨 아래 '내 그룹'에 모아 표시
-    final emptyGroups = groupNames.where((n) => grouped[n]!.isEmpty).toList();
-    if (emptyGroups.isNotEmpty) {
-      widgets.add(_sectionHeader('내 그룹', color));
-      for (final n in emptyGroups) {
-        widgets.add(_buildGroup(n, grouped[n]!, color, ownedByName[n]));
-      }
-    }
-    return widgets;
+  /// 채팅방 — 헤더(뒤로 + 상대명, 소유 그룹이면 멤버추가) + 말풍선(받음 좌/보냄 우, 시간순).
+  Widget _buildChatRoom(_Conv c, Map<String, Map<String, dynamic>> ownedByName,
+      Color color, AppStateProvider appState) {
+    final owned = c.isGroup ? ownedByName[c.label] : null;
+    // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
+    final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
+    final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
+    return Column(
+      children: [
+        Material(
+          color: color.withValues(alpha: 0.08),
+          child: Row(children: [
+            IconButton(
+                icon: const Icon(Icons.arrow_back), color: color,
+                onPressed: () => setState(() => _openConvKey = null)),
+            Icon(c.isGroup ? Icons.group : Icons.person, size: 18, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+            if (c.isGroup && owned != null)
+              IconButton(
+                icon: const Icon(Icons.group_add), color: color, tooltip: '멤버 추가',
+                onPressed: () async {
+                  await showGroupMembersDialog(context, groupId!, c.label);
+                  if (mounted) context.read<AppStateProvider>().reloadShareGroups();
+                }),
+          ]),
+        ),
+        Expanded(
+          child: items.isEmpty
+              ? Center(
+                  child: Text('대화를 시작해 보세요.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
+              : RefreshIndicator(
+                  onRefresh: () => appState.loadShares(),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) {
+                      final it = items[i];
+                      final cur = DateTime(it.at.year, it.at.month, it.at.day);
+                      final prev = i == 0 ? null : items[i - 1].at;
+                      final showDay = prev == null ||
+                          DateTime(prev.year, prev.month, prev.day) != cur;
+                      return Column(children: [
+                        if (showDay) _dateHeader(cur, color),
+                        _bubble(it, color, appState),
+                      ]);
+                    },
+                  ),
+                ),
+        ),
+        // 하단 메시지 입력 — 1:1 또는 내가 소유한 그룹에서만(그룹 메시지는 소유자만 발신)
+        if (!c.isGroup || groupId != null)
+          _chatInput(c, groupId, color, appState)
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            color: Colors.grey.shade100,
+            child: Text('이 그룹은 소유자만 메시지를 보낼 수 있습니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ),
+      ],
+    );
   }
 
-  /// 섹션 헤더 (날짜 헤더와 동일 스타일)
-  Widget _sectionHeader(String label, Color color) => Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+  /// 대화방 하단 메시지 입력창.
+  Widget _chatInput(_Conv c, int? groupId, Color color, AppStateProvider appState) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
+        ),
         child: Row(children: [
-          Text(label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(width: 8),
-          Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.2))),
+          // 파일 공유 — 전체 파일 목록에서 골라 이 대화에 공유
+          IconButton(
+            icon: Icon(Icons.add_circle_outline, color: color),
+            tooltip: '파일 공유',
+            onPressed: () => _showFileShareSheet(c, groupId, appState),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _msgCtrl,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              decoration: InputDecoration(
+                hintText: '메시지 입력',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ),
+              onSubmitted: (_) => _sendMsg(c, groupId, appState),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: Icon(Icons.send, color: color),
+            onPressed: () => _sendMsg(c, groupId, appState),
+          ),
         ]),
+      ),
+    );
+  }
+
+  Future<void> _sendMsg(_Conv c, int? groupId, AppStateProvider appState) async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty) return;
+    _msgCtrl.clear();
+    final r = await appState.sendChatMessage(
+      targetType: c.isGroup ? 'group' : 'user',
+      recipientKey: c.isGroup ? null : (c.email ?? c.key.substring(2)),
+      groupId: c.isGroup ? groupId : null,
+      content: text,
+    );
+    if (mounted && !r.ok) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(r.message ?? '전송 실패')));
+    }
+  }
+
+  /// + 버튼 — 전체 리튼의 파일 목록을 모아 시트로 보여주고, 고른 파일을 이 대화에 공유.
+  Future<void> _showFileShareSheet(_Conv c, int? groupId, AppStateProvider appState) async {
+    final color = Theme.of(context).primaryColor;
+    final fs = FileStorageService.instance;
+    final appDir = await getApplicationDocumentsDirectory();
+    final entries = <_FileEntry>[];
+    for (final lit in appState.littens) {
+      for (final t in await fs.loadTextFiles(lit.id)) {
+        entries.add(_FileEntry(
+          type: t.isFromSTT ? 'stt_text' : 'text',
+          name: t.displayTitle,
+          icon: Icons.notes,
+          path: '${appDir.path}/littens/${lit.id}/text/${t.id}.html',
+          fileName: '${t.displayTitle}.html',
+          contentType: 'text/html',
+        ));
+      }
+      for (final a in await fs.loadAudioFiles(lit.id)) {
+        entries.add(_FileEntry(
+          type: a.isFromSTT ? 'stt_audio' : 'audio',
+          name: a.fileName,
+          icon: Icons.mic,
+          path: a.filePath,
+          fileName: '${a.fileName}.m4a',
+          contentType: 'audio/m4a',
+        ));
+      }
+      for (final h in await fs.loadHandwritingFiles(lit.id)) {
+        final isPdf = h.imagePath.toLowerCase().endsWith('.pdf');
+        entries.add(_FileEntry(
+          type: 'handwriting',
+          name: h.displayTitle,
+          icon: Icons.draw,
+          path: h.imagePath,
+          fileName: '${h.displayTitle}${isPdf ? '.pdf' : '.png'}',
+          contentType: isPdf ? 'application/pdf' : 'image/png',
+        ));
+      }
+      for (final at in await fs.loadAttachmentFiles(lit.id)) {
+        entries.add(_FileEntry(
+          type: 'attachment',
+          name: at.fileName,
+          icon: Icons.attach_file,
+          path: at.filePath,
+          fileName: at.fileName,
+          contentType: at.mimeType,
+        ));
+      }
+    }
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (ctx, scrollCtrl) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                Icon(Icons.share, size: 18, color: color),
+                const SizedBox(width: 6),
+                Text('파일 공유 — ${c.label}',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: entries.isEmpty
+                  ? Center(
+                      child: Text('공유할 파일이 없습니다.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
+                  : ListView.builder(
+                      controller: scrollCtrl,
+                      itemCount: entries.length,
+                      itemBuilder: (_, i) {
+                        final e = entries[i];
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(e.icon, color: color, size: 20),
+                          title: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          onTap: () => Navigator.pop(ctx, e),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ).then((picked) async {
+      if (picked is! _FileEntry || !mounted) return;
+      final res = await appState.shareFile(
+        filePath: picked.path,
+        fileType: picked.type,
+        fileName: picked.fileName,
+        contentType: picked.contentType,
+        targetType: c.isGroup ? 'group' : 'user',
+        recipientKey: c.isGroup ? null : (c.email ?? c.key.substring(2)),
+        groupId: c.isGroup ? groupId : null,
       );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(res['success'] == true
+                ? '공유했습니다.'
+                : (res['message']?.toString() ?? '공유 실패'))));
+      }
+    });
+  }
+
+  /// 간결한 말풍선 — 받음=좌측, 보냄=우측. 채팅 메시지는 텍스트, 공유는 아이콘+파일명+시간.
+  Widget _bubble(_ShareItem it, Color color, AppStateProvider appState) {
+    // 채팅 메시지 말풍선
+    if (it.isMessage) {
+      final received = it.received;
+      return Align(
+        alignment: received ? Alignment.centerLeft : Alignment.centerRight,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 280),
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: received ? Colors.grey.shade200 : color.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment:
+                received ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(it.data['content']?.toString() ?? '', style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 2),
+              Text(_shareWhen(it.data['sentAt']),
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final received = it.received;
+    final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
+    final status = it.data['status']?.toString() ?? '';
+    String? hint;
+    if (received) {
+      hint = status == 'pending' ? '받기 대기' : status == 'accepted' ? '저장됨' : status == 'rejected' ? '거절됨' : null;
+    } else {
+      final acc = (it.data['acceptedCount'] as num?)?.toInt() ?? 0;
+      final pend = (it.data['pendingCount'] as num?)?.toInt() ?? 0;
+      hint = '수락 $acc · 대기 $pend';
+    }
+    final bubble = GestureDetector(
+      onTap: () => _showBubbleActions(it, appState),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 260),
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: received ? Colors.grey.shade100 : color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_shareFileTypeIcon(it.data['fileType']?.toString()), size: 16, color: color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(fname, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ),
+            ]),
+            const SizedBox(height: 3),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              if (hint != null) ...[
+                Text(hint, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                const SizedBox(width: 6),
+              ],
+              Text(_shareWhen(it.data['sharedAt']),
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+            ]),
+            if (received && status == 'pending')
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                TextButton(
+                  onPressed: () => appState.rejectReceivedShare(it.data),
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 30)),
+                  child: const Text('거절', style: TextStyle(color: Colors.red, fontSize: 12)),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final r = await appState.acceptReceivedShare(it.data);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(r.ok ? '저장했습니다.' : (r.message ?? '수락 실패'))));
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                      backgroundColor: color,
+                      padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(0, 30)),
+                  child: const Text('수락', style: TextStyle(fontSize: 12)),
+                ),
+              ]),
+          ],
+        ),
+      ),
+    );
+    return Align(alignment: received ? Alignment.centerLeft : Alignment.centerRight, child: bubble);
+  }
+
+  /// 말풍선 탭 — 상황별 동작(보낸 것: 수신자 상태/취소, 받은 거절: 삭제 등).
+  void _showBubbleActions(_ShareItem it, AppStateProvider appState) {
+    final received = it.received;
+    final status = it.data['status']?.toString() ?? '';
+    final actions = <Widget>[];
+    if (!received) {
+      final recips = (it.data['recipients'] as List?) ?? const [];
+      if (recips.isNotEmpty) {
+        actions.add(ListTile(
+          leading: const Icon(Icons.people_outline),
+          title: const Text('수신자 상태'),
+          subtitle: Text(recips
+              .map((r) => '${(r as Map)['memberId']} (${r['status']})')
+              .join('\n')),
+        ));
+      }
+      final shareId = (it.data['shareId'] as num?)?.toInt();
+      if (shareId != null) {
+        actions.add(ListTile(
+          leading: const Icon(Icons.undo, color: Colors.red),
+          title: const Text('공유 취소', style: TextStyle(color: Colors.red)),
+          onTap: () async {
+            Navigator.pop(context);
+            await appState.cancelSentShare(shareId);
+          },
+        ));
+      }
+    } else if (status == 'rejected') {
+      actions.add(ListTile(
+        leading: const Icon(Icons.delete_outline, color: Colors.red),
+        title: const Text('삭제', style: TextStyle(color: Colors.red)),
+        onTap: () {
+          Navigator.pop(context);
+          final id = (it.data['deliveryId'] as num?)?.toInt();
+          if (id != null) appState.dismissReceivedShare(id);
+        },
+      ));
+    } else if (status == 'accepted') {
+      actions.add(const ListTile(
+          leading: Icon(Icons.check_circle, color: Colors.green),
+          title: Text('수락되어 저장됨')));
+    }
+    if (actions.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: actions)),
+    );
+  }
 
   Widget _dateHeader(DateTime d, Color color) {
     final now = DateTime.now();
@@ -662,12 +1182,58 @@ class _ShareItem {
   final bool received;
   final Map<String, dynamic> data;
   final DateTime at;
-  final String group; // 그룹명 (없으면 빈 문자열 → 개인 공유)
+  final String group; // 그룹명 (없으면 빈 문자열 → 개인)
+  final bool isMessage; // true면 채팅 메시지(텍스트), false면 파일 공유
   _ShareItem({
     required this.received,
     required this.data,
     required this.at,
     required this.group,
+    this.isMessage = false,
+  });
+}
+
+/// 채팅 대화 단위 — 상대(개인 이메일) 또는 그룹. 받은/보낸 공유를 모아 둔다.
+class _Conv {
+  final String key;       // 'g:그룹명' 또는 'u:이메일'
+  final bool isGroup;
+  final int? groupId;     // 내가 소유한 그룹일 때만
+  final String? email;    // 개인 대화 상대 이메일
+  String label;           // 표시명(그룹명 또는 닉네임/이메일)
+  String? recvGroupPassword; // 수신 그룹(남의 그룹)의 비밀번호 — 수신자 잠금 해제 검증용
+  int? recvGroupId;       // 수신 그룹의 id — 멤버가 그룹 대화/공유에 사용
+  final List<_ShareItem> items = [];
+  _Conv({required this.key, required this.isGroup, this.groupId, this.email, required this.label});
+
+  DateTime get lastAt => items.isEmpty
+      ? DateTime(2000)
+      : items.map((e) => e.at).reduce((a, b) => a.isAfter(b) ? a : b);
+
+  _ShareItem? get last {
+    if (items.isEmpty) return null;
+    var m = items.first;
+    for (final e in items) {
+      if (e.at.isAfter(m.at)) m = e;
+    }
+    return m;
+  }
+}
+
+/// + 파일 공유 시트의 파일 한 건.
+class _FileEntry {
+  final String type;        // text/stt_text/audio/stt_audio/handwriting/attachment
+  final String name;        // 표시명
+  final IconData icon;
+  final String path;        // 로컬 파일 경로
+  final String fileName;    // 업로드 파일명(확장자 포함)
+  final String? contentType;
+  _FileEntry({
+    required this.type,
+    required this.name,
+    required this.icon,
+    required this.path,
+    required this.fileName,
+    this.contentType,
   });
 }
 

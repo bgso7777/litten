@@ -107,19 +107,29 @@ public class FileShareService {
         String groupName = null;
         if ("group".equals(targetType)) {
             Optional<ShareGroup> gOpt = groupRepository.findById(groupId == null ? -1L : groupId);
-            if (gOpt.isEmpty() || !gOpt.get().getOwnerMemberId().equals(senderId)
-                    || Boolean.TRUE.equals(gOpt.get().getIsDeleted())) {
+            if (gOpt.isEmpty() || Boolean.TRUE.equals(gOpt.get().getIsDeleted())) {
                 result.put("success", false);
                 result.put("message", "그룹을 찾을 수 없습니다.");
                 return result;
             }
-            groupName = gOpt.get().getName();
+            ShareGroup g = gOpt.get();
+            // 소유자뿐 아니라 그룹 멤버도 그룹에 공유 가능
+            boolean isOwner = g.getOwnerMemberId().equals(senderId);
+            boolean isMember = groupMemberRepository.findByGroupIdAndMemberId(groupId, senderId).isPresent();
+            if (!isOwner && !isMember) {
+                result.put("success", false);
+                result.put("message", "그룹 멤버만 공유할 수 있습니다.");
+                return result;
+            }
+            groupName = g.getName();
             for (ShareGroupMember gm : groupMemberRepository.findByGroupIdAndIsDeletedFalseOrderByIdAsc(groupId)) {
                 recipientIds.add(gm.getMemberId());
             }
+            recipientIds.add(g.getOwnerMemberId()); // 소유자도 수신
+            recipientIds.remove(senderId);          // 본인 제외
             if (recipientIds.isEmpty()) {
                 result.put("success", false);
-                result.put("message", "그룹에 멤버가 없습니다.");
+                result.put("message", "그룹에 받을 사람이 없습니다.");
                 return result;
             }
         } else {
@@ -204,6 +214,10 @@ public class FileShareService {
             m.put("message", s.getMessage());
             m.put("littenTitle", s.getLittenTitle());
             m.put("groupName", s.getGroupName());
+            // 수신자 측 그룹 잠금용: 발신자 그룹의 비밀번호(있으면). 한 번 맞추면 클라이언트가 기억.
+            m.put("groupId", s.getGroupId());
+            m.put("groupPassword", s.getGroupId() == null ? null
+                    : groupRepository.findById(s.getGroupId()).map(ShareGroup::getPassword).orElse(null));
             m.put("sharedAt", s.getInsertDateTime());
             m.put("respondedAt", d.getRespondedAt());
             list.add(m);

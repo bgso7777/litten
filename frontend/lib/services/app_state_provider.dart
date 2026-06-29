@@ -1458,6 +1458,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get sharesSent => _sharesSent;
   List<Map<String, dynamic>> get shareGroups => _shareGroups;
 
+  // 채팅 메시지(비실시간 — loadShares 시 함께 로드)
+  List<Map<String, dynamic>> _messagesReceived = [];
+  List<Map<String, dynamic>> _messagesSent = [];
+  List<Map<String, dynamic>> get messagesReceived => _messagesReceived;
+  List<Map<String, dynamic>> get messagesSent => _messagesSent;
+
   // 홈 공유 목록 표시 토글: 받은 것/한 것 각각 독립 on/off (제목의 받음/보냄 카운트 아이콘으로 토글)
   // 기본값은 둘 다 켜짐(보임). 한쪽을 끄면 해당 목록만 숨겨진다.
   bool _showReceivedShares = true;
@@ -1525,7 +1531,31 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (sent != null) _sharesSent = sent;
     _shareGroups = await _shareApi.getGroups(token: token);
+    // 채팅 메시지도 함께 로드(비실시간 — 홈 진입/당겨서 새로고침 시 갱신)
+    final msgR = await _shareApi.getMessagesReceived(token: token);
+    final msgS = await _shareApi.getMessagesSent(token: token);
+    if (msgR != null) _messagesReceived = msgR;
+    if (msgS != null) _messagesSent = msgS;
     notifyListeners();
+  }
+
+  /// 채팅 메시지 전송(개인/그룹). 성공 시 목록 새로고침. 반환: (ok, message?).
+  Future<({bool ok, String? message})> sendChatMessage({
+    required String targetType, // 'user' | 'group'
+    String? recipientKey,
+    int? groupId,
+    required String content,
+  }) async {
+    final token = await _shareToken();
+    if (token == null) return (ok: false, message: '로그인이 필요합니다.');
+    final r = await _shareApi.sendMessage(
+        token: token, targetType: targetType,
+        recipientKey: recipientKey, groupId: groupId, content: content);
+    if (r['success'] == true) {
+      await loadShares();
+      return (ok: true, message: null);
+    }
+    return (ok: false, message: r['message']?.toString() ?? '메시지 전송에 실패했습니다.');
   }
 
   // 받은 공유 중 사용자가 삭제(숨김)한 deliveryId 집합 (로컬 전용)
