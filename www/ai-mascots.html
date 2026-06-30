@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litten · AI 비서 캐릭터 시안</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/></svg>">
+    <style>
+        :root {
+            --grad: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            --primary: #4A90E2;
+            --ink: #1e293b;
+            --muted: #5b6b7f;
+            --bg-soft: #f3f8fe;
+            --bg-tint: #e8f1fb;
+            --line: #dbe6f3;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            color: var(--ink); background: var(--bg-soft); line-height: 1.6; }
+        nav { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 1rem 2rem;
+            display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+        .logo { font-size: 1.5rem; font-weight: 800; text-decoration: none;
+            background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        nav a.back { text-decoration: none; color: var(--primary); font-weight: 600; }
+        header { text-align: center; padding: 3.5rem 2rem 1rem; }
+        header h1 { font-size: 2.3rem; font-weight: 800; }
+        header p { color: var(--muted); font-size: 1.12rem; margin-top: 0.6rem; }
+        .grid { max-width: 1180px; margin: 2.5rem auto; padding: 0 2rem 4rem;
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5rem; }
+        .card { background: #fff; border: 1px solid var(--line); border-radius: 20px;
+            padding: 1.6rem 1.1rem; text-align: center; transition: transform 0.25s, box-shadow 0.25s; }
+        .card:hover { transform: translateY(-7px); box-shadow: 0 20px 40px rgba(74,144,226,0.16); }
+        .stage { background: var(--bg-tint); border-radius: 16px; padding: 1rem; margin-bottom: 1rem;
+            display: flex; align-items: center; justify-content: center; }
+        .stage svg { width: 100%; max-width: 150px; height: auto; animation: floaty 3.4s ease-in-out infinite; }
+        .card:nth-child(2) .stage svg { animation-delay: .25s; }
+        .card:nth-child(3) .stage svg { animation-delay: .5s; }
+        .card:nth-child(4) .stage svg { animation-delay: .75s; }
+        .card:nth-child(5) .stage svg { animation-delay: 1s; }
+        @keyframes floaty { 0%,100%{transform:translateY(0) rotate(-1deg);} 50%{transform:translateY(-11px) rotate(1deg);} }
+        .badge { display:inline-block; background: rgba(74,144,226,0.1); color: var(--primary);
+            font-weight:700; font-size:0.8rem; padding:0.28rem 0.8rem; border-radius:50px; margin-bottom:0.6rem; }
+        .card h3 { font-size: 1.25rem; margin-bottom: 0.15rem; }
+        .card .en { color: var(--muted); font-size: 0.85rem; }
+        .card p.desc { color: var(--muted); font-size: 0.92rem; margin-top: 0.7rem; line-height: 1.55; }
+        footer { text-align:center; padding: 1rem 2rem 3rem; color: var(--muted); font-size: 0.95rem; }
+        @media (max-width: 980px) { .grid { grid-template-columns: repeat(2, 1fr); max-width: 480px; } }
+        @media (max-width: 480px) { .grid { grid-template-columns: 1fr; max-width: 300px; } }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">Litten</a>
+        <a href="index.html" class="back">← 홈으로</a>
+    </nav>
+
+    <header>
+        <h1>AI 비서 캐릭터 시안</h1>
+        <p>리튼의 AI 비서를 의인화한 5가지 컨셉이에요. 마음에 드는 번호를 골라주세요</p>
+    </header>
+
+    <div class="grid">
+        <!-- ① 로보 -->
+        <div class="card">
+            <div class="stage">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="로보">
+                    <defs><linearGradient id="robo" x1="52" y1="42" x2="148" y2="146" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4A90E2"/><stop offset="1" stop-color="#357ABD"/></linearGradient></defs>
+                    <ellipse cx="100" cy="188" rx="44" ry="7" fill="#1e3a5f" opacity="0.18"/>
+                    <line x1="100" y1="42" x2="100" y2="28" stroke="#2c3e50" stroke-width="3.5" stroke-linecap="round"/>
+                    <path d="M100 18 L102.5 25 L109.5 27.5 L102.5 30 L100 37 L97.5 30 L90.5 27.5 L97.5 25 Z" fill="#FBBF24"/>
+                    <rect x="52" y="42" width="96" height="104" rx="28" fill="url(#robo)"/>
+                    <rect x="44" y="84" width="10" height="28" rx="5" fill="#2c3e50"/>
+                    <rect x="146" y="84" width="10" height="28" rx="5" fill="#2c3e50"/>
+                    <rect x="66" y="66" width="68" height="54" rx="17" fill="#172033"/>
+                    <circle cx="86" cy="91" r="6.8" fill="#7fd1ff"/><circle cx="114" cy="91" r="6.8" fill="#7fd1ff"/>
+                    <circle cx="88" cy="89" r="2" fill="#fff"/><circle cx="116" cy="89" r="2" fill="#fff"/>
+                    <path d="M87 106 Q100 115 113 106" fill="none" stroke="#7fd1ff" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <span class="badge">① 로봇형</span>
+            <h3>로보</h3>
+            <div class="en">Robo</div>
+            <p class="desc">안테나와 스크린 얼굴의 똑똑한 로봇 비서. 가장 'AI'다운 직관적 형태.</p>
+        </div>
+
+        <!-- ② 오비 -->
+        <div class="card">
+            <div class="stage">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="오비">
+                    <defs><radialGradient id="orbi" cx="0.4" cy="0.35" r="0.75">
+                        <stop stop-color="#6BB6FF"/><stop offset="1" stop-color="#357ABD"/></radialGradient></defs>
+                    <ellipse cx="100" cy="186" rx="38" ry="6.5" fill="#1e3a5f" opacity="0.16"/>
+                    <ellipse cx="100" cy="170" rx="30" ry="7" fill="#4A90E2" opacity="0.18"/>
+                    <ellipse cx="100" cy="98" rx="66" ry="23" fill="none" stroke="#FBBF24" stroke-width="3.4" opacity="0.9" transform="rotate(-18 100 98)"/>
+                    <circle cx="100" cy="100" r="47" fill="url(#orbi)"/>
+                    <ellipse cx="83" cy="85" rx="15" ry="9" fill="#fff" opacity="0.25"/>
+                    <circle cx="87" cy="98" r="7.5" fill="#fff"/><circle cx="113" cy="98" r="7.5" fill="#fff"/>
+                    <circle cx="89" cy="100" r="3.7" fill="#1e293b"/><circle cx="115" cy="100" r="3.7" fill="#1e293b"/>
+                    <circle cx="91" cy="98" r="1.4" fill="#fff"/><circle cx="117" cy="98" r="1.4" fill="#fff"/>
+                    <path d="M89 112 Q100 120 111 112" fill="none" stroke="#1e293b" stroke-width="2.8" stroke-linecap="round"/>
+                    <circle cx="150" cy="86" r="4" fill="#FBBF24"/>
+                </svg>
+            </div>
+            <span class="badge">② 홀로그램형</span>
+            <h3>오비</h3>
+            <div class="en">Orbi</div>
+            <p class="desc">궤도를 도는 빛나는 AI 구체. 미래적·홀로그램 비서 느낌.</p>
+        </div>
+
+        <!-- ③ 채티 -->
+        <div class="card">
+            <div class="stage">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="채티">
+                    <defs><linearGradient id="chatty" x1="50" y1="56" x2="150" y2="156" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4A90E2"/><stop offset="1" stop-color="#357ABD"/></linearGradient></defs>
+                    <ellipse cx="100" cy="188" rx="44" ry="7" fill="#1e3a5f" opacity="0.18"/>
+                    <path d="M54 84 A50 50 0 0 1 146 84" fill="none" stroke="#2c3e50" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="100" cy="108" r="50" fill="url(#chatty)"/>
+                    <rect x="44" y="98" width="14" height="30" rx="7" fill="#2c3e50"/>
+                    <rect x="142" y="98" width="14" height="30" rx="7" fill="#2c3e50"/>
+                    <path d="M149 122 Q151 144 124 148" fill="none" stroke="#2c3e50" stroke-width="4.5" stroke-linecap="round"/>
+                    <circle cx="121" cy="148" r="5.5" fill="#2c3e50"/>
+                    <circle cx="86" cy="104" r="9" fill="#fff"/><circle cx="114" cy="104" r="9" fill="#fff"/>
+                    <circle cx="88" cy="106" r="4.4" fill="#1e293b"/><circle cx="116" cy="106" r="4.4" fill="#1e293b"/>
+                    <circle cx="90" cy="104" r="1.5" fill="#fff"/><circle cx="118" cy="104" r="1.5" fill="#fff"/>
+                    <ellipse cx="76" cy="120" rx="5.5" ry="3.2" fill="#ff8fa3" opacity="0.5"/>
+                    <ellipse cx="124" cy="120" rx="5.5" ry="3.2" fill="#ff8fa3" opacity="0.5"/>
+                    <path d="M89 120 Q100 129 111 120" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M150 34 L153 44 L163 47 L153 50 L150 60 L147 50 L137 47 L147 44 Z" fill="#FBBF24"/>
+                </svg>
+            </div>
+            <span class="badge">③ 상담원형</span>
+            <h3>채티</h3>
+            <div class="en">Chatty</div>
+            <p class="desc">헤드셋 마이크를 낀 친근한 상담 비서. 듣고 대답해주는 도우미 이미지.</p>
+        </div>
+
+        <!-- ④ 스파키 -->
+        <div class="card">
+            <div class="stage">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="스파키">
+                    <defs><linearGradient id="sparky" x1="44" y1="24" x2="156" y2="140" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#FFD66B"/><stop offset="1" stop-color="#FBBF24"/></linearGradient></defs>
+                    <ellipse cx="100" cy="186" rx="40" ry="6.5" fill="#7a5b00" opacity="0.16"/>
+                    <path d="M100 24 C104 70 110 76 156 80 C110 84 104 90 100 136 C96 90 90 84 44 80 C90 76 96 70 100 24 Z" fill="url(#sparky)"/>
+                    <circle cx="86" cy="74" r="9.5" fill="#fff"/><circle cx="114" cy="74" r="9.5" fill="#fff"/>
+                    <circle cx="88" cy="76" r="4.8" fill="#1e293b"/><circle cx="116" cy="76" r="4.8" fill="#1e293b"/>
+                    <circle cx="90" cy="74" r="1.6" fill="#fff"/><circle cx="118" cy="74" r="1.6" fill="#fff"/>
+                    <ellipse cx="78" cy="86" rx="5" ry="3" fill="#ff8fa3" opacity="0.5"/>
+                    <ellipse cx="122" cy="86" rx="5" ry="3" fill="#ff8fa3" opacity="0.5"/>
+                    <path d="M91 88 Q100 96 109 88" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+                    <g transform="rotate(-12 135 122)">
+                        <rect x="120" y="104" width="30" height="36" rx="5" fill="#4A90E2"/>
+                        <rect x="125" y="112" width="20" height="3.4" rx="1.7" fill="#fff" opacity="0.9"/>
+                        <rect x="125" y="120" width="20" height="3.4" rx="1.7" fill="#fff" opacity="0.9"/>
+                        <rect x="125" y="128" width="13" height="3.4" rx="1.7" fill="#fff" opacity="0.75"/>
+                    </g>
+                    <path d="M48 120 L50 127 L57 129 L50 131 L48 138 L46 131 L39 129 L46 127 Z" fill="#FBBF24" opacity="0.8"/>
+                </svg>
+            </div>
+            <span class="badge">④ 스파클형</span>
+            <h3>스파키</h3>
+            <div class="en">Sparky</div>
+            <p class="desc">AI 반짝임이 그대로 캐릭터가 된 도우미. 노트를 들고 똑똑하게 정리해줘요.</p>
+        </div>
+
+        <!-- ⑤ 카피 -->
+        <div class="card">
+            <div class="stage">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="카피">
+                    <defs><linearGradient id="capi" x1="66" y1="40" x2="134" y2="162" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4A90E2"/><stop offset="1" stop-color="#357ABD"/></linearGradient></defs>
+                    <ellipse cx="100" cy="188" rx="38" ry="6.5" fill="#1e3a5f" opacity="0.18"/>
+                    <line x1="100" y1="40" x2="100" y2="28" stroke="#2c3e50" stroke-width="3.5" stroke-linecap="round"/>
+                    <circle cx="100" cy="24" r="5.5" fill="#FBBF24"/>
+                    <rect x="66" y="40" width="68" height="122" rx="34" fill="url(#capi)"/>
+                    <rect x="78" y="64" width="44" height="42" rx="15" fill="#172033"/>
+                    <circle cx="90" cy="84" r="5.5" fill="#7fd1ff"/><circle cx="110" cy="84" r="5.5" fill="#7fd1ff"/>
+                    <path d="M89 96 Q100 103 111 96" fill="none" stroke="#7fd1ff" stroke-width="2.6" stroke-linecap="round"/>
+                    <circle cx="90" cy="130" r="3.4" fill="#6BB6FF"/>
+                    <circle cx="100" cy="130" r="3.4" fill="#6BB6FF"/>
+                    <circle cx="110" cy="130" r="3.4" fill="#6BB6FF"/>
+                    <rect x="86" y="144" width="28" height="5" rx="2.5" fill="#fff" opacity="0.45"/>
+                </svg>
+            </div>
+            <span class="badge">⑤ 포켓 캡슐형</span>
+            <h3>카피</h3>
+            <div class="en">Capi</div>
+            <p class="desc">손안에 쏙 들어오는 포켓 AI 캡슐. 안테나와 화면 얼굴의 미니 비서.</p>
+        </div>
+    </div>
+
+    <footer>번호(①~⑤)를 알려주시면 홈페이지와 아이콘에 적용해 드릴게요. 색·소품 조합도 가능합니다.</footer>
+</body>
+</html>
