@@ -3,30 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼(Litten) - 듣기, 쓰기, 필기를 하나로 통합한 크로스 플랫폼 노트 앱">
-    <title>Litten - 듣기, 쓰기, 필기를 하나로</title>
+    <meta name="description" content="리튼(Litten) - 녹음·텍스트·필기에 AI 요약·퀴즈까지. 듣고, 쓰고, 그리고, 정리하는 올인원 노트 앱">
+    <meta property="og:title" content="Litten - 듣고, 쓰고, 그리고, AI로 정리하다">
+    <meta property="og:description" content="음성 녹음·STT·텍스트·필기에 AI 요약/퀴즈/유튜브 요약까지. 30개 언어, 5가지 테마를 지원하는 크로스 플랫폼 노트 앱">
+    <title>Litten - 듣고, 쓰고, 그리고, AI로 정리하다</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/></svg>">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --grad: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            --primary: #4A90E2;
+            --primary-dark: #357ABD;
+            --ink: #1e293b;
+            --muted: #5b6b7f;
+            --bg-soft: #f3f8fe;   /* 옅은 블루 (섹션 교차 배경) */
+            --bg-tint: #e8f1fb;   /* 한 단계 진한 옅은 블루 (히어로/CTA 배경) */
+            --line: #dbe6f3;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: var(--ink);
             overflow-x: hidden;
         }
 
-        /* 네비게이션 */
+        /* ── 네비게이션 ── */
         nav {
             position: fixed;
             top: 0;
             width: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
             z-index: 1000;
             padding: 1rem 0;
         }
@@ -42,42 +54,55 @@
 
         .logo {
             font-size: 1.8rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-weight: 800;
+            background: var(--grad);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+
+        .logo-mark { flex-shrink: 0; }
+        .footer-logo { display: flex; align-items: center; gap: 0.5rem; }
 
         .nav-links {
             display: flex;
             gap: 2rem;
             list-style: none;
+            align-items: center;
         }
 
         .nav-links a {
             text-decoration: none;
-            color: #333;
+            color: var(--ink);
             font-weight: 500;
-            transition: color 0.3s;
+            transition: color 0.25s;
         }
 
-        .nav-links a:hover {
-            color: #667eea;
+        .nav-links a:hover { color: var(--primary); }
+
+        .nav-cta {
+            padding: 0.6rem 1.4rem;
+            background: var(--grad);
+            color: white !important;
+            border-radius: 50px;
+            font-weight: 600;
         }
 
-        /* 히어로 섹션 */
+        /* ── 히어로 ── */
         .hero {
-            margin-top: 80px;
-            min-height: 90vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            margin-top: 70px;
+            min-height: 92vh;
+            background: linear-gradient(180deg, #e8f1fb 0%, #f7fbfe 100%);
+            color: var(--ink);
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 2rem;
+            padding: 3rem 2rem;
             position: relative;
             overflow: hidden;
         }
@@ -85,537 +110,441 @@
         .hero::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
-            opacity: 0.3;
+            inset: 0;
+            background: url('data:image/svg+xml,<svg width="80" height="80" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="g" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(74,144,226,0.10)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
         }
 
-        .hero-content {
-            position: relative;
-            z-index: 1;
-            max-width: 800px;
+        .hero-content { position: relative; z-index: 1; max-width: 860px; }
+
+        .hero-mascot {
+            display: block;
+            margin: 0 auto 1.4rem;
+            width: 168px; height: 168px;
+            filter: drop-shadow(0 14px 22px rgba(74, 144, 226, 0.28));
+            animation: floaty 3.4s ease-in-out infinite;
+        }
+        @keyframes floaty {
+            0%, 100% { transform: translateY(0) rotate(-1deg); }
+            50% { transform: translateY(-13px) rotate(1deg); }
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(74, 144, 226, 0.1);
+            border: 1px solid rgba(74, 144, 226, 0.35);
+            color: var(--primary-dark);
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 1.8rem;
+            animation: fadeInUp 0.8s ease;
         }
 
         .hero-content h1 {
             font-size: 4rem;
-            margin-bottom: 1.5rem;
-            animation: fadeInUp 1s ease;
+            margin-bottom: 1.3rem;
             font-weight: 800;
+            line-height: 1.2;
+            animation: fadeInUp 0.9s ease;
         }
 
         .hero-content .tagline {
-            font-size: 1.8rem;
-            margin-bottom: 1rem;
-            opacity: 0.95;
-            animation: fadeInUp 1s ease 0.2s backwards;
-            font-weight: 300;
+            font-size: 1.5rem;
+            margin-bottom: 2.2rem;
+            color: var(--muted);
+            font-weight: 400;
+            animation: fadeInUp 0.9s ease 0.15s backwards;
         }
 
-        .hero-content .description {
-            font-size: 1.3rem;
-            margin-bottom: 2.5rem;
-            opacity: 0.9;
-            animation: fadeInUp 1s ease 0.4s backwards;
-            line-height: 1.8;
-        }
+        .hero-content .tagline strong { font-weight: 700; color: var(--primary-dark); }
 
         .cta-buttons {
             display: flex;
             gap: 1rem;
             justify-content: center;
-            animation: fadeInUp 1s ease 0.6s backwards;
             flex-wrap: wrap;
+            animation: fadeInUp 0.9s ease 0.3s backwards;
         }
 
         .btn {
-            padding: 1.2rem 3rem;
+            padding: 1.1rem 2.6rem;
             border-radius: 50px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 1.1rem;
-            transition: all 0.3s;
+            font-size: 1.05rem;
+            transition: all 0.25s;
             border: 2px solid white;
             display: inline-block;
         }
 
-        .btn-primary {
+        .btn-primary { background: var(--grad); color: white; border-color: transparent; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(74, 144, 226, 0.35); }
+
+        .btn-secondary { background: white; color: var(--primary); border-color: var(--primary); }
+        .btn-secondary:hover { background: var(--primary); color: white; }
+
+        .hero-pills {
+            margin-top: 2.5rem;
+            display: flex;
+            gap: 0.7rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.9s ease 0.45s backwards;
+        }
+
+        .hero-pills span {
             background: white;
-            color: #667eea;
+            border: 1px solid var(--line);
+            color: var(--ink);
+            box-shadow: 0 2px 10px rgba(74, 144, 226, 0.08);
+            padding: 0.45rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-        }
+        /* ── 공통 섹션 ── */
+        section { padding: 6rem 2rem; }
 
-        .btn-secondary {
-            background: transparent;
-            color: white;
-        }
+        .section-head { max-width: 760px; margin: 0 auto 3.5rem; text-align: center; }
 
-        .btn-secondary:hover {
-            background: white;
-            color: #667eea;
-        }
-
-        /* 브랜드 스토리 섹션 */
-        .brand-story {
-            padding: 6rem 2rem;
-            background: #f8fafc;
-        }
-
-        .brand-story-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .brand-story h2 {
-            font-size: 3rem;
-            margin-bottom: 2rem;
-            color: #1e293b;
+        .eyebrow {
+            display: inline-block;
+            color: var(--primary);
             font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
         }
 
-        .brand-story p {
-            font-size: 1.3rem;
-            color: #64748b;
-            line-height: 2;
-            max-width: 900px;
-            margin: 0 auto 2rem;
-        }
+        .section-title { font-size: 2.6rem; color: var(--ink); font-weight: 800; line-height: 1.25; }
 
-        .brand-values {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
+        .section-subtitle { font-size: 1.2rem; color: var(--muted); margin-top: 1rem; }
 
-        .value-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s;
-        }
+        /* ── 핵심 3대 기능 ── */
+        .core { background: white; }
 
-        .value-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .value-icon {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .value-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: #1e293b;
-        }
-
-        .value-card p {
-            color: #64748b;
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-
-        /* 기능 섹션 */
-        .features {
-            padding: 6rem 2rem;
-            background: white;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            color: #1e293b;
-            font-weight: 700;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            font-size: 1.3rem;
-            color: #64748b;
-            margin-bottom: 4rem;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .features-grid {
-            max-width: 1200px;
+        .core-grid {
+            max-width: 1100px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 2rem;
         }
 
-        .feature-card {
-            background: #f8fafc;
-            padding: 3rem 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s;
+        .core-card {
+            background: var(--bg-soft);
+            border-radius: 22px;
+            padding: 2.8rem 2.2rem;
             text-align: center;
             border: 2px solid transparent;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            border-color: #667eea;
-        }
-
-        .feature-icon {
-            font-size: 4rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.8rem;
-            margin-bottom: 1rem;
-            color: #1e293b;
-        }
-
-        .feature-card p {
-            color: #64748b;
-            line-height: 1.8;
-            font-size: 1.1rem;
-        }
-
-        /* 서비스 소개 섹션 */
-        .services {
-            padding: 6rem 2rem;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        }
-
-        .services-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .service-preview {
-            background: white;
-            border-radius: 20px;
-            padding: 3rem;
-            margin-bottom: 3rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .service-preview:nth-child(even) {
-            direction: rtl;
-        }
-
-        .service-preview:nth-child(even) > * {
-            direction: ltr;
-        }
-
-        .service-content h3 {
-            font-size: 2.5rem;
-            margin-bottom: 1.5rem;
-            color: #1e293b;
-        }
-
-        .service-content p {
-            color: #64748b;
-            font-size: 1.2rem;
-            line-height: 1.8;
-            margin-bottom: 1.5rem;
-        }
-
-        .service-link {
-            display: inline-block;
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 50px;
-            font-weight: 600;
             transition: all 0.3s;
         }
 
-        .service-link:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        .core-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: 0 24px 50px rgba(74, 144, 226, 0.18);
         }
 
-        .service-image {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: 600;
+        .core-icon {
+            width: 84px; height: 84px;
+            margin: 0 auto 1.5rem;
+            border-radius: 22px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.6rem;
+            background: var(--grad);
         }
 
-        /* 하이라이트 섹션 */
-        .highlights {
-            padding: 6rem 2rem;
+        .core-card h3 { font-size: 1.6rem; margin-bottom: 0.8rem; color: var(--ink); }
+        .core-card p { color: var(--muted); font-size: 1.05rem; line-height: 1.75; }
+
+        .core-card ul { list-style: none; margin-top: 1.2rem; text-align: left; display: inline-block; }
+        .core-card ul li { color: var(--muted); padding: 0.25rem 0; font-size: 0.97rem; }
+        .core-card ul li::before { content: "•"; color: var(--primary); font-weight: 700; margin-right: 0.5rem; }
+
+        /* ── AI 섹션 ── */
+        .ai { background: var(--bg-soft); }
+
+        .ai-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.8rem;
+        }
+
+        .ai-card {
             background: white;
+            border-radius: 20px;
+            padding: 2.4rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
         }
 
-        .highlights-grid {
-            max-width: 1200px;
+        .ai-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 4px;
+            background: var(--grad);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s;
+        }
+
+        .ai-card:hover { transform: translateY(-8px); box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12); }
+        .ai-card:hover::after { transform: scaleX(1); }
+
+        .ai-card .emoji { font-size: 2.4rem; margin-bottom: 1rem; }
+        .ai-card h3 { font-size: 1.3rem; margin-bottom: 0.6rem; color: var(--ink); }
+        .ai-card p { color: var(--muted); font-size: 1rem; line-height: 1.7; }
+
+        /* ── 생산성 (기능 리스트) ── */
+        .productivity { background: white; }
+
+        .feat-grid {
+            max-width: 1100px;
             margin: 0 auto;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
+            gap: 1.5rem;
         }
 
-        .highlight-card {
-            text-align: center;
-            padding: 2rem;
+        .feat-item {
+            display: flex;
+            gap: 1.1rem;
+            padding: 1.6rem;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            transition: all 0.25s;
         }
 
-        .highlight-number {
-            font-size: 4rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .feat-item:hover { border-color: var(--primary); background: var(--bg-soft); }
+
+        .feat-item .fi-icon {
+            flex-shrink: 0;
+            width: 50px; height: 50px;
+            border-radius: 14px;
+            background: rgba(74, 144, 226, 0.1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .feat-item h4 { font-size: 1.15rem; margin-bottom: 0.3rem; color: var(--ink); }
+        .feat-item p { color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+
+        /* ── 글로벌 ── */
+        .global { background: var(--bg-tint); color: var(--ink); text-align: center; }
+
+        .global .gstat-num {
+            background: var(--grad);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 1rem;
+        }
+        .global .gstat-label { color: var(--muted); opacity: 1; }
+
+        .global-stats {
+            max-width: 1000px;
+            margin: 3rem auto 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
         }
 
-        .highlight-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: #1e293b;
+        .gstat-num { font-size: 3.4rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem; }
+        .gstat-label { font-size: 1.1rem; opacity: 0.9; }
+
+        .theme-chips {
+            margin: 3rem auto 0;
+            display: flex;
+            gap: 0.8rem;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
-        .highlight-card p {
-            color: #64748b;
-            line-height: 1.8;
+        .theme-chip {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: white;
+            border: 1px solid var(--line);
+            color: var(--ink);
+            box-shadow: 0 2px 10px rgba(74, 144, 226, 0.08);
+            padding: 0.5rem 1.1rem;
+            border-radius: 50px;
+            font-size: 0.95rem;
         }
 
-        /* 요금제 섹션 */
-        .pricing {
-            padding: 6rem 2rem;
-            background: #f8fafc;
+        .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+
+        /* ── 어디서나 (동기화) ── */
+        .anywhere { background: var(--bg-soft); }
+
+        .anywhere-wrap {
+            max-width: 1100px; margin: 0 auto;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
         }
+
+        .anywhere-text h2 { font-size: 2.4rem; color: var(--ink); margin-bottom: 1.5rem; line-height: 1.3; }
+        .anywhere-list { list-style: none; }
+        .anywhere-list li {
+            display: flex; gap: 0.9rem; align-items: flex-start;
+            padding: 0.9rem 0; color: var(--muted); font-size: 1.08rem;
+        }
+        .anywhere-list li::before {
+            content: "✓"; flex-shrink: 0;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: var(--grad); color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem; font-weight: 700;
+        }
+
+        .anywhere-visual {
+            background: var(--grad);
+            border-radius: 24px;
+            min-height: 360px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: white; gap: 1rem;
+            box-shadow: 0 24px 60px rgba(74, 144, 226, 0.3);
+        }
+        .anywhere-visual .av-big { font-size: 4.5rem; }
+        .anywhere-visual .av-text { font-size: 1.3rem; font-weight: 600; }
+        .anywhere-visual .av-sub { font-size: 1rem; opacity: 0.85; }
+
+        /* ── 요금제 ── */
+        .pricing { background: white; }
 
         .pricing-grid {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
+            max-width: 1100px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
+            align-items: stretch;
         }
 
         .pricing-card {
             background: white;
-            padding: 3rem 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            padding: 2.8rem 2.2rem;
+            border-radius: 22px;
+            border: 2px solid var(--line);
+            display: flex; flex-direction: column;
             transition: all 0.3s;
-            position: relative;
         }
 
-        .pricing-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
+        .pricing-card:hover { transform: translateY(-8px); box-shadow: 0 20px 45px rgba(0, 0, 0, 0.1); }
 
-        .pricing-card.featured {
-            border: 3px solid #667eea;
-            transform: scale(1.05);
-        }
+        .pricing-card.featured { border-color: var(--primary); position: relative; box-shadow: 0 18px 50px rgba(74, 144, 226, 0.2); }
 
         .pricing-card.featured::before {
-            content: '인기';
-            position: absolute;
-            top: -15px;
-            right: 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 0.5rem 1.5rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
+            content: '가장 인기';
+            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            background: var(--grad); color: white;
+            padding: 0.4rem 1.4rem; border-radius: 20px;
+            font-size: 0.85rem; font-weight: 600; white-space: nowrap;
         }
 
-        .plan-name {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: #1e293b;
-        }
+        .plan-name { font-size: 1.5rem; font-weight: 700; color: var(--ink); margin-bottom: 0.5rem; }
+        .plan-tag { color: var(--muted); font-size: 0.95rem; margin-bottom: 1.2rem; min-height: 1.4rem; }
 
         .plan-price {
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 2.6rem; font-weight: 800;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
             margin-bottom: 1.5rem;
         }
+        .plan-price span { font-size: 1rem; color: var(--muted); -webkit-text-fill-color: var(--muted); }
 
-        .plan-price span {
-            font-size: 1.2rem;
-            color: #64748b;
-        }
+        .plan-features { list-style: none; margin-bottom: 2rem; flex-grow: 1; }
+        .plan-features li { padding: 0.65rem 0; color: var(--muted); font-size: 1rem; display: flex; gap: 0.6rem; }
+        .plan-features li::before { content: "✓"; color: #10b981; font-weight: 700; flex-shrink: 0; }
+        .plan-features li.muted { color: #cbd5e1; }
+        .plan-features li.muted::before { content: "—"; color: #cbd5e1; }
 
-        .plan-features {
-            list-style: none;
-            margin-bottom: 2rem;
-            text-align: left;
-        }
-
-        .plan-features li {
-            padding: 0.8rem 0;
-            color: #64748b;
-            font-size: 1.05rem;
-        }
-
-        .plan-features li:before {
-            content: "✓ ";
-            color: #10b981;
-            font-weight: 700;
-            margin-right: 0.5rem;
-            font-size: 1.2rem;
-        }
-
-        /* CTA 섹션 */
-        .cta-section {
-            padding: 6rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .plan-btn {
             text-align: center;
+            padding: 0.95rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.25s;
+            border: 2px solid var(--primary);
+            color: var(--primary);
         }
+        .plan-btn:hover { background: var(--primary); color: white; }
+        .plan-btn.solid { background: var(--grad); color: white; border-color: transparent; }
+        .plan-btn.solid:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(74, 144, 226, 0.4); }
 
-        .cta-section h2 {
-            font-size: 3rem;
-            margin-bottom: 1.5rem;
-            font-weight: 800;
-        }
+        .pricing-note { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 1.4rem; }
 
-        .cta-section p {
-            font-size: 1.3rem;
-            margin-bottom: 2.5rem;
-            opacity: 0.95;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
+        .token-note {
+            max-width: 780px;
+            margin: 2.5rem auto 0;
+            display: flex;
+            gap: 1.1rem;
+            align-items: center;
+            background: var(--bg-soft);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 1.4rem 1.8rem;
         }
+        .token-note .tn-emoji { font-size: 2rem; flex-shrink: 0; }
+        .token-note strong { color: var(--ink); font-size: 1.1rem; }
+        .token-note p { color: var(--muted); font-size: 0.97rem; margin-top: 0.2rem; line-height: 1.6; }
 
-        /* 푸터 */
-        footer {
-            background: #1e293b;
-            color: white;
-            padding: 4rem 2rem 2rem;
-        }
+        /* ── CTA ── */
+        .cta-section { background: var(--bg-tint); color: var(--ink); text-align: center; }
+        .cta-section h2 { font-size: 2.8rem; margin-bottom: 1.3rem; font-weight: 800; }
+        .cta-section p { font-size: 1.25rem; margin-bottom: 2.4rem; color: var(--muted); max-width: 640px; margin-left: auto; margin-right: auto; }
+
+        /* ── 푸터 ── */
+        footer { background: var(--ink); color: white; padding: 4rem 2rem 2rem; }
 
         .footer-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 3rem;
-            margin-bottom: 2rem;
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem; margin-bottom: 2.5rem;
         }
 
-        .footer-section h3 {
-            font-size: 1.3rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .footer-section ul {
-            list-style: none;
-        }
-
-        .footer-section ul li {
-            margin-bottom: 0.8rem;
-        }
-
-        .footer-section a {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .footer-section a:hover {
-            color: white;
-        }
+        .footer-section h3 { font-size: 1.2rem; margin-bottom: 1.2rem; }
+        .footer-brand p { color: rgba(255, 255, 255, 0.7); margin-top: 1rem; line-height: 1.8; max-width: 320px; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.8rem; }
+        .footer-section a { color: rgba(255, 255, 255, 0.75); text-decoration: none; transition: color 0.25s; }
+        .footer-section a:hover { color: white; }
 
         .footer-bottom {
-            text-align: center;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.6);
+            text-align: center; padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.55);
         }
 
-        /* 애니메이션 */
+        /* ── 스크롤 등장 애니메이션 ── */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
         @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 반응형 */
+        /* ── 반응형 ── */
+        @media (max-width: 900px) {
+            .core-grid { grid-template-columns: 1fr; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .anywhere-wrap { grid-template-columns: 1fr; gap: 2.5rem; }
+            .footer-container { grid-template-columns: 1fr 1fr; gap: 2rem; }
+        }
+
         @media (max-width: 768px) {
-            .hero-content h1 {
-                font-size: 2.5rem;
-            }
-
-            .hero-content .tagline {
-                font-size: 1.3rem;
-            }
-
-            .hero-content .description {
-                font-size: 1.1rem;
-            }
-
-            .cta-buttons {
-                flex-direction: column;
-            }
-
-            .service-preview {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-
-            .service-preview:nth-child(even) {
-                direction: ltr;
-            }
-
-            .section-title {
-                font-size: 2rem;
-            }
-
-            .brand-story h2 {
-                font-size: 2rem;
-            }
-
-            .nav-links {
-                gap: 1rem;
-                flex-wrap: wrap;
-                font-size: 0.9rem;
-            }
-
-            .pricing-card.featured {
-                transform: scale(1);
-            }
+            .hero-content h1 { font-size: 2.6rem; }
+            .hero-content .tagline { font-size: 1.2rem; }
+            .section-title { font-size: 2rem; }
+            .cta-buttons { flex-direction: column; align-items: stretch; }
+            .nav-links { gap: 1rem; font-size: 0.9rem; }
+            .nav-links .hide-mobile { display: none; }
+            .footer-container { grid-template-columns: 1fr 1fr; }
+            section { padding: 4rem 1.5rem; }
         }
     </style>
 </head>
@@ -623,299 +552,400 @@
     <!-- 네비게이션 -->
     <nav>
         <div class="nav-container">
-            <a href="#" class="logo">Litten</a>
+            <a href="index.html" class="logo">
+                <svg class="logo-mark" width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <defs><linearGradient id="littenGrad" x1="3.5" y1="3" x2="17" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4A90E2"/><stop offset="1" stop-color="#357ABD"/>
+                    </linearGradient></defs>
+                    <rect x="3.5" y="3" width="13" height="18" rx="2.6" fill="url(#littenGrad)"/>
+                    <rect x="6.3" y="7.2" width="7.4" height="1.5" rx="0.75" fill="#fff" opacity="0.95"/>
+                    <rect x="6.3" y="10.6" width="7.4" height="1.5" rx="0.75" fill="#fff" opacity="0.95"/>
+                    <rect x="6.3" y="14" width="4.6" height="1.5" rx="0.75" fill="#fff" opacity="0.95"/>
+                    <path d="M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z" fill="#FBBF24"/>
+                </svg>
+                Litten
+            </a>
             <ul class="nav-links">
-                <li><a href="#story">브랜드</a></li>
-                <li><a href="#features">기능</a></li>
-                <li><a href="services.html">서비스</a></li>
+                <li class="hide-mobile"><a href="#core">핵심 기능</a></li>
+                <li class="hide-mobile"><a href="#ai">AI</a></li>
+                <li class="hide-mobile"><a href="#global">글로벌</a></li>
                 <li><a href="#pricing">요금제</a></li>
+                <li><a href="#cta" class="nav-cta">무료 시작</a></li>
             </ul>
         </div>
     </nav>
 
-    <!-- 히어로 섹션 -->
+    <!-- 히어로 -->
     <section class="hero">
         <div class="hero-content">
-            <h1>Litten</h1>
-            <p class="tagline">듣기, 쓰기, 필기를 하나로</p>
-            <p class="description">모든 학습과 작업을 더 스마트하게 통합 관리하는 크로스 플랫폼 노트 앱</p>
+            <svg class="hero-mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="리튼 마스코트">
+                <defs>
+                    <linearGradient id="mascotBody" x1="46" y1="52" x2="154" y2="172" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4A90E2"/><stop offset="1" stop-color="#357ABD"/>
+                    </linearGradient>
+                </defs>
+                <!-- 바닥 그림자 -->
+                <ellipse cx="100" cy="184" rx="46" ry="7" fill="#1e3a5f" opacity="0.18"/>
+                <!-- 헤드폰 밴드 -->
+                <path d="M50 74 A52 52 0 0 1 150 74" fill="none" stroke="#2c3e50" stroke-width="9" stroke-linecap="round"/>
+                <!-- 노트 몸통 -->
+                <rect x="46" y="52" width="108" height="122" rx="22" fill="url(#mascotBody)"/>
+                <!-- 접힌 모서리 -->
+                <path d="M133 52 L154 73 L133 73 Z" fill="#6BB6FF"/>
+                <!-- 헤드폰 이어컵 -->
+                <rect x="37" y="92" width="17" height="36" rx="8.5" fill="#2c3e50"/>
+                <rect x="146" y="92" width="17" height="36" rx="8.5" fill="#2c3e50"/>
+                <!-- 눈 -->
+                <circle cx="81" cy="101" r="11.5" fill="#fff"/>
+                <circle cx="119" cy="101" r="11.5" fill="#fff"/>
+                <circle cx="83" cy="103" r="5.6" fill="#1e293b"/>
+                <circle cx="121" cy="103" r="5.6" fill="#1e293b"/>
+                <circle cx="85" cy="101" r="1.9" fill="#fff"/>
+                <circle cx="123" cy="101" r="1.9" fill="#fff"/>
+                <!-- 볼터치 -->
+                <ellipse cx="72" cy="118" rx="6" ry="3.6" fill="#ff8fa3" opacity="0.55"/>
+                <ellipse cx="128" cy="118" rx="6" ry="3.6" fill="#ff8fa3" opacity="0.55"/>
+                <!-- 미소 -->
+                <path d="M90 119 Q100 130 110 119" fill="none" stroke="#1e293b" stroke-width="3.2" stroke-linecap="round"/>
+                <!-- 텍스트 줄(노트 내용) -->
+                <rect x="64" y="143" width="72" height="6" rx="3" fill="#fff" opacity="0.92"/>
+                <rect x="64" y="155" width="50" height="6" rx="3" fill="#fff" opacity="0.72"/>
+                <!-- AI 스파클 -->
+                <path d="M151 26 L155.5 39 L168 43.5 L155.5 48 L151 61 L146.5 48 L134 43.5 L146.5 39 Z" fill="#FBBF24"/>
+                <path d="M171 58 L173 65.5 L180 67.5 L173 69.5 L171 77 L169 69.5 L162 67.5 L169 65.5 Z" fill="#FBBF24" opacity="0.85"/>
+            </svg>
+            <span class="hero-badge">✨ 듣기 · ✍️ 쓰기 · 🎨 필기 · 🤖 AI 정리</span>
+            <h1>듣고, 쓰고, 그리고,<br>AI로 정리하다</h1>
+            <p class="tagline">음성 녹음부터 텍스트·필기, 그리고 <strong>AI 요약·퀴즈</strong>까지<br>흩어진 모든 기록을 하나의 <strong>리튼 공간</strong>에 담으세요</p>
             <div class="cta-buttons">
                 <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
-                <a href="#features" class="btn btn-secondary">더 알아보기</a>
+                <a href="#core" class="btn btn-secondary">기능 살펴보기</a>
+            </div>
+            <div class="hero-pills">
+                <span>🌍 30개 언어</span>
+                <span>🎨 5가지 테마</span>
+                <span>📱 Android · iOS</span>
+                <span>☁️ 클라우드 동기화</span>
             </div>
         </div>
     </section>
 
-    <!-- 브랜드 스토리 섹션 -->
-    <section id="story" class="brand-story">
-        <div class="brand-story-container">
-            <h2>리튼의 이야기</h2>
-            <p>
-                리튼(Litten)은 "듣기(Listen)"와 "쓰기(Write)"를 결합한 이름입니다. 
-                우리는 하나의 앱에서 음성 녹음, 텍스트 작성, 필기를 모두 통합하여 
-                사용자가 더 효율적으로 학습하고 작업할 수 있도록 돕고 있습니다.
-            </p>
-            <p>
-                전 세계 30개 언어를 지원하며, 어떤 기기를 사용하든 동일한 경험을 제공합니다. 
-                리튼과 함께 모든 아이디어와 기록을 한 곳에서 관리하세요.
-            </p>
-
-            <div class="brand-values">
-                <div class="value-card">
-                    <div class="value-icon">🌍</div>
-                    <h3>글로벌 지원</h3>
-                    <p>30개 언어를 지원하여 전 세계 어디서나 사용할 수 있습니다.</p>
-                </div>
-                <div class="value-card">
-                    <div class="value-icon">🔄</div>
-                    <h3>통합 관리</h3>
-                    <p>듣기, 쓰기, 필기를 하나의 리튼 공간에서 통합 관리합니다.</p>
-                </div>
-                <div class="value-card">
-                    <div class="value-icon">📱</div>
-                    <h3>크로스 플랫폼</h3>
-                    <p>iOS와 Android 모두에서 동일한 경험을 제공합니다.</p>
-                </div>
-                <div class="value-card">
-                    <div class="value-icon">✨</div>
-                    <h3>직관적 UI</h3>
-                    <p>언어와 문화에 관계없이 누구나 쉽게 사용할 수 있습니다.</p>
-                </div>
+    <!-- 핵심 3대 기능 -->
+    <section id="core" class="core">
+        <div class="section-head reveal">
+            <span class="eyebrow">Core</span>
+            <h2 class="section-title">하나의 공간, 세 가지 기록 방식</h2>
+            <p class="section-subtitle">강의도, 회의도, 아이디어도 — 가장 편한 방식으로 담으세요</p>
+        </div>
+        <div class="core-grid">
+            <div class="core-card reveal">
+                <div class="core-icon">🎧</div>
+                <h3>듣기 · 녹음</h3>
+                <p>강의·회의·인터뷰를 고품질로 녹음하고 다시 들으세요.</p>
+                <ul>
+                    <li>일시정지 / 재개 녹음</li>
+                    <li>0.5x ~ 2.0x 재생 속도</li>
+                    <li>백그라운드 녹음</li>
+                    <li>음성 → 텍스트 자동 변환(STT)</li>
+                </ul>
+            </div>
+            <div class="core-card reveal">
+                <div class="core-icon">✍️</div>
+                <h3>쓰기 · 텍스트</h3>
+                <p>풍부한 리치 에디터로 생각을 빠르게 정리하세요.</p>
+                <ul>
+                    <li>글꼴 · 색상 · 목록 서식</li>
+                    <li>이미지 · 링크 삽입</li>
+                    <li>실시간 자동 저장</li>
+                    <li>녹음과 나란히 작성</li>
+                </ul>
+            </div>
+            <div class="core-card reveal">
+                <div class="core-icon">🎨</div>
+                <h3>필기 · 드로잉</h3>
+                <p>PDF·이미지 위에 종이처럼 자유롭게 손으로 메모하세요.</p>
+                <ul>
+                    <li>펜 색상 · 굵기 조절</li>
+                    <li>이미지 / 문서 → PDF 변환</li>
+                    <li>PDF 뷰어 & 주석</li>
+                    <li>첨부 파일 통합 관리</li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <!-- 기능 섹션 -->
-    <section id="features" class="features">
-        <h2 class="section-title">핵심 기능</h2>
-        <p class="section-subtitle">리튼의 강력한 기능으로 모든 것을 한 곳에서 관리하세요</p>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">🎵</div>
-                <h3>듣기 (녹음)</h3>
-                <p>강의, 회의, 인터뷰를 고품질로 녹음하세요. 언제든지 다시 듣고 중요한 순간을 놓치지 마세요.</p>
+    <!-- AI 기능 -->
+    <section id="ai" class="ai">
+        <div class="section-head reveal">
+            <span class="eyebrow">AI Powered</span>
+            <h2 class="section-title">기록하면, AI가 정리합니다</h2>
+            <p class="section-subtitle">길게 쌓인 노트와 영상을 핵심만 뽑아 빠르게 학습하세요</p>
+        </div>
+        <div class="ai-grid">
+            <div class="ai-card reveal">
+                <div class="emoji">📝</div>
+                <h3>자동 요약</h3>
+                <p>텍스트·음성·PDF를 자동 요약하고, 1~5단계로 상세도를 조절하세요.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">✍️</div>
-                <h3>쓰기 (텍스트)</h3>
-                <p>풍부한 텍스트 편집 기능으로 아이디어를 정리하세요. 포맷팅, 링크, 이미지를 쉽게 추가할 수 있습니다.</p>
+            <div class="ai-card reveal">
+                <div class="emoji">🧠</div>
+                <h3>퀴즈 생성</h3>
+                <p>학습 자료로 자동 문제를 만들어 바로 자가 테스트. 요약 없이도 생성됩니다.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🎨</div>
-                <h3>필기 (그리기)</h3>
-                <p>PDF나 이미지 위에 자유롭게 필기하세요. 손글씨로 메모하고 주석을 달아 생각을 시각화하세요.</p>
+            <div class="ai-card reveal">
+                <div class="emoji">▶️</div>
+                <h3>유튜브 영상 요약</h3>
+                <p>영상 자막을 추출해 핵심만 요약. 긴 강의도 읽기만 하면 끝.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📁</div>
-                <h3>리튼 공간</h3>
-                <p>하나의 프로젝트나 주제를 위한 모든 자료를 리튼 공간에 모아보세요. 모든 것이 한 곳에 있습니다.</p>
+            <div class="ai-card reveal">
+                <div class="emoji">🔔</div>
+                <h3>채널 구독 추적</h3>
+                <p>관심 유튜브 채널을 등록하면 새 영상을 자동으로 모아 추적합니다.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🌍</div>
-                <h3>30개 언어 지원</h3>
-                <p>전 세계 어디서나 모국어로 리튼을 사용하세요. 시스템 언어를 자동으로 감지합니다.</p>
+            <div class="ai-card reveal">
+                <div class="emoji">💡</div>
+                <h3>인사이트 모아보기</h3>
+                <p>요약과 퀴즈 기록을 리마인드 공간에 모아 한눈에 복습하세요.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📱</div>
-                <h3>크로스 플랫폼</h3>
-                <p>어떤 기기를 사용하든 리튼과 함께하세요. 프리미엄 플랜에서는 기기 간 자동 동기화를 지원합니다.</p>
+            <div class="ai-card reveal">
+                <div class="emoji">🎙️</div>
+                <h3>음성 받아쓰기 (STT)</h3>
+                <p>녹음을 그대로 텍스트로. 손으로 적지 않아도 음성이 기록이 됩니다.</p>
             </div>
         </div>
     </section>
 
-    <!-- 서비스 소개 섹션 -->
-    <section id="services" class="services">
-        <div class="services-container">
-            <h2 class="section-title">서비스 소개</h2>
-            <p class="section-subtitle">리튼의 다양한 서비스를 만나보세요</p>
-
-            <div class="service-preview">
-                <div class="service-content">
-                    <h3>📝 리튼 서비스</h3>
-                    <p>
-                        리튼은 듣기, 쓰기, 필기를 통합한 다양한 서비스를 제공합니다.
-                    </p>
-                    <p>
-                        노트 서비스를 시작으로 학습, 비즈니스 등 다양한 분야의 서비스가 준비 중입니다.
-                        모든 서비스를 하나의 플랫폼에서 통합 관리할 수 있습니다.
-                    </p>
-                    <a href="services.html" class="service-link">서비스 전체 보기 →</a>
-                </div>
-                <div class="service-image">
-                    🚀 리튼 서비스 미리보기
-                </div>
+    <!-- 생산성 도구 -->
+    <section id="tools" class="productivity">
+        <div class="section-head reveal">
+            <span class="eyebrow">Productivity</span>
+            <h2 class="section-title">기록을 넘어, 일정과 관리까지</h2>
+            <p class="section-subtitle">노트 한 곳에서 일정·검색·공유까지 자연스럽게 이어집니다</p>
+        </div>
+        <div class="feat-grid">
+            <div class="feat-item reveal">
+                <div class="fi-icon">📁</div>
+                <div><h4>리튼 공간</h4><p>듣기·쓰기·필기·첨부·영상을 주제별 공간에 통합 관리.</p></div>
+            </div>
+            <div class="feat-item reveal">
+                <div class="fi-icon">📅</div>
+                <div><h4>캘린더 · 일정</h4><p>리튼별 일정과 반복 설정을 캘린더에서 한눈에.</p></div>
+            </div>
+            <div class="feat-item reveal">
+                <div class="fi-icon">⏰</div>
+                <div><h4>스마트 알림</h4><p>정시·10분 전·1시간 전 알림과 앱 뱃지로 놓치지 않게.</p></div>
+            </div>
+            <div class="feat-item reveal">
+                <div class="fi-icon">🔍</div>
+                <div><h4>검색 · 즐겨찾기</h4><p>파일명·내용 검색과 북마크로 필요한 기록을 즉시.</p></div>
+            </div>
+            <div class="feat-item reveal">
+                <div class="fi-icon">💬</div>
+                <div><h4>채팅 메시지</h4><p>앱 안에서 메시지를 주고받으며 소통하세요.</p></div>
+            </div>
+            <div class="feat-item reveal">
+                <div class="fi-icon">📤</div>
+                <div><h4>공유</h4><p>원하는 리튼·파일만 골라 손쉽게 공유.</p></div>
             </div>
         </div>
     </section>
 
-    <!-- 하이라이트 섹션 -->
-    <section class="highlights">
-        <div class="highlights-grid">
-            <div class="highlight-card">
-                <div class="highlight-number">30</div>
-                <h3>지원 언어</h3>
-                <p>전 세계 30개 언어를 지원합니다</p>
+    <!-- 글로벌 -->
+    <section id="global" class="global">
+        <div class="section-head reveal">
+            <span class="eyebrow">Global</span>
+            <h2 class="section-title">전 세계 누구나, 모국어 그대로</h2>
+            <p class="section-subtitle">설치하면 기기 언어를 자동 감지해 바로 시작합니다</p>
+        </div>
+        <div class="global-stats">
+            <div class="reveal">
+                <div class="gstat-num">30</div>
+                <div class="gstat-label">지원 언어</div>
             </div>
-            <div class="highlight-card">
-                <div class="highlight-number">2</div>
-                <h3>플랫폼</h3>
-                <p>iOS와 Android 모두 지원</p>
+            <div class="reveal">
+                <div class="gstat-num">5</div>
+                <div class="gstat-label">테마 색상</div>
             </div>
-            <div class="highlight-card">
-                <div class="highlight-number">3</div>
-                <h3>통합 기능</h3>
-                <p>듣기, 쓰기, 필기를 하나로</p>
+            <div class="reveal">
+                <div class="gstat-num">2</div>
+                <div class="gstat-label">플랫폼 (iOS · Android)</div>
             </div>
-            <div class="highlight-card">
-                <div class="highlight-number">∞</div>
-                <h3>무한 가능</h3>
-                <p>프리미엄 플랜으로 무제한 사용</p>
+            <div class="reveal">
+                <div class="gstat-num">∞</div>
+                <div class="gstat-label">무제한 (스탠다드 이상)</div>
+            </div>
+        </div>
+        <div class="theme-chips reveal">
+            <span class="theme-chip"><i class="swatch" style="background:#4A90E2"></i>Classic Blue</span>
+            <span class="theme-chip"><i class="swatch" style="background:#2d3748"></i>Dark Mode</span>
+            <span class="theme-chip"><i class="swatch" style="background:#38a169"></i>Nature Green</span>
+            <span class="theme-chip"><i class="swatch" style="background:#dd6b20"></i>Sunset Orange</span>
+            <span class="theme-chip"><i class="swatch" style="background:#718096"></i>Monochrome Grey</span>
+        </div>
+    </section>
+
+    <!-- 어디서나 (동기화) -->
+    <section class="anywhere">
+        <div class="anywhere-wrap">
+            <div class="anywhere-text reveal">
+                <span class="eyebrow">Anywhere</span>
+                <h2>오프라인에서도, 모든 기기에서도</h2>
+                <ul class="anywhere-list">
+                    <li>네트워크가 없어도 로컬에서 끊김 없이 작업</li>
+                    <li>입력 중에도 자동 저장되어 데이터 손실 방지</li>
+                    <li>변경분만 올리는 증분 동기화로 빠른 백업</li>
+                    <li>여러 기기에서 수정해도 충돌 자동 병합</li>
+                    <li>프리미엄은 클라우드 서버에 안전하게 보관</li>
+                </ul>
+            </div>
+            <div class="anywhere-visual reveal">
+                <div class="av-big">☁️</div>
+                <div class="av-text">기기 간 자동 동기화</div>
+                <div class="av-sub">폰 · 태블릿 어디서든 이어서</div>
             </div>
         </div>
     </section>
 
-    <!-- 요금제 섹션 -->
+    <!-- 요금제 -->
     <section id="pricing" class="pricing">
-        <h2 class="section-title">요금제</h2>
-        <p class="section-subtitle">나에게 맞는 플랜을 선택하세요</p>
+        <div class="section-head reveal">
+            <span class="eyebrow">Pricing</span>
+            <h2 class="section-title">무료로 시작하고, 필요할 때 확장하세요</h2>
+            <p class="section-subtitle">나에게 맞는 플랜을 선택하세요</p>
+        </div>
         <div class="pricing-grid">
-            <div class="pricing-card">
+            <!-- 무료 -->
+            <div class="pricing-card reveal">
                 <div class="plan-name">무료</div>
-                <div class="plan-price">₩0<span>/월</span></div>
+                <div class="plan-tag">가볍게 시작하기</div>
+                <div class="plan-price">₩0<span> / 월</span></div>
                 <ul class="plan-features">
-                    <li>리튼 최대 5개</li>
-                    <li>듣기 파일 최대 10개</li>
-                    <li>쓰기 텍스트 최대 5개</li>
-                    <li>필기 최대 5개</li>
-                    <li>30개 언어 지원</li>
-                    <li>광고 포함</li>
+                    <li>메모·녹음·필기·첨부·영상 각 2개</li>
+                    <li>AI 요약 2회 · 퀴즈 2회</li>
+                    <li>파일 변환 4회</li>
+                    <li>30개 언어 · 5가지 테마</li>
+                    <li class="muted">광고 포함</li>
+                    <li class="muted">서버 동기화 미지원</li>
                 </ul>
-                <a href="#" class="btn btn-primary">무료로 시작</a>
+                <a href="#cta" class="plan-btn">무료로 시작</a>
             </div>
-
-            <div class="pricing-card featured">
+            <!-- 스탠다드 -->
+            <div class="pricing-card featured reveal">
                 <div class="plan-name">스탠다드</div>
-                <div class="plan-price">₩4,900<span>/월</span></div>
+                <div class="plan-tag">제한 없이 마음껏</div>
+                <div class="plan-price">₩0<span> / 월</span></div>
                 <ul class="plan-features">
-                    <li>무제한 리튼 생성</li>
-                    <li>무제한 파일 저장</li>
-                    <li>광고 제거</li>
+                    <li>메모·녹음·필기·첨부·영상 무제한</li>
+                    <li>AI 요약 · 퀴즈 월 10회</li>
+                    <li>파일 변환 무제한</li>
+                    <li>광고 완전 제거</li>
+                    <li>30개 언어 · 5가지 테마</li>
                     <li>우선 고객 지원</li>
-                    <li>30개 언어 지원</li>
-                    <li>크로스 플랫폼 지원</li>
                 </ul>
-                <a href="#" class="btn btn-primary">지금 시작</a>
+                <a href="#cta" class="plan-btn solid">지금 시작</a>
             </div>
-
-            <div class="pricing-card">
+            <!-- 프리미엄 -->
+            <div class="pricing-card reveal">
                 <div class="plan-name">프리미엄</div>
-                <div class="plan-price">₩9,900<span>/월</span></div>
+                <div class="plan-tag">기기 간 동기화까지</div>
+                <div class="plan-price">₩0<span> / 월</span></div>
                 <ul class="plan-features">
                     <li>스탠다드의 모든 기능</li>
-                    <li>사용자 로그인</li>
-                    <li>클라우드 서버 동기화</li>
-                    <li>기기 간 자동 백업</li>
+                    <li>AI 요약 · 퀴즈 무제한</li>
+                    <li>로그인 & 계정 동기화</li>
+                    <li>클라우드 서버 파일 보관</li>
+                    <li>여러 기기 자동 백업</li>
                     <li>프리미엄 고객 지원</li>
-                    <li>데이터 암호화</li>
                 </ul>
-                <a href="#" class="btn btn-primary">프리미엄 시작</a>
+                <a href="#cta" class="plan-btn">프리미엄 시작</a>
             </div>
         </div>
+        <div class="token-note reveal">
+            <span class="tn-emoji">🪙</span>
+            <div>
+                <strong>추가 토큰으로 더 쓰기</strong>
+                <p>플랜에 포함된 AI 요약·퀴즈 제공량을 모두 사용했다면, 추가 토큰을 구매해 계속 이용할 수 있습니다.</p>
+            </div>
+        </div>
+        <p class="pricing-note">* 정식 가격 정책 확정 전까지 모든 플랜을 무료로 제공합니다. 플랜별 제한 수치는 앱 정책에 따라 변경될 수 있습니다.</p>
     </section>
 
-    <!-- CTA 섹션 -->
-    <section class="cta-section">
-        <h2>지금 바로 리튼을 시작하세요</h2>
-        <p>듣기, 쓰기, 필기를 하나로 통합한 리튼과 함께 더 효율적인 학습과 작업을 시작하세요</p>
+    <!-- CTA -->
+    <section id="cta" class="cta-section">
+        <h2>지금, 리튼과 함께 시작하세요</h2>
+        <p>듣기·쓰기·필기에 AI 정리까지 — 흩어진 기록을 하나로 모으는 가장 스마트한 방법</p>
         <div class="cta-buttons">
-            <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
-            <a href="services.html" class="btn btn-secondary">서비스 알아보기</a>
+            <a href="/litten-1.0.0.apk" class="btn btn-primary" download>📥 Android APK 다운로드</a>
+            <a href="#" class="btn btn-secondary" aria-disabled="true" style="opacity:0.55; pointer-events:none;">App Store (준비 중)</a>
         </div>
+        <p style="margin-top:1.3rem; font-size:0.92rem; color:var(--muted);">Android 8.0+ · v1.0.0 · 약 103MB · 출시 전 테스트 버전 (Google Play 정식 출시 예정)</p>
     </section>
 
     <!-- 푸터 -->
     <footer>
         <div class="footer-container">
-            <div class="footer-section">
-                <h3>Litten</h3>
-                <p style="color: rgba(255, 255, 255, 0.8); margin-top: 1rem;">
-                    듣기, 쓰기, 필기를 하나로 통합한 크로스 플랫폼 노트 앱
-                </p>
+            <div class="footer-section footer-brand">
+                <h3 class="footer-logo">
+                    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3.5" y="3" width="13" height="18" rx="2.6" fill="#6BB6FF"/>
+                        <rect x="6.3" y="7.2" width="7.4" height="1.5" rx="0.75" fill="#1e293b" opacity="0.5"/>
+                        <rect x="6.3" y="10.6" width="7.4" height="1.5" rx="0.75" fill="#1e293b" opacity="0.5"/>
+                        <rect x="6.3" y="14" width="4.6" height="1.5" rx="0.75" fill="#1e293b" opacity="0.5"/>
+                        <path d="M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z" fill="#FBBF24"/>
+                    </svg>
+                    Litten
+                </h3>
+                <p>듣기, 쓰기, 필기에 AI 정리까지 통합한 크로스 플랫폼 노트 앱. "Listen + Write", 리튼.</p>
             </div>
             <div class="footer-section">
                 <h3>제품</h3>
                 <ul>
-                    <li><a href="#features">기능</a></li>
-                    <li><a href="services.html">서비스</a></li>
+                    <li><a href="#core">핵심 기능</a></li>
+                    <li><a href="#ai">AI 기능</a></li>
                     <li><a href="#pricing">요금제</a></li>
                 </ul>
             </div>
             <div class="footer-section">
                 <h3>회사</h3>
                 <ul>
-                    <li><a href="#story">브랜드 스토리</a></li>
+                    <li><a href="#global">글로벌</a></li>
                     <li><a href="#">블로그</a></li>
-                    <li><a href="#">연락처</a></li>
+                    <li><a href="#">문의하기</a></li>
                 </ul>
             </div>
             <div class="footer-section">
                 <h3>지원</h3>
                 <ul>
                     <li><a href="#">도움말</a></li>
-                    <li><a href="#">문의하기</a></li>
                     <li><a href="#">이용약관</a></li>
+                    <li><a href="#">개인정보처리방침</a></li>
                 </ul>
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2025 Litten. All rights reserved.</p>
+            <p>&copy; 2026 Litten. All rights reserved.</p>
         </div>
     </footer>
 
     <script>
-        // 부드러운 스크롤
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // 스크롤 애니메이션
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -100px 0px'
-        };
-
+        // 스크롤 등장 애니메이션
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    entry.target.style.animation = 'fadeInUp 1s ease';
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
                 }
             });
-        }, observerOptions);
+        }, { threshold: 0.12, rootMargin: '0px 0px -80px 0px' });
 
-        document.querySelectorAll('.feature-card, .value-card, .service-preview, .pricing-card, .highlight-card').forEach(el => {
-            observer.observe(el);
-        });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-        // 네비게이션 스크롤 시 스타일 변경
-        let lastScroll = 0;
+        // 네비 스크롤 그림자
         const nav = document.querySelector('nav');
         window.addEventListener('scroll', () => {
-            const currentScroll = window.pageYOffset;
-            if (currentScroll > 100) {
-                nav.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
-            } else {
-                nav.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
-            }
-            lastScroll = currentScroll;
+            nav.style.boxShadow = window.pageYOffset > 80
+                ? '0 4px 20px rgba(0, 0, 0, 0.12)'
+                : '0 2px 12px rgba(0, 0, 0, 0.06)';
         });
     </script>
 </body>
