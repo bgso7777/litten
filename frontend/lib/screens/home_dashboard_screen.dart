@@ -20,23 +20,27 @@ class HomeDashboardScreen extends StatefulWidget {
   static const int _remindTabIndex = 3;
 
   @override
-  State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+  State<HomeDashboardScreen> createState() => HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
-  // 칩 바의 + 버튼에서 공유 섹션의 '새 채팅'을 띄우기 위해 상태에 접근하는 키
+class HomeDashboardScreenState extends State<HomeDashboardScreen> {
+  // 우측 하단 FAB(MainTabScreen)에서 공유 섹션의 '새 채팅'을 띄우기 위해 상태에 접근하는 키
   final GlobalKey<_ShareSectionState> _shareKey = GlobalKey<_ShareSectionState>();
+
+  /// 우측 하단 FAB(+)에서 호출 — 새 채팅(1:1/그룹) 다이얼로그를 띄운다.
+  void startNewChat() => _shareKey.currentState?.startNewChat();
 
   @override
   Widget build(BuildContext context) {
     debugPrint('🏠 [HomeDashboardScreen] build');
-    // 공유 본문(전체/공유받은것/공유한것) + 하단 칩 바(_HomeChipBar).
-    // 칩 우측 끝 동그라미 + 버튼이 새 채팅(1:1/그룹) 다이얼로그를 띄운다.
+    // 대화방 열림 여부(provider 공유) — 대화방 안에서는 하단 칩 바를 숨겨
+    // 메시지 입력창이 하단 메뉴 바로 위까지 내려오게 한다.
+    final chatOpen = context.watch<AppStateProvider>().homeChatOpen;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: _ShareSection(key: _shareKey)),
-        _HomeChipBar(onAdd: () => _shareKey.currentState?.startNewChat()),
+        if (!chatOpen) const _HomeChipBar(),
       ],
     );
   }
@@ -100,10 +104,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 }
 
 /// 홈 탭 하단 칩 바 — 다른 탭(캘린더/+/리마인드)의 칩 바와 동일한 배경/높이.
-/// 우측 끝 동그라미 + 버튼을 누르면 새 채팅(1:1/그룹)을 띄운다(onAdd).
+/// 새 채팅 + 동그라미는 우측 하단 FAB(MainTabScreen)로 빠졌고, 이 바는 높이만 유지한다.
 class _HomeChipBar extends StatelessWidget {
-  final VoidCallback onAdd;
-  const _HomeChipBar({required this.onAdd});
+  const _HomeChipBar();
 
   @override
   Widget build(BuildContext context) {
@@ -114,31 +117,10 @@ class _HomeChipBar extends StatelessWidget {
         color: color.withValues(alpha: 0.08),
         border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
       ),
-      // 다른 칩 바와 동일한 세로 패딩(9)으로 높이를 맞춘다.
+      // 노트(_CreateChipBar)·캘린더 칩 바와 동일한 세로 패딩(9) + 칩(알약) 콘텐츠 높이(28.0)로
+      // 바 전체 높이를 그 둘(123px ≒ 46.9dp)과 정확히 일치시킨다(= 9*2 + 28.0).
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      child: Row(
-        children: [
-          const Spacer(), // 동그라미 +를 제일 우측에 고정
-          Material(
-            color: color.withValues(alpha: 0.15),
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onAdd,
-              child: Container(
-                // + 버튼 원을 한 번 더 약 10% 확대(지름 26.6 → 29.3) — 우측 강조
-                padding: const EdgeInsets.all(4.0),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border:
-                      Border.all(color: color.withValues(alpha: 0.2), width: 1),
-                ),
-                child: Icon(Icons.add, size: 21.3, color: color),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: const SizedBox(height: 28.0),
     );
   }
 }
@@ -351,6 +333,7 @@ class ShareTabTitle extends StatelessWidget {
 }
 
 /// 공유 섹션 — 받은 것 + 한 것을 합쳐 일자순으로 보여준다(전체탭 파일리스트 컨셉).
+/// 대화방 열림/닫힘은 AppStateProvider.homeChatOpen 으로 공유한다(칩 바·FAB 토글용).
 class _ShareSection extends StatefulWidget {
   const _ShareSection({super.key});
 
@@ -402,6 +385,8 @@ class _ShareSectionState extends State<_ShareSection> {
         _convReadKey,
         jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
     setState(() => _openConvKey = key);
+    // 대화방 진입 → 하단 칩 바 + 새 채팅 FAB 숨김(provider 공유 상태)
+    context.read<AppStateProvider>().setHomeChatOpen(true);
   }
 
   @override
@@ -750,6 +735,47 @@ class _ShareSectionState extends State<_ShareSection> {
     _openConv(result);
   }
 
+  /// 그룹 멤버 수 추정 — 내 그룹은 memberCount, 수신 그룹은 메시지 recipients 길이로.
+  /// 알 수 없으면 최소 2명(그룹)으로 본다.
+  int _groupMemberCount(_Conv c, Map<String, Map<String, dynamic>> ownedByName) {
+    final mc = (ownedByName[c.label]?['memberCount'] as num?)?.toInt();
+    if (mc != null && mc > 0) return mc;
+    int maxR = 0;
+    for (final it in c.items) {
+      final r = (it.data['recipients'] as List?)?.length ?? 0;
+      if (r > maxR) maxR = r;
+    }
+    return maxR > 0 ? maxR : 2;
+  }
+
+  /// 그룹 아바타 — 멤버 수만큼(2~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
+  Widget _groupPeopleAvatar(int memberCount, Color color, bool owned) {
+    final n = memberCount.clamp(2, 5);
+    const s = 15.0;    // 개별 사람 아이콘 크기
+    const step = 8.0;  // 겹침 간격
+    final w = s + (n - 1) * step;
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: color.withValues(alpha: owned ? 0.2 : 0.12),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: w,
+          height: s,
+          child: Stack(
+            children: [
+              for (int i = 0; i < n; i++)
+                Positioned(
+                  left: i * step,
+                  child: Icon(Icons.person, size: s, color: color),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 대화 목록 한 줄 (상대/그룹). 탭하면 대화방 진입(잠금 그룹은 비밀번호 확인).
   Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color) {
     final owned = c.isGroup ? ownedByName[c.label] : null;
@@ -775,13 +801,13 @@ class _ShareSectionState extends State<_ShareSection> {
     }
 
     return ListTile(
-      leading: CircleAvatar(
-        radius: 20,
-        backgroundColor: color.withValues(alpha: isOwned ? 0.2 : 0.12),
-        child: Icon(
-            c.isGroup ? (isOwned ? Icons.folder_shared : Icons.group) : Icons.person,
-            color: color, size: 22),
-      ),
+      leading: c.isGroup
+          ? _groupPeopleAvatar(_groupMemberCount(c, ownedByName), color, isOwned)
+          : CircleAvatar(
+              radius: 20,
+              backgroundColor: color.withValues(alpha: 0.12),
+              child: Icon(Icons.person, color: color, size: 22),
+            ),
       title: Row(children: [
         Flexible(
           child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -833,7 +859,11 @@ class _ShareSectionState extends State<_ShareSection> {
           child: Row(children: [
             IconButton(
                 icon: const Icon(Icons.arrow_back), color: color,
-                onPressed: () => setState(() => _openConvKey = null)),
+                onPressed: () {
+                  setState(() => _openConvKey = null);
+                  // 목록 복귀 → 칩 바 + FAB 다시 표시
+                  context.read<AppStateProvider>().setHomeChatOpen(false);
+                }),
             Icon(c.isGroup ? Icons.group : Icons.person, size: 18, color: color),
             const SizedBox(width: 6),
             Expanded(

@@ -2620,18 +2620,18 @@ class _HandwritingTabState extends State<HandwritingTab>
       case SyncStatus.synced:
         return const Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(Icons.cloud_done, color: Colors.blue, size: 18),
+          child: Icon(Icons.sync, color: Colors.blue, size: 18),
         );
       case SyncStatus.pending:
       case SyncStatus.syncing:
         return const Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(Icons.cloud_upload, color: Colors.orange, size: 18),
+          child: Icon(Icons.sync, color: Colors.orange, size: 18),
         );
       case SyncStatus.error:
         return const Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(Icons.cloud_off, color: Colors.red, size: 18),
+          child: Icon(Icons.sync_disabled, color: Colors.red, size: 18),
         );
       case SyncStatus.none:
         return const SizedBox.shrink();

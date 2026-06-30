@@ -6,6 +6,7 @@ import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
 import 'home_tab_screen.dart';
+import 'home_dashboard_screen.dart';
 import 'home_screen.dart';
 import 'calendar_tab_screen.dart';
 import 'writing_screen.dart';
@@ -31,6 +32,13 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   static const int _homeTab = 0;
   static const int _calendarTab = 1;
   static const int _createTab = 2; // 노트(+) — 액션 탭
+  static const int _remindTab = 3; // 리마인드
+
+  // 우측 하단 FAB(+)에서 각 탭 본문의 추가 액션을 호출하기 위한 키
+  final GlobalKey<HomeDashboardScreenState> _homeDashKey =
+      GlobalKey<HomeDashboardScreenState>();
+  final GlobalKey<RemindScreenState> _remindKey =
+      GlobalKey<RemindScreenState>();
 
   @override
   void initState() {
@@ -128,10 +136,10 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      const HomeTabScreen(),                              // 0: 홈(탭 레이아웃)
+                      HomeTabScreen(dashboardKey: _homeDashKey),          // 0: 홈(탭 레이아웃)
                       CalendarTabScreen(homeScreenKey: _homeScreenKey),   // 1: 캘린더(탭 레이아웃)
                       WritingScreen(),                   // 2: 노트(+)
-                      const RemindScreen(),              // 3: 리마인드
+                      RemindScreen(key: _remindKey),     // 3: 리마인드
                       const SettingsTabScreen(),         // 4: 설정(탭 레이아웃)
                     ],
                   ),
@@ -150,19 +158,24 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
             ),
             child: BottomNavigationBar(
               currentIndex: appState.selectedTabIndex,
-              selectedFontSize: 12,
-              unselectedFontSize: 12,
+              // 라벨(한글)을 모두 비웠으므로 라벨 공간(폰트 높이)을 0으로 없애
+              // 아이콘이 세로 중앙에 오게 한다 → 가운데 + 와 같은 수평선에 정렬.
+              selectedFontSize: 0,
+              unselectedFontSize: 0,
+              iconSize: 26,
               onTap: (index) => _onTabTapped(context, appState, index),
               type: BottomNavigationBarType.fixed,
               items: [
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.home_outlined),
-                  activeIcon: const Icon(Icons.home),
-                  label: l10n?.homeTitle ?? '홈',
+                  // 홈 탭 = 채팅 중심 화면. 직접 그린 원형(동그란) 말풍선 아이콘 사용.
+                  //   비활성: 외곽선 / 활성: 채움.
+                  icon: const _RoundChatBubbleIcon(filled: false),
+                  activeIcon: const _RoundChatBubbleIcon(filled: true),
+                  label: '',
                 ),
                 BottomNavigationBarItem(
                   icon: _buildCalendarIconWithBadge(appState),
-                  label: l10n?.calendarTab ?? '캘린더',
+                  label: '',
                 ),
                 BottomNavigationBarItem(
                   // ⭐ 비활성: 연한 바탕 원 + 진한 테마색 +(테두리 없음).
@@ -173,32 +186,70 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
                 BottomNavigationBarItem(
                   icon: _buildRemindIcon(false),
                   activeIcon: _buildRemindIcon(true),
-                  label: '리마인드',
+                  label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.settings),
-                  label: l10n?.settingsTitle ?? '설정',
+                  // 설정 탭 = '...'(더보기) 아이콘 + 라벨 없음
+                  icon: const Icon(Icons.more_horiz),
+                  label: '',
                 ),
               ],
             ),
           ),
-          // 캘린더 탭일 때만 일정 추가 FAB 표시
-          floatingActionButton: appState.selectedTabIndex == _calendarTab
-              ? Container(
-                  margin: const EdgeInsets.only(bottom: 48),
-                  child: FloatingActionButton(
-                    onPressed: () {
-                      debugPrint('🎯 [FAB] 일정 추가 버튼 클릭됨');
-                      _homeScreenKey.currentState?.showCreateLittenDialog();
-                    },
-                    tooltip: l10n?.createLitten ?? '리튼 생성',
-                    backgroundColor: Theme.of(context).primaryColor,
-                    child: const Icon(Icons.alarm_add, color: Colors.white),
-                  ),
-                )
-              : null,
+          // 홈·캘린더·리마인드 탭에서 우측 하단 추가 FAB 표시(크기·위치 동일)
+          floatingActionButton: _buildAddFab(context, appState, l10n),
         );
       },
+    );
+  }
+
+  /// 우측 하단 추가(+) FAB — 홈·캘린더·리마인드 탭에서만 표시한다.
+  /// 세 탭 모두 캘린더와 동일한 크기(기본 FAB)·위치(margin bottom 48)를 공유하고,
+  /// 탭별로 동작(새 채팅 / 일정 추가 / 메모 추가)만 다르게 연결한다.
+  Widget? _buildAddFab(
+      BuildContext context, AppStateProvider appState, AppLocalizations? l10n) {
+    final tab = appState.selectedTabIndex;
+    VoidCallback onPressed;
+    IconData icon;
+    String tooltip;
+    switch (tab) {
+      case _homeTab:
+        // 대화방 안에서는 새 채팅 FAB를 숨긴다(칩 바와 동일하게).
+        if (appState.homeChatOpen) return null;
+        onPressed = () {
+          debugPrint('🎯 [FAB] 홈 새 채팅 버튼 클릭됨');
+          _homeDashKey.currentState?.startNewChat();
+        };
+        icon = Icons.add;
+        tooltip = '새 채팅';
+        break;
+      case _calendarTab:
+        onPressed = () {
+          debugPrint('🎯 [FAB] 일정 추가 버튼 클릭됨');
+          _homeScreenKey.currentState?.showCreateLittenDialog();
+        };
+        icon = Icons.alarm_add;
+        tooltip = l10n?.createLitten ?? '리튼 생성';
+        break;
+      case _remindTab:
+        onPressed = () {
+          debugPrint('🎯 [FAB] 리마인드 메모 추가 버튼 클릭됨');
+          _remindKey.currentState?.showAddMemo();
+        };
+        icon = Icons.add;
+        tooltip = '메모 추가';
+        break;
+      default:
+        return null;
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 48),
+      child: FloatingActionButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        backgroundColor: Theme.of(context).primaryColor,
+        child: Icon(icon, color: Colors.white),
+      ),
     );
   }
 
@@ -276,22 +327,18 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   /// 활성: 진한 테마색 원 + 흰 +.
   Widget _buildAddIcon(BuildContext context, bool isActive) {
     final primary = Theme.of(context).primaryColor;
-    // 라벨이 없어 다른 탭(아이콘+라벨)보다 위로 정렬되므로,
-    // 상단 패딩으로 살짝 내려 상하 가운데처럼 보이게 한다.
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: isActive ? primary : primary.withValues(alpha: 0.15),
-        ),
-        child: Icon(
-          Icons.add,
-          size: 22,
-          color: isActive ? Colors.white : primary,
-        ),
+    // 라벨 공간을 0으로 없애 모든 아이콘이 세로 중앙 정렬되므로 별도 보정 패딩이 불필요.
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isActive ? primary : primary.withValues(alpha: 0.15),
+      ),
+      child: Icon(
+        Icons.add,
+        size: 26,
+        color: isActive ? Colors.white : primary,
       ),
     );
   }
@@ -396,4 +443,66 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       },
     );
   }
+}
+
+/// 원형(동그란) 채팅 말풍선 아이콘 — Material 기본 채팅 아이콘이 모두 각진 사각형이라
+/// 직접 그린다. 원 + 좌하단 꼬리를 Path.combine(union)으로 합쳐 외곽선이 하나로 이어지게 한다.
+/// [filled] 가 true면 채움, false면 외곽선. 색은 BottomNavigationBar가 내려주는 IconTheme 색을 따른다.
+class _RoundChatBubbleIcon extends StatelessWidget {
+  const _RoundChatBubbleIcon({this.filled = false});
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconTheme = IconTheme.of(context);
+    final color = iconTheme.color ?? Colors.black;
+    final size = iconTheme.size ?? 24.0;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _RoundChatBubblePainter(color: color, filled: filled),
+      ),
+    );
+  }
+}
+
+class _RoundChatBubblePainter extends CustomPainter {
+  _RoundChatBubblePainter({required this.color, required this.filled});
+  final Color color;
+  final bool filled;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w * 0.5;
+    final cy = h * 0.44;
+    final r = w * 0.40;
+
+    // 원
+    final circle = Path()
+      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: r));
+    // 좌하단 꼬리(삼각형)
+    final tail = Path()
+      ..moveTo(cx - r * 0.62, cy + r * 0.50)
+      ..lineTo(cx - r * 0.98, cy + r * 1.32)
+      ..lineTo(cx - r * 0.02, cy + r * 0.86)
+      ..close();
+    // 외곽선이 하나로 이어지도록 합집합
+    final bubble = Path.combine(PathOperation.union, circle, tail);
+
+    final paint = Paint()
+      ..color = color
+      ..isAntiAlias = true
+      ..style = filled ? PaintingStyle.fill : PaintingStyle.stroke
+      ..strokeWidth = w * 0.085
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(bubble, paint);
+  }
+
+  @override
+  bool shouldRepaint(_RoundChatBubblePainter old) =>
+      old.color != color || old.filled != filled;
 }

@@ -1607,20 +1607,20 @@ class _AllFilesTabState extends State<AllFilesTab> {
     String tooltipText = timeStr;
     switch (status) {
       case SyncStatus.synced:
-        icon = Icon(Icons.cloud_done, size: 16, color: primaryColor);
+        icon = Icon(Icons.sync, size: 16, color: primaryColor);
         break;
       case SyncStatus.pending:
-        icon = Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.orange.shade400);
+        icon = Icon(Icons.sync, size: 16, color: Colors.orange.shade400);
         break;
       case SyncStatus.syncing:
         icon = const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5));
         break;
       case SyncStatus.error:
-        icon = const Icon(Icons.cloud_off, size: 16, color: Colors.red);
+        icon = const Icon(Icons.sync_disabled, size: 16, color: Colors.red);
         break;
       case SyncStatus.none:
         // 동기화 안 됨 - 회색 cloud_off 아이콘
-        icon = Icon(Icons.cloud_off_outlined, size: 16, color: Colors.grey.shade400);
+        icon = Icon(Icons.sync_disabled, size: 16, color: Colors.grey.shade400);
         tooltipText = '동기화 안 됨';
         break;
     }
@@ -1774,16 +1774,16 @@ class _AllFilesTabState extends State<AllFilesTab> {
     Widget icon;
     switch (status) {
       case SyncStatus.synced:
-        icon = Icon(Icons.cloud_done, size: 16, color: primaryColor);
+        icon = Icon(Icons.sync, size: 16, color: primaryColor);
         break;
       case SyncStatus.pending:
-        icon = Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.orange.shade400);
+        icon = Icon(Icons.sync, size: 16, color: Colors.orange.shade400);
         break;
       case SyncStatus.syncing:
         icon = const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5));
         break;
       case SyncStatus.error:
-        icon = const Icon(Icons.cloud_off, size: 16, color: Colors.red);
+        icon = const Icon(Icons.sync_disabled, size: 16, color: Colors.red);
         break;
       case SyncStatus.none:
         return const SizedBox(width: 16, height: 16);

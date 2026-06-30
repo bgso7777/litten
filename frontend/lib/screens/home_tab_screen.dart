@@ -9,7 +9,10 @@ import 'home_dashboard_screen.dart';
 ///   [_tabs] 리스트에 TabItem을 추가하면 홈에 탭이 늘어난다.
 ///   (노트 화면이 전체/메모/필기/녹음 등 여러 탭을 갖는 것과 동일한 방식)
 class HomeTabScreen extends StatefulWidget {
-  const HomeTabScreen({super.key});
+  const HomeTabScreen({super.key, this.dashboardKey});
+
+  /// 우측 하단 FAB(MainTabScreen)에서 홈 대시보드의 '새 채팅'을 띄우기 위한 키.
+  final GlobalKey<HomeDashboardScreenState>? dashboardKey;
 
   @override
   State<HomeTabScreen> createState() => _HomeTabScreenState();
@@ -29,7 +32,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
         icon: Icons.home_outlined,
         // 제목란: 공유 아이콘 + 받은(↓)·한(↑) 카운트
         customTabWidget: const ShareTabTitle(),
-        content: const HomeDashboardScreen(),
+        content: HomeDashboardScreen(key: widget.dashboardKey),
         position: TabPosition.topLeft,
         // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김
         isDraggable: false,

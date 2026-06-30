@@ -1480,6 +1480,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _showSentShares = !_showSentShares;
     notifyListeners();
   }
+
+  // 홈(공유) 탭에서 대화방이 열려 있는지 — 열려 있으면 하단 칩 바와 새 채팅 FAB를 숨긴다.
+  bool _homeChatOpen = false;
+  bool get homeChatOpen => _homeChatOpen;
+  void setHomeChatOpen(bool open) {
+    if (_homeChatOpen == open) return;
+    _homeChatOpen = open;
+    notifyListeners();
+  }
   // 받은 공유 중 대기(미응답) 건수 — 홈 배지/카운트용
   int get pendingReceivedShareCount =>
       _sharesReceived.where((s) => s['status'] == 'pending').length;

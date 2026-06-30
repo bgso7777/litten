@@ -50,12 +50,18 @@ class RemindScreen extends StatefulWidget {
   const RemindScreen({super.key});
 
   @override
-  State<RemindScreen> createState() => _RemindScreenState();
+  State<RemindScreen> createState() => RemindScreenState();
 }
 
-class _RemindScreenState extends State<RemindScreen> {
+class RemindScreenState extends State<RemindScreen> {
   late final List<TabItem> _tabs;
   final _RemindFilter _filter = _RemindFilter();
+  // 우측 하단 FAB(MainTabScreen)에서 본문의 '메모 추가'를 띄우기 위해 본문 상태에 접근하는 키
+  final GlobalKey<_RemindBodyViewState> _bodyKey =
+      GlobalKey<_RemindBodyViewState>();
+
+  /// 우측 하단 FAB(+)에서 호출 — 메모 추가 다이얼로그를 띄운다.
+  void showAddMemo() => _bodyKey.currentState?.showAddMemo();
 
   @override
   void dispose() {
@@ -99,7 +105,7 @@ class _RemindScreenState extends State<RemindScreen> {
         ),
         // 탭 버튼이 제목 역할을 하므로 자체 헤더는 숨김(깜빡이는 유지)
         // 요약·퀴즈를 일자순으로 통합한 본문
-        content: _RemindBodyView(filter: _filter),
+        content: _RemindBodyView(key: _bodyKey, filter: _filter),
         position: TabPosition.topLeft,
         // 단일 탭이라 드래그가 무의미 — 제목란 우측 드래그 핸들(점 6개) 숨김
         isDraggable: false,
@@ -137,7 +143,7 @@ class _RemindScreenState extends State<RemindScreen> {
 /// 날짜가 바뀌면 헤더(오늘/어제/날짜)를 끼우고, 하단의 필터 칩으로
 /// 요약 · 퀴즈(미완료) · 퀴즈(완료) 표시 여부를 토글한다.
 class _RemindBodyView extends StatefulWidget {
-  const _RemindBodyView({required this.filter});
+  const _RemindBodyView({super.key, required this.filter});
 
   final _RemindFilter filter;
 
@@ -207,16 +213,16 @@ class _RemindBodyViewState extends State<_RemindBodyView>
     Widget icon;
     switch (status) {
       case SyncStatus.synced:
-        icon = Icon(Icons.cloud_done, size: 14, color: primaryColor);
+        icon = Icon(Icons.sync, size: 14, color: primaryColor);
         break;
       case SyncStatus.pending:
-        icon = Icon(Icons.cloud_upload_outlined, size: 14, color: Colors.orange.shade400);
+        icon = Icon(Icons.sync, size: 14, color: Colors.orange.shade400);
         break;
       case SyncStatus.syncing:
         icon = const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5));
         break;
       case SyncStatus.error:
-        icon = const Icon(Icons.cloud_off, size: 14, color: Colors.red);
+        icon = const Icon(Icons.sync_disabled, size: 14, color: Colors.red);
         break;
       case SyncStatus.none:
         return const SizedBox.shrink();
@@ -786,56 +792,40 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
           ),
-          // 가운데: 확인 완료 카운트(아이콘+숫자). 우측 끝: 메모 추가 '+'(홈 칩 +와 동일).
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Icon(Icons.auto_awesome, size: 16, color: color), // 요약
-                    const SizedBox(width: 2),
-                    Text('$doneSummary',
-                        style: TextStyle(
-                            fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
-                    const SizedBox(width: 16),
-                    QuizBulbIcon(size: 16, color: color), // 퀴즈
-                    const SizedBox(width: 2),
-                    Text('$doneQuiz',
-                        style: TextStyle(
-                            fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
-                  ],
-                ),
+          // 가운데: 확인 완료 카운트(아이콘+숫자). 메모 추가 +는 우측 하단 FAB(MainTabScreen)로 이동.
+          // 노트(_CreateChipBar)·캘린더·홈 칩 바와 동일한 콘텐츠 높이(28.0)로 바 높이를 일치시킨다.
+          child: SizedBox(
+            height: 28.0,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(Icons.auto_awesome, size: 16, color: color), // 요약
+                  const SizedBox(width: 2),
+                  Text('$doneSummary',
+                      style: TextStyle(
+                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                  const SizedBox(width: 16),
+                  QuizBulbIcon(size: 16, color: color), // 퀴즈
+                  const SizedBox(width: 2),
+                  Text('$doneQuiz',
+                      style: TextStyle(
+                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                ],
               ),
-              // 우측 끝: 메모 추가 + (홈 _HomeChipBar의 + 와 동일한 원형/크기/위치)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Material(
-                  color: color.withValues(alpha: 0.15),
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => _showAddMemoDialog(context, color, appState),
-                    child: Container(
-                      padding: const EdgeInsets.all(4.0),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: color.withValues(alpha: 0.2), width: 1),
-                      ),
-                      child: Icon(Icons.add, size: 21.3, color: color),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// 우측 하단 FAB(+)에서 호출 — 메모 추가 다이얼로그를 띄운다.
+  void showAddMemo() {
+    final color = Theme.of(context).primaryColor;
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    _showAddMemoDialog(context, color, appState);
   }
 
   /// 메모 추가 팝업 — 제목·내용을 입력하고 '요약' 또는 '퀴즈'로 저장한다.

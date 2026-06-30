@@ -92,8 +92,14 @@ public class MessageService {
             }
             recipientIds.add(m.getId());
         }
-        // 발신자 본인은 수신 목록에서 제외(자기 자신에게 전달 안 함)
-        recipientIds.remove(senderId);
+        // 발신자 본인은 수신 목록에서 제외(자기 자신에게 전달 안 함).
+        // 단, 1:1에서 의도적으로 본인을 지정한 셀프 채팅(개인 메모용)은 허용한다.
+        boolean selfChat = !"group".equals(targetType)
+                && recipientIds.size() == 1
+                && recipientIds.contains(senderId);
+        if (!selfChat) {
+            recipientIds.remove(senderId);
+        }
         if (recipientIds.isEmpty()) {
             result.put("success", false);
             result.put("message", "받을 사람이 없습니다.");
