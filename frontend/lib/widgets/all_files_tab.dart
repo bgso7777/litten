@@ -3799,7 +3799,7 @@ class _CreateChipBarState extends State<_CreateChipBar> {
     }
 
     final chips = <Widget>[];
-    // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 사진 → 비디오 → 영상 채널 → 파일
+    // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 사진 → 비디오 → 영상 채널
     if (fabVis.contains('text')) {
       chips.add(_chip(context,
           icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: widget.onText));
@@ -3826,6 +3826,10 @@ class _CreateChipBarState extends State<_CreateChipBar> {
           color: color,
           onTap: widget.onTextWithSTT));
     }
+    if (fabVis.contains('files')) {
+      chips.add(_chip(context,
+          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: widget.onFiles));
+    }
     // 사진 / 비디오 — 첨부파일로 저장된다. (설정 '전체탭 빠른 추가 표시'로 on/off)
     if (fabVis.contains('photo') && widget.onPhoto != null) {
       chips.add(_chip(context,
@@ -3838,10 +3842,6 @@ class _CreateChipBarState extends State<_CreateChipBar> {
     if (fabVis.contains('youtube') && widget.onYoutube != null) {
       chips.add(_chip(context,
           icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: widget.onYoutube!));
-    }
-    if (fabVis.contains('files')) {
-      chips.add(_chip(context,
-          icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: widget.onFiles));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();

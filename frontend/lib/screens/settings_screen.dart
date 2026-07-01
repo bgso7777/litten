@@ -1913,8 +1913,8 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     {'id': 'text', 'label': l10n?.memoLabel ?? '메모', 'icon': Icons.notes},
     {'id': 'pdf', 'label': 'PDF', 'icon': Icons.picture_as_pdf},
     {'id': 'audio', 'label': l10n?.audioTab ?? '녹음', 'icon': Icons.mic},
-    {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
     {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '녹음메모', 'icon': Icons.record_voice_over},
+    {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
     {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
     {'id': 'youtube', 'label': '영상', 'icon': Icons.subscriptions_outlined},
   ];
@@ -1997,15 +1997,15 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
   }
 
   List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
-    // 순서: 노트 "+" 빠른추가 칩과 동일 (메모 → 필기 → 녹음 → 녹음 메모 → 사진 → 비디오 → 영상 채널 → 파일)
+    // 순서: 노트 "+" 빠른추가 칩과 동일 (메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 사진 → 비디오 → 영상 채널)
     {'id': 'text',   'label': l10n?.memoLabel ?? '메모',         'icon': Icons.notes},
     {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기',    'icon': Icons.draw},
     {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',          'icon': Icons.mic},
     {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '녹음 메모', 'icon': Icons.record_voice_over},
+    {'id': 'files',  'label': '파일',                            'icon': Icons.attach_file},
     {'id': 'photo',  'label': '사진',                            'icon': Icons.photo_camera},
     {'id': 'video',  'label': '비디오',                          'icon': Icons.videocam},
     {'id': 'youtube', 'label': '영상 채널',                       'icon': Icons.subscriptions_outlined},
-    {'id': 'files',  'label': '파일',                            'icon': Icons.attach_file},
   ];
 
   /// 녹음+메모 합성 아이콘 (단색 컨텍스트용 — 마이크 + 흰 배경 메모 배지)

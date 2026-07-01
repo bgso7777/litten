@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/litten.dart';
 import '../services/app_state_provider.dart';
 import '../services/file_storage_service.dart';
+import '../services/shared_snapshot_service.dart';
 import '../widgets/share_compose_dialog.dart';
+import '../widgets/shared_snapshot_viewer.dart';
 import '../widgets/common/tab_count_title.dart';
 
 /// 홈 탭 — 대시보드.
@@ -313,18 +317,23 @@ class ShareTabTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppStateProvider>(
       builder: (context, app, _) {
+        final chatN = app.homeConversationCount;
         final inN = app.sharesReceived.length;
         final outN = app.sharesSent.length;
-        // 각 아이콘은 독립 토글: 켜짐(active=true)이면 밝게 보이고 해당 목록 표시,
-        // 한 번 더 누르면 꺼짐(흐림)이 되어 해당 목록이 숨겨진다.
+        // 표시 모드 전환(라디오식): 채팅(기본 선택) | 공유받음 | 공유한.
+        // 선택된 것만 밝게(active) 보이고, 받음/보냄은 선택 시 공유 파일을 일자순 리스트로 보여준다.
+        final mode = app.homeChatView;
         return TabCountTitle([
           [
+            TabCount(Icons.chat_bubble_outline, chatN,
+                active: mode == 'chat',
+                onTap: () => app.setHomeChatView('chat')),
             TabCount(Icons.download, inN,
-                active: app.showReceivedShares,
-                onTap: () => app.toggleReceivedShares()),
+                active: mode == 'received',
+                onTap: () => app.setHomeChatView('received')),
             TabCount(Icons.upload, outN,
-                active: app.showSentShares,
-                onTap: () => app.toggleSentShares()),
+                active: mode == 'sent',
+                onTap: () => app.setHomeChatView('sent')),
           ],
         ]);
       },
@@ -349,14 +358,27 @@ class _ShareSectionState extends State<_ShareSection> {
   static const String _unlockedGroupsKey = 'unlocked_groups';
   // 대화방 하단 메시지 입력
   final TextEditingController _msgCtrl = TextEditingController();
+  // 대화방 메시지 리스트 스크롤 — 진입/전송 시 맨 아래(최신)로 이동
+  final ScrollController _chatScrollCtrl = ScrollController();
+  bool _scrollChatToBottom = false;
   // 대화별 마지막 읽은 시각 (미읽음 메시지 뱃지용 — 영구 저장)
   final Map<String, DateTime> _convLastRead = {};
   static const String _convReadKey = 'conv_last_read';
+  // 방나가기(로컬 숨김)한 대화 key → 숨긴 시각. 이후 새 항목(lastAt>숨긴시각)이 오면 다시 보인다.
+  final Map<String, DateTime> _convHiddenAt = {};
+  static const String _convHiddenKey = 'conv_hidden_at';
 
   @override
   void dispose() {
     _msgCtrl.dispose();
+    _chatScrollCtrl.dispose();
     super.dispose();
+  }
+
+  /// 대화방 메시지 리스트를 맨 아래(최신)로 이동. 렌더 후 실제 최대 스크롤 위치로.
+  void _jumpChatToBottom() {
+    if (!_chatScrollCtrl.hasClients) return;
+    _chatScrollCtrl.jumpTo(_chatScrollCtrl.position.maxScrollExtent);
   }
 
   Future<void> _loadConvRead() async {
@@ -384,6 +406,7 @@ class _ShareSectionState extends State<_ShareSection> {
     SharedPreferences.getInstance().then((p) => p.setString(
         _convReadKey,
         jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
+    _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
     setState(() => _openConvKey = key);
     // 대화방 진입 → 하단 칩 바 + 새 채팅 FAB 숨김(provider 공유 상태)
     context.read<AppStateProvider>().setHomeChatOpen(true);
@@ -394,9 +417,67 @@ class _ShareSectionState extends State<_ShareSection> {
     super.initState();
     _loadUnlockedGroups();
     _loadConvRead();
+    _loadConvHidden();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppStateProvider>().loadShares();
+      final app = context.read<AppStateProvider>();
+      app.loadShares();
+      app.loadSelfChats();
     });
+  }
+
+  Future<void> _loadConvHidden() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_convHiddenKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      m.forEach((k, v) {
+        final dt = DateTime.tryParse(v.toString());
+        if (dt != null) _convHiddenAt[k] = dt;
+      });
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  void _persistConvHidden() {
+    SharedPreferences.getInstance().then((p) => p.setString(
+        _convHiddenKey,
+        jsonEncode(_convHiddenAt.map((k, v) => MapEntry(k, v.toIso8601String())))));
+  }
+
+  /// 방나가기 — 나와의 대화는 삭제, 그 외는 로컬에서 숨김(새 활동이 오면 다시 보임).
+  Future<void> _leaveConv(_Conv c) async {
+    final appState = context.read<AppStateProvider>();
+    final isSelf = c.isSelf;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isSelf ? '대화 삭제' : '방 나가기', style: const TextStyle(fontSize: 16)),
+        content: Text(isSelf
+            ? '"${c.label}"을(를) 삭제할까요? 이 안의 내용도 함께 삭제됩니다.'
+            : '"${c.label}" 대화를 목록에서 숨길까요? 새 메시지·공유가 오면 다시 표시됩니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(isSelf ? '삭제' : '나가기')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (isSelf) {
+      await appState.deleteSelfChat(c.key.substring(5));
+    } else {
+      _convHiddenAt[c.key] = DateTime.now();
+      _persistConvHidden();
+      setState(() {});
+    }
+  }
+
+  bool _isHidden(_Conv c) {
+    final h = _convHiddenAt[c.key];
+    return h != null && !c.lastAt.isAfter(h);
   }
 
   Future<void> _loadUnlockedGroups() async {
@@ -472,37 +553,30 @@ class _ShareSectionState extends State<_ShareSection> {
       );
     }
 
-    // 제목의 받음/보냄 카운트 아이콘 독립 토글: 켜진 쪽만 표시.
-    // 받은 것 + 한 것 통합 (토글 반영)
+    final mode = appState.homeChatView; // 'chat' | 'received' | 'sent'
+
+    // 채팅 모드: 받은 것 + 한 것 + 메시지를 모두 대화방으로 묶는다(제목 토글과 무관하게 전체 표시).
     final all = <_ShareItem>[];
-    if (appState.showReceivedShares) {
-      for (final r in appState.sharesReceived) {
-        all.add(_ShareItem(
-            received: true, data: r, at: _parseAt(r['sharedAt']),
-            group: (r['groupName']?.toString() ?? '').trim()));
-      }
+    for (final r in appState.sharesReceived) {
+      all.add(_ShareItem(
+          received: true, data: r, at: _parseAt(r['sharedAt']),
+          group: (r['groupName']?.toString() ?? '').trim()));
     }
-    if (appState.showSentShares) {
-      for (final s in appState.sharesSent) {
-        all.add(_ShareItem(
-            received: false, data: s, at: _parseAt(s['sharedAt']),
-            group: (s['groupName']?.toString() ?? '').trim()));
-      }
+    for (final s in appState.sharesSent) {
+      all.add(_ShareItem(
+          received: false, data: s, at: _parseAt(s['sharedAt']),
+          group: (s['groupName']?.toString() ?? '').trim()));
     }
     // 채팅 메시지도 대화 항목으로 포함 (공유와 동일 키잉: 받은=보낸이, 보낸=수신자, 그룹=그룹명)
-    if (appState.showReceivedShares) {
-      for (final m in appState.messagesReceived) {
-        all.add(_ShareItem(
-            received: true, data: m, at: _parseAt(m['sentAt']),
-            group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
-      }
+    for (final m in appState.messagesReceived) {
+      all.add(_ShareItem(
+          received: true, data: m, at: _parseAt(m['sentAt']),
+          group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
     }
-    if (appState.showSentShares) {
-      for (final m in appState.messagesSent) {
-        all.add(_ShareItem(
-            received: false, data: m, at: _parseAt(m['sentAt']),
-            group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
-      }
+    for (final m in appState.messagesSent) {
+      all.add(_ShareItem(
+          received: false, data: m, at: _parseAt(m['sentAt']),
+          group: (m['groupName']?.toString() ?? '').trim(), isMessage: true));
     }
 
     // ── 채팅방 형태: 상대(개인/그룹)별 대화로 묶는다 ──
@@ -557,14 +631,29 @@ class _ShareSectionState extends State<_ShareSection> {
         if (gid != null) conv.recvGroupId = gid;
       }
     }
-    // 내가 만든 그룹은 공유가 없어도 대화방으로 노출('보낸 것' 토글 켜졌을 때만)
-    if (appState.showSentShares) {
-      for (final g in appState.shareGroups) {
-        final name = (g['name']?.toString() ?? '').trim();
-        if (name.isEmpty) continue;
-        convs.putIfAbsent('g:$name',
-            () => _Conv(key: 'g:$name', isGroup: true, label: name,
-                groupId: (g['groupId'] as num?)?.toInt()));
+    // 내가 만든 그룹은 공유가 없어도 대화방으로 노출.
+    for (final g in appState.shareGroups) {
+      final name = (g['name']?.toString() ?? '').trim();
+      if (name.isEmpty) continue;
+      convs.putIfAbsent('g:$name',
+          () => _Conv(key: 'g:$name', isGroup: true, label: name,
+              groupId: (g['groupId'] as num?)?.toInt()));
+    }
+    // 나와의 대화(로컬 셀프 채팅방) — 공유/서버와 무관하게 목록에 노출. key 'self:{id}'.
+    final myEmail0 = appState.currentUser?.id ?? '';
+    for (final sc in appState.selfChats) {
+      final id = sc['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      final key = 'self:$id';
+      final conv = convs.putIfAbsent(
+          key,
+          () => _Conv(
+              key: key, isGroup: false, email: myEmail0,
+              label: sc['name']?.toString() ?? '나와의 대화', isSelf: true));
+      for (final m in appState.selfChatMessages(id)) {
+        conv.items.add(_ShareItem(
+            received: false, data: m, at: _parseAt(m['sentAt']),
+            group: '', isMessage: true));
       }
     }
 
@@ -588,8 +677,15 @@ class _ShareSectionState extends State<_ShareSection> {
       return _buildChatRoom(open, ownedByName, color, appState);
     }
 
-    final convList = convs.values.toList()
+    // 공유받음/공유한 모드 — 해당 공유 파일을 일자순 리스트로 보여준다(대화방 아님).
+    if (mode == 'received' || mode == 'sent') {
+      return _buildSharedFileList(mode, appState, color);
+    }
+
+    final convList = convs.values.where((c) => !_isHidden(c)).toList()
       ..sort((a, b) => b.lastAt.compareTo(a.lastAt));
+    // 아이콘 사람 수 산정 시 '나와의 채팅'(상대가 나 자신) 판별용 내 이메일(memberId).
+    final myEmail = appState.currentUser?.id ?? '';
 
     // 새 채팅 진입점은 하단 칩 바의 + 버튼으로 일원화(기존 우측 하단 FAB 제거).
     return RefreshIndicator(
@@ -611,14 +707,110 @@ class _ShareSectionState extends State<_ShareSection> {
               itemCount: convList.length,
               separatorBuilder: (_, __) =>
                   Divider(height: 1, color: color.withValues(alpha: 0.08)),
-              itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color),
+              itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color, myEmail),
             ),
     );
   }
 
-  /// 새 채팅 — 탭으로 1:1 / 그룹 분리. 1:1은 이메일/닉네임 입력+대화 시작, 그룹은 새 그룹 만들기/내 그룹 선택.
-  /// 칩 바의 + 버튼 등 외부에서 새 채팅을 띄울 수 있게 공개 래퍼.
-  void startNewChat() => _startNewChat();
+  /// 공유받음/공유한 모드 — 파일 공유 건을 공유 일자순(최신→과거)으로 나열. 탭하면 스냅샷 미리보기.
+  Widget _buildSharedFileList(String mode, AppStateProvider appState, Color color) {
+    final received = mode == 'received';
+    final raw = received ? appState.sharesReceived : appState.sharesSent;
+    final items = [...raw]
+      ..sort((a, b) => _parseAt(b['sharedAt']).compareTo(_parseAt(a['sharedAt'])));
+    return RefreshIndicator(
+      onRefresh: () => appState.loadShares(),
+      child: items.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Center(
+                    child: Text(received ? '받은 공유 파일이 없습니다.' : '공유한 파일이 없습니다.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+              ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              itemCount: items.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: color.withValues(alpha: 0.08)),
+              itemBuilder: (_, i) {
+                final s = items[i];
+                final it = _ShareItem(
+                    received: received, data: s, at: _parseAt(s['sharedAt']),
+                    group: (s['groupName']?.toString() ?? '').trim());
+                final fname = _stripShareExt(s['fileName']?.toString() ?? '');
+                // 상대 표시: 받은 것=보낸이, 보낸 것=그룹명/수신자
+                String peer;
+                if (received) {
+                  peer = s['senderName']?.toString().isNotEmpty == true
+                      ? s['senderName'].toString()
+                      : (s['senderMemberId']?.toString() ?? '');
+                } else {
+                  final g = (s['groupName']?.toString() ?? '').trim();
+                  if (g.isNotEmpty) {
+                    peer = g;
+                  } else {
+                    final recips = (s['recipients'] as List?) ?? const [];
+                    peer = recips.isNotEmpty
+                        ? ((recips.first as Map)['memberId']?.toString() ?? '')
+                        : '';
+                  }
+                }
+                return ListTile(
+                  leading: Icon(_shareFileTypeIcon(s['fileType']?.toString()), color: color),
+                  title: Text(fname, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  subtitle: Text('${received ? '보낸이' : '받는이'}: $peer',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  trailing: Text(_shareWhen(s['sharedAt']),
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                  onTap: () => _openSharedSnapshot(it),
+                );
+              },
+            ),
+    );
+  }
+
+  /// + 버튼 진입점 — '나와의 대화'(즉시 생성) 또는 '새 채팅'(다른 사람/그룹) 선택.
+  void startNewChat() => _newChatMenu();
+
+  /// + 선택 시트: 나와의 대화(로컬 셀프 채팅, 여러 개 가능) / 새 채팅(1:1·그룹).
+  Future<void> _newChatMenu() async {
+    final appState = context.read<AppStateProvider>();
+    final color = Theme.of(context).primaryColor;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: Icon(Icons.person, color: color),
+            title: const Text('나와의 대화'),
+            subtitle: const Text('나 혼자 쓰는 채팅방 (여러 개 만들 수 있어요)',
+                style: TextStyle(fontSize: 11)),
+            onTap: () => Navigator.pop(ctx, 'self'),
+          ),
+          ListTile(
+            leading: Icon(Icons.chat_bubble_outline, color: color),
+            title: const Text('새 채팅'),
+            subtitle: const Text('다른 사람 또는 그룹', style: TextStyle(fontSize: 11)),
+            onTap: () => Navigator.pop(ctx, 'new'),
+          ),
+        ]),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'self') {
+      final room = await appState.createSelfChat();
+      if (mounted) _openConv('self:${room['id']}');
+    } else if (choice == 'new') {
+      await _startNewChat();
+    }
+  }
 
   Future<void> _startNewChat() async {
     final ctrl = TextEditingController();
@@ -735,22 +927,39 @@ class _ShareSectionState extends State<_ShareSection> {
     _openConv(result);
   }
 
-  /// 그룹 멤버 수 추정 — 내 그룹은 memberCount, 수신 그룹은 메시지 recipients 길이로.
-  /// 알 수 없으면 최소 2명(그룹)으로 본다.
-  int _groupMemberCount(_Conv c, Map<String, Map<String, dynamic>> ownedByName) {
-    final mc = (ownedByName[c.label]?['memberCount'] as num?)?.toInt();
-    if (mc != null && mc > 0) return mc;
+  /// 대화 참여자 수(나 포함) — 아이콘 사람 수 산정용.
+  /// 나와의 채팅(상대가 나 자신)=1, 1:1=2(나+상대),
+  /// 내 그룹=memberCount(나 제외)+1, 수신 그룹=recipients(발신자 제외)+발신자.
+  int _peopleCount(_Conv c, Map<String, Map<String, dynamic>> ownedByName, String myEmail) {
+    if (c.isSelf) return 1; // 나와의 대화 = 나 1명
+    if (!c.isGroup) {
+      final other = c.email ?? '';
+      return (other.isNotEmpty && other == myEmail) ? 1 : 2;
+    }
+    final owned = ownedByName[c.label];
+    if (owned != null) {
+      final mc = (owned['memberCount'] as num?)?.toInt() ?? 0;
+      return mc + 1; // 멤버(나 제외) + 나
+    }
     int maxR = 0;
     for (final it in c.items) {
       final r = (it.data['recipients'] as List?)?.length ?? 0;
       if (r > maxR) maxR = r;
     }
-    return maxR > 0 ? maxR : 2;
+    return maxR > 0 ? maxR + 1 : 2;
   }
 
-  /// 그룹 아바타 — 멤버 수만큼(2~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
-  Widget _groupPeopleAvatar(int memberCount, Color color, bool owned) {
-    final n = memberCount.clamp(2, 5);
+  /// 참여자 아바타 — 인원수만큼(1~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
+  /// 1명은 단독으로 크게 표시한다.
+  Widget _peopleAvatar(int count, Color color, bool owned) {
+    final n = count.clamp(1, 5);
+    if (n == 1) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: color.withValues(alpha: 0.12),
+        child: Icon(Icons.person, color: color, size: 22),
+      );
+    }
     const s = 15.0;    // 개별 사람 아이콘 크기
     const step = 8.0;  // 겹침 간격
     final w = s + (n - 1) * step;
@@ -777,7 +986,8 @@ class _ShareSectionState extends State<_ShareSection> {
   }
 
   /// 대화 목록 한 줄 (상대/그룹). 탭하면 대화방 진입(잠금 그룹은 비밀번호 확인).
-  Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color) {
+  Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color,
+      String myEmail) {
     final owned = c.isGroup ? ownedByName[c.label] : null;
     final isOwned = owned != null;
     // 발신자(그룹 소유자)는 항상 열림. 수신자는 그룹 비번이 있으면 한 번 입력해 해제.
@@ -801,13 +1011,7 @@ class _ShareSectionState extends State<_ShareSection> {
     }
 
     return ListTile(
-      leading: c.isGroup
-          ? _groupPeopleAvatar(_groupMemberCount(c, ownedByName), color, isOwned)
-          : CircleAvatar(
-              radius: 20,
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Icon(Icons.person, color: color, size: 22),
-            ),
+      leading: _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned),
       title: Row(children: [
         Flexible(
           child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -818,21 +1022,48 @@ class _ShareSectionState extends State<_ShareSection> {
       ]),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (last != null)
-            Text(_shareWhen(last.data['sharedAt']),
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          if (pending > 0)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-              child: Text('$pending',
-                  style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (last != null)
+                Text(_shareWhen(last.data['sharedAt']),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+              if (pending > 0)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$pending',
+                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+          // 세로 ... 메뉴 — 방나가기(나와의 대화는 삭제)
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.grey.shade500, size: 20),
+            padding: EdgeInsets.zero,
+            tooltip: '메뉴',
+            onSelected: (v) {
+              if (v == 'leave') _leaveConv(c);
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem<String>(
+                value: 'leave',
+                child: Row(children: [
+                  Icon(c.isSelf ? Icons.delete_outline : Icons.logout,
+                      size: 18, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Text(c.isSelf ? '대화 삭제' : '방 나가기',
+                      style: const TextStyle(color: Colors.red)),
+                ]),
+              ),
+            ],
+          ),
         ],
       ),
       onTap: () {
@@ -852,6 +1083,13 @@ class _ShareSectionState extends State<_ShareSection> {
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
+    // 진입/전송 직후 맨 아래(최신)로 스크롤 — 렌더 완료 후 1회.
+    if (_scrollChatToBottom && items.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _jumpChatToBottom();
+        _scrollChatToBottom = false;
+      });
+    }
     return Column(
       children: [
         Material(
@@ -887,6 +1125,7 @@ class _ShareSectionState extends State<_ShareSection> {
               : RefreshIndicator(
                   onRefresh: () => appState.loadShares(),
                   child: ListView.builder(
+                    controller: _chatScrollCtrl,
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: items.length,
@@ -930,25 +1169,39 @@ class _ShareSectionState extends State<_ShareSection> {
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
         child: Row(children: [
-          // 파일 공유 — 전체 파일 목록에서 골라 이 대화에 공유
-          IconButton(
-            icon: Icon(Icons.add_circle_outline, color: color),
-            tooltip: '파일 공유',
-            onPressed: () => _showFileShareSheet(c, groupId, appState),
-          ),
+          // 파일 공유 — 전체 파일 목록에서 골라 이 대화에 공유(나와의 대화는 로컬 텍스트 전용이라 숨김)
+          if (!c.isSelf)
+            IconButton(
+              icon: Icon(Icons.add_circle_outline, color: color),
+              tooltip: '파일 공유',
+              onPressed: () => _showFileShareSheet(c, groupId, appState),
+            ),
           Expanded(
-            child: TextField(
-              controller: _msgCtrl,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              decoration: InputDecoration(
-                hintText: '메시지 입력',
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            // 하드웨어 Enter → 전송, Shift+Enter → 줄바꿈. 소프트 키보드는 textInputAction.send.
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+                    !HardwareKeyboard.instance.isShiftPressed) {
+                  _sendMsg(c, groupId, appState);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                controller: _msgCtrl,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                decoration: InputDecoration(
+                  hintText: '메시지 입력',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                onSubmitted: (_) => _sendMsg(c, groupId, appState),
               ),
-              onSubmitted: (_) => _sendMsg(c, groupId, appState),
             ),
           ),
           const SizedBox(width: 6),
@@ -965,6 +1218,12 @@ class _ShareSectionState extends State<_ShareSection> {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
     _msgCtrl.clear();
+    _scrollChatToBottom = true; // 전송 후 최신이 보이도록
+    // 나와의 대화(로컬 셀프 채팅) — 서버 전송 없이 로컬에 저장.
+    if (c.isSelf) {
+      await appState.addSelfChatMessage(c.key.substring(5), text); // 'self:' 제거
+      return;
+    }
     final r = await appState.sendChatMessage(
       targetType: c.isGroup ? 'group' : 'user',
       recipientKey: c.isGroup ? null : (c.email ?? c.key.substring(2)),
@@ -1093,6 +1352,8 @@ class _ShareSectionState extends State<_ShareSection> {
     // 채팅 메시지 말풍선
     if (it.isMessage) {
       final received = it.received;
+      final content = it.data['content']?.toString() ?? '';
+      final url = _firstUrl(content); // URL 포함 시 하단에 미리보기 카드
       return Align(
         alignment: received ? Alignment.centerLeft : Alignment.centerRight,
         child: Container(
@@ -1108,7 +1369,11 @@ class _ShareSectionState extends State<_ShareSection> {
                 received ? CrossAxisAlignment.start : CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(it.data['content']?.toString() ?? '', style: const TextStyle(fontSize: 14)),
+              Text(content, style: const TextStyle(fontSize: 14)),
+              if (url != null) ...[
+                const SizedBox(height: 6),
+                _urlPreviewCard(url, color),
+              ],
               const SizedBox(height: 2),
               Text(_shareWhen(it.data['sentAt']),
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
@@ -1130,7 +1395,9 @@ class _ShareSectionState extends State<_ShareSection> {
       hint = '수락 $acc · 대기 $pend';
     }
     final bubble = GestureDetector(
-      onTap: () => _showBubbleActions(it, appState),
+      // 탭 → 공유 내용(스냅샷) 바로 미리보기. 길게 누르면 부가 동작(수신자 상태·공유 취소 등).
+      onTap: () => _openSharedSnapshot(it),
+      onLongPress: () => _showBubbleActions(it, appState),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 260),
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1194,6 +1461,16 @@ class _ShareSectionState extends State<_ShareSection> {
     final received = it.received;
     final status = it.data['status']?.toString() ?? '';
     final actions = <Widget>[];
+    // 공유 내용 보기 — 보관된 로컬 스냅샷(공유 시점 내용)을 미리보기.
+    actions.add(ListTile(
+      leading: const Icon(Icons.visibility_outlined),
+      title: const Text('공유 내용 보기'),
+      subtitle: const Text('공유했을 때의 내용', style: TextStyle(fontSize: 11)),
+      onTap: () async {
+        Navigator.pop(context);
+        await _openSharedSnapshot(it);
+      },
+    ));
     if (!received) {
       final recips = (it.data['recipients'] as List?) ?? const [];
       if (recips.isNotEmpty) {
@@ -1236,6 +1513,120 @@ class _ShareSectionState extends State<_ShareSection> {
       context: context,
       builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: actions)),
     );
+  }
+
+  /// 말풍선의 공유 파일을 보관된 로컬 스냅샷으로 미리보기.
+  /// 보낸 것은 shareId, 받은 것은 deliveryId로 스냅샷을 조회한다.
+  Future<void> _openSharedSnapshot(_ShareItem it) async {
+    final svc = SharedSnapshotService.instance;
+    final appState = context.read<AppStateProvider>();
+    SharedSnapshot? snap;
+    if (it.received) {
+      final did = (it.data['deliveryId'] as num?)?.toInt();
+      if (did != null) snap = await svc.findReceived(did);
+      // 폴백: deliveryId로 못 찾으면 shareId로 시도
+      if (snap == null) {
+        final sid = (it.data['shareId'] as num?)?.toInt();
+        if (sid != null) snap = await svc.findByShareId(sid);
+      }
+      // 백필: 스냅샷이 없으면(옛 공유 등) 서버에서 다시 받아 보관 후 미리보기.
+      if (snap == null && (it.data['status']?.toString() ?? '') == 'accepted') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('공유 내용을 불러오는 중...'), duration: Duration(seconds: 1)));
+        }
+        snap = await appState.ensureReceivedSnapshot(it.data);
+      }
+    } else {
+      final sid = (it.data['shareId'] as num?)?.toInt();
+      if (sid != null) snap = await svc.findSent(sid);
+    }
+    if (!mounted) return;
+    if (snap == null) {
+      // 상태별 안내: 미수락 받은 공유 / 보관 이전에 만든 옛 공유
+      final status = it.data['status']?.toString() ?? '';
+      final msg = it.received
+          ? (status == 'accepted'
+              ? '공유 내용을 불러올 수 없습니다. 발신자가 공유를 취소했을 수 있습니다.'
+              : '먼저 수락하면 공유 내용을 볼 수 있습니다.')
+          : '이 공유는 보관 기능 이전에 전송되어 내용을 볼 수 없습니다. 이후 공유부터 보관됩니다.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return;
+    }
+    await showSharedSnapshot(context, snap);
+  }
+
+  static final RegExp _urlRe = RegExp(r'https?://[^\s]+', caseSensitive: false);
+
+  /// 메시지 본문에서 첫 번째 http(s) URL을 찾는다(없으면 null). 끝의 문장부호는 제거.
+  String? _firstUrl(String text) {
+    final m = _urlRe.firstMatch(text);
+    if (m == null) return null;
+    var url = m.group(0)!;
+    // 문장 끝에 붙은 흔한 마침표류 제거
+    while (url.isNotEmpty && '.,)]}>"\''.contains(url[url.length - 1])) {
+      url = url.substring(0, url.length - 1);
+    }
+    return url.isEmpty ? null : url;
+  }
+
+  /// URL 미리보기 카드 — 링크/도메인 + 열기. 탭하면 인앱 브라우저로 연다.
+  Widget _urlPreviewCard(String url, Color color) {
+    String host = url;
+    try {
+      host = Uri.parse(url).host;
+    } catch (_) {}
+    return GestureDetector(
+      onTap: () => _openUrl(url),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 240),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.public, size: 18, color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(host,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                Text(url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(Icons.open_in_new, size: 14, color: Colors.grey.shade500),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('링크를 열 수 없습니다.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('링크를 열 수 없습니다.')));
+      }
+    }
   }
 
   Widget _dateHeader(DateTime d, Color color) {
@@ -1283,8 +1674,10 @@ class _Conv {
   String label;           // 표시명(그룹명 또는 닉네임/이메일)
   String? recvGroupPassword; // 수신 그룹(남의 그룹)의 비밀번호 — 수신자 잠금 해제 검증용
   int? recvGroupId;       // 수신 그룹의 id — 멤버가 그룹 대화/공유에 사용
+  final bool isSelf;      // 나와의 대화(로컬 셀프 채팅방)인지
   final List<_ShareItem> items = [];
-  _Conv({required this.key, required this.isGroup, this.groupId, this.email, required this.label});
+  _Conv({required this.key, required this.isGroup, this.groupId, this.email,
+      required this.label, this.isSelf = false});
 
   DateTime get lastAt => items.isEmpty
       ? DateTime(2000)

@@ -20,6 +20,7 @@ import '../services/notification_service.dart';
 import '../services/background_notification_service.dart';
 import '../services/app_icon_badge_service.dart';
 import '../services/file_storage_service.dart';
+import '../services/shared_snapshot_service.dart';
 import '../services/audio_service.dart';
 import '../config/plan_limits.dart';
 import '../services/auth_service.dart';
@@ -1481,6 +1482,130 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 홈 채팅 목록 표시 모드: 'chat'(대화 목록·기본) | 'received'(받은 공유 파일 일자순) | 'sent'(보낸 공유 파일 일자순)
+  // 제목의 [채팅][받음][보냄] 카운트로 전환. 채팅이 기본 선택.
+  String _homeChatView = 'chat';
+  String get homeChatView => _homeChatView;
+  void setHomeChatView(String mode) {
+    if (_homeChatView == mode) return;
+    _homeChatView = mode;
+    notifyListeners();
+  }
+
+  // ── 나와의 대화(로컬 전용 셀프 채팅방) ──
+  // 서버 없이 기기 로컬(SharedPreferences)에만 저장. 여러 개 생성 가능. 대화 key는 'self:{id}'.
+  static const String _selfChatsKey = 'self_chats';
+  List<Map<String, dynamic>> _selfChats = [];
+  List<Map<String, dynamic>> get selfChats => _selfChats;
+  final Map<String, List<Map<String, dynamic>>> _selfChatMsgs = {};
+  List<Map<String, dynamic>> selfChatMessages(String id) => _selfChatMsgs[id] ?? const [];
+
+  Future<void> loadSelfChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_selfChatsKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        _selfChats = (jsonDecode(raw) as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } catch (_) {}
+    }
+    for (final sc in _selfChats) {
+      final id = sc['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      final mraw = prefs.getString('self_chat_msgs_$id');
+      if (mraw != null && mraw.isNotEmpty) {
+        try {
+          _selfChatMsgs[id] = (jsonDecode(mraw) as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        } catch (_) {}
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> createSelfChat() async {
+    const base = '나와의 대화';
+    final names = _selfChats.map((e) => e['name']?.toString() ?? '').toSet();
+    String name = base;
+    int n = 2;
+    while (names.contains(name)) {
+      name = '$base $n';
+      n++;
+    }
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final room = {'id': id, 'name': name, 'createdAt': DateTime.now().toIso8601String()};
+    _selfChats = [..._selfChats, room];
+    _selfChatMsgs[id] = [];
+    await _persistSelfChats();
+    notifyListeners();
+    return room;
+  }
+
+  Future<void> deleteSelfChat(String id) async {
+    _selfChats = _selfChats.where((e) => e['id']?.toString() != id).toList();
+    _selfChatMsgs.remove(id);
+    await _persistSelfChats();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('self_chat_msgs_$id');
+    notifyListeners();
+  }
+
+  Future<void> _persistSelfChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_selfChatsKey, jsonEncode(_selfChats));
+  }
+
+  /// 셀프 채팅방에 메시지(로컬)를 추가한다.
+  Future<void> addSelfChatMessage(String id, String content) async {
+    final list = _selfChatMsgs[id] ?? <Map<String, dynamic>>[];
+    list.add({'content': content, 'sentAt': DateTime.now().toIso8601String()});
+    _selfChatMsgs[id] = list;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('self_chat_msgs_$id', jsonEncode(list));
+    notifyListeners();
+  }
+
+  /// 홈 채팅 목록의 대화방 개수(제목 '채팅' 카운트용). 서버 공유/메시지 + 내 그룹 + 셀프챗을 키로 묶어 계산.
+  int get homeConversationCount {
+    final keys = <String>{};
+    for (final r in _sharesReceived) {
+      final g = (r['groupName']?.toString() ?? '').trim();
+      keys.add(g.isNotEmpty ? 'g:$g' : 'u:${r['senderMemberId']}');
+    }
+    for (final m in _messagesReceived) {
+      final g = (m['groupName']?.toString() ?? '').trim();
+      keys.add(g.isNotEmpty ? 'g:$g' : 'u:${m['senderMemberId']}');
+    }
+    for (final s in _sharesSent) {
+      final g = (s['groupName']?.toString() ?? '').trim();
+      if (g.isNotEmpty) {
+        keys.add('g:$g');
+      } else {
+        final recips = (s['recipients'] as List?) ?? const [];
+        if (recips.isNotEmpty) keys.add('u:${(recips.first as Map)['memberId']}');
+      }
+    }
+    for (final m in _messagesSent) {
+      final g = (m['groupName']?.toString() ?? '').trim();
+      if (g.isNotEmpty) {
+        keys.add('g:$g');
+      } else {
+        final recips = (m['recipients'] as List?) ?? const [];
+        if (recips.isNotEmpty) keys.add('u:${(recips.first as Map)['memberId']}');
+      }
+    }
+    for (final g in _shareGroups) {
+      final name = (g['name']?.toString() ?? '').trim();
+      if (name.isNotEmpty) keys.add('g:$name');
+    }
+    for (final sc in _selfChats) {
+      keys.add('self:${sc['id']}');
+    }
+    return keys.length;
+  }
+
   // 홈(공유) 탭에서 대화방이 열려 있는지 — 열려 있으면 하단 칩 바와 새 채팅 FAB를 숨긴다.
   bool _homeChatOpen = false;
   bool get homeChatOpen => _homeChatOpen;
@@ -1599,6 +1724,33 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return _shareGroups;
   }
 
+  /// 받은 공유의 스냅샷이 없으면 서버에서 다시 내려받아 보관(백필). 반환: 스냅샷 or null.
+  /// 스냅샷 기능 이전에 수락한 공유도 이 경로로 미리보기를 복구할 수 있다(수락·서버 유지 상태일 때).
+  Future<SharedSnapshot?> ensureReceivedSnapshot(Map<String, dynamic> share) async {
+    final deliveryId = (share['deliveryId'] as num?)?.toInt();
+    if (deliveryId == null) return null;
+    final existing = await SharedSnapshotService.instance.findReceived(deliveryId);
+    if (existing != null) return existing;
+    if ((share['status']?.toString() ?? '') != 'accepted') return null; // 수락된 것만 다운로드 가능
+    final token = await _shareToken();
+    if (token == null) return null;
+    final shareId = (share['shareId'] as num?)?.toInt();
+    if (shareId == null) return null;
+    final bytes = await _shareApi.downloadShare(token: token, shareId: shareId);
+    if (bytes == null) return null;
+    return SharedSnapshotService.instance.saveReceived(
+      deliveryId: deliveryId,
+      shareId: shareId,
+      fileName: share['fileName']?.toString() ?? 'shared',
+      fileType: share['fileType']?.toString() ?? 'attachment',
+      contentType: share['contentType']?.toString(),
+      bytes: bytes,
+      sharedAt: share['sharedAt']?.toString(),
+      peer: share['senderMemberId']?.toString() ?? '',
+      message: share['message']?.toString(),
+    );
+  }
+
   /// 파일을 개인(이메일/이름) 또는 그룹에 공유. 반환: {success, message?}
   Future<Map<String, dynamic>> shareFile({
     required String filePath,
@@ -1620,7 +1772,23 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       littenTitle: littenTitle, fileType: fileType, fileName: fileName,
       contentType: contentType, message: message, file: f,
     );
-    if (res['success'] == true) await loadShares();
+    if (res['success'] == true) {
+      // 공유 시점의 원본 내용을 로컬 스냅샷으로 복사 보관(원본 수정/삭제와 무관하게 나중에 확인).
+      final sid = (res['shareId'] as num?)?.toInt();
+      if (sid != null) {
+        try {
+          await SharedSnapshotService.instance.saveSent(
+            shareId: sid, fileName: fileName, fileType: fileType,
+            contentType: contentType, sourcePath: filePath,
+            peer: recipientKey ?? (groupId != null ? 'group:$groupId' : ''),
+            message: message,
+          );
+        } catch (e) {
+          debugPrint('[AppStateProvider] 보낸 공유 스냅샷 보관 실패(무시): $e');
+        }
+      }
+      await loadShares();
+    }
     return res;
   }
 
@@ -1696,6 +1864,22 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       fileName: share['fileName'] as String? ?? 'shared',
       bytes: bytes,
     );
+    // 공유 시점 내용을 로컬 스냅샷으로 별도 보관(발신자 취소·원본 변경과 무관하게 나중에 확인).
+    try {
+      await SharedSnapshotService.instance.saveReceived(
+        deliveryId: deliveryId,
+        shareId: shareId,
+        fileName: share['fileName']?.toString() ?? 'shared',
+        fileType: share['fileType']?.toString() ?? 'attachment',
+        contentType: share['contentType']?.toString(),
+        bytes: bytes,
+        sharedAt: share['sharedAt']?.toString(),
+        peer: share['senderMemberId']?.toString() ?? '',
+        message: share['message']?.toString(),
+      );
+    } catch (e) {
+      debugPrint('[AppStateProvider] 받은 공유 스냅샷 보관 실패(무시): $e');
+    }
     // 발신자 취소 시 이 저장본을 삭제할 수 있도록 (공유 → 로컬파일) 매핑 기록
     await _recordAcceptedShare(share, saved);
     await loadShares();
