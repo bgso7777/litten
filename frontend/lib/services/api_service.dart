@@ -35,6 +35,7 @@ class ApiService {
   static const String _shareGroupsEndpoint = '/litten/note/v1/share-groups';
   static const String _messagesEndpoint = '/litten/note/v1/messages';
   static const String _hiddenConvEndpoint = '/litten/note/v1/hidden-conversations';
+  static const String _selfChatEndpoint = '/litten/note/v1/self-chats';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -1144,6 +1145,120 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] hideConversation - 오류: $e');
       return false;
+    }
+  }
+
+  // ── 나와의 대화(셀프 채팅) 다기기 동기화 ──
+  /// 내 셀프챗 방+항목 조회. 실패 시 null. 각 방: {id, clientId, name, items:[...]}
+  Future<List<Map<String, dynamic>>?> getSelfChats({required String token}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl$_selfChatEndpoint'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['selfChats'] ?? []);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] getSelfChats - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 셀프챗 방 생성/업서트. 반환: {id, clientId, name} or null.
+  Future<Map<String, dynamic>?> createSelfChat(
+      {required String token, required String name, required String clientId}) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl$_selfChatEndpoint'),
+              headers: _getHeaders(token: token),
+              body: jsonEncode({'name': name, 'clientId': clientId}))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data['selfChat'] ?? {});
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] createSelfChat - 오류: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteSelfChat({required String token, required int serverId}) async {
+    try {
+      final res = await http.delete(Uri.parse('$baseUrl$_selfChatEndpoint/$serverId'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] deleteSelfChat - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 셀프챗 텍스트 추가. 반환: {itemId, ...} or null.
+  Future<Map<String, dynamic>?> addSelfChatMessage(
+      {required String token, required int serverId, required String content}) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl$_selfChatEndpoint/$serverId/messages'),
+              headers: _getHeaders(token: token), body: jsonEncode({'content': content}))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data['item'] ?? {});
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] addSelfChatMessage - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 셀프챗 파일 추가(multipart). 반환: {itemId, ...} or null.
+  Future<Map<String, dynamic>?> addSelfChatFile({
+    required String token,
+    required int serverId,
+    required String fileType,
+    required String fileName,
+    String? contentType,
+    required File file,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$_selfChatEndpoint/$serverId/files');
+      final req = http.MultipartRequest('POST', uri)
+        ..headers.addAll(_getHeaders(token: token))
+        ..fields['fileType'] = fileType
+        ..fields['fileName'] = fileName;
+      if (contentType != null) req.fields['contentType'] = contentType;
+      req.files.add(await http.MultipartFile.fromPath('file', file.path,
+          contentType: _parseMediaType(contentType ?? 'application/octet-stream')));
+      final streamed = await req.send().timeout(const Duration(seconds: 60));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data['item'] ?? {});
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] addSelfChatFile - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 셀프챗 파일 다운로드. 반환: bytes or null.
+  Future<List<int>?> downloadSelfChatItem({required String token, required int itemId}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl$_selfChatEndpoint/items/$itemId/download'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 60));
+      if (res.statusCode == 200) return res.bodyBytes;
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] downloadSelfChatItem - 오류: $e');
+      return null;
     }
   }
 

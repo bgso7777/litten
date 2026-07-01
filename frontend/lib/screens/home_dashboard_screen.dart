@@ -655,9 +655,21 @@ class _ShareSectionState extends State<_ShareSection> {
               key: key, isGroup: false, email: myEmail0,
               label: sc['name']?.toString() ?? '나와의 대화', isSelf: true));
       for (final m in appState.selfChatMessages(id)) {
+        final isFile = m['type'] == 'file';
         conv.items.add(_ShareItem(
-            received: false, data: m, at: _parseAt(m['sentAt']),
-            group: '', isMessage: true));
+            received: false,
+            data: isFile
+                ? {
+                    'fileName': m['fileName'],
+                    'fileType': m['fileType'],
+                    'sharedAt': m['sentAt'],
+                    '__selfFile': true,
+                    '__chatId': id,
+                    '__item': m,
+                  }
+                : m,
+            at: _parseAt(m['sentAt']),
+            group: '', isMessage: !isFile));
       }
     }
 
@@ -1167,13 +1179,12 @@ class _ShareSectionState extends State<_ShareSection> {
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
         child: Row(children: [
-          // 파일 공유 — 전체 파일 목록에서 골라 이 대화에 공유(나와의 대화는 로컬 텍스트 전용이라 숨김)
-          if (!c.isSelf)
-            IconButton(
-              icon: Icon(Icons.add_circle_outline, color: color),
-              tooltip: '파일 공유',
-              onPressed: () => _showFileShareSheet(c, groupId, appState),
-            ),
+          // 파일 추가/공유 — 전체 파일 목록에서 골라 이 대화에 추가(나와의 대화는 로컬 첨부).
+          IconButton(
+            icon: Icon(Icons.add_circle_outline, color: color),
+            tooltip: c.isSelf ? '파일 추가' : '파일 공유',
+            onPressed: () => _showFileShareSheet(c, groupId, appState),
+          ),
           Expanded(
             // 하드웨어 Enter → 전송, Shift+Enter → 줄바꿈. 소프트 키보드는 textInputAction.send.
             child: Focus(
@@ -1327,6 +1338,18 @@ class _ShareSectionState extends State<_ShareSection> {
       ),
     ).then((picked) async {
       if (picked is! _FileEntry || !mounted) return;
+      // 나와의 대화 — 서버 공유가 아니라 로컬 셀프챗에 파일 추가(+ 서버 동기화).
+      if (c.isSelf) {
+        _scrollChatToBottom = true;
+        await appState.addSelfChatFile(c.key.substring(5),
+            sourcePath: picked.path, fileName: picked.fileName,
+            fileType: picked.type, contentType: picked.contentType);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('파일을 추가했습니다.')));
+        }
+        return;
+      }
       final res = await appState.shareFile(
         filePath: picked.path,
         fileType: picked.type,
@@ -1343,6 +1366,32 @@ class _ShareSectionState extends State<_ShareSection> {
                 : (res['message']?.toString() ?? '공유 실패'))));
       }
     });
+  }
+
+  /// 셀프챗 파일 항목 미리보기 — 로컬 경로 확보(필요 시 서버 다운로드) 후 스냅샷 뷰어 재사용.
+  Future<void> _openSelfChatFile(_ShareItem it) async {
+    final appState = context.read<AppStateProvider>();
+    final chatId = it.data['__chatId']?.toString() ?? '';
+    final item = it.data['__item'];
+    if (item is! Map<String, dynamic>) return;
+    final path = await appState.ensureSelfChatFileLocal(chatId, item);
+    if (!mounted) return;
+    if (path == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('파일을 열 수 없습니다.')));
+      return;
+    }
+    final snap = SharedSnapshot(
+      key: 'selffile:${item['localId']}',
+      direction: 'sent',
+      fileName: item['fileName']?.toString() ?? 'file',
+      fileType: item['fileType']?.toString() ?? 'attachment',
+      contentType: item['contentType']?.toString(),
+      path: path,
+      sharedAt: item['sentAt']?.toString() ?? '',
+      peer: '나',
+    );
+    await showSharedSnapshot(context, snap);
   }
 
   /// 간결한 말풍선 — 받음=좌측, 보냄=우측. 채팅 메시지는 텍스트, 공유는 아이콘+파일명+시간.
@@ -1384,8 +1433,11 @@ class _ShareSectionState extends State<_ShareSection> {
     final received = it.received;
     final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
     final status = it.data['status']?.toString() ?? '';
+    final isSelfFile = it.data['__selfFile'] == true;
     String? hint;
-    if (received) {
+    if (isSelfFile) {
+      hint = null; // 나와의 대화 파일 — 수락/대기 개념 없음
+    } else if (received) {
       hint = status == 'pending' ? '받기 대기' : status == 'accepted' ? '저장됨' : status == 'rejected' ? '거절됨' : null;
     } else {
       final acc = (it.data['acceptedCount'] as num?)?.toInt() ?? 0;
@@ -1394,8 +1446,8 @@ class _ShareSectionState extends State<_ShareSection> {
     }
     final bubble = GestureDetector(
       // 탭 → 공유 내용(스냅샷) 바로 미리보기. 길게 누르면 부가 동작(수신자 상태·공유 취소 등).
-      onTap: () => _openSharedSnapshot(it),
-      onLongPress: () => _showBubbleActions(it, appState),
+      onTap: () => isSelfFile ? _openSelfChatFile(it) : _openSharedSnapshot(it),
+      onLongPress: isSelfFile ? null : () => _showBubbleActions(it, appState),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 260),
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

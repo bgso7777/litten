@@ -1492,8 +1492,11 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ── 나와의 대화(로컬 전용 셀프 채팅방) ──
-  // 서버 없이 기기 로컬(SharedPreferences)에만 저장. 여러 개 생성 가능. 대화 key는 'self:{id}'.
+  // ── 나와의 대화(셀프 채팅방) — 로컬 우선 + 서버 동기화(다기기), 텍스트·파일 지원 ──
+  // 방: {id(로컬), serverId?, name, createdAt}. 항목(_selfChatMsgs[id]):
+  //   텍스트 {type:'text', content, sentAt, serverItemId?}
+  //   파일   {type:'file', localId, fileName, fileType, contentType, path, sentAt, serverItemId?}
+  // 대화 key는 'self:{id}'. 서버 미배포 시엔 로컬만으로도 동작(서버 호출은 best-effort).
   static const String _selfChatsKey = 'self_chats';
   List<Map<String, dynamic>> _selfChats = [];
   List<Map<String, dynamic>> get selfChats => _selfChats;
@@ -1523,6 +1526,106 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     notifyListeners();
+    await _syncSelfChatsWithServer(); // 서버 배포 시 다기기 동기화(미배포면 조용히 무시)
+  }
+
+  /// 로컬 방/항목을 서버로 push하고, 서버의 방/항목을 pull해 병합한다(best-effort).
+  Future<void> _syncSelfChatsWithServer() async {
+    final token = await _shareToken();
+    if (token == null) return;
+    // (a) serverId 없는 로컬 방 생성(clientId=로컬 id로 매칭)
+    for (final room in _selfChats) {
+      if (room['serverId'] != null) continue;
+      final r = await _shareApi.createSelfChat(
+          token: token, name: room['name']?.toString() ?? '나와의 대화',
+          clientId: room['id'].toString());
+      if (r != null && r['id'] != null) room['serverId'] = (r['id'] as num).toInt();
+    }
+    // (b) serverItemId 없는 로컬 항목 push
+    for (final room in _selfChats) {
+      final sid = (room['serverId'] as num?)?.toInt();
+      if (sid == null) continue;
+      final id = room['id'].toString();
+      for (final it in _selfChatMsgs[id] ?? const []) {
+        if (it['serverItemId'] != null) continue;
+        if (it['type'] == 'text') {
+          final r = await _shareApi.addSelfChatMessage(
+              token: token, serverId: sid, content: it['content']?.toString() ?? '');
+          if (r != null && r['itemId'] != null) it['serverItemId'] = (r['itemId'] as num).toInt();
+        } else if (it['type'] == 'file') {
+          final f = File(it['path']?.toString() ?? '');
+          if (await f.exists()) {
+            final r = await _shareApi.addSelfChatFile(
+                token: token, serverId: sid,
+                fileType: it['fileType']?.toString() ?? 'attachment',
+                fileName: it['fileName']?.toString() ?? 'file',
+                contentType: it['contentType']?.toString(), file: f);
+            if (r != null && r['itemId'] != null) it['serverItemId'] = (r['itemId'] as num).toInt();
+          }
+        }
+      }
+    }
+    // (c) 서버 pull → 다른 기기가 만든 방/항목 병합
+    final server = await _shareApi.getSelfChats(token: token);
+    if (server != null) {
+      for (final srv in server) {
+        final clientId = srv['clientId']?.toString() ?? '';
+        final serverId = (srv['id'] as num?)?.toInt();
+        Map<String, dynamic>? local;
+        if (clientId.isNotEmpty) {
+          for (final e in _selfChats) {
+            if (e['id'].toString() == clientId) { local = e; break; }
+          }
+        }
+        if (local != null) {
+          local['serverId'] = serverId;
+          if (srv['name'] != null) local['name'] = srv['name'];
+          _mergeServerSelfItems(local['id'].toString(), (srv['items'] as List?) ?? const []);
+        } else {
+          final newId = clientId.isNotEmpty ? clientId : 'srv$serverId';
+          if (_selfChats.any((e) => e['id'].toString() == newId)) continue;
+          _selfChats = [..._selfChats, {
+            'id': newId, 'serverId': serverId,
+            'name': srv['name'] ?? '나와의 대화',
+            'createdAt': DateTime.now().toIso8601String(),
+          }];
+          _selfChatMsgs[newId] = [];
+          _mergeServerSelfItems(newId, (srv['items'] as List?) ?? const []);
+        }
+      }
+    }
+    await _persistSelfChats();
+    for (final room in _selfChats) {
+      await _persistSelfChatMsgs(room['id'].toString());
+    }
+    notifyListeners();
+  }
+
+  void _mergeServerSelfItems(String localId, List serverItems) {
+    final items = _selfChatMsgs[localId] ?? <Map<String, dynamic>>[];
+    final existing = items
+        .map((e) => (e['serverItemId'] as num?)?.toInt())
+        .whereType<int>()
+        .toSet();
+    for (final si in serverItems) {
+      final m = Map<String, dynamic>.from(si as Map);
+      final serverItemId = (m['itemId'] as num?)?.toInt();
+      if (serverItemId == null || existing.contains(serverItemId)) continue;
+      final at = (m['createdAt']?.toString() ?? '').replaceFirst(' ', 'T');
+      if (m['itemType'] == 'text') {
+        items.add({'type': 'text', 'content': m['content'], 'sentAt': at, 'serverItemId': serverItemId});
+      } else {
+        items.add({
+          'type': 'file', 'localId': 'srv$serverItemId',
+          'fileName': m['fileName'], 'fileType': m['fileType'],
+          'contentType': m['contentType'], 'path': '', 'sentAt': at,
+          'serverItemId': serverItemId,
+        });
+      }
+    }
+    items.sort((a, b) =>
+        (a['sentAt']?.toString() ?? '').compareTo(b['sentAt']?.toString() ?? ''));
+    _selfChatMsgs[localId] = items;
   }
 
   Future<Map<String, dynamic>> createSelfChat() async {
@@ -1535,26 +1638,118 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       n++;
     }
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final room = {'id': id, 'name': name, 'createdAt': DateTime.now().toIso8601String()};
+    final room = <String, dynamic>{'id': id, 'name': name, 'createdAt': DateTime.now().toIso8601String()};
     _selfChats = [..._selfChats, room];
     _selfChatMsgs[id] = [];
     await _persistSelfChats();
     notifyListeners();
+    final token = await _shareToken();
+    if (token != null) {
+      final r = await _shareApi.createSelfChat(token: token, name: name, clientId: id);
+      if (r != null && r['id'] != null) {
+        room['serverId'] = (r['id'] as num).toInt();
+        await _persistSelfChats();
+      }
+    }
     return room;
   }
 
   Future<void> deleteSelfChat(String id) async {
+    Map<String, dynamic>? room;
+    for (final e in _selfChats) {
+      if (e['id'].toString() == id) { room = e; break; }
+    }
+    final serverId = (room?['serverId'] as num?)?.toInt();
     _selfChats = _selfChats.where((e) => e['id']?.toString() != id).toList();
     _selfChatMsgs.remove(id);
     await _persistSelfChats();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('self_chat_msgs_$id');
     notifyListeners();
+    if (serverId != null) {
+      final token = await _shareToken();
+      if (token != null) await _shareApi.deleteSelfChat(token: token, serverId: serverId);
+    }
+  }
+
+  /// 셀프챗에 파일 추가 — 원본을 로컬로 복사 후 항목 추가, 서버에도 best-effort 업로드.
+  Future<void> addSelfChatFile(String id,
+      {required String sourcePath,
+      required String fileName,
+      required String fileType,
+      String? contentType}) async {
+    final localId = DateTime.now().millisecondsSinceEpoch.toString();
+    final baseDir = await getApplicationDocumentsDirectory();
+    final dir = Directory('${baseDir.path}/self_chat_files/$id');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final dot = fileName.lastIndexOf('.');
+    final ext = (dot > 0 && dot < fileName.length - 1) ? fileName.substring(dot) : '';
+    final destPath = '${dir.path}/$localId$ext';
+    try {
+      await File(sourcePath).copy(destPath);
+    } catch (e) {
+      debugPrint('[AppStateProvider] 셀프챗 파일 복사 실패: $e');
+      return;
+    }
+    final item = <String, dynamic>{
+      'type': 'file', 'localId': localId, 'fileName': fileName,
+      'fileType': fileType, 'contentType': contentType, 'path': destPath,
+      'sentAt': DateTime.now().toIso8601String(),
+    };
+    final items = _selfChatMsgs[id] ?? <Map<String, dynamic>>[];
+    items.add(item);
+    _selfChatMsgs[id] = items;
+    await _persistSelfChatMsgs(id);
+    notifyListeners();
+    Map<String, dynamic>? room;
+    for (final e in _selfChats) {
+      if (e['id'].toString() == id) { room = e; break; }
+    }
+    final serverId = (room?['serverId'] as num?)?.toInt();
+    final token = await _shareToken();
+    if (serverId != null && token != null) {
+      final r = await _shareApi.addSelfChatFile(
+          token: token, serverId: serverId, fileType: fileType,
+          fileName: fileName, contentType: contentType, file: File(destPath));
+      if (r != null && r['itemId'] != null) {
+        item['serverItemId'] = (r['itemId'] as num).toInt();
+        await _persistSelfChatMsgs(id);
+      }
+    }
+  }
+
+  /// 셀프챗 파일 항목의 로컬 경로 확보(없으면 서버에서 다운로드). 미리보기 직전 호출.
+  Future<String?> ensureSelfChatFileLocal(String chatId, Map<String, dynamic> item) async {
+    final path = item['path']?.toString() ?? '';
+    if (path.isNotEmpty && await File(path).exists()) return path;
+    final serverItemId = (item['serverItemId'] as num?)?.toInt();
+    if (serverItemId == null) return null;
+    final token = await _shareToken();
+    if (token == null) return null;
+    final bytes = await _shareApi.downloadSelfChatItem(token: token, itemId: serverItemId);
+    if (bytes == null) return null;
+    final baseDir = await getApplicationDocumentsDirectory();
+    final dir = Directory('${baseDir.path}/self_chat_files/$chatId');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final fname = item['fileName']?.toString() ?? '';
+    final dot = fname.lastIndexOf('.');
+    final ext = (dot > 0 && dot < fname.length - 1) ? fname.substring(dot) : '';
+    final localId = item['localId']?.toString() ?? serverItemId.toString();
+    final destPath = '${dir.path}/$localId$ext';
+    await File(destPath).writeAsBytes(bytes, flush: true);
+    item['path'] = destPath;
+    await _persistSelfChatMsgs(chatId);
+    return destPath;
   }
 
   Future<void> _persistSelfChats() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_selfChatsKey, jsonEncode(_selfChats));
+  }
+
+  Future<void> _persistSelfChatMsgs(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('self_chat_msgs_$id', jsonEncode(_selfChatMsgs[id] ?? const []));
   }
 
   // ── 대화 숨김('방 나가기') — 로컬 캐시 + 서버 동기화(다기기) ──
@@ -1616,14 +1811,29 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         jsonEncode(_hiddenConvAt.map((k, v) => MapEntry(k, v.toIso8601String()))));
   }
 
-  /// 셀프 채팅방에 메시지(로컬)를 추가한다.
+  /// 셀프 채팅방에 텍스트 메시지를 추가한다(로컬 즉시 + 서버 best-effort).
   Future<void> addSelfChatMessage(String id, String content) async {
+    final item = <String, dynamic>{
+      'type': 'text', 'content': content, 'sentAt': DateTime.now().toIso8601String(),
+    };
     final list = _selfChatMsgs[id] ?? <Map<String, dynamic>>[];
-    list.add({'content': content, 'sentAt': DateTime.now().toIso8601String()});
+    list.add(item);
     _selfChatMsgs[id] = list;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('self_chat_msgs_$id', jsonEncode(list));
+    await _persistSelfChatMsgs(id);
     notifyListeners();
+    Map<String, dynamic>? room;
+    for (final e in _selfChats) {
+      if (e['id'].toString() == id) { room = e; break; }
+    }
+    final serverId = (room?['serverId'] as num?)?.toInt();
+    final token = await _shareToken();
+    if (serverId != null && token != null) {
+      final r = await _shareApi.addSelfChatMessage(token: token, serverId: serverId, content: content);
+      if (r != null && r['itemId'] != null) {
+        item['serverItemId'] = (r['itemId'] as num).toInt();
+        await _persistSelfChatMsgs(id);
+      }
+    }
   }
 
   static DateTime _atOf(dynamic v) {

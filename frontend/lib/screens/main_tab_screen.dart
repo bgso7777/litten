@@ -265,6 +265,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       appState.requestChipScrollReset();
     }
 
+    // 홈(채팅) 탭 진입 시 — 제목 카운트/칩·본문을 서버에서 새로고침(다른 탭 갔다 오면 최신 반영).
+    if (index == _homeTab && appState.selectedTabIndex != _homeTab) {
+      appState.loadShares(); // 내부에서 loadHiddenConvs 포함
+      appState.loadSelfChats();
+    }
+
     // ⭐ 가운데 +(노트) 탭 → 노트로 전환만. 파일 생성은 노트 안의 + 버튼으로.
     if (index == _createTab) {
       appState.syncNoteTab(); // 노트 진입 시 클라우드 동기화
