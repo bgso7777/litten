@@ -320,7 +320,8 @@ class ShareTabTitle extends StatelessWidget {
       builder: (context, app, _) {
         final chatN = app.homeConversationCount;
         final inN = app.sharesReceived.length;
-        final outN = app.sharesSent.length;
+        // '공유한' 카운트 = 서버로 보낸 공유 + 나와의 대화에 추가한 파일.
+        final outN = app.sharesSent.length + app.selfChatFileCount;
         // 표시 모드 전환(라디오식): 채팅(기본 선택) | 공유받음 | 공유한.
         // 선택된 것만 밝게(active) 보이고, 받음/보냄은 선택 시 공유 파일을 일자순 리스트로 보여준다.
         final mode = app.homeChatView;
@@ -730,15 +731,67 @@ class _ShareSectionState extends State<_ShareSection> {
     );
   }
 
-  /// 공유받음/공유한 모드 — 파일 공유 건을 공유 일자순(최신→과거)으로 나열. 탭하면 스냅샷 미리보기.
+  /// 공유받음/공유한 모드 — 파일 건을 일자순(최신→과거)으로 나열. 탭하면 미리보기.
+  /// '공유한' 모드에는 나와의 대화에 추가한 파일도 함께 포함(제목 카운트와 일치).
   Widget _buildSharedFileList(String mode, AppStateProvider appState, Color color) {
     final received = mode == 'received';
+    // 각 행: {fileType, fname, subtitle, dateIso, onTap}
+    final rows = <Map<String, dynamic>>[];
     final raw = received ? appState.sharesReceived : appState.sharesSent;
-    final items = [...raw]
-      ..sort((a, b) => _parseAt(b['sharedAt']).compareTo(_parseAt(a['sharedAt'])));
+    for (final s in raw) {
+      final it = _ShareItem(
+          received: received, data: s, at: _parseAt(s['sharedAt']),
+          group: (s['groupName']?.toString() ?? '').trim());
+      String peer;
+      if (received) {
+        peer = s['senderName']?.toString().isNotEmpty == true
+            ? s['senderName'].toString()
+            : (s['senderMemberId']?.toString() ?? '');
+      } else {
+        final g = (s['groupName']?.toString() ?? '').trim();
+        if (g.isNotEmpty) {
+          peer = g;
+        } else {
+          final recips = (s['recipients'] as List?) ?? const [];
+          peer = recips.isNotEmpty
+              ? ((recips.first as Map)['memberId']?.toString() ?? '')
+              : '';
+        }
+      }
+      rows.add({
+        'fileType': s['fileType'],
+        'fname': _stripShareExt(s['fileName']?.toString() ?? ''),
+        'subtitle': '${received ? '보낸이' : '받는이'}: $peer',
+        'dateIso': s['sharedAt']?.toString() ?? '',
+        'onTap': () => _openSharedSnapshot(it),
+      });
+    }
+    // 공유한 모드 — 나와의 대화 파일 포함
+    if (!received) {
+      for (final f in appState.selfChatFiles) {
+        final item = f['item'] as Map<String, dynamic>;
+        final chatId = f['chatId']?.toString() ?? '';
+        final selfIt = _ShareItem(
+            received: false,
+            data: {
+              'fileName': item['fileName'], 'fileType': item['fileType'],
+              'sharedAt': item['sentAt'], '__selfFile': true,
+              '__chatId': chatId, '__item': item,
+            },
+            at: _parseAt(item['sentAt']), group: '');
+        rows.add({
+          'fileType': item['fileType'],
+          'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
+          'subtitle': '나와의 대화: ${f['chatName']}',
+          'dateIso': item['sentAt']?.toString() ?? '',
+          'onTap': () => _openSelfChatFile(selfIt),
+        });
+      }
+    }
+    rows.sort((a, b) => _parseAt(b['dateIso']).compareTo(_parseAt(a['dateIso'])));
     return RefreshIndicator(
       onRefresh: () => appState.loadShares(),
-      child: items.isEmpty
+      child: rows.isEmpty
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
@@ -752,42 +805,22 @@ class _ShareSectionState extends State<_ShareSection> {
           : ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 4, bottom: 8),
-              itemCount: items.length,
+              itemCount: rows.length,
               separatorBuilder: (_, __) =>
                   Divider(height: 1, color: color.withValues(alpha: 0.08)),
               itemBuilder: (_, i) {
-                final s = items[i];
-                final it = _ShareItem(
-                    received: received, data: s, at: _parseAt(s['sharedAt']),
-                    group: (s['groupName']?.toString() ?? '').trim());
-                final fname = _stripShareExt(s['fileName']?.toString() ?? '');
-                // 상대 표시: 받은 것=보낸이, 보낸 것=그룹명/수신자
-                String peer;
-                if (received) {
-                  peer = s['senderName']?.toString().isNotEmpty == true
-                      ? s['senderName'].toString()
-                      : (s['senderMemberId']?.toString() ?? '');
-                } else {
-                  final g = (s['groupName']?.toString() ?? '').trim();
-                  if (g.isNotEmpty) {
-                    peer = g;
-                  } else {
-                    final recips = (s['recipients'] as List?) ?? const [];
-                    peer = recips.isNotEmpty
-                        ? ((recips.first as Map)['memberId']?.toString() ?? '')
-                        : '';
-                  }
-                }
+                final r = rows[i];
                 return ListTile(
-                  leading: Icon(_shareFileTypeIcon(s['fileType']?.toString()), color: color),
-                  title: Text(fname, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString()), color: color),
+                  title: Text(r['fname']?.toString() ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  subtitle: Text('${received ? '보낸이' : '받는이'}: $peer',
+                  subtitle: Text(r['subtitle']?.toString() ?? '',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  trailing: Text(_shareWhen(s['sharedAt']),
+                  trailing: Text(_shareWhen(r['dateIso']),
                       style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                  onTap: () => _openSharedSnapshot(it),
+                  onTap: r['onTap'] as VoidCallback,
                 );
               },
             ),

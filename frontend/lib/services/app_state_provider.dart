@@ -1503,6 +1503,34 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   final Map<String, List<Map<String, dynamic>>> _selfChatMsgs = {};
   List<Map<String, dynamic>> selfChatMessages(String id) => _selfChatMsgs[id] ?? const [];
 
+  /// 나와의 대화에 추가한 파일 총 개수 — 제목 '공유한(↑)' 카운트에 합산.
+  int get selfChatFileCount {
+    int n = 0;
+    for (final sc in _selfChats) {
+      final id = sc['id']?.toString() ?? '';
+      for (final it in _selfChatMsgs[id] ?? const []) {
+        if (it['type'] == 'file') n++;
+      }
+    }
+    return n;
+  }
+
+  /// 나와의 대화 파일 항목들을 (방정보 포함) 평면 리스트로 — '공유한' 모드 목록에 함께 표시.
+  /// 각 원소: {chatId, chatName, item}
+  List<Map<String, dynamic>> get selfChatFiles {
+    final list = <Map<String, dynamic>>[];
+    for (final sc in _selfChats) {
+      final id = sc['id']?.toString() ?? '';
+      final name = sc['name']?.toString() ?? '나와의 대화';
+      for (final it in _selfChatMsgs[id] ?? const []) {
+        if (it['type'] == 'file') {
+          list.add({'chatId': id, 'chatName': name, 'item': it});
+        }
+      }
+    }
+    return list;
+  }
+
   Future<void> loadSelfChats() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_selfChatsKey);
