@@ -217,6 +217,28 @@ class SharedSnapshotService {
     return snap;
   }
 
+  /// 주어진 키들의 스냅샷(파일 + 인덱스)을 삭제한다. 대화방 나가기/삭제 시 파일 정리용.
+  Future<void> deleteByKeys(Iterable<String> keys) async {
+    final target = keys.toSet();
+    if (target.isEmpty) return;
+    final list = await loadAll();
+    final remain = <SharedSnapshot>[];
+    for (final s in list) {
+      if (target.contains(s.key)) {
+        try {
+          final f = File(s.path);
+          if (await f.exists()) await f.delete();
+        } catch (e) {
+          debugPrint('[SharedSnapshotService] 파일 삭제 실패(무시): ${s.path} - $e');
+        }
+      } else {
+        remain.add(s);
+      }
+    }
+    await _saveIndex(remain);
+    debugPrint('[SharedSnapshotService] 스냅샷 삭제 ${list.length - remain.length}건: $target');
+  }
+
   Future<SharedSnapshot?> findByKey(String key) async {
     final list = await loadAll();
     for (final s in list) {

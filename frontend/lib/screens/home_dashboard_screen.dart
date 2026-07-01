@@ -13,6 +13,7 @@ import '../services/shared_snapshot_service.dart';
 import '../widgets/share_compose_dialog.dart';
 import '../widgets/shared_snapshot_viewer.dart';
 import '../widgets/common/tab_count_title.dart';
+import '../widgets/common/round_chat_bubble_icon.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
@@ -326,6 +327,7 @@ class ShareTabTitle extends StatelessWidget {
         return TabCountTitle([
           [
             TabCount(Icons.chat_bubble_outline, chatN,
+                iconWidget: RoundChatBubbleIcon(filled: mode == 'chat', size: 20),
                 active: mode == 'chat',
                 onTap: () => app.setHomeChatView('chat')),
             TabCount(Icons.download, inN,
@@ -423,17 +425,34 @@ class _ShareSectionState extends State<_ShareSection> {
     });
   }
 
-  /// 방나가기 — 나와의 대화는 삭제, 그 외는 숨김(서버 동기화 · 새 활동이 오면 다시 보임).
+  /// 방나가기/삭제 — 해당 대화의 공유 파일(보관 스냅샷 + 목록 항목)을 모두 정리한다.
+  /// 나와의 대화는 방 자체 삭제, 그 외는 숨김(서버 동기화 · 새 활동이 오면 다시 보임).
   Future<void> _leaveConv(_Conv c) async {
     final appState = context.read<AppStateProvider>();
     final isSelf = c.isSelf;
+    // 이 대화에 속한 공유 파일 식별 (메시지 제외).
+    final deliveryIds = <int>[];
+    final shareIds = <int>[];
+    for (final it in c.items) {
+      if (it.isMessage) continue;
+      if (it.received) {
+        final d = (it.data['deliveryId'] as num?)?.toInt();
+        if (d != null) deliveryIds.add(d);
+      } else {
+        final s = (it.data['shareId'] as num?)?.toInt();
+        if (s != null) shareIds.add(s);
+      }
+    }
+    final fileCount = deliveryIds.length + shareIds.length;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isSelf ? '대화 삭제' : '방 나가기', style: const TextStyle(fontSize: 16)),
         content: Text(isSelf
             ? '"${c.label}"을(를) 삭제할까요? 이 안의 내용도 함께 삭제됩니다.'
-            : '"${c.label}" 대화를 목록에서 숨길까요? 새 메시지·공유가 오면 다시 표시됩니다.'),
+            : '"${c.label}" 대화에서 나갈까요?'
+                '${fileCount > 0 ? '\n이 대화에 공유된 파일 $fileCount개도 목록에서 삭제됩니다.' : ''}'
+                '\n(새 메시지·공유가 오면 다시 표시됩니다.)'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
           TextButton(
@@ -444,6 +463,20 @@ class _ShareSectionState extends State<_ShareSection> {
       ),
     );
     if (ok != true || !mounted) return;
+    // 1) 보관된 스냅샷(공유 시점 복사본) 삭제
+    final snapKeys = [
+      ...deliveryIds.map((d) => 'recv:$d'),
+      ...shareIds.map((s) => 'sent:$s'),
+    ];
+    await SharedSnapshotService.instance.deleteByKeys(snapKeys);
+    // 2) 공유 항목을 내 목록에서 제거(받은=dismiss, 보낸=로컬 숨김) → 카운트도 함께 줄어듦
+    for (final d in deliveryIds) {
+      await appState.dismissReceivedShare(d);
+    }
+    for (final s in shareIds) {
+      await appState.dismissSentShare(s);
+    }
+    // 3) 방 자체 처리
     if (isSelf) {
       await appState.deleteSelfChat(c.key.substring(5));
     } else {
@@ -749,41 +782,8 @@ class _ShareSectionState extends State<_ShareSection> {
     );
   }
 
-  /// + 버튼 진입점 — '나와의 대화'(즉시 생성) 또는 '새 채팅'(다른 사람/그룹) 선택.
-  void startNewChat() => _newChatMenu();
-
-  /// + 선택 시트: 나와의 대화(로컬 셀프 채팅, 여러 개 가능) / 새 채팅(1:1·그룹).
-  Future<void> _newChatMenu() async {
-    final appState = context.read<AppStateProvider>();
-    final color = Theme.of(context).primaryColor;
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: Icon(Icons.person, color: color),
-            title: const Text('나와의 대화'),
-            subtitle: const Text('나 혼자 쓰는 채팅방 (여러 개 만들 수 있어요)',
-                style: TextStyle(fontSize: 11)),
-            onTap: () => Navigator.pop(ctx, 'self'),
-          ),
-          ListTile(
-            leading: Icon(Icons.chat_bubble_outline, color: color),
-            title: const Text('새 채팅'),
-            subtitle: const Text('다른 사람 또는 그룹', style: TextStyle(fontSize: 11)),
-            onTap: () => Navigator.pop(ctx, 'new'),
-          ),
-        ]),
-      ),
-    );
-    if (choice == null || !mounted) return;
-    if (choice == 'self') {
-      final room = await appState.createSelfChat();
-      if (mounted) _openConv('self:${room['id']}');
-    } else if (choice == 'new') {
-      await _startNewChat();
-    }
-  }
+  /// + 버튼 진입점 — 새 채팅 팝업(1:1 / 그룹 / 나).
+  void startNewChat() => _startNewChat();
 
   Future<void> _startNewChat() async {
     final ctrl = TextEditingController();
@@ -793,7 +793,7 @@ class _ShareSectionState extends State<_ShareSection> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => DefaultTabController(
-        length: 2,
+        length: 3,
         child: AlertDialog(
           contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           title: const Text('새 채팅', style: TextStyle(fontSize: 16)),
@@ -806,7 +806,7 @@ class _ShareSectionState extends State<_ShareSection> {
                   labelColor: color,
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: color,
-                  tabs: const [Tab(text: '1:1'), Tab(text: '그룹')],
+                  tabs: const [Tab(text: '1:1'), Tab(text: '그룹'), Tab(text: '나')],
                 ),
                 Expanded(
                   child: TabBarView(
@@ -878,6 +878,26 @@ class _ShareSectionState extends State<_ShareSection> {
                           ],
                         ),
                       ),
+                      // 나 탭 — 나와의 대화(로컬 셀프 채팅) 만들기. 여러 개 가능.
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('나 혼자 쓰는 채팅방이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => Navigator.pop(ctx, '__selfchat__'),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: color, foregroundColor: Colors.white),
+                              icon: const Icon(Icons.person, size: 18),
+                              label: const Text('나와의 대화'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -895,6 +915,11 @@ class _ShareSectionState extends State<_ShareSection> {
       // 그룹 생성/멤버 관리 다이얼로그 → 생성 후 목록 갱신(빈 그룹도 대화방으로 노출)
       await showShareGroupManageDialog(context);
       if (mounted) context.read<AppStateProvider>().reloadShareGroups();
+      return;
+    }
+    if (result == '__selfchat__') {
+      final room = await appState.createSelfChat();
+      if (mounted) _openConv('self:${room['id']}');
       return;
     }
     _openConv(result);

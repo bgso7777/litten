@@ -1626,43 +1626,57 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// 홈 채팅 목록의 대화방 개수(제목 '채팅' 카운트용). 서버 공유/메시지 + 내 그룹 + 셀프챗을 키로 묶어 계산.
+  static DateTime _atOf(dynamic v) {
+    final s = (v?.toString() ?? '').replaceFirst(' ', 'T');
+    return DateTime.tryParse(s) ?? DateTime(2000);
+  }
+
+  /// 홈 채팅 목록의 '보이는' 대화방 개수(제목 '채팅' 카운트용).
+  /// 서버 공유/메시지 + 내 그룹 + 셀프챗을 키로 묶고, 방나가기(숨김)된 대화는 제외해 실제 목록과 일치시킨다.
   int get homeConversationCount {
-    final keys = <String>{};
+    final lastAt = <String, DateTime>{};
+    void add(String key, DateTime t) {
+      final cur = lastAt[key];
+      if (cur == null || t.isAfter(cur)) lastAt[key] = t;
+    }
     for (final r in _sharesReceived) {
       final g = (r['groupName']?.toString() ?? '').trim();
-      keys.add(g.isNotEmpty ? 'g:$g' : 'u:${r['senderMemberId']}');
+      add(g.isNotEmpty ? 'g:$g' : 'u:${r['senderMemberId']}', _atOf(r['sharedAt']));
     }
     for (final m in _messagesReceived) {
       final g = (m['groupName']?.toString() ?? '').trim();
-      keys.add(g.isNotEmpty ? 'g:$g' : 'u:${m['senderMemberId']}');
+      add(g.isNotEmpty ? 'g:$g' : 'u:${m['senderMemberId']}', _atOf(m['sentAt']));
     }
     for (final s in _sharesSent) {
       final g = (s['groupName']?.toString() ?? '').trim();
       if (g.isNotEmpty) {
-        keys.add('g:$g');
+        add('g:$g', _atOf(s['sharedAt']));
       } else {
         final recips = (s['recipients'] as List?) ?? const [];
-        if (recips.isNotEmpty) keys.add('u:${(recips.first as Map)['memberId']}');
+        if (recips.isNotEmpty) add('u:${(recips.first as Map)['memberId']}', _atOf(s['sharedAt']));
       }
     }
     for (final m in _messagesSent) {
       final g = (m['groupName']?.toString() ?? '').trim();
       if (g.isNotEmpty) {
-        keys.add('g:$g');
+        add('g:$g', _atOf(m['sentAt']));
       } else {
         final recips = (m['recipients'] as List?) ?? const [];
-        if (recips.isNotEmpty) keys.add('u:${(recips.first as Map)['memberId']}');
+        if (recips.isNotEmpty) add('u:${(recips.first as Map)['memberId']}', _atOf(m['sentAt']));
       }
     }
     for (final g in _shareGroups) {
       final name = (g['name']?.toString() ?? '').trim();
-      if (name.isNotEmpty) keys.add('g:$name');
+      if (name.isNotEmpty) add('g:$name', DateTime(2000));
     }
     for (final sc in _selfChats) {
-      keys.add('self:${sc['id']}');
+      add('self:${sc['id']}', DateTime(2000));
     }
-    return keys.length;
+    int n = 0;
+    lastAt.forEach((k, t) {
+      if (!isConversationHidden(k, t)) n++;
+    });
+    return n;
   }
 
   // 홈(공유) 탭에서 대화방이 열려 있는지 — 열려 있으면 하단 칩 바와 새 채팅 FAB를 숨긴다.
@@ -1722,7 +1736,12 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           .where((r) => !dismissed.contains((r['deliveryId'] as num?)?.toInt()))
           .toList();
     }
-    if (sent != null) _sharesSent = sent;
+    if (sent != null) {
+      final dismissedSent = await _loadDismissedSent(); // 내 목록에서 숨긴 보낸 공유 제외
+      _sharesSent = sent
+          .where((s) => !dismissedSent.contains((s['shareId'] as num?)?.toInt()))
+          .toList();
+    }
     _shareGroups = await _shareApi.getGroups(token: token);
     // 채팅 메시지도 함께 로드(비실시간 — 홈 진입/당겨서 새로고침 시 갱신)
     final msgR = await _shareApi.getMessagesReceived(token: token);
@@ -1772,6 +1791,30 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         _dismissedSharesKey, set.map((e) => e.toString()).toList());
     _sharesReceived = _sharesReceived
         .where((r) => (r['deliveryId'] as num?)?.toInt() != deliveryId)
+        .toList();
+    notifyListeners();
+  }
+
+  // 보낸 공유 중 사용자가 내 목록에서 삭제(숨김)한 shareId 집합 (로컬 전용 — 수신자 사본엔 영향 없음)
+  static const String _dismissedSentKey = 'dismissed_sent_shares';
+
+  Future<Set<int>> _loadDismissedSent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_dismissedSentKey) ?? [])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toSet();
+  }
+
+  /// 보낸 공유를 내 목록에서 삭제(숨김) — 로컬 전용. 서버/수신자 사본은 유지.
+  Future<void> dismissSentShare(int shareId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final set = await _loadDismissedSent();
+    set.add(shareId);
+    await prefs.setStringList(
+        _dismissedSentKey, set.map((e) => e.toString()).toList());
+    _sharesSent = _sharesSent
+        .where((s) => (s['shareId'] as num?)?.toInt() != shareId)
         .toList();
     notifyListeners();
   }
