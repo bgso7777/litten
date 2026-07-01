@@ -34,6 +34,7 @@ class ApiService {
   static const String _sharesEndpoint = '/litten/note/v1/shares';
   static const String _shareGroupsEndpoint = '/litten/note/v1/share-groups';
   static const String _messagesEndpoint = '/litten/note/v1/messages';
+  static const String _hiddenConvEndpoint = '/litten/note/v1/hidden-conversations';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -1110,6 +1111,39 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] _getMessageList - 오류: $e');
       return null;
+    }
+  }
+
+  // ── 대화 숨김('방 나가기') 다기기 동기화 ──
+  /// 내 숨김 대화 목록. 실패 시 null. 반환 각 항목: {convKey, hiddenAt}
+  Future<List<Map<String, dynamic>>?> getHiddenConversations({required String token}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl$_hiddenConvEndpoint'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['hidden'] ?? []);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] getHiddenConversations - 오류: $e');
+      return null;
+    }
+  }
+
+  /// 대화 숨김 등록(방 나가기). 성공 여부 반환.
+  Future<bool> hideConversation({required String token, required String convKey}) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl$_hiddenConvEndpoint'),
+              headers: _getHeaders(token: token), body: jsonEncode({'convKey': convKey}))
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] hideConversation - 오류: $e');
+      return false;
     }
   }
 

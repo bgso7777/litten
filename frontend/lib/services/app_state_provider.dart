@@ -1557,6 +1557,65 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setString(_selfChatsKey, jsonEncode(_selfChats));
   }
 
+  // ── 대화 숨김('방 나가기') — 로컬 캐시 + 서버 동기화(다기기) ──
+  static const String _convHiddenKey = 'conv_hidden_at';
+  final Map<String, DateTime> _hiddenConvAt = {};
+  Map<String, DateTime> get hiddenConvAt => _hiddenConvAt;
+
+  /// 대화가 현재 숨김 상태인지(최신 활동이 숨긴 시각 이하일 때만). 새 활동이 오면 다시 보인다.
+  bool isConversationHidden(String convKey, DateTime lastAt) {
+    final h = _hiddenConvAt[convKey];
+    return h != null && !lastAt.isAfter(h);
+  }
+
+  /// 로컬 캐시 로드 후 서버 목록과 병합(키별 더 최신 hiddenAt 채택). 앱 시작/새로고침 시 호출.
+  Future<void> loadHiddenConvs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_convHiddenKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        m.forEach((k, v) {
+          final dt = DateTime.tryParse(v.toString());
+          if (dt != null) _hiddenConvAt[k] = dt;
+        });
+      } catch (_) {}
+    }
+    final token = await _shareToken();
+    if (token != null) {
+      final server = await _shareApi.getHiddenConversations(token: token);
+      if (server != null) {
+        for (final h in server) {
+          final key = h['convKey']?.toString() ?? '';
+          if (key.isEmpty) continue;
+          final dt = DateTime.tryParse(h['hiddenAt']?.toString() ?? '');
+          if (dt == null) continue;
+          final cur = _hiddenConvAt[key];
+          if (cur == null || dt.isAfter(cur)) _hiddenConvAt[key] = dt; // 더 최신 채택
+        }
+        await _persistHiddenConvs();
+      }
+    }
+    notifyListeners();
+  }
+
+  /// 대화 숨김(방 나가기) — 로컬 즉시 반영 + 서버 upsert(다른 기기에도 전파).
+  Future<void> hideConversation(String convKey) async {
+    _hiddenConvAt[convKey] = DateTime.now();
+    await _persistHiddenConvs();
+    notifyListeners();
+    final token = await _shareToken();
+    if (token != null) {
+      await _shareApi.hideConversation(token: token, convKey: convKey);
+    }
+  }
+
+  Future<void> _persistHiddenConvs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_convHiddenKey,
+        jsonEncode(_hiddenConvAt.map((k, v) => MapEntry(k, v.toIso8601String()))));
+  }
+
   /// 셀프 채팅방에 메시지(로컬)를 추가한다.
   Future<void> addSelfChatMessage(String id, String content) async {
     final list = _selfChatMsgs[id] ?? <Map<String, dynamic>>[];
@@ -1671,6 +1730,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (msgR != null) _messagesReceived = msgR;
     if (msgS != null) _messagesSent = msgS;
     notifyListeners();
+    await loadHiddenConvs(); // 대화 숨김('방 나가기') 상태 다기기 동기화
   }
 
   /// 채팅 메시지 전송(개인/그룹). 성공 시 목록 새로고침. 반환: (ok, message?).

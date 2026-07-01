@@ -364,9 +364,7 @@ class _ShareSectionState extends State<_ShareSection> {
   // 대화별 마지막 읽은 시각 (미읽음 메시지 뱃지용 — 영구 저장)
   final Map<String, DateTime> _convLastRead = {};
   static const String _convReadKey = 'conv_last_read';
-  // 방나가기(로컬 숨김)한 대화 key → 숨긴 시각. 이후 새 항목(lastAt>숨긴시각)이 오면 다시 보인다.
-  final Map<String, DateTime> _convHiddenAt = {};
-  static const String _convHiddenKey = 'conv_hidden_at';
+  // 방나가기(숨김) 상태는 AppStateProvider(로컬 캐시 + 서버 동기화)에서 관리한다.
 
   @override
   void dispose() {
@@ -417,35 +415,15 @@ class _ShareSectionState extends State<_ShareSection> {
     super.initState();
     _loadUnlockedGroups();
     _loadConvRead();
-    _loadConvHidden();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final app = context.read<AppStateProvider>();
       app.loadShares();
       app.loadSelfChats();
+      app.loadHiddenConvs();
     });
   }
 
-  Future<void> _loadConvHidden() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_convHiddenKey);
-    if (raw == null || raw.isEmpty) return;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      m.forEach((k, v) {
-        final dt = DateTime.tryParse(v.toString());
-        if (dt != null) _convHiddenAt[k] = dt;
-      });
-      if (mounted) setState(() {});
-    } catch (_) {}
-  }
-
-  void _persistConvHidden() {
-    SharedPreferences.getInstance().then((p) => p.setString(
-        _convHiddenKey,
-        jsonEncode(_convHiddenAt.map((k, v) => MapEntry(k, v.toIso8601String())))));
-  }
-
-  /// 방나가기 — 나와의 대화는 삭제, 그 외는 로컬에서 숨김(새 활동이 오면 다시 보임).
+  /// 방나가기 — 나와의 대화는 삭제, 그 외는 숨김(서버 동기화 · 새 활동이 오면 다시 보임).
   Future<void> _leaveConv(_Conv c) async {
     final appState = context.read<AppStateProvider>();
     final isSelf = c.isSelf;
@@ -469,15 +447,8 @@ class _ShareSectionState extends State<_ShareSection> {
     if (isSelf) {
       await appState.deleteSelfChat(c.key.substring(5));
     } else {
-      _convHiddenAt[c.key] = DateTime.now();
-      _persistConvHidden();
-      setState(() {});
+      await appState.hideConversation(c.key); // 로컬 즉시 + 서버 동기화
     }
-  }
-
-  bool _isHidden(_Conv c) {
-    final h = _convHiddenAt[c.key];
-    return h != null && !c.lastAt.isAfter(h);
   }
 
   Future<void> _loadUnlockedGroups() async {
@@ -682,7 +653,9 @@ class _ShareSectionState extends State<_ShareSection> {
       return _buildSharedFileList(mode, appState, color);
     }
 
-    final convList = convs.values.where((c) => !_isHidden(c)).toList()
+    final convList = convs.values
+        .where((c) => !appState.isConversationHidden(c.key, c.lastAt))
+        .toList()
       ..sort((a, b) => b.lastAt.compareTo(a.lastAt));
     // 아이콘 사람 수 산정 시 '나와의 채팅'(상대가 나 자신) 판별용 내 이메일(memberId).
     final myEmail = appState.currentUser?.id ?? '';
