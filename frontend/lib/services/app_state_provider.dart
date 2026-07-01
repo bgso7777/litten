@@ -1917,12 +1917,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return n;
   }
 
-  // 홈(공유) 탭에서 대화방이 열려 있는지 — 열려 있으면 하단 칩 바와 새 채팅 FAB를 숨긴다.
-  bool _homeChatOpen = false;
-  bool get homeChatOpen => _homeChatOpen;
-  void setHomeChatOpen(bool open) {
-    if (_homeChatOpen == open) return;
-    _homeChatOpen = open;
+  // 홈(공유) 탭에서 열려 있는 대화방 key (null이면 대화 목록).
+  // 상태를 provider에 두어 탭 이동으로 _ShareSection State가 재생성돼도 대화방이 유지된다.
+  // 열려 있으면(homeChatOpen==true) 하단 칩 바와 새 채팅 FAB를 숨긴다.
+  String? _homeOpenConvKey;
+  String? get homeOpenConvKey => _homeOpenConvKey;
+  bool get homeChatOpen => _homeOpenConvKey != null;
+  void setHomeOpenConvKey(String? key) {
+    if (_homeOpenConvKey == key) return;
+    _homeOpenConvKey = key;
     notifyListeners();
   }
   // 받은 공유 중 대기(미응답) 건수 — 홈 배지/카운트용

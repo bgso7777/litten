@@ -3799,7 +3799,7 @@ class _CreateChipBarState extends State<_CreateChipBar> {
     }
 
     final chips = <Widget>[];
-    // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 사진 → 비디오 → 영상 채널
+    // 순서(좌→우): 메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 영상 채널 → 사진 → 비디오
     if (fabVis.contains('text')) {
       chips.add(_chip(context,
           icon: Icons.notes, label: l10n?.memoLabel ?? '메모', color: color, onTap: widget.onText));
@@ -3830,6 +3830,10 @@ class _CreateChipBarState extends State<_CreateChipBar> {
       chips.add(_chip(context,
           icon: Icons.drive_folder_upload, label: '파일', color: color, onTap: widget.onFiles));
     }
+    if (fabVis.contains('youtube') && widget.onYoutube != null) {
+      chips.add(_chip(context,
+          icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: widget.onYoutube!));
+    }
     // 사진 / 비디오 — 첨부파일로 저장된다. (설정 '전체탭 빠른 추가 표시'로 on/off)
     if (fabVis.contains('photo') && widget.onPhoto != null) {
       chips.add(_chip(context,
@@ -3838,10 +3842,6 @@ class _CreateChipBarState extends State<_CreateChipBar> {
     if (fabVis.contains('video') && widget.onVideo != null) {
       chips.add(_chip(context,
           icon: Icons.videocam, label: '비디오', color: color, onTap: widget.onVideo!));
-    }
-    if (fabVis.contains('youtube') && widget.onYoutube != null) {
-      chips.add(_chip(context,
-          icon: Icons.subscriptions, label: '영상 채널', color: color, onTap: widget.onYoutube!));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -4032,17 +4032,17 @@ class AllFilesTabButton extends StatelessWidget {
         final memoCount = (textCount - sttTextCount).clamp(0, 1 << 31);
         final recordingCount = (audioCount - sttAudioCount).clamp(0, 1 << 31);
         final sttCount = sttTextCount + sttAudioCount;
-        // 순서를 생성 칩(메인메뉴 +)과 일치: 메모 → 필기(+PDF) → 녹음 → 녹음메모 → 사진 → 비디오 → 영상채널 → 파일
+        // 순서: 메모 → 필기(+PDF) → 녹음 → 녹음메모 → 파일 → 영상채널 → 사진 → 비디오
         maybeAdd('text', Icons.notes, memoCount);
         maybeAdd('canvas', Icons.draw, canvasCount);
         addIfPositive('pdf', Icons.picture_as_pdf, pdfCount);
         maybeAdd('audio', Icons.mic, recordingCount);
         maybeAdd('stt', Icons.record_voice_over, sttCount);
-        addIfPositive('photo', Icons.photo_camera, photoCount);
-        addIfPositive('video', Icons.videocam, videoCount);
+        maybeAdd('files', Icons.description, otherFiles);
         // 영상 채널(구독) — 채널이 1개 이상일 때 표시
         addIfPositive('youtube', Icons.subscriptions, appState.actualYoutubeChannelCount);
-        maybeAdd('files', Icons.description, otherFiles);
+        addIfPositive('photo', Icons.photo_camera, photoCount);
+        addIfPositive('video', Icons.videocam, videoCount);
 
         return Row(
           mainAxisSize: MainAxisSize.min,

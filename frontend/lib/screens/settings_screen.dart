@@ -819,7 +819,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'youtube': '영상 채널',
       'files': '파일',
     };
-    final order = ['text', 'canvas', 'audio', 'stt', 'photo', 'video', 'youtube', 'files'];
+    final order = ['text', 'canvas', 'audio', 'stt', 'files', 'youtube', 'photo', 'video'];
     final result = order.where(visibility.contains).map((k) => labels[k]!).toList();
     return result.isEmpty ? (l10n?.noneLabel ?? '없음') : result.join(', ');
   }
@@ -1915,8 +1915,8 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
     {'id': 'audio', 'label': l10n?.audioTab ?? '녹음', 'icon': Icons.mic},
     {'id': 'sttMemo', 'label': l10n?.sttMemoLabel ?? '녹음메모', 'icon': Icons.record_voice_over},
     {'id': 'files', 'label': '파일', 'icon': Icons.drive_folder_upload},
-    {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
     {'id': 'youtube', 'label': '영상', 'icon': Icons.subscriptions_outlined},
+    {'id': 'browser', 'label': l10n?.browserTab ?? '검색', 'icon': Icons.public},
   ];
 
   @override
@@ -1997,15 +1997,15 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
   }
 
   List<Map<String, dynamic>> _buildButtons(AppLocalizations? l10n) => [
-    // 순서: 노트 "+" 빠른추가 칩과 동일 (메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 사진 → 비디오 → 영상 채널)
+    // 순서: 메모 → 필기 → 녹음 → 녹음 메모 → 파일 → 영상 채널 → 사진 → 비디오
     {'id': 'text',   'label': l10n?.memoLabel ?? '메모',         'icon': Icons.notes},
     {'id': 'canvas', 'label': l10n?.handwritingTab ?? '필기',    'icon': Icons.draw},
     {'id': 'audio',  'label': l10n?.audioTab ?? '녹음',          'icon': Icons.mic},
     {'id': 'stt',    'label': l10n?.voiceMemoLabel ?? '녹음 메모', 'icon': Icons.record_voice_over},
     {'id': 'files',  'label': '파일',                            'icon': Icons.attach_file},
+    {'id': 'youtube', 'label': '영상 채널',                       'icon': Icons.subscriptions_outlined},
     {'id': 'photo',  'label': '사진',                            'icon': Icons.photo_camera},
     {'id': 'video',  'label': '비디오',                          'icon': Icons.videocam},
-    {'id': 'youtube', 'label': '영상 채널',                       'icon': Icons.subscriptions_outlined},
   ];
 
   /// 녹음+메모 합성 아이콘 (단색 컨텍스트용 — 마이크 + 흰 배경 메모 배지)

@@ -215,8 +215,9 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     String tooltip;
     switch (tab) {
       case _homeTab:
-        // 대화방 안에서는 새 채팅 FAB를 숨긴다(칩 바와 동일하게).
-        if (appState.homeChatOpen) return null;
+        // 새 채팅 FAB는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시(칩 바와 동일 규칙).
+        // 대화방 안 / 공유받음 / 공유한 모드에서는 숨긴다.
+        if (appState.homeChatOpen || appState.homeChatView != 'chat') return null;
         onPressed = () {
           debugPrint('🎯 [FAB] 홈 새 채팅 버튼 클릭됨');
           _homeDashKey.currentState?.startNewChat();
@@ -269,6 +270,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     if (index == _homeTab && appState.selectedTabIndex != _homeTab) {
       appState.loadShares(); // 내부에서 loadHiddenConvs 포함
       appState.loadSelfChats();
+    }
+    // 이미 홈(채팅) 탭인데 다시 누르면 열린 대화방을 닫고 채팅 목록 초기화면으로 돌아간다.
+    // (다른 탭에서 올 때는 대화방 유지, 재탭할 때만 초기화)
+    if (index == _homeTab && appState.selectedTabIndex == _homeTab) {
+      appState.setHomeOpenConvKey(null);
     }
 
     // ⭐ 가운데 +(노트) 탭 → 노트로 전환만. 파일 생성은 노트 안의 + 버튼으로.

@@ -918,8 +918,11 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     await _loadChannels();
   }
 
-  Future<void> _loadChannels() async {
-    setState(() => _loading = true);
+  /// [showSpinner]가 true면 전체 화면 로딩 스피너 표시(초기 진입용).
+  /// pull-to-refresh는 RefreshIndicator 자체 스피너를 쓰므로 false로 호출해
+  /// 리스트가 사라지지 않고 상단에서 당김 뺑뺑이만 돌게 한다.
+  Future<void> _loadChannels({bool showSpinner = true}) async {
+    if (showSpinner) setState(() => _loading = true);
     // 비로그인(스탠다드): 로컬 저장 채널 / 로그인: 서버 채널
     final channels = _localMode
         ? await LocalYoutubeChannelService.load()
@@ -990,7 +993,8 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
     _expandedChannels.clear();
     _channelVideoPage.clear();
     _localRssCache.clear();
-    await _loadChannels();
+    // 당김 새로고침: 전체 로딩 화면 대신 RefreshIndicator 스피너만 돌린다.
+    await _loadChannels(showSpinner: false);
   }
 
   Future<void> _loadVideoPage(String channelId, int page) async {

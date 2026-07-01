@@ -37,14 +37,16 @@ class HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     debugPrint('🏠 [HomeDashboardScreen] build');
-    // 대화방 열림 여부(provider 공유) — 대화방 안에서는 하단 칩 바를 숨겨
-    // 메시지 입력창이 하단 메뉴 바로 위까지 내려오게 한다.
-    final chatOpen = context.watch<AppStateProvider>().homeChatOpen;
+    // 칩 바는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시한다.
+    //  - 대화방 안: 숨김(입력창이 하단 메뉴 바로 위까지)
+    //  - 공유받음/공유한 모드: 숨김(파일 일자순 목록만)
+    final app = context.watch<AppStateProvider>();
+    final showChip = !app.homeChatOpen && app.homeChatView == 'chat';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: _ShareSection(key: _shareKey)),
-        if (!chatOpen) const _HomeChipBar(),
+        if (showChip) const _HomeChipBar(),
       ],
     );
   }
@@ -108,23 +110,70 @@ class HomeDashboardScreenState extends State<HomeDashboardScreen> {
 }
 
 /// 홈 탭 하단 칩 바 — 다른 탭(캘린더/+/리마인드)의 칩 바와 동일한 배경/높이.
-/// 새 채팅 + 동그라미는 우측 하단 FAB(MainTabScreen)로 빠졌고, 이 바는 높이만 유지한다.
+/// 새 채팅 + 동그라미는 우측 하단 FAB(MainTabScreen)로 빠졌고,
+/// 바 가운데에는 전체탭 제목처럼 수신(↓)·발신(↑) 파일 카운트를 표시한다.
 class _HomeChipBar extends StatelessWidget {
   const _HomeChipBar();
 
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
+    final app = context.watch<AppStateProvider>();
+    // 채팅의 모든 파일(수신 + 발신 + 나와의 대화)을 종류별로 집계 — 전체탭 제목과 동일 형식.
+    final files = <Map<String, dynamic>>[
+      ...app.sharesReceived,
+      ...app.sharesSent,
+      ...app.selfChatFiles.map((e) => e['item'] as Map<String, dynamic>),
+    ];
+    // 종류별 카운트(fileType + 파일명 확장자로 pdf/사진/비디오 구분 — 전체탭 아이콘과 일치).
+    final counts = <String, int>{};
+    for (final f in files) {
+      final k = _shareFileKind(
+          f['fileType']?.toString(), f['fileName']?.toString());
+      counts.update(k, (v) => v + 1, ifAbsent: () => 1);
+    }
+
+    // 카운트 0이면 숨김. 순서: 메모→필기→PDF→녹음→녹음메모→사진→비디오→파일.
+    final chips = <Widget>[];
+    void add(IconData icon, int n) {
+      if (n <= 0) return;
+      if (chips.isNotEmpty) chips.add(const SizedBox(width: 16));
+      chips.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 2),
+          Text('$n',
+              style: TextStyle(
+                  fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ));
+    }
+    add(Icons.notes, counts['memo'] ?? 0);
+    add(Icons.draw, counts['canvas'] ?? 0);
+    add(Icons.picture_as_pdf, counts['pdf'] ?? 0);
+    add(Icons.mic, counts['audio'] ?? 0);
+    add(Icons.record_voice_over, counts['stt'] ?? 0);
+    add(Icons.description, counts['files'] ?? 0);
+    add(Icons.photo_camera, counts['photo'] ?? 0);
+    add(Icons.videocam, counts['video'] ?? 0);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
       ),
-      // 노트(_CreateChipBar)·캘린더 칩 바와 동일한 세로 패딩(9) + 칩(알약) 콘텐츠 높이(28.0)로
+      // 노트(_CreateChipBar)·캘린더 칩 바와 동일한 세로 패딩(9) + 콘텐츠 높이(28.0)로
       // 바 전체 높이를 그 둘(123px ≒ 46.9dp)과 정확히 일치시킨다(= 9*2 + 28.0).
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      child: const SizedBox(height: 28.0),
+      child: SizedBox(
+        height: 28.0,
+        child: Center(
+          child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+        ),
+      ),
     );
   }
 }
@@ -279,19 +328,46 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-IconData _shareFileTypeIcon(String? t) {
+/// 공유 파일을 전체탭과 동일한 "종류 키"로 분류한다(fileType + 파일명 확장자).
+/// memo·canvas·pdf·audio·stt·photo·video·files
+String _shareFileKind(String? t, [String? fileName]) {
+  final n = (fileName ?? '').toLowerCase();
   switch (t) {
     case 'text':
-      return Icons.notes;
+      return 'memo';
     case 'audio':
-      return Icons.mic;
+      return 'audio';
     case 'stt_text':
     case 'stt_audio':
-      return Icons.record_voice_over; // 녹음 메모(STT)
+      return 'stt'; // 녹음 메모(STT)
     case 'handwriting':
-      return Icons.draw;
+      return n.endsWith('.pdf') ? 'pdf' : 'canvas'; // 필기 이미지 vs PDF
     default:
-      return Icons.attach_file;
+      if (RegExp(r'\.(jpg|jpeg|png|gif|webp|heic|heif|bmp)$').hasMatch(n)) return 'photo';
+      if (RegExp(r'\.(mp4|mov|avi|mkv|webm|m4v)$').hasMatch(n)) return 'video';
+      return 'files';
+  }
+}
+
+/// 공유 파일 아이콘 — 전체탭 제목/리스트와 동일한 매핑.
+IconData _shareFileTypeIcon(String? t, [String? fileName]) {
+  switch (_shareFileKind(t, fileName)) {
+    case 'memo':
+      return Icons.notes;
+    case 'canvas':
+      return Icons.draw;
+    case 'pdf':
+      return Icons.picture_as_pdf;
+    case 'audio':
+      return Icons.mic;
+    case 'stt':
+      return Icons.record_voice_over;
+    case 'photo':
+      return Icons.photo_camera;
+    case 'video':
+      return Icons.videocam;
+    default:
+      return Icons.description;
   }
 }
 
@@ -354,7 +430,7 @@ class _ShareSection extends StatefulWidget {
 
 class _ShareSectionState extends State<_ShareSection> {
   // 현재 열린 대화방 key (null이면 대화 목록 화면). 'g:그룹명' 또는 'u:이메일'
-  String? _openConvKey;
+  // 열린 대화방 key는 AppStateProvider.homeOpenConvKey(단일 소스)를 사용한다.
   // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
   final Set<String> _unlockedGroups = {};
   static const String _unlockedGroupsKey = 'unlocked_groups';
@@ -407,9 +483,9 @@ class _ShareSectionState extends State<_ShareSection> {
         _convReadKey,
         jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
     _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
-    setState(() => _openConvKey = key);
-    // 대화방 진입 → 하단 칩 바 + 새 채팅 FAB 숨김(provider 공유 상태)
-    context.read<AppStateProvider>().setHomeChatOpen(true);
+    // 대화방 상태는 provider 단일 소스 — 진입 시 열린 대화방 key를 설정하면
+    // build(watch)가 대화방을 표시하고 하단 칩 바·새 채팅 FAB가 숨겨진다.
+    context.read<AppStateProvider>().setHomeOpenConvKey(key);
   }
 
   @override
@@ -673,12 +749,13 @@ class _ShareSectionState extends State<_ShareSection> {
       }
     }
 
-    // 열린 대화방 — 없으면(새 채팅 등) key로 임시 대화 생성
+    // 열린 대화방 — 없으면(새 채팅 등) key로 임시 대화 생성. 상태는 provider 단일 소스.
     _Conv? open;
-    if (_openConvKey != null) {
-      open = convs[_openConvKey];
+    final openKey = appState.homeOpenConvKey;
+    if (openKey != null) {
+      open = convs[openKey];
       if (open == null) {
-        final k = _openConvKey!;
+        final k = openKey;
         if (k.startsWith('g:')) {
           final name = k.substring(2);
           open = _Conv(key: k, isGroup: true, label: name,
@@ -810,7 +887,7 @@ class _ShareSectionState extends State<_ShareSection> {
               itemBuilder: (_, i) {
                 final r = rows[i];
                 return ListTile(
-                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString()), color: color),
+                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString(), r['fileName']?.toString()), color: color),
                   title: Text(r['fname']?.toString() ?? '',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
@@ -1140,9 +1217,8 @@ class _ShareSectionState extends State<_ShareSection> {
             IconButton(
                 icon: const Icon(Icons.arrow_back), color: color,
                 onPressed: () {
-                  setState(() => _openConvKey = null);
-                  // 목록 복귀 → 칩 바 + FAB 다시 표시
-                  context.read<AppStateProvider>().setHomeChatOpen(false);
+                  // 목록 복귀(provider 단일 소스) → 칩 바 + FAB 다시 표시
+                  context.read<AppStateProvider>().setHomeOpenConvKey(null);
                 }),
             Icon(c.isGroup ? Icons.group : Icons.person, size: 18, color: color),
             const SizedBox(width: 6),
@@ -1266,6 +1342,31 @@ class _ShareSectionState extends State<_ShareSection> {
   }
 
   /// + 버튼 — 전체 리튼의 파일 목록을 모아 시트로 보여주고, 고른 파일을 이 대화에 공유.
+  /// 파일 공유 시트의 날짜 구분 헤더 — 메인 파일 리스트와 동일 형식(오늘/어제/yyyy년 M월 d일 (E)).
+  Widget _fileDateHeader(DateTime date, Color color) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final String label;
+    if (date == today) {
+      label = '오늘';
+    } else if (date == yesterday) {
+      label = '어제';
+    } else {
+      label = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(date);
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      child: Row(children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(width: 8),
+        Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.2))),
+      ]),
+    );
+  }
+
   Future<void> _showFileShareSheet(_Conv c, int? groupId, AppStateProvider appState) async {
     final color = Theme.of(context).primaryColor;
     final fs = FileStorageService.instance;
@@ -1280,6 +1381,7 @@ class _ShareSectionState extends State<_ShareSection> {
           path: '${appDir.path}/littens/${lit.id}/text/${t.id}.html',
           fileName: '${t.displayTitle}.html',
           contentType: 'text/html',
+          date: t.createdAt,
         ));
       }
       for (final a in await fs.loadAudioFiles(lit.id)) {
@@ -1290,6 +1392,7 @@ class _ShareSectionState extends State<_ShareSection> {
           path: a.filePath,
           fileName: '${a.fileName}.m4a',
           contentType: 'audio/m4a',
+          date: a.createdAt,
         ));
       }
       for (final h in await fs.loadHandwritingFiles(lit.id)) {
@@ -1301,6 +1404,7 @@ class _ShareSectionState extends State<_ShareSection> {
           path: h.imagePath,
           fileName: '${h.displayTitle}${isPdf ? '.pdf' : '.png'}',
           contentType: isPdf ? 'application/pdf' : 'image/png',
+          date: h.createdAt,
         ));
       }
       for (final at in await fs.loadAttachmentFiles(lit.id)) {
@@ -1311,9 +1415,12 @@ class _ShareSectionState extends State<_ShareSection> {
           path: at.filePath,
           fileName: at.fileName,
           contentType: at.mimeType,
+          date: at.createdAt,
         ));
       }
     }
+    // 최신순 정렬(날짜 구분 헤더용) — 메인 파일 리스트와 동일 컨벤션.
+    entries.sort((a, b) => b.date.compareTo(a.date));
     if (!mounted) return;
     await showModalBottomSheet(
       context: context,
@@ -1344,11 +1451,23 @@ class _ShareSectionState extends State<_ShareSection> {
                       itemCount: entries.length,
                       itemBuilder: (_, i) {
                         final e = entries[i];
-                        return ListTile(
-                          dense: true,
-                          leading: Icon(e.icon, color: color, size: 20),
-                          title: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          onTap: () => Navigator.pop(ctx, e),
+                        // 날짜(연월일)가 바뀌는 지점마다 헤더 삽입(오늘/어제/yyyy년 M월 d일 (E)).
+                        final cur = DateTime(e.date.year, e.date.month, e.date.day);
+                        final prev = i == 0 ? null : entries[i - 1].date;
+                        final showDay = prev == null ||
+                            DateTime(prev.year, prev.month, prev.day) != cur;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (showDay) _fileDateHeader(cur, color),
+                            ListTile(
+                              dense: true,
+                              leading: Icon(e.icon, color: color, size: 20),
+                              title: Text(e.name,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                              onTap: () => Navigator.pop(ctx, e),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -1481,7 +1600,7 @@ class _ShareSectionState extends State<_ShareSection> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_shareFileTypeIcon(it.data['fileType']?.toString()), size: 16, color: color),
+              Icon(_shareFileTypeIcon(it.data['fileType']?.toString(), it.data['fileName']?.toString()), size: 16, color: color),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(fname, maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -1771,12 +1890,14 @@ class _FileEntry {
   final String path;        // 로컬 파일 경로
   final String fileName;    // 업로드 파일명(확장자 포함)
   final String? contentType;
+  final DateTime date;      // 생성일시(날짜 구분 헤더·정렬용)
   _FileEntry({
     required this.type,
     required this.name,
     required this.icon,
     required this.path,
     required this.fileName,
+    required this.date,
     this.contentType,
   });
 }
@@ -1828,7 +1949,7 @@ class _ReceivedCard extends StatelessWidget {
             Row(children: [
               _dirChip(true, color),
               const SizedBox(width: 6),
-              Icon(_shareFileTypeIcon(share['fileType']?.toString()), size: 18, color: color),
+              Icon(_shareFileTypeIcon(share['fileType']?.toString(), share['fileName']?.toString()), size: 18, color: color),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(fileName,
@@ -1934,7 +2055,7 @@ class _SentCard extends StatelessWidget {
             Row(children: [
               _dirChip(false, color),
               const SizedBox(width: 6),
-              Icon(_shareFileTypeIcon(share['fileType']?.toString()), size: 18, color: color),
+              Icon(_shareFileTypeIcon(share['fileType']?.toString(), share['fileName']?.toString()), size: 18, color: color),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(fileName,
