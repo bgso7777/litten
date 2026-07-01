@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1219,30 +1218,18 @@ class _ShareSectionState extends State<_ShareSection> {
             onPressed: () => _showFileShareSheet(c, groupId, appState),
           ),
           Expanded(
-            // 하드웨어 Enter → 전송, Shift+Enter → 줄바꿈. 소프트 키보드는 textInputAction.send.
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
-                    !HardwareKeyboard.instance.isShiftPressed) {
-                  _sendMsg(c, groupId, appState);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextField(
-                controller: _msgCtrl,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                decoration: InputDecoration(
-                  hintText: '메시지 입력',
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-                onSubmitted: (_) => _sendMsg(c, groupId, appState),
+            // Enter → 줄바꿈(다음 줄). 전송은 오른쪽 전송 버튼으로.
+            child: TextField(
+              controller: _msgCtrl,
+              minLines: 1,
+              maxLines: 5,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                hintText: '메시지 입력',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),
             ),
           ),
