@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="리튼(Litten) - 녹음·텍스트·필기에 AI 요약·퀴즈까지. 듣고, 쓰고, 그리고, 정리하는 올인원 노트 앱">
-    <meta property="og:title" content="Litten - 듣고, 쓰고, 그리고, AI로 정리하다">
+    <meta property="og:title" content="Litten - 기록은 나답게, 정리는 AI답게">
     <meta property="og:description" content="음성 녹음·STT·텍스트·필기에 AI 요약/퀴즈/유튜브 요약까지. 30개 언어, 5가지 테마를 지원하는 크로스 플랫폼 노트 앱">
-    <title>Litten - 듣고, 쓰고, 그리고, AI로 정리하다</title>
+    <title>Litten - 기록은 나답게, 정리는 AI답게</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/><path d='M21 11 L21.5 12.5 L23 13 L21.5 13.5 L21 15 L20.5 13.5 L19 13 L20.5 12.5 Z' fill='%23FBBF24'/><path d='M22 0.9 L22.38 2 L23.5 2.4 L22.38 2.8 L22 3.9 L21.62 2.8 L20.5 2.4 L21.62 2 Z' fill='%23FBBF24'/></svg>">
     <style>
         :root {
@@ -29,6 +29,9 @@
             line-height: 1.6;
             color: var(--ink);
             overflow-x: hidden;
+            /* 한글은 단어(어절) 단위로만 줄바꿈 — 글자 단위 분리 방지 */
+            word-break: keep-all;
+            overflow-wrap: break-word;
         }
 
         /* ── 네비게이션 ── */
@@ -537,14 +540,58 @@
         }
 
         @media (max-width: 768px) {
-            .hero-content h1 { font-size: 2.6rem; }
-            .hero-content .tagline { font-size: 1.2rem; }
+            /* 모바일에서 강제 줄바꿈 해제 → 화면 폭에 맞춰 자연스럽게 흐르게 */
+            .d-br { display: none; }
+
+            .hero { margin-top: 60px; min-height: auto; padding: 2.6rem 1rem; }
+            .hero-mascot { width: 128px; height: 128px; margin-bottom: 1.1rem; }
+            .hero-badge { font-size: 0.82rem; padding: 0.45rem 1rem; margin-bottom: 1.3rem; }
+            .hero-content h1 { font-size: 2.1rem; margin-bottom: 1rem; }
+            /* 태그라인: 문장 중간 줄바꿈 없이 한 줄씩(2문장=2줄), 폭에 맞춰 자동 축소 */
+            .hero-content .tagline { font-size: clamp(0.9rem, 3.85vw, 1.2rem); white-space: nowrap; margin-bottom: 1.8rem; line-height: 1.75; }
+            .hero-pills { margin-top: 1.8rem; gap: 0.5rem; }
+            .hero-pills span { font-size: 0.82rem; padding: 0.4rem 0.85rem; }
+
             .section-title { font-size: 2rem; }
+            .section-subtitle { font-size: 1.1rem; }
             .cta-buttons { flex-direction: column; align-items: stretch; }
+            .btn { text-align: center; }
             .nav-links { gap: 1rem; font-size: 0.9rem; }
             .nav-links .hide-mobile { display: none; }
+            .nav-container { padding: 0 1.3rem; }
             .footer-container { grid-template-columns: 1fr 1fr; }
             section { padding: 4rem 1.5rem; }
+            .anywhere-text h2 { font-size: 2rem; }
+            .cta-section h2 { font-size: 2.1rem; }
+            .cta-section p { font-size: 1.1rem; }
+            .token-note { flex-direction: column; text-align: center; gap: 0.7rem; }
+        }
+
+        @media (max-width: 480px) {
+            .logo { font-size: 1.5rem; }
+            .hero { padding: 2.2rem 0.9rem; }
+            .hero-mascot { width: 108px; height: 108px; }
+            .hero-badge { font-size: 0.76rem; padding: 0.4rem 0.85rem; }
+            .hero-content h1 { font-size: 1.85rem; line-height: 1.25; }
+            .hero-content .tagline { font-size: clamp(0.75rem, 3.85vw, 1.12rem); }
+            .btn { padding: 0.95rem 1.6rem; font-size: 1rem; }
+
+            .section-title { font-size: 1.7rem; }
+            .section-subtitle { font-size: 1rem; }
+            section { padding: 3.2rem 1.2rem; }
+
+            .core-card { padding: 2.2rem 1.6rem; }
+            .core-card h3 { font-size: 1.4rem; }
+            .ai-card, .feat-item { padding: 1.6rem 1.4rem; }
+            .pricing-card { padding: 2.2rem 1.6rem; }
+            .gstat-num { font-size: 2.8rem; }
+            .anywhere-text h2 { font-size: 1.8rem; }
+            .anywhere-visual { min-height: 280px; }
+            .cta-section h2 { font-size: 1.85rem; }
+
+            /* 소형 폰: 기능 아이콘 2열 고정으로 정렬 안정화 */
+            .feature-all-grid { grid-template-columns: repeat(2, 1fr); gap: 0.9rem; }
+            .footer-container { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
         }
         /* 모든 기능 (소프트 아이콘) */
         .features-all { background: var(--bg-soft); }
@@ -627,7 +674,7 @@
                 <path d="M168 21 L169.6 26 L174.5 28 L169.6 30 L168 35 L166.4 30 L161.5 28 L166.4 26 Z" fill="#FBBF24" opacity="0.7"/>
             </svg>
             <span class="hero-badge">✨ 듣기 · ✍️ 쓰기 · 🎨 필기 · 🤖 AI 정리</span>
-            <h1>듣고, 쓰고, 그리고,<br>AI로 정리하다</h1>
+            <h1>기록은 나답게,<br class="d-br">정리는 AI답게</h1>
             <p class="tagline">음성 녹음부터 텍스트·필기, 그리고 <strong>AI 요약·퀴즈</strong>까지<br>흩어진 모든 기록을 하나의 <strong>리튼 공간</strong>에 담으세요</p>
             <div class="cta-buttons">
                 <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
