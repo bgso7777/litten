@@ -19,6 +19,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nicknameController = TextEditingController();
+  final _codeController = TextEditingController();
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -26,12 +27,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool? _nicknameAvailable; // null=미확인, true=사용가능, false=중복
   bool _nicknameChecking = false;
 
+  // 이메일 인증 상태
+  bool _codeSent = false; // 인증번호 발송됨
+  bool _emailVerified = false; // 인증번호 검증 완료
+  bool _sendingCode = false; // 인증번호 발송 중
+  bool _verifyingCode = false; // 인증번호 검증 중
+
+  /// 메일 템플릿 언어코드 — 현재 로케일이 한국어면 KR, 그 외 EN.
+  String get _mailLanCd =>
+      Localizations.localeOf(context).languageCode == 'ko' ? 'KR' : 'EN';
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _nicknameController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -85,8 +97,86 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
+  /// 이메일 인증번호 발송
+  Future<void> _sendCode() async {
+    // 이메일 형식을 먼저 검증
+    final emailError = _validateEmail(_emailController.text);
+    if (emailError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(emailError), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _sendingCode = true);
+    try {
+      final res = await Provider.of<AppStateProvider>(context, listen: false)
+          .authService
+          .sendSignupEmailCode(_emailController.text.trim(), lanCd: _mailLanCd);
+      if (!mounted) return;
+      if (res['result'] == 1) {
+        setState(() {
+          _codeSent = true;
+          _emailVerified = false;
+          _codeController.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('인증번호를 이메일로 발송했습니다. 메일함을 확인해주세요.')),
+        );
+      } else {
+        final msg = (res['message'] as String?) ?? '인증번호 발송에 실패했습니다.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingCode = false);
+    }
+  }
+
+  /// 이메일 인증번호 검증
+  Future<void> _verifyCode() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('인증번호를 입력해주세요.')),
+      );
+      return;
+    }
+
+    setState(() => _verifyingCode = true);
+    try {
+      final res = await Provider.of<AppStateProvider>(context, listen: false)
+          .authService
+          .verifySignupEmailCode(_emailController.text.trim(), code);
+      if (!mounted) return;
+      if (res['result'] == 1) {
+        setState(() => _emailVerified = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이메일 인증이 완료되었습니다.')),
+        );
+      } else {
+        final msg = (res['message'] as String?) ?? '인증번호가 올바르지 않습니다.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _verifyingCode = false);
+    }
+  }
+
   /// 회원가입 처리
   Future<void> _handleSignUp() async {
+    // 이메일 인증 완료 필수
+    if (!_emailVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이메일 인증을 완료해주세요.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -225,7 +315,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 48),
 
-                      // 이메일 입력
+                      // 이메일 입력 + 인증번호 발송
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
@@ -233,13 +323,94 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           hintText: AppLocalizations.of(context)?.emailHint ?? 'example@email.com',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: const OutlineInputBorder(),
+                          suffixIcon: _emailVerified
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: Icon(Icons.check_circle,
+                                      color: Colors.green, size: 20),
+                                )
+                              : _sendingCode
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2)),
+                                    )
+                                  : TextButton(
+                                      onPressed: _isLoading ? null : _sendCode,
+                                      child: Text(_codeSent ? '재발송' : '인증번호 발송'),
+                                    ),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         validator: _validateEmail,
-                        enabled: !_isLoading,
+                        // 인증 완료 후에는 이메일 변경 불가(재인증 방지)
+                        enabled: !_isLoading && !_emailVerified,
+                        onChanged: (_) {
+                          // 이메일을 바꾸면 발송/인증 상태를 초기화
+                          if (_codeSent || _emailVerified) {
+                            setState(() {
+                              _codeSent = false;
+                              _emailVerified = false;
+                            });
+                          }
+                        },
                       ),
                       const SizedBox(height: 16),
+
+                      // 인증번호 입력 (발송 후 & 미인증 상태에서만 표시)
+                      if (_codeSent && !_emailVerified) ...[
+                        TextFormField(
+                          controller: _codeController,
+                          decoration: InputDecoration(
+                            labelText: '인증번호',
+                            hintText: '이메일로 받은 6자리 숫자',
+                            prefixIcon: const Icon(Icons.verified_outlined),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _verifyingCode
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)),
+                                  )
+                                : TextButton(
+                                    onPressed: _isLoading ? null : _verifyCode,
+                                    child: const Text('확인'),
+                                  ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                          maxLength: 6,
+                          enabled: !_isLoading,
+                          onFieldSubmitted: (_) => _verifyCode(),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, left: 4, bottom: 12),
+                          child: Text('인증번호는 발송 후 10분간 유효합니다.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ),
+                      ],
+
+                      // 인증 완료 안내
+                      if (_emailVerified)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, left: 4, bottom: 12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle,
+                                  color: Colors.green, size: 16),
+                              SizedBox(width: 4),
+                              Text('이메일 인증이 완료되었습니다.',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.green)),
+                            ],
+                          ),
+                        ),
 
                       // 닉네임 입력 (선택) + 중복확인
                       TextFormField(
@@ -305,7 +476,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         obscureText: !_isPasswordVisible,
                         textInputAction: TextInputAction.next,
                         validator: _validatePassword,
-                        enabled: !_isLoading,
+                        enabled: !_isLoading && _emailVerified,
                       ),
                       const SizedBox(height: 16),
 
@@ -331,14 +502,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         obscureText: !_isConfirmPasswordVisible,
                         textInputAction: TextInputAction.done,
                         validator: _validateConfirmPassword,
-                        enabled: !_isLoading,
+                        enabled: !_isLoading && _emailVerified,
                         onFieldSubmitted: (_) => _handleSignUp(),
                       ),
                       const SizedBox(height: 32),
 
-                      // 회원가입 버튼
+                      // 회원가입 버튼 (이메일 인증 완료 후 활성화)
                       FilledButton(
-                        onPressed: _isLoading ? null : _handleSignUp,
+                        onPressed:
+                            (_isLoading || !_emailVerified) ? null : _handleSignUp,
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),

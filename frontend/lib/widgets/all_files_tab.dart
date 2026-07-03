@@ -181,6 +181,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   String? _initialPdfPath; // ⭐ PDF 파일 경로 (파일 선택 후 전달)
   String? _initialPdfFileName; // ⭐ PDF 파일명
   String? _initialImagePath; // ⭐ 사진(이미지 첨부) 탭 시 필기로 편집할 이미지 경로
+  String? _initialImageName; // ⭐ 원본 사진 표시 파일명 — 필기 제목을 사진 이름과 동일하게
 
   // 인라인 녹음 / 재생 상태
   final AudioService _audioService = AudioService();
@@ -275,6 +276,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
           ? selectedLitten.id
           : null;
       final allFiles = await appState.getAllFiles();
+      // 채팅에서 받아 저장한 파일은 전체 목록에서 제외(채팅 파일 영역과 +파일 영역 분리).
+      await appState.loadReceivedShareFileIds();
 
       final List<TextFile> textFiles = [];
       final List<HandwritingFile> hwFiles = [];
@@ -283,21 +286,30 @@ class _AllFilesTabState extends State<AllFilesTab> {
       for (final f in allFiles) {
         if (filterById != null && f['littenId'] != filterById) continue;
         final type = f['type'] as String;
-        if (type == 'text') textFiles.add(f['file'] as TextFile);
-        else if (type == 'handwriting') hwFiles.add(f['file'] as HandwritingFile);
-        else if (type == 'audio') audioFiles.add(f['file'] as AudioFile);
+        if (type == 'text') {
+          final tf = f['file'] as TextFile;
+          if (!appState.isReceivedShareFile(tf.id)) textFiles.add(tf);
+        } else if (type == 'handwriting') {
+          final hf = f['file'] as HandwritingFile;
+          if (!appState.isReceivedShareFile(hf.id)) hwFiles.add(hf);
+        } else if (type == 'audio') {
+          final af = f['file'] as AudioFile;
+          if (!appState.isReceivedShareFile(af.id)) audioFiles.add(af);
+        }
       }
 
-      // ⭐ 첨부 파일 로드 (선택 리튼만 또는 모든 리튼)
+      // ⭐ 첨부 파일 로드 (선택 리튼만 또는 모든 리튼) — 받은 파일 제외
       final List<AttachmentFile> attachmentFiles = [];
       if (filterById != null) {
         attachmentFiles.addAll(
-          await FileStorageService.instance.loadAttachmentFiles(filterById),
+          (await FileStorageService.instance.loadAttachmentFiles(filterById))
+              .where((a) => !appState.isReceivedShareFile(a.id)),
         );
       } else {
         for (final l in appState.littens) {
           attachmentFiles.addAll(
-            await FileStorageService.instance.loadAttachmentFiles(l.id),
+            (await FileStorageService.instance.loadAttachmentFiles(l.id))
+                .where((a) => !appState.isReceivedShareFile(a.id)),
           );
         }
       }
@@ -946,11 +958,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
     String? initialPdfPath,
     String? initialPdfFileName,
     String? initialImagePath,
+    String? initialImageName,
   }) {
     setState(() {
       _openEditor = type;
       _handwritingAction = action;
       _initialImagePath = initialImagePath;
+      _initialImageName = initialImageName;
       _autoCreate = autoCreate;
       _autoStartSTT = autoStartSTT;
       _selectedTextFile = textFile;
@@ -967,6 +981,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
       _initialPdfPath = null;
       _initialPdfFileName = null;
       _initialImagePath = null;
+      _initialImageName = null;
     });
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     // 타이틀 카운트(필기/메모 등) 갱신 — 에디터에서 추가/삭제된 파일 반영
@@ -1159,6 +1174,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
           initialPdfPath: _initialPdfPath,
           initialPdfFileName: _initialPdfFileName,
           initialImagePath: _initialImagePath,
+          initialImageName: _initialImageName,
         );
     }
   }
@@ -2373,7 +2389,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
         onTap: file.isImage
             ? () async {
                 if (await _blockedByLimit('handwriting')) return;
-                _openEditorView(_EditorType.handwriting, initialImagePath: file.filePath);
+                _openEditorView(_EditorType.handwriting,
+                    initialImagePath: file.filePath, initialImageName: file.fileName);
               }
             : null,
         child: Padding(

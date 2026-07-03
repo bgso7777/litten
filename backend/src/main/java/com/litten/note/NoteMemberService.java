@@ -62,6 +62,7 @@ public class NoteMemberService extends CustomHttpService {
         } else {
             log.info("[NoteMemberService] getMyInfo - 성공: {}, plan: {}", memberId, noteMember.getSubscriptionPlan());
             result.put(Constants.TAG_MEMBER_ID, noteMember.getId());
+            result.put("name", noteMember.getName()); // 닉네임 — 다기기 로그인 시 설정 화면/제목 표시용
             result.put(Constants.TAG_SUBSCRIPTION_PLAN, noteMember.getSubscriptionPlan());
             result.put(Constants.TAG_PLAN_EXPIRED_AT, noteMember.getPlanExpiredAt());
         }
@@ -218,21 +219,39 @@ public class NoteMemberService extends CustomHttpService {
                 String uuid1 = noteMember.getUuid1();
                 String uuid2 = noteMember.getUuid2();
                 String uuid3 = noteMember.getUuid3();
-                boolean matched =
-                        (uuid1 != null && uuid1.equals(uuid)) ||
-                        (uuid2 != null && uuid2.equals(uuid)) ||
-                        (uuid3 != null && uuid3.equals(uuid));
                 boolean slot1Empty = uuid1 == null || uuid1.isBlank();
                 boolean slot2Empty = uuid2 == null || uuid2.isBlank();
                 boolean slot3Empty = uuid3 == null || uuid3.isBlank();
-                boolean canRegister = !matched && (slot1Empty || slot2Empty || slot3Empty);
-                log.info("[NoteMemberService] postLogin uuid 매칭 - id: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}, matched: {}, canRegister: {}",
-                        value1, uuid, uuid1, uuid2, uuid3, matched, canRegister);
+
+                // 플랜별 로그인 기기 정책: 프리미엄=최대 3대, 무료/스탠다드=1대(다른 기기 로그인 중이면 거부).
+                String plan = noteMember.getSubscriptionPlan();
+                boolean isPremium = plan != null && plan.equalsIgnoreCase("premium");
+
+                boolean matched;      // 이미 등록된 기기(재로그인)
+                boolean canRegister;  // 새 기기를 등록해 로그인 허용 가능
+                if (isPremium) {
+                    matched = (uuid1 != null && uuid1.equals(uuid))
+                            || (uuid2 != null && uuid2.equals(uuid))
+                            || (uuid3 != null && uuid3.equals(uuid));
+                    canRegister = !matched && (slot1Empty || slot2Empty || slot3Empty);
+                } else {
+                    // 무료/스탠다드: 등록 기기는 uuid1 하나만 인정. 등록된 기기와 다르면 거부(2번째 기기 로그인 불가).
+                    matched = uuid1 != null && uuid1.equals(uuid);
+                    canRegister = !matched && slot1Empty;
+                }
+                log.info("[NoteMemberService] postLogin uuid 매칭 - id: {}, plan: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}, matched: {}, canRegister: {}",
+                        value1, plan, uuid, uuid1, uuid2, uuid3, matched, canRegister);
                 if (matched || canRegister) {
                     if (!matched) {
-                        // 빈 슬롯에 새 디바이스 등록 (uuid1 → uuid2 → uuid3 순서)
                         String registeredSlot;
-                        if (slot1Empty) {
+                        if (!isPremium) {
+                            // 무료/스탠다드: 1대만 — 기존 기기 슬롯을 모두 해제하고 이 기기를 유일 기기로 등록(기존 기기 로그아웃)
+                            noteMember.setUuid1(uuid);
+                            noteMember.setUuid2(null);
+                            noteMember.setUuid3(null);
+                            registeredSlot = "uuid1(단일기기)";
+                        } else if (slot1Empty) {
+                            // 프리미엄: 빈 슬롯에 새 디바이스 등록 (uuid1 → uuid2 → uuid3 순서)
                             noteMember.setUuid1(uuid);
                             registeredSlot = "uuid1";
                         } else if (slot2Empty) {
@@ -243,8 +262,8 @@ public class NoteMemberService extends CustomHttpService {
                             registeredSlot = "uuid3";
                         }
                         noteMemberRepository.save(noteMember);
-                        log.info("[NoteMemberService] 새 디바이스 등록 - id: {}, slot: {}, uuid: {}",
-                                value1, registeredSlot, uuid);
+                        log.info("[NoteMemberService] 새 디바이스 등록 - id: {}, plan: {}, slot: {}, uuid: {}",
+                                value1, plan, registeredSlot, uuid);
                     }
                     try {
                         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(value1, value2); // id, pw
@@ -278,11 +297,13 @@ public class NoteMemberService extends CustomHttpService {
                         result.put(Constants.TAG_RESULT_MESSAGE, "bad credentials");
                     }
                 } else {
-                    // 세 슬롯 모두 다른 디바이스가 점유 중 → 거부
-                    log.warn("[NoteMemberService] 로그인 거부 - 최대 3대 초과 - id: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}",
-                            value1, uuid, uuid1, uuid2, uuid3);
+                    // 로그인 거부: 무료/스탠다드는 다른 기기가 이미 로그인 중, 프리미엄은 3대 초과
+                    log.warn("[NoteMemberService] 로그인 거부 - id: {}, plan: {}, reqUuid: {}, uuid1: {}, uuid2: {}, uuid3: {}",
+                            value1, plan, uuid, uuid1, uuid2, uuid3);
                     result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
-                    result.put(Constants.TAG_RESULT_MESSAGE, "이미 3대의 디바이스에서 로그인되어 있습니다. 기존 디바이스에서 로그아웃 후 다시 시도해 주세요.");
+                    result.put(Constants.TAG_RESULT_MESSAGE, isPremium
+                            ? "이미 3대의 디바이스에서 로그인되어 있습니다. 기존 디바이스에서 로그아웃 후 다시 시도해 주세요."
+                            : "무료 플랜은 1대에서만 로그인할 수 있습니다. 기존 기기에서 로그아웃 후 다시 시도해 주세요.");
                 }
             } else {
                 result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);

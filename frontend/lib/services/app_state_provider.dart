@@ -775,6 +775,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isLoggedIn => _authService.authStatus == AuthStatus.authenticated;
   User? get currentUser => _authService.currentUser;
 
+  // 현재 계정 닉네임(note_member.name) — 설정 화면 계정 조회 시 채워지고,
+  // 설정 탭 제목란 등 공용으로 참조한다. (currentUser.displayName과 별개로 서버 값 반영)
+  String? _myNickname;
+  String? get myNickname => _myNickname;
+  void setMyNickname(String? nickname) {
+    final n = (nickname != null && nickname.trim().isNotEmpty)
+        ? nickname.trim()
+        : null;
+    if (n == _myNickname) return;
+    _myNickname = n;
+    notifyListeners();
+  }
+
   // 오디오 서비스 관련 Getters
   AudioService get audioService => _audioService;
   bool get isRecording => _audioService.isRecording;
@@ -1487,8 +1500,22 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _homeChatView = 'chat';
   String get homeChatView => _homeChatView;
   void setHomeChatView(String mode) {
-    if (_homeChatView == mode) return;
+    if (_homeChatView == mode) {
+      return;
+    }
     _homeChatView = mode;
+    _homeChatFileKind = null; // 모드 바꾸면 칩 종류 필터 해제
+    notifyListeners();
+  }
+
+  // 채팅 하단 칩 탭 시 해당 종류(memo/canvas/pdf/audio/stt/files/photo/video) 파일 목록 표시.
+  // null이면 일반 대화 목록. 같은 칩 재탭 시 해제.
+  String? _homeChatFileKind;
+  String? get homeChatFileKind => _homeChatFileKind;
+  void setHomeChatFileKind(String? kind) {
+    final next = (_homeChatFileKind == kind) ? null : kind; // 같은 칩 재탭 → 해제
+    if (_homeChatFileKind == next) return;
+    _homeChatFileKind = next;
     notifyListeners();
   }
 
@@ -1532,6 +1559,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> loadSelfChats() async {
+    await _loadConvCustomNames(); // 대화 표시 이름(별칭) 로드
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_selfChatsKey);
     if (raw != null && raw.isNotEmpty) {
@@ -1682,6 +1710,54 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return room;
   }
 
+  // 대화별 사용자 지정 표시 이름(로컬 별칭) — 그룹/1:1 대화 이름 변경용. key: 'g:그룹명' | 'u:이메일'.
+  final Map<String, String> _convCustomNames = {};
+  String? convCustomName(String key) => _convCustomNames[key];
+
+  Future<void> _loadConvCustomNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('conv_custom_names');
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        _convCustomNames
+          ..clear()
+          ..addAll(m.map((k, v) => MapEntry(k, v.toString())));
+      } catch (_) {}
+    }
+  }
+
+  /// 대화(그룹/1:1) 표시 이름 지정. 빈 값이면 해제(기본 이름으로 복귀). 로컬 전용(내 화면에만 반영).
+  Future<void> setConvCustomName(String key, String name) async {
+    final n = name.trim();
+    if (n.isEmpty) {
+      _convCustomNames.remove(key);
+    } else {
+      _convCustomNames[key] = n;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('conv_custom_names', jsonEncode(_convCustomNames));
+    notifyListeners();
+  }
+
+  /// 내가 만든 '나와의 대화'(셀프챗) 이름 변경. (로컬 저장 — 표시명 즉시 반영)
+  Future<void> renameSelfChat(String id, String newName) async {
+    final name = newName.trim();
+    if (name.isEmpty) return;
+    bool changed = false;
+    for (final e in _selfChats) {
+      if (e['id']?.toString() == id) {
+        e['name'] = name;
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      await _persistSelfChats();
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteSelfChat(String id) async {
     Map<String, dynamic>? room;
     for (final e in _selfChats) {
@@ -1714,7 +1790,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final ext = (dot > 0 && dot < fileName.length - 1) ? fileName.substring(dot) : '';
     final destPath = '${dir.path}/$localId$ext';
     try {
-      await File(sourcePath).copy(destPath);
+      // 컨테이너 UUID 변경으로 원본 절대경로가 무효화된 경우 현재 컨테이너 기준으로 복원
+      final resolvedSource = await _resolveStoredPath(sourcePath);
+      await File(resolvedSource).copy(destPath);
     } catch (e) {
       debugPrint('[AppStateProvider] 셀프챗 파일 복사 실패: $e');
       return;
@@ -2095,6 +2173,24 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  /// 저장된 절대경로가 iOS 컨테이너 UUID 변경 등으로 무효화된 경우,
+  /// 현재 Documents 기준으로 재구성한 경로를 돌려준다(경로에 '/littens/'가 있으면 그 이후 유지).
+  /// 재구성 경로도 없으면 원본 경로를 그대로 반환한다.
+  Future<String> _resolveStoredPath(String storedPath) async {
+    if (storedPath.isEmpty) return storedPath;
+    if (await File(storedPath).exists()) return storedPath;
+    final idx = storedPath.indexOf('/littens/');
+    if (idx >= 0) {
+      final docDir = await getApplicationDocumentsDirectory();
+      final rebuilt = '${docDir.path}${storedPath.substring(idx)}';
+      if (await File(rebuilt).exists()) {
+        debugPrint('🔁 저장 경로 복원: $storedPath → $rebuilt');
+        return rebuilt;
+      }
+    }
+    return storedPath;
+  }
+
   /// 파일을 개인(이메일/이름) 또는 그룹에 공유. 반환: {success, message?}
   Future<Map<String, dynamic>> shareFile({
     required String filePath,
@@ -2109,7 +2205,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     final token = await _shareToken();
     if (token == null) return {'success': false, 'message': '로그인이 필요합니다.'};
-    final f = File(filePath);
+    // 컨테이너 UUID 변경으로 절대경로가 무효화된 경우 현재 컨테이너 기준으로 복원
+    final resolvedPath = await _resolveStoredPath(filePath);
+    final f = File(resolvedPath);
     if (!await f.exists()) return {'success': false, 'message': '파일을 찾을 수 없습니다.'};
     final res = await _shareApi.shareFile(
       token: token, targetType: targetType, recipientKey: recipientKey, groupId: groupId,
@@ -2123,7 +2221,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await SharedSnapshotService.instance.saveSent(
             shareId: sid, fileName: fileName, fileType: fileType,
-            contentType: contentType, sourcePath: filePath,
+            contentType: contentType, sourcePath: resolvedPath,
             peer: recipientKey ?? (groupId != null ? 'group:$groupId' : ''),
             message: message,
           );
@@ -2341,6 +2439,27 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   // ── 공유 취소 동기화 (발신자 취소 시 수신자 로컬 저장본 삭제) ──
   static const String _acceptedShareMapKey = 'accepted_share_map';
 
+  // 채팅에서 받아 저장한 파일 id 집합 — 전체 파일 목록에선 숨긴다(채팅 파일 영역과 +파일 영역 분리).
+  final Set<String> _receivedShareFileIds = {};
+  bool isReceivedShareFile(String id) => _receivedShareFileIds.contains(id);
+
+  /// 수락 매핑에서 받은 파일 id 집합을 로드(전체 목록 제외용).
+  Future<void> loadReceivedShareFileIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_acceptedShareMapKey) ?? [];
+    _receivedShareFileIds
+      ..clear()
+      ..addAll(list
+          .map((e) {
+            try {
+              return (jsonDecode(e) as Map<String, dynamic>)['fileId']?.toString() ?? '';
+            } catch (_) {
+              return '';
+            }
+          })
+          .where((s) => s.isNotEmpty));
+  }
+
   /// 수락·저장 시 (공유 deliveryId → 로컬 파일) 매핑을 기록한다.
   Future<void> _recordAcceptedShare(
       Map<String, dynamic> share,
@@ -2362,6 +2481,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
     await prefs.setStringList(
         _acceptedShareMapKey, list.map((m) => jsonEncode(m)).toList());
+    _receivedShareFileIds.add(saved.fileId); // 전체 목록 숨김 대상에 추가
     debugPrint('[취소동기화] 수락 매핑 기록 - delivery $deliveryId → ${saved.type}/${saved.fileId}');
   }
 

@@ -14,6 +14,7 @@ class HandwritingFile {
   final DateTime updatedAt;
   final HandwritingType type; // PDF에서 변환된 것인지, 직접 그린 것인지
   final double? aspectRatio; // 이미지의 가로세로 비율 (width / height)
+  final String? sourceName; // 사진(첨부)→필기 변환 시 원본 사진 파일명. 같은 사진 재탭 시 재사용 매칭용.
   final String? cloudId;
   final DateTime? cloudUpdatedAt;
   final SyncStatus syncStatus;
@@ -31,6 +32,7 @@ class HandwritingFile {
     DateTime? updatedAt,
     HandwritingType? type,
     this.aspectRatio,
+    this.sourceName,
     this.cloudId,
     this.cloudUpdatedAt,
     this.syncStatus = SyncStatus.none,
@@ -90,6 +92,7 @@ class HandwritingFile {
     int? currentPageIndex,
     HandwritingType? type,
     double? aspectRatio,
+    String? sourceName,
     String? cloudId,
     DateTime? cloudUpdatedAt,
     SyncStatus? syncStatus,
@@ -110,6 +113,7 @@ class HandwritingFile {
       updatedAt: updatedAt ?? DateTime.now(),
       type: type ?? this.type,
       aspectRatio: aspectRatio ?? this.aspectRatio,
+      sourceName: sourceName ?? this.sourceName,
       cloudId: clearCloud ? null : (cloudId ?? this.cloudId),
       cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
       syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
@@ -130,6 +134,7 @@ class HandwritingFile {
       'updatedAt': updatedAt.toIso8601String(),
       'type': type.toString(),
       'aspectRatio': aspectRatio,
+      'sourceName': sourceName,
       'cloudId': cloudId,
       'cloudUpdatedAt': cloudUpdatedAt?.toIso8601String(),
       'syncStatus': syncStatus.name,
@@ -155,6 +160,7 @@ class HandwritingFile {
         orElse: () => HandwritingType.drawing,
       ),
       aspectRatio: json['aspectRatio']?.toDouble(),
+      sourceName: json['sourceName'] as String?,
       cloudId: json['cloudId'] as String?,
       cloudUpdatedAt: json['cloudUpdatedAt'] != null ? DateTime.parse(json['cloudUpdatedAt']) : null,
       syncStatus: SyncStatus.values.firstWhere(

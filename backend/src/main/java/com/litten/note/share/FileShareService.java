@@ -218,6 +218,9 @@ public class FileShareService {
             m.put("groupId", s.getGroupId());
             m.put("groupPassword", s.getGroupId() == null ? null
                     : groupRepository.findById(s.getGroupId()).map(ShareGroup::getPassword).orElse(null));
+            // 받은 그룹의 총 인원 산정용 — 오너 제외 멤버 수(프론트는 +1(오너)로 총원 계산)
+            m.put("groupMemberCount", s.getGroupId() == null ? null
+                    : groupMemberRepository.findByGroupIdAndIsDeletedFalseOrderByIdAsc(s.getGroupId()).size());
             m.put("sharedAt", s.getInsertDateTime());
             m.put("respondedAt", d.getRespondedAt());
             list.add(m);

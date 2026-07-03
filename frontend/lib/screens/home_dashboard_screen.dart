@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/litten.dart';
+import 'login_screen.dart';
 import '../services/app_state_provider.dart';
 import '../services/file_storage_service.dart';
 import '../services/shared_snapshot_service.dart';
@@ -133,31 +134,48 @@ class _HomeChipBar extends StatelessWidget {
       counts.update(k, (v) => v + 1, ifAbsent: () => 1);
     }
 
-    // 카운트 0이면 숨김. 순서: 메모→필기→PDF→녹음→녹음메모→사진→비디오→파일.
+    // 카운트 0이면 숨김. 순서: 메모→필기→PDF→녹음→녹음메모→파일→사진→비디오.
+    // 칩을 누르면 해당 종류 파일 목록으로 전환(같은 칩 재탭 시 대화 목록 복귀).
+    final selectedKind = app.homeChatFileKind;
     final chips = <Widget>[];
-    void add(IconData icon, int n) {
+    void add(String kind, IconData icon, int n) {
       if (n <= 0) return;
-      if (chips.isNotEmpty) chips.add(const SizedBox(width: 16));
-      chips.add(Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 2),
-          Text('$n',
-              style: TextStyle(
-                  fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
-        ],
+      if (chips.isNotEmpty) chips.add(const SizedBox(width: 12));
+      final selected = selectedKind == kind;
+      chips.add(GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => context.read<AppStateProvider>().setHomeChatFileKind(kind),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: selected
+              ? BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10))
+              : null,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 2),
+              Text('$n',
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                      color: color)),
+            ],
+          ),
+        ),
       ));
     }
-    add(Icons.notes, counts['memo'] ?? 0);
-    add(Icons.draw, counts['canvas'] ?? 0);
-    add(Icons.picture_as_pdf, counts['pdf'] ?? 0);
-    add(Icons.mic, counts['audio'] ?? 0);
-    add(Icons.record_voice_over, counts['stt'] ?? 0);
-    add(Icons.description, counts['files'] ?? 0);
-    add(Icons.photo_camera, counts['photo'] ?? 0);
-    add(Icons.videocam, counts['video'] ?? 0);
+    add('memo', Icons.notes, counts['memo'] ?? 0);
+    add('canvas', Icons.draw, counts['canvas'] ?? 0);
+    add('pdf', Icons.picture_as_pdf, counts['pdf'] ?? 0);
+    add('audio', Icons.mic, counts['audio'] ?? 0);
+    add('stt', Icons.record_voice_over, counts['stt'] ?? 0);
+    add('files', Icons.description, counts['files'] ?? 0);
+    add('photo', Icons.photo_camera, counts['photo'] ?? 0);
+    add('video', Icons.videocam, counts['video'] ?? 0);
 
     return Container(
       width: double.infinity,
@@ -330,8 +348,9 @@ class _EmptyHint extends StatelessWidget {
 
 /// 공유 파일을 전체탭과 동일한 "종류 키"로 분류한다(fileType + 파일명 확장자).
 /// memo·canvas·pdf·audio·stt·photo·video·files
-String _shareFileKind(String? t, [String? fileName]) {
+String _shareFileKind(String? t, [String? fileName, String? contentType]) {
   final n = (fileName ?? '').toLowerCase();
+  final ct = (contentType ?? '').toLowerCase();
   switch (t) {
     case 'text':
       return 'memo';
@@ -343,15 +362,19 @@ String _shareFileKind(String? t, [String? fileName]) {
     case 'handwriting':
       return n.endsWith('.pdf') ? 'pdf' : 'canvas'; // 필기 이미지 vs PDF
     default:
-      if (RegExp(r'\.(jpg|jpeg|png|gif|webp|heic|heif|bmp)$').hasMatch(n)) return 'photo';
-      if (RegExp(r'\.(mp4|mov|avi|mkv|webm|m4v)$').hasMatch(n)) return 'video';
+      // 파일명 확장자 또는 contentType(image/*·video/*)으로 판별 — 받은 공유는 파일명에 확장자가
+      // 없어도 서버가 준 contentType으로 사진/영상 아이콘을 보냄쪽과 일치시킨다.
+      if (RegExp(r'\.(jpg|jpeg|png|gif|webp|heic|heif|bmp)$').hasMatch(n) ||
+          ct.startsWith('image/')) return 'photo';
+      if (RegExp(r'\.(mp4|mov|avi|mkv|webm|m4v)$').hasMatch(n) ||
+          ct.startsWith('video/')) return 'video';
       return 'files';
   }
 }
 
 /// 공유 파일 아이콘 — 전체탭 제목/리스트와 동일한 매핑.
-IconData _shareFileTypeIcon(String? t, [String? fileName]) {
-  switch (_shareFileKind(t, fileName)) {
+IconData _shareFileTypeIcon(String? t, [String? fileName, String? contentType]) {
+  switch (_shareFileKind(t, fileName, contentType)) {
     case 'memo':
       return Icons.notes;
     case 'canvas':
@@ -428,7 +451,12 @@ class _ShareSection extends StatefulWidget {
   State<_ShareSection> createState() => _ShareSectionState();
 }
 
-class _ShareSectionState extends State<_ShareSection> {
+class _ShareSectionState extends State<_ShareSection>
+    with SingleTickerProviderStateMixin {
+  // 하단 칩 종류 파일 목록 패널 슬라이드업(0→50%) 애니메이션.
+  late final AnimationController _paneAnim;
+  String? _reqPaneKind; // 마지막으로 애니메이션 구동에 반영한 종류
+  String? _paneKind; // 패널에 표시 중인 종류(닫히는 동안 유지)
   // 현재 열린 대화방 key (null이면 대화 목록 화면). 'g:그룹명' 또는 'u:이메일'
   // 열린 대화방 key는 AppStateProvider.homeOpenConvKey(단일 소스)를 사용한다.
   // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
@@ -448,6 +476,7 @@ class _ShareSectionState extends State<_ShareSection> {
   void dispose() {
     _msgCtrl.dispose();
     _chatScrollCtrl.dispose();
+    _paneAnim.dispose();
     super.dispose();
   }
 
@@ -491,6 +520,10 @@ class _ShareSectionState extends State<_ShareSection> {
   @override
   void initState() {
     super.initState();
+    _paneAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
     _loadUnlockedGroups();
     _loadConvRead();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -499,6 +532,50 @@ class _ShareSectionState extends State<_ShareSection> {
       app.loadSelfChats();
       app.loadHiddenConvs();
     });
+  }
+
+  /// 대화 이름 수정 다이얼로그 — 그룹/1:1/나와의 대화 모두.
+  /// 나와의 대화는 실제 이름 변경, 그룹/1:1은 내 화면 표시 이름(로컬 별칭) 지정.
+  Future<void> _renameConv(_Conv c) async {
+    final appState = context.read<AppStateProvider>();
+    final ctrl = TextEditingController(text: c.label);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 수정', style: TextStyle(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                  labelText: '채팅방 이름', isDense: true, border: OutlineInputBorder()),
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            ),
+            if (!c.isSelf)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('내 화면에만 표시되는 이름입니다.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('저장')),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty) return;
+    if (c.isSelf) {
+      await appState.renameSelfChat(c.key.substring(5), newName); // 'self:' 제거
+    } else {
+      await appState.setConvCustomName(c.key, newName);
+    }
   }
 
   /// 방나가기/삭제 — 해당 대화의 공유 파일(보관 스냅샷 + 목록 항목)을 모두 정리한다.
@@ -633,6 +710,21 @@ class _ShareSectionState extends State<_ShareSection> {
       );
     }
 
+    // 하단 칩 선택 시: 해당 종류 파일 목록 패널을 아래에서 위로 50%까지 슬라이드업(대화 목록은 위에 유지).
+    final kindFilter = appState.homeChatOpen ? null : appState.homeChatFileKind;
+    if (kindFilter != _reqPaneKind) {
+      _reqPaneKind = kindFilter;
+      if (kindFilter != null) _paneKind = kindFilter;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (kindFilter != null) {
+          _paneAnim.forward();
+        } else {
+          _paneAnim.reverse();
+        }
+      });
+    }
+
     final mode = appState.homeChatView; // 'chat' | 'received' | 'sent'
 
     // 채팅 모드: 받은 것 + 한 것 + 메시지를 모두 대화방으로 묶는다(제목 토글과 무관하게 전체 표시).
@@ -696,12 +788,12 @@ class _ShareSectionState extends State<_ShareSection> {
               key: key, isGroup: isGroup, email: email, label: label,
               groupId: (ownedByName[group]?['groupId'] as num?)?.toInt()));
       conv.items.add(it);
-      // 개인 대화 라벨: 닉네임이 있으면 '닉네임(이메일)', 없으면 이메일만.
+      // 개인 대화 라벨: 닉네임이 있으면 닉네임만, 없으면 아이디(이메일)만. (닉네임 우선)
       // 닉네임은 받은 항목의 senderName에서 확보(이메일과 다를 때만 닉네임으로 인정).
       if (!isGroup && it.received) {
         final sn = it.data['senderName']?.toString() ?? '';
         final em = email ?? '';
-        if (sn.isNotEmpty && sn != em) conv.label = '$sn($em)';
+        if (sn.isNotEmpty && sn != em) conv.label = sn;
       }
       // 수신 그룹(남의 그룹)의 비밀번호/그룹id — 수신자 잠금 검증 및 멤버 발신용
       if (isGroup && it.received) {
@@ -749,6 +841,12 @@ class _ShareSectionState extends State<_ShareSection> {
       }
     }
 
+    // 사용자가 지정한 대화 표시 이름(로컬 별칭) 적용 — 그룹/1:1. (나와의 대화는 sc['name'] 사용)
+    for (final conv in convs.values) {
+      final custom = appState.convCustomName(conv.key);
+      if (custom != null && custom.isNotEmpty) conv.label = custom;
+    }
+
     // 열린 대화방 — 없으면(새 채팅 등) key로 임시 대화 생성. 상태는 provider 단일 소스.
     _Conv? open;
     final openKey = appState.homeOpenConvKey;
@@ -783,7 +881,7 @@ class _ShareSectionState extends State<_ShareSection> {
     final myEmail = appState.currentUser?.id ?? '';
 
     // 새 채팅 진입점은 하단 칩 바의 + 버튼으로 일원화(기존 우측 하단 FAB 제거).
-    return RefreshIndicator(
+    final convBody = RefreshIndicator(
       onRefresh: () => appState.loadShares(),
       child: convList.isEmpty
           ? ListView(
@@ -804,6 +902,55 @@ class _ShareSectionState extends State<_ShareSection> {
                   Divider(height: 1, color: color.withValues(alpha: 0.08)),
               itemBuilder: (_, i) => _convRow(convList[i], ownedByName, color, myEmail),
             ),
+    );
+    // 대화 목록은 위에 유지 + 하단 칩 종류 파일 패널을 아래에서 0→50%로 스무스하게 슬라이드업.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final halfH = constraints.maxHeight * 0.5;
+        return AnimatedBuilder(
+          animation: _paneAnim,
+          builder: (context, _) {
+            final t = Curves.easeOut.transform(_paneAnim.value);
+            final paneH = halfH * t;
+            return Column(
+              children: [
+                Expanded(child: convBody),
+                SizedBox(
+                  height: paneH,
+                  child: paneH < 1
+                      ? const SizedBox.shrink()
+                      : ClipRect(
+                          child: OverflowBox(
+                            minHeight: 0,
+                            maxHeight: halfH,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              height: halfH,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  border: Border(
+                                      top: BorderSide(color: color.withValues(alpha: 0.15))),
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, -2)),
+                                  ],
+                                ),
+                                child: _paneKind != null
+                                    ? _buildChatFileKindList(appState, color, _paneKind!)
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -836,6 +983,8 @@ class _ShareSectionState extends State<_ShareSection> {
       }
       rows.add({
         'fileType': s['fileType'],
+        'fileName': s['fileName'], // 아이콘 판별용 원본 파일명(확장자 포함)
+        'contentType': s['contentType'],
         'fname': _stripShareExt(s['fileName']?.toString() ?? ''),
         'subtitle': '${received ? '보낸이' : '받는이'}: $peer',
         'dateIso': s['sharedAt']?.toString() ?? '',
@@ -857,6 +1006,8 @@ class _ShareSectionState extends State<_ShareSection> {
             at: _parseAt(item['sentAt']), group: '');
         rows.add({
           'fileType': item['fileType'],
+          'fileName': item['fileName'],
+          'contentType': item['contentType'],
           'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
           'subtitle': '나와의 대화: ${f['chatName']}',
           'dateIso': item['sentAt']?.toString() ?? '',
@@ -887,7 +1038,7 @@ class _ShareSectionState extends State<_ShareSection> {
               itemBuilder: (_, i) {
                 final r = rows[i];
                 return ListTile(
-                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString(), r['fileName']?.toString()), color: color),
+                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString(), r['fileName']?.toString(), r['contentType']?.toString()), color: color),
                   title: Text(r['fname']?.toString() ?? '',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
@@ -907,8 +1058,30 @@ class _ShareSectionState extends State<_ShareSection> {
   void startNewChat() => _startNewChat();
 
   Future<void> _startNewChat() async {
-    final ctrl = TextEditingController();
     final appState = context.read<AppStateProvider>();
+    // 채팅은 로그인 필수 — 비로그인 시 회원가입/로그인 안내
+    if (!appState.isLoggedIn) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('로그인 필요', style: TextStyle(fontSize: 16)),
+          content: const Text('채팅 기능은 회원가입 후 로그인이 필요합니다.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()));
+              },
+              child: const Text('로그인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final groups = appState.shareGroups;
     final color = Theme.of(context).primaryColor;
     final result = await showDialog<String>(
@@ -932,36 +1105,11 @@ class _ShareSectionState extends State<_ShareSection> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // 1:1 탭 — 이메일/닉네임 입력 후 대화 시작
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller: ctrl,
-                              autofocus: true,
-                              decoration: const InputDecoration(
-                                  labelText: '이메일 또는 닉네임',
-                                  isDense: true, border: OutlineInputBorder()),
-                              onSubmitted: (v) => Navigator.pop(
-                                  ctx, v.trim().isEmpty ? null : 'u:${v.trim()}'),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                final k = ctrl.text.trim();
-                                if (k.isEmpty) return;
-                                Navigator.pop(ctx, 'u:$k');
-                              },
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: color, foregroundColor: Colors.white),
-                              icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                              label: const Text('대화 시작'),
-                            ),
-                          ],
-                        ),
+                      // 1:1 탭 — 이메일/닉네임 검색 후(가입 회원 확인) 대화 시작
+                      _NewChatOneToOneTab(
+                        color: color,
+                        onSearch: (q) => appState.authService.searchMember(q),
+                        onStart: (email) => Navigator.pop(ctx, 'u:$email'),
                       ),
                       // 그룹 탭 — 새 그룹 만들기 + 내 그룹 목록
                       Padding(
@@ -1055,17 +1203,39 @@ class _ShareSectionState extends State<_ShareSection> {
       final other = c.email ?? '';
       return (other.isNotEmpty && other == myEmail) ? 1 : 2;
     }
-    final owned = ownedByName[c.label];
-    if (owned != null) {
-      final mc = (owned['memberCount'] as num?)?.toInt() ?? 0;
-      return mc + 1; // 멤버(나 제외) + 나
-    }
+    // 그룹 인원: 여러 근거 중 가장 큰 값(가장 정확한 인원)을 채택 — 데이터 누락 시 과소집계 방지.
+    //  1) 대화에 등장한 참여자(발신자+수신자들+나) distinct
+    //  2) recipients 개수(+발신자)
+    //  3) 서버가 준 그룹 멤버 수(오너 제외) + 1(오너)  ← 받은 그룹 정확 산정
+    //  4) 내가 만든 그룹의 memberCount + 1(나)
+    final people = <String>{};
+    if (myEmail.isNotEmpty) people.add(myEmail);
     int maxR = 0;
+    int byServer = 0;
     for (final it in c.items) {
-      final r = (it.data['recipients'] as List?)?.length ?? 0;
-      if (r > maxR) maxR = r;
+      final sender = it.data['senderMemberId']?.toString() ?? '';
+      if (sender.isNotEmpty) people.add(sender);
+      final recips = (it.data['recipients'] as List?) ?? const [];
+      for (final r in recips) {
+        final rid = (r is Map) ? (r['memberId']?.toString() ?? '') : (r?.toString() ?? '');
+        if (rid.isNotEmpty) people.add(rid);
+      }
+      if (recips.length > maxR) maxR = recips.length;
+      final gmc = it.data['groupMemberCount'];
+      if (gmc is num) {
+        final total = gmc.toInt() + 1; // +오너
+        if (total > byServer) byServer = total;
+      }
     }
-    return maxR > 0 ? maxR + 1 : 2;
+    final origGroupName = c.key.startsWith('g:') ? c.key.substring(2) : c.label;
+    final owned = ownedByName[origGroupName];
+    final mcPlus = owned != null ? (((owned['memberCount'] as num?)?.toInt() ?? 0) + 1) : 0;
+    final byRecips = maxR > 0 ? maxR + 1 : 0;
+    int result = people.length;
+    for (final v in [byRecips, byServer, mcPlus]) {
+      if (v > result) result = v;
+    }
+    return result > 0 ? result : 2;
   }
 
   /// 참여자 아바타 — 인원수만큼(1~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
@@ -1107,7 +1277,9 @@ class _ShareSectionState extends State<_ShareSection> {
   /// 대화 목록 한 줄 (상대/그룹). 탭하면 대화방 진입(잠금 그룹은 비밀번호 확인).
   Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color,
       String myEmail) {
-    final owned = c.isGroup ? ownedByName[c.label] : null;
+    // 소유 그룹 판별은 원래 그룹명(key 'g:이름') 기준 — 표시 이름을 바꿔도 정확히 유지.
+    final origGroupName = (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
+    final owned = origGroupName != null ? ownedByName[origGroupName] : null;
     final isOwned = owned != null;
     // 발신자(그룹 소유자)는 항상 열림. 수신자는 그룹 비번이 있으면 한 번 입력해 해제.
     final recvPw = (c.isGroup && !isOwned) ? c.recvGroupPassword : null;
@@ -1162,15 +1334,26 @@ class _ShareSectionState extends State<_ShareSection> {
                 ),
             ],
           ),
-          // 세로 ... 메뉴 — 방나가기(나와의 대화는 삭제)
+          // 세로 ... 메뉴 — (내가 만든 나와의 대화) 이름 수정 + 방나가기/삭제
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: Colors.grey.shade500, size: 20),
             padding: EdgeInsets.zero,
             tooltip: '메뉴',
             onSelected: (v) {
               if (v == 'leave') _leaveConv(c);
+              else if (v == 'rename') _renameConv(c);
             },
             itemBuilder: (_) => [
+              // 내가 만든 채팅방(나와의 대화 + 내가 만든 그룹)만 이름 수정 가능. 1:1/받은 그룹은 제외.
+              if (c.isSelf || isOwned)
+                PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Row(children: [
+                    Icon(Icons.edit_outlined, size: 18, color: color),
+                    const SizedBox(width: 8),
+                    const Text('이름 수정'),
+                  ]),
+                ),
               PopupMenuItem<String>(
                 value: 'leave',
                 child: Row(children: [
@@ -1375,6 +1558,7 @@ class _ShareSectionState extends State<_ShareSection> {
     for (final lit in appState.littens) {
       for (final t in await fs.loadTextFiles(lit.id)) {
         entries.add(_FileEntry(
+          id: t.id,
           type: t.isFromSTT ? 'stt_text' : 'text',
           name: t.displayTitle,
           icon: Icons.notes,
@@ -1386,6 +1570,7 @@ class _ShareSectionState extends State<_ShareSection> {
       }
       for (final a in await fs.loadAudioFiles(lit.id)) {
         entries.add(_FileEntry(
+          id: a.id,
           type: a.isFromSTT ? 'stt_audio' : 'audio',
           name: a.fileName,
           icon: Icons.mic,
@@ -1398,6 +1583,7 @@ class _ShareSectionState extends State<_ShareSection> {
       for (final h in await fs.loadHandwritingFiles(lit.id)) {
         final isPdf = h.imagePath.toLowerCase().endsWith('.pdf');
         entries.add(_FileEntry(
+          id: h.id,
           type: 'handwriting',
           name: h.displayTitle,
           icon: Icons.draw,
@@ -1409,6 +1595,7 @@ class _ShareSectionState extends State<_ShareSection> {
       }
       for (final at in await fs.loadAttachmentFiles(lit.id)) {
         entries.add(_FileEntry(
+          id: at.id,
           type: 'attachment',
           name: at.fileName,
           icon: Icons.attach_file,
@@ -1498,6 +1685,10 @@ class _ShareSectionState extends State<_ShareSection> {
         recipientKey: c.isGroup ? null : (c.email ?? c.key.substring(2)),
         groupId: c.isGroup ? groupId : null,
       );
+      if (res['success'] == true) {
+        // 전체 파일 리스트의 공유 아이콘 활성 표시(전체탭에서 공유한 것과 동일 처리)
+        await appState.markFileShared(picked.id);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(res['success'] == true
@@ -1531,6 +1722,112 @@ class _ShareSectionState extends State<_ShareSection> {
       peer: '나',
     );
     await showSharedSnapshot(context, snap);
+  }
+
+  /// 하단 칩 탭 시 — 해당 종류(사진/필기/파일 등)의 채팅 파일(받은·보낸·나와의 대화)을 리스트로 표시.
+  Widget _buildChatFileKindList(
+      AppStateProvider appState, Color color, String kind) {
+    const kindLabels = {
+      'memo': '메모', 'canvas': '필기', 'pdf': 'PDF', 'audio': '녹음',
+      'stt': '녹음메모', 'files': '파일', 'photo': '사진', 'video': '동영상',
+    };
+    final rows = <Map<String, dynamic>>[];
+    // 받은 공유
+    for (final s in appState.sharesReceived) {
+      if (_shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
+              s['contentType']?.toString()) != kind) {
+        continue;
+      }
+      final it = _ShareItem(
+          received: true, data: s, at: _parseAt(s['sharedAt']),
+          group: (s['groupName']?.toString() ?? '').trim());
+      final sender = s['senderName']?.toString().isNotEmpty == true
+          ? s['senderName'].toString()
+          : (s['senderMemberId']?.toString() ?? '');
+      rows.add({
+        'fileType': s['fileType'], 'fileName': s['fileName'], 'contentType': s['contentType'],
+        'fname': _stripShareExt(s['fileName']?.toString() ?? ''),
+        'subtitle': '받음 · $sender',
+        'dateIso': s['sharedAt']?.toString() ?? '',
+        'onTap': () => _openSharedSnapshot(it),
+      });
+    }
+    // 보낸 공유
+    for (final s in appState.sharesSent) {
+      if (_shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
+              s['contentType']?.toString()) != kind) {
+        continue;
+      }
+      final it = _ShareItem(
+          received: false, data: s, at: _parseAt(s['sharedAt']),
+          group: (s['groupName']?.toString() ?? '').trim());
+      final g = (s['groupName']?.toString() ?? '').trim();
+      final recips = (s['recipients'] as List?) ?? const [];
+      final to = g.isNotEmpty
+          ? g
+          : (recips.isNotEmpty ? ((recips.first as Map)['memberId']?.toString() ?? '') : '');
+      rows.add({
+        'fileType': s['fileType'], 'fileName': s['fileName'], 'contentType': s['contentType'],
+        'fname': _stripShareExt(s['fileName']?.toString() ?? ''),
+        'subtitle': '보냄 · $to',
+        'dateIso': s['sharedAt']?.toString() ?? '',
+        'onTap': () => _openSharedSnapshot(it),
+      });
+    }
+    // 나와의 대화 파일
+    for (final f in appState.selfChatFiles) {
+      final item = f['item'] as Map<String, dynamic>;
+      if (_shareFileKind(item['fileType']?.toString(), item['fileName']?.toString(),
+              item['contentType']?.toString()) != kind) {
+        continue;
+      }
+      final selfIt = _ShareItem(
+          received: false,
+          data: {
+            'fileName': item['fileName'], 'fileType': item['fileType'],
+            'sharedAt': item['sentAt'], '__selfFile': true,
+            '__chatId': f['chatId'], '__item': item,
+          },
+          at: _parseAt(item['sentAt']), group: '');
+      rows.add({
+        'fileType': item['fileType'], 'fileName': item['fileName'], 'contentType': item['contentType'],
+        'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
+        'subtitle': '나와의 대화: ${f['chatName']}',
+        'dateIso': item['sentAt']?.toString() ?? '',
+        'onTap': () => _openSelfChatFile(selfIt),
+      });
+    }
+    rows.sort((a, b) => _parseAt(b['dateIso']).compareTo(_parseAt(a['dateIso'])));
+
+    // 상단 헤더 없이 리스트만 표시(칩 재탭으로 닫음).
+    return rows.isEmpty
+        ? Center(
+            child: Text('${kindLabels[kind] ?? kind} 파일이 없습니다.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade500)))
+        : ListView.separated(
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            itemCount: rows.length,
+            separatorBuilder: (_, i) =>
+                Divider(height: 1, color: color.withValues(alpha: 0.08)),
+            itemBuilder: (_, i) {
+              final r = rows[i];
+              return ListTile(
+                leading: Icon(
+                    _shareFileTypeIcon(r['fileType']?.toString(),
+                        r['fileName']?.toString(), r['contentType']?.toString()),
+                    color: color),
+                title: Text(r['fname']?.toString() ?? '',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                subtitle: Text(r['subtitle']?.toString() ?? '',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                trailing: Text(_shareWhen(r['dateIso']),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                onTap: r['onTap'] as VoidCallback,
+              );
+            },
+          );
   }
 
   /// 간결한 말풍선 — 받음=좌측, 보냄=우측. 채팅 메시지는 텍스트, 공유는 아이콘+파일명+시간.
@@ -1600,7 +1897,7 @@ class _ShareSectionState extends State<_ShareSection> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_shareFileTypeIcon(it.data['fileType']?.toString(), it.data['fileName']?.toString()), size: 16, color: color),
+              Icon(_shareFileTypeIcon(it.data['fileType']?.toString(), it.data['fileName']?.toString(), it.data['contentType']?.toString()), size: 16, color: color),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(fname, maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -1884,6 +2181,7 @@ class _Conv {
 
 /// + 파일 공유 시트의 파일 한 건.
 class _FileEntry {
+  final String id;          // 원본 파일 id — 공유 후 전체리스트 공유아이콘 활성 표시(markFileShared)용
   final String type;        // text/stt_text/audio/stt_audio/handwriting/attachment
   final String name;        // 표시명
   final IconData icon;
@@ -1892,6 +2190,7 @@ class _FileEntry {
   final String? contentType;
   final DateTime date;      // 생성일시(날짜 구분 헤더·정렬용)
   _FileEntry({
+    required this.id,
     required this.type,
     required this.name,
     required this.icon,
@@ -2223,5 +2522,154 @@ class _SentCard extends StatelessWidget {
       out.add((name != null && name.isNotEmpty && name != id) ? '$name($id)' : id);
     }
     return out;
+  }
+}
+
+/// 새 채팅 다이얼로그의 1:1 탭.
+/// 이메일 또는 닉네임을 입력 → [검색]으로 가입 회원 조회 → 찾으면 [대화 시작] 활성화.
+/// 닉네임으로 찾아도 실제 상대는 이메일(id) 기준으로 연결한다.
+class _NewChatOneToOneTab extends StatefulWidget {
+  final Color color;
+  final Future<Map<String, dynamic>> Function(String query) onSearch;
+  final void Function(String email) onStart;
+  const _NewChatOneToOneTab({
+    required this.color,
+    required this.onSearch,
+    required this.onStart,
+  });
+
+  @override
+  State<_NewChatOneToOneTab> createState() => _NewChatOneToOneTabState();
+}
+
+class _NewChatOneToOneTabState extends State<_NewChatOneToOneTab> {
+  final _ctrl = TextEditingController();
+  bool _searching = false;
+  bool _searched = false; // 검색을 한 번이라도 시도했는지
+  String? _resolvedEmail; // 검색으로 확인된 상대 이메일(id)
+  String? _resolvedName; // 검색으로 확인된 상대 닉네임
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  /// 입력을 바꾸면 이전 검색 결과를 무효화(대화 시작 재비활성화).
+  void _resetIfNeeded() {
+    if (_searched || _resolvedEmail != null) {
+      setState(() {
+        _searched = false;
+        _resolvedEmail = null;
+        _resolvedName = null;
+      });
+    }
+  }
+
+  Future<void> _doSearch() async {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이메일 또는 닉네임을 입력해주세요.')),
+      );
+      return;
+    }
+    setState(() => _searching = true);
+    final res = await widget.onSearch(q);
+    if (!mounted) return;
+    setState(() {
+      _searching = false;
+      _searched = true;
+      if (res['found'] == true) {
+        _resolvedEmail = res['id']?.toString();
+        _resolvedName = res['name']?.toString();
+      } else {
+        _resolvedEmail = null;
+        _resolvedName = null;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.color;
+    final found = _resolvedEmail != null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 입력 + 검색 버튼
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                      labelText: '이메일 또는 닉네임',
+                      isDense: true,
+                      border: OutlineInputBorder()),
+                  onChanged: (_) => _resetIfNeeded(),
+                  onSubmitted: (_) => _doSearch(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: _searching ? null : _doSearch,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: color, foregroundColor: Colors.white),
+                  child: _searching
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('검색'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 검색 결과 안내
+          if (_searched && found)
+            Row(
+              children: [
+                const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    (_resolvedName != null && _resolvedName!.isNotEmpty)
+                        ? '${_resolvedName!} ($_resolvedEmail)'
+                        : _resolvedEmail!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.green),
+                  ),
+                ),
+              ],
+            ),
+          if (_searched && !found)
+            const Text('해당 사용자를 찾을 수 없습니다.',
+                style: TextStyle(fontSize: 12, color: Colors.red)),
+          const SizedBox(height: 12),
+          // 검색 성공 시에만 활성화
+          ElevatedButton.icon(
+            onPressed: found ? () => widget.onStart(_resolvedEmail!) : null,
+            style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                disabledForegroundColor: Colors.white70),
+            icon: const Icon(Icons.chat_bubble_outline, size: 18),
+            label: const Text('대화 시작'),
+          ),
+        ],
+      ),
+    );
   }
 }

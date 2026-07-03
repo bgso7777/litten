@@ -84,9 +84,17 @@ class FileStorageService {
         if (filesList.isEmpty) {
           print('디버그: SharedPreferences에 빈 배열 저장됨, 파일 시스템 스캔 시작');
         } else {
-          final handwritingFiles = filesList
+          final rawFiles = filesList
               .map((fileJson) => HandwritingFile.fromJson(fileJson))
               .toList();
+
+          // id 중복 제거 — 과거 버그로 쌓인 중복 목록을 정리(자가 치유)
+          final handwritingFiles = _dedupById(rawFiles);
+          if (handwritingFiles.length != rawFiles.length) {
+            print('디버그: 필기 파일 로드 시 중복 ${rawFiles.length - handwritingFiles.length}개 제거 → 저장소 정리');
+            // 정리된 목록을 즉시 다시 저장하여 반복 표시 영구 해소
+            await saveHandwritingFiles(littenId, handwritingFiles);
+          }
 
           // 최신순으로 정렬 (최신이 맨 위로)
           handwritingFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -153,13 +161,31 @@ class FileStorageService {
     }
   }
 
+  /// 같은 id의 필기 파일 중복 제거(가장 최근 updatedAt 유지).
+  /// 여러 저장 경로에서 같은 파일이 두 번 추가되는 것을 저장/로드 단일 지점에서 방지한다.
+  static List<HandwritingFile> _dedupById(List<HandwritingFile> files) {
+    final byId = <String, HandwritingFile>{};
+    for (final f in files) {
+      final existing = byId[f.id];
+      if (existing == null || f.updatedAt.isAfter(existing.updatedAt)) {
+        byId[f.id] = f;
+      }
+    }
+    return byId.values.toList();
+  }
+
   /// 필기 파일들을 SharedPreferences에 저장
   Future<bool> saveHandwritingFiles(String littenId, List<HandwritingFile> handwritingFiles) async {
     try {
-      print('디버그: 필기 파일 저장 시작 - littenId: $littenId, 파일 수: ${handwritingFiles.length}');
-      
+      // id 중복 제거 후 저장 (목록 반복 표시 방지)
+      final deduped = _dedupById(handwritingFiles);
+      if (deduped.length != handwritingFiles.length) {
+        print('디버그: 필기 파일 저장 시 중복 ${handwritingFiles.length - deduped.length}개 제거');
+      }
+      print('디버그: 필기 파일 저장 시작 - littenId: $littenId, 파일 수: ${deduped.length}');
+
       final prefs = await SharedPreferences.getInstance();
-      final filesJson = handwritingFiles.map((file) => file.toJson()).toList();
+      final filesJson = deduped.map((file) => file.toJson()).toList();
       final filesJsonString = jsonEncode(filesJson);
       
       final success = await prefs.setString('${_handwritingFilesKey}_$littenId', filesJsonString);

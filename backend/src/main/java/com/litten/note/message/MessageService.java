@@ -153,6 +153,9 @@ public class MessageService {
             map.put("groupId", m.getGroupId());
             map.put("groupPassword", m.getGroupId() == null ? null
                     : groupRepository.findById(m.getGroupId()).map(ShareGroup::getPassword).orElse(null));
+            // 받은 그룹의 총 인원 산정용 — 오너 제외 멤버 수(프론트는 +1(오너)로 총원 계산)
+            map.put("groupMemberCount", m.getGroupId() == null ? null
+                    : groupMemberRepository.findByGroupIdAndIsDeletedFalseOrderByIdAsc(m.getGroupId()).size());
             map.put("content", m.getContent());
             map.put("sentAt", m.getInsertDateTime());
             list.add(map);

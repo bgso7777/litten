@@ -682,6 +682,19 @@ class AuthServiceImpl extends AuthService {
   Future<bool> checkNicknameAvailable(String nickname) =>
       _apiService.checkNicknameAvailable(nickname);
 
+  /// 회원가입 이메일 인증번호 발송. 반환: {result, message}.
+  Future<Map<String, dynamic>> sendSignupEmailCode(String email,
+          {String lanCd = 'KR'}) =>
+      _apiService.sendSignupEmailCode(email: email, lanCd: lanCd);
+
+  /// 회원가입 이메일 인증번호 검증. 반환: {result, message}.
+  Future<Map<String, dynamic>> verifySignupEmailCode(String email, String code) =>
+      _apiService.verifySignupEmailCode(email: email, code: code);
+
+  /// 1:1 채팅 상대 검색(이메일/닉네임). 반환: {found:bool, id?, name?}.
+  Future<Map<String, dynamic>> searchMember(String query) =>
+      _apiService.searchMember(query);
+
   /// 로컬 구독 플랜 업데이트 (메모리 + SharedPreferences, 서버 API 없이)
   Future<void> updateLocalSubscriptionPlan(SubscriptionPlan plan) async {
     debugPrint('🔐 AuthService: 로컬 구독 플랜 업데이트 - ${plan.name}');

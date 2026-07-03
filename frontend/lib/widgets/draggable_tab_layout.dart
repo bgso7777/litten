@@ -250,7 +250,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       children: [
         // 탭 헤더
         Container(
-          height: 40, // 하단 칩 바 높이와 일치(콘텐츠 ~22 + 세로패딩 18)
+          // 높이 고정 없음 — 제목 pill(콘텐츠+세로패딩) 높이에 자동으로 딱 맞춘다(위아래 여백 0).
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             boxShadow: [
@@ -398,7 +398,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             children: [
               // 탭 헤더 (항상 표시)
               Container(
-                height: 40, // 하단 칩 바 높이와 일치(콘텐츠 ~22 + 세로패딩 18)
+                height: 30, // 상단 탭 제목 바 — 콘텐츠 라인에 딱 맞춘 높이(위아래 여백 최소화)
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   border: Border(
@@ -462,7 +462,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
         decoration: BoxDecoration(
           color: isActive
               ? Theme.of(context).primaryColor.withValues(alpha: 0.08)

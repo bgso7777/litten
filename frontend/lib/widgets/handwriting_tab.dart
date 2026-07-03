@@ -39,6 +39,7 @@ class HandwritingTab extends StatefulWidget {
   final String? initialPdfPath; // ⭐ 전체탭에서 파일 선택 후 전달받는 PDF 경로
   final String? initialPdfFileName; // ⭐ PDF 파일명
   final String? initialImagePath; // ⭐ 전체탭 파일 리스트의 사진(이미지 첨부)을 필기로 편집하기 위한 이미지 경로
+  final String? initialImageName; // ⭐ 원본 사진의 표시 파일명 — 필기 제목을 사진 이름과 동일하게 지정
   const HandwritingTab({
     super.key,
     this.initialAction = HandwritingInitialAction.none,
@@ -48,6 +49,7 @@ class HandwritingTab extends StatefulWidget {
     this.initialPdfPath,
     this.initialPdfFileName,
     this.initialImagePath,
+    this.initialImageName,
   });
 
   @override
@@ -3777,14 +3779,53 @@ class _HandwritingTabState extends State<HandwritingTab>
 
   /// 지정한 경로의 이미지를 배경으로 하는 새 필기 파일을 만들어 편집 모드로 연다.
   /// (갤러리/카메라 선택 후, 또는 전체탭 파일 리스트의 사진 첨부 탭 시 공통 사용)
+  // 같은 사진을 짧은 시간에 반복 변환하는 것을 막는 가드(리빌드/리마운트 폭주 시 필기 파일 중복 생성 방지).
+  // 위젯 인스턴스가 리마운트되어도 유지되도록 static으로 둔다.
+  static String? _lastImportedImagePath;
+  static DateTime? _lastImportedImageAt;
+
   Future<void> _loadImagePathAsHandwriting(String srcPath) async {
     if (!mounted) return;
+
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final selectedLitten = appState.selectedLitten;
     if (selectedLitten == null) {
       debugPrint('❌ 리튼 미선택 - 이미지 로드 중단');
       return;
     }
+
+    final srcName = srcPath.split('/').last;
+
+    // 1) 이 사진으로 이미 만든 필기 파일이 있으면 새로 만들지 않고 그걸 연다(재탭 시 재사용).
+    try {
+      final existingList =
+          await FileStorageService.instance.loadHandwritingFiles(selectedLitten.id);
+      HandwritingFile? existing;
+      for (final f in existingList) {
+        if (f.sourceName != null && f.sourceName == srcName) {
+          existing = f;
+          break;
+        }
+      }
+      if (existing != null) {
+        debugPrint('🔁 이 사진으로 만든 필기 재사용(다시 열기): ${existing.id} / $srcName');
+        if (mounted) _editHandwritingFile(existing);
+        return;
+      }
+    } catch (e) {
+      debugPrint('기존 필기 조회 실패(무시하고 신규 생성 진행): $e');
+    }
+
+    // 2) 없으면 새로 생성 — 스톰/리마운트로 인한 중복 생성만 5초 가드로 방지.
+    final nowGuard = DateTime.now();
+    if (_lastImportedImagePath == srcPath &&
+        _lastImportedImageAt != null &&
+        nowGuard.difference(_lastImportedImageAt!).inSeconds < 5) {
+      debugPrint('⛔ 동일 사진 필기 중복 생성 방지(5초 이내 재요청) - $srcPath');
+      return;
+    }
+    _lastImportedImagePath = srcPath;
+    _lastImportedImageAt = nowGuard;
 
     try {
       // 원본 이미지를 리튼의 handwriting 폴더로 복사
@@ -3804,7 +3845,28 @@ class _HandwritingTabState extends State<HandwritingTab>
           : 'png';
       final savedPath =
           '${handwritingDir.path}/image_$ts.$ext2';
-      await File(srcPath).copy(savedPath);
+
+      // 원본 이미지 경로 복원: iOS 컨테이너 UUID 변경 등으로 저장된 절대경로가
+      // 무효화(PathNotFoundException)된 경우, 현재 컨테이너 기준으로 재구성한다.
+      String effectiveSrc = srcPath;
+      if (!await File(effectiveSrc).exists()) {
+        final name = srcPath.split('/').last;
+        final rebuilt =
+            '${docDir.path}/littens/${selectedLitten.id}/attachments/$name';
+        if (await File(rebuilt).exists()) {
+          debugPrint('🔁 원본 이미지 경로 복원: $srcPath → $rebuilt');
+          effectiveSrc = rebuilt;
+        } else {
+          debugPrint('❌ 원본 이미지 파일 없음(복원 실패): $srcPath / $rebuilt');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('원본 사진 파일을 찾을 수 없습니다.')),
+            );
+          }
+          return;
+        }
+      }
+      await File(effectiveSrc).copy(savedPath);
       debugPrint('💾 이미지 저장 완료: $savedPath');
 
       // 이미지 비율 계산
@@ -3816,12 +3878,20 @@ class _HandwritingTabState extends State<HandwritingTab>
       final aspectRatio = imageWidth / imageHeight;
       debugPrint('📐 이미지 크기: ${imageWidth}x$imageHeight (ratio: $aspectRatio)');
 
-      // 새 필기 파일 생성 (drawing 타입)
-      final littenName = selectedLitten.title == 'undefined'
-          ? (AppLocalizations.of(context)?.handwritingTab ?? '필기')
-          : selectedLitten.title;
-      final defaultTitle =
-          '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      // 필기 제목: 원본 사진 이름과 동일하게(어느 사진에서 나온 필기인지 식별).
+      // 사진 이름을 못 받은 경우에만 기존 "필기 <타임스탬프>" 형식으로 폴백.
+      String defaultTitle;
+      final imgName = widget.initialImageName?.trim();
+      if (imgName != null && imgName.isNotEmpty) {
+        final dot = imgName.lastIndexOf('.');
+        defaultTitle = dot > 0 ? imgName.substring(0, dot) : imgName; // 확장자 제거
+      } else {
+        final littenName = selectedLitten.title == 'undefined'
+            ? (AppLocalizations.of(context)?.handwritingTab ?? '필기')
+            : selectedLitten.title;
+        defaultTitle =
+            '$littenName ${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      }
 
       final newFile = HandwritingFile(
         littenId: selectedLitten.id,
@@ -3829,6 +3899,7 @@ class _HandwritingTabState extends State<HandwritingTab>
         imagePath: savedPath,
         type: HandwritingType.drawing,
         aspectRatio: aspectRatio,
+        sourceName: srcName, // 원본 사진 파일명 저장 → 같은 사진 재탭 시 재사용
       );
 
       // 리튼에 필기 파일 추가 + 메타데이터 저장

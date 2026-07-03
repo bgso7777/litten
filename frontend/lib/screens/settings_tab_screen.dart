@@ -83,7 +83,9 @@ class _SettingsTabTitle extends StatelessWidget {
       builder: (context, appState, _) {
         final user = appState.currentUser;
         final email = (user?.email ?? '').trim();
-        final nick = (user?.displayName ?? '').trim();
+        // 서버 닉네임(note_member.name) 우선, 없으면 currentUser.displayName
+        final nick =
+            (appState.myNickname ?? user?.displayName ?? '').trim();
         final plan = _planName(appState.subscriptionType);
 
         // 닉네임(아이디) 조합: 닉네임이 있으면 '닉네임(아이디)', 없으면 아이디만, 비로그인은 게스트.
@@ -103,7 +105,8 @@ class _SettingsTabTitle extends StatelessWidget {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                '$who · $plan',
+                // 형식: 닉네임(아이디) 구독요금제  (예: 홍길동(a@b.com) 스탠다드)
+                '$who $plan',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

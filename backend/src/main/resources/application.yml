@@ -112,10 +112,11 @@ spring:
 #          ssl:
 #            protocols: TLSv1.2
   mail:
-    host: outlook.office365.com
+    host: smtp.gmail.com
     port: 587
-    username: aice@saltlux.com
-    password: MsCy9jC4QyceCNS
+    username: sbg7777@gmail.com
+    # 지메일 앱 비밀번호(2단계 인증 후 발급, 공백 제거한 16자)
+    password: wekuwsfzqutsjqoy
     properties:
       mail:
         debug: true

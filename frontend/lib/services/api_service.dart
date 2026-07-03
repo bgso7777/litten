@@ -17,6 +17,10 @@ class ApiService {
   // API 엔드포인트
   static const String _installEndpoint = '/litten/note/v1/members/install';
   static const String _signUpEndpoint = '/litten/note/v1/members/signup';
+  static const String _signupEmailCodeEndpoint =
+      '/litten/note/v1/members/signup/email-code';
+  static const String _signupVerifyCodeEndpoint =
+      '/litten/note/v1/members/signup/verify-code';
   static const String _loginWebEndpoint = '/litten/note/v1/members/login/web';
   static const String _loginMobileEndpoint =
       '/litten/note/v1/members/login/mobile';
@@ -247,6 +251,83 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] signUp - Error: $e');
       rethrow;
+    }
+  }
+
+  /// 회원가입 이메일 인증번호 발송.
+  /// POST /litten/note/v1/members/signup/email-code
+  /// {"id": email, "lanCd": "KR"|"EN"}
+  /// 반환: {result, message}. result==1 성공, 2 이미 가입, 그 외 실패.
+  Future<Map<String, dynamic>> sendSignupEmailCode({
+    required String email,
+    String lanCd = 'KR',
+  }) async {
+    debugPrint('[ApiService] sendSignupEmailCode - email: $email, lanCd: $lanCd');
+    try {
+      final url = Uri.parse('$baseUrl$_signupEmailCodeEndpoint');
+      final body = jsonEncode({'id': email, 'lanCd': lanCd});
+      final response = await http
+          .post(url, headers: _getHeaders(), body: body)
+          .timeout(const Duration(seconds: 30));
+      debugPrint(
+          '[ApiService] sendSignupEmailCode - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'result': -1, 'message': '서버 오류(${response.statusCode})'};
+    } catch (e) {
+      debugPrint('[ApiService] sendSignupEmailCode - 오류: $e');
+      return {'result': -1, 'message': '네트워크 오류가 발생했습니다.'};
+    }
+  }
+
+  /// 회원가입 이메일 인증번호 검증.
+  /// POST /litten/note/v1/members/signup/verify-code
+  /// {"id": email, "code": "123456"}
+  /// 반환: {result, message}. result==1 성공.
+  Future<Map<String, dynamic>> verifySignupEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    debugPrint('[ApiService] verifySignupEmailCode - email: $email');
+    try {
+      final url = Uri.parse('$baseUrl$_signupVerifyCodeEndpoint');
+      final body = jsonEncode({'id': email, 'code': code});
+      final response = await http
+          .post(url, headers: _getHeaders(), body: body)
+          .timeout(const Duration(seconds: 30));
+      debugPrint(
+          '[ApiService] verifySignupEmailCode - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'result': -1, 'message': '서버 오류(${response.statusCode})'};
+    } catch (e) {
+      debugPrint('[ApiService] verifySignupEmailCode - 오류: $e');
+      return {'result': -1, 'message': '네트워크 오류가 발생했습니다.'};
+    }
+  }
+
+  /// 1:1 채팅 상대 검색 — 이메일 또는 닉네임으로 가입 회원 조회.
+  /// GET /note/v1/members/search?q=xxx (비인증 가능)
+  /// 반환: {found:bool, id?:이메일, name?:닉네임}. 오류 시 {found:false, error:true}.
+  Future<Map<String, dynamic>> searchMember(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return {'found': false};
+    try {
+      final url = Uri.parse(
+          '$baseUrl$_membersEndpoint/search?q=${Uri.encodeComponent(q)}');
+      final response = await http
+          .get(url, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ApiService] searchMember - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'found': false, 'error': true};
+    } catch (e) {
+      debugPrint('[ApiService] searchMember - 오류: $e');
+      return {'found': false, 'error': true};
     }
   }
 
@@ -777,6 +858,27 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] getSubscriptionPlan - 오류 (free 반환): $e');
       return 'free';
+    }
+  }
+
+  /// 로그인 회원 내 정보 조회 (닉네임/이메일/플랜). JWT 기반이라 기기 무관.
+  /// GET /litten/note/v1/members/me
+  /// 반환: {result, memberId, name, subscriptionPlan, planExpiredAt} 또는 null
+  Future<Map<String, dynamic>?> getMyInfo({required String token}) async {
+    try {
+      final url = Uri.parse('$baseUrl$_myInfoEndpoint');
+      final response = await http
+          .get(url, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 10));
+      debugPrint('[ApiService] getMyInfo - status: ${response.statusCode}, body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['result'] == 1) return data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] getMyInfo - 오류: $e');
+      return null;
     }
   }
 

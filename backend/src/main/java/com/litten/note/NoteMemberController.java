@@ -27,6 +27,9 @@ public class NoteMemberController {
     @Autowired
     NoteMemberRepository noteMemberRepository;
 
+    @Autowired
+    EmailVerificationService emailVerificationService;
+
 //    @CrossOrigin(origins="*", allowedHeaders="*")
 //    @PostMapping("/note/v1/members")
 //    @ResponseBody
@@ -56,6 +59,79 @@ public class NoteMemberController {
             requestBody = ((ObjectNode) requestBody.deepCopy()).put("id", uuid);
             requestBody = ((ObjectNode) requestBody.deepCopy()).put("stateCode", "install");
             result = controllerDynamicServiceBridge.saveDomain(domainName, true, requestBody);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /note/v1/members/signup/email-code
+     * 회원가입 이메일 인증번호 발송. 6자리 코드를 생성해 인메모리에 10분 TTL로 저장하고 메일 발송.
+     * Request Body: { "id": "email", "lanCd": "KR"|"EN"(선택, 기본 KR) }
+     * Response: { result: 1(성공)|2(이미가입)|-1(실패), message }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/signup/email-code")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> postSignupEmailCode(@RequestBody JsonNode requestBody) {
+        Map<String, Object> result = new HashMap<>();
+        String id = (requestBody.has("id") && !requestBody.get("id").isNull())
+                ? requestBody.get("id").asText().trim() : "";
+        String lanCd = (requestBody.has("lanCd") && !requestBody.get("lanCd").isNull())
+                ? requestBody.get("lanCd").asText() : "KR";
+        log.info("[NoteMemberController] 회원가입 인증번호 발송 요청 - id: {}, lanCd: {}", id, lanCd);
+
+        if (id.isEmpty()) {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이메일이 필요합니다.");
+            return ResponseEntity.ok(result);
+        }
+
+        // 이미 가입된 이메일이면 인증번호를 발송하지 않는다.
+        if (noteMemberRepository.findByIdAndState(id, "signup") != null) {
+            log.warn("[NoteMemberController] 이미 가입된 이메일 - 인증번호 발송 거부: {}", id);
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_ALEADY_EXIST);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이미 가입된 이메일입니다.");
+            return ResponseEntity.ok(result);
+        }
+
+        try {
+            String code = emailVerificationService.issueCode(id);
+            new com.litten.common.util.Mailer().sendSignCode(id, code, lanCd);
+            log.info("[NoteMemberController] 인증번호 이메일 발송 완료 - id: {}", id);
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "인증번호를 이메일로 발송했습니다.");
+        } catch (Exception e) {
+            log.error("[NoteMemberController] 인증번호 이메일 발송 실패 - id: " + id, e);
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /note/v1/members/signup/verify-code
+     * 회원가입 이메일 인증번호 검증. 성공 시 해당 이메일을 '인증 완료'로 마킹(30분 유효).
+     * Request Body: { "id": "email", "code": "123456" }
+     * Response: { result: 1(성공)|-1(실패), message }
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/signup/verify-code")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> postSignupVerifyCode(@RequestBody JsonNode requestBody) {
+        Map<String, Object> result = new HashMap<>();
+        String id = (requestBody.has("id") && !requestBody.get("id").isNull())
+                ? requestBody.get("id").asText().trim() : "";
+        String code = (requestBody.has("code") && !requestBody.get("code").isNull())
+                ? requestBody.get("code").asText().trim() : "";
+        log.info("[NoteMemberController] 회원가입 인증번호 검증 요청 - id: {}", id);
+
+        boolean ok = emailVerificationService.verify(id, code);
+        if (ok) {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이메일 인증이 완료되었습니다.");
+        } else {
+            result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+            result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "인증번호가 올바르지 않거나 만료되었습니다.");
         }
         return ResponseEntity.ok(result);
     }
@@ -98,6 +174,13 @@ public class NoteMemberController {
             result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_ALEADY_EXIST);
             result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, ConstantsDynamic.RESULT_ALEADY_EXIST_MESSAGE+" id-->"+id);
         } else {
+            // 이메일 인증 필수 — 인증번호 검증을 통과한 이메일만 신규 가입 허용
+            if (!emailVerificationService.isVerified(id)) {
+                log.warn("[NoteMemberController] 이메일 미인증 가입 차단: {}", id);
+                result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_FAIL);
+                result.put(ConstantsDynamic.TAG_RESULT_MESSAGE, "이메일 인증이 필요합니다.");
+                return ResponseEntity.ok(result);
+            }
 //            // 2. stateCode='withdraw'인 계정이 있는지 확인 (탈퇴한 계정)
 //            result = controllerDynamicServiceBridge.findDomainByThreeColumn(
 //                domainName,
@@ -122,6 +205,8 @@ public class NoteMemberController {
                 requestBody = ((ObjectNode) requestBody.deepCopy()).put("password", Crypto.getMemberPassword(requestBody.deepCopy().get("password").asText()));
                 requestBody = ((ObjectNode) requestBody.deepCopy()).put("state", "signup");
                 result = controllerDynamicServiceBridge.saveDomain(domainName, true, requestBody);
+                // 가입 성공 후 인증 항목 제거(1회성)
+                emailVerificationService.consume(id);
 //                log.info("계정 생성 완료: result={}", result.get(ConstantsDynamic.TAG_RESULT));
 //            }
         }
@@ -323,6 +408,40 @@ public class NoteMemberController {
         boolean available = !n.isEmpty() && noteMemberRepository.findFirstByName(n) == null;
         result.put("available", available);
         log.info("[NoteMemberController] 닉네임 중복확인 - nickname: {}, available: {}", n, available);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /note/v1/members/search?q=xxx
+     * 이메일(id) 또는 닉네임(name)으로 가입 회원 1명을 조회. 1:1 채팅 상대 검색용.
+     * 이메일 정확 일치 우선, 없으면 닉네임 정확 일치.
+     * 반환: { result:1, found:true, id:"이메일", name:"닉네임" } 또는 { result:1, found:false }
+     * 비인증 — 채팅 상대 검색 화면에서 호출.
+     */
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @GetMapping("/note/v1/members/search")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> searchMember(@RequestParam("q") String q) {
+        Map<String, Object> result = new HashMap<>();
+        result.put(ConstantsDynamic.TAG_RESULT, ConstantsDynamic.RESULT_SUCCESS);
+        String query = (q == null) ? "" : q.trim();
+        NoteMember found = null;
+        if (!query.isEmpty()) {
+            // 1) 이메일(id) 정확 일치 (가입 상태)
+            found = noteMemberRepository.findByIdAndState(query, "signup");
+            // 2) 없으면 닉네임(name) 정확 일치
+            if (found == null) {
+                found = noteMemberRepository.findFirstByName(query);
+            }
+        }
+        if (found != null) {
+            result.put("found", true);
+            result.put("id", found.getId());
+            result.put("name", found.getName());
+        } else {
+            result.put("found", false);
+        }
+        log.info("[NoteMemberController] 회원 검색 - q: {}, found: {}", query, found != null);
         return ResponseEntity.ok(result);
     }
 

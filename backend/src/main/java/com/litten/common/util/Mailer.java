@@ -102,16 +102,17 @@ public class Mailer {
 
 	public void sendSignCode(String toMail, String signKey, String siteLanCd) throws Exception {
 
-		String from = "company@ploonet.com";
+		// 지메일은 From을 인증 계정으로 강제하므로 SMTP 로그인 계정과 일치시킨다.
+		String from = "sbg7777@gmail.com";
 		String subject = "";
 
 		if( siteLanCd==null || siteLanCd.equals(""))
 			siteLanCd = "KR";
 
 		if( siteLanCd.equals("KR") )
-			subject = "[플루닛] 로그인 인증번호";
+			subject = "[리튼] 회원가입 인증번호";
 		else if( siteLanCd.equals("EN") )
-			subject = "[Ploonet] Login Authentication Code";
+			subject = "[Litten] Sign-up Verification Code";
 
 		StringBuffer content = new StringBuffer();
 		content.append(getSignCodeTemplate(signKey, siteLanCd));
@@ -129,7 +130,8 @@ public class Mailer {
 
 		int mm = Constants.CHANGE_PASSWORD_DUE_MINUTE/60;
 
-		String from = "aice@saltlux.com";
+		// 지메일은 From을 인증 계정으로 강제하므로 SMTP 로그인 계정과 일치시킨다.
+		String from = "sbg7777@gmail.com";
 		String subject = "계정의 비밀번호 재설정 요청을 하셨습니다.";
 		String content = "비밀번호를 재설정할까요?<p>";
 			   content += toName+"("+toMail+")님 계정에 대해 비밀번호 재설정을 요청하신 경우 아래 비밀번호 재설정을 진행하세요.("+mm+"분 이내)<p>";
@@ -147,7 +149,8 @@ public class Mailer {
 
 	public void completeChangePassword(String toMail, String toName) throws Exception {
 
-		String from = "aice@saltlux.com";
+		// 지메일은 From을 인증 계정으로 강제하므로 SMTP 로그인 계정과 일치시킨다.
+		String from = "sbg7777@gmail.com";
 		String subject = "계정의 비밀번호를 재설정 했습니다.";
 		String content = toName+"("+toMail+")님 계정에 대해 비밀번호 재설정을 완료 하였습니다.<p>";
 			   content += "새로운 비밀번호로 사용 하시기 바랍니다.<p>";
@@ -435,7 +438,7 @@ mail.sender.protocol needs to be SMTP
 		StringBuffer emailTemplate = new StringBuffer();
 
 		emailTemplate.append("<!DOCTYPE html><html><head>");
-		emailTemplate.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><title>PLOONET</title>");
+		emailTemplate.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><title>Litten</title>");
 		emailTemplate.append("<style>");
 		emailTemplate.append("/* * {border:0px solid #f00} */");
 		emailTemplate.append("</style>");
@@ -449,7 +452,7 @@ mail.sender.protocol needs to be SMTP
 		emailTemplate.append("        <div style=\"padding-top: 50px; padding-bottom: 50px; background-color: #f9f9f9;\" align=\"center\">");
 		emailTemplate.append("            <div style=\"width: 700px; border-radius: 10px; background-color: #fff; overflow: hidden; border: 1px solid #dcdcdc;\">");
 		emailTemplate.append("                <div style=\"padding:22px 22px;border-bottom-width: 1px; border-bottom-color: #eaeaea; border-bottom-style: solid;text-align:left;\">");
-		emailTemplate.append("                    <img src=https://www.ploonet.com/mail/logo_ploonet_header.png alt=\"Ploonet\" style=\"height: auto; line-height: 100%; outline: none; text-decoration: none; display: block; border-style: none; border-width: 0;\">");
+		emailTemplate.append("                    <span style=\"font-size:24px;font-weight:bold;color:#222;\">리튼 (Litten)</span>");
 		emailTemplate.append("                </div>");
 		emailTemplate.append("                <div style=\"padding: 0 40px;\">");
 		emailTemplate.append("                <!-- 콘텐츠 영역 // start -->");
@@ -464,11 +467,11 @@ mail.sender.protocol needs to be SMTP
 		emailTemplate.append("      </div>");
 		emailTemplate.append("      <div style=\"padding-top: 20px; padding-bottom: 20px; font-size: 16px; color: #666;line-height:30px;\" align=\"left\">");
 		if( siteLanCd.equals("KR") ) {
-			emailTemplate.append("          플루닛 회원가입을 위해 이메일 인증번호가 발급되었습니다.<br>");
+			emailTemplate.append("          리튼 회원가입을 위해 이메일 인증번호가 발급되었습니다.<br>");
 			emailTemplate.append("          아래의 인증번호 6자리를 진행 중인 화면에 입력하고 인증을 완료해주세요.<br>");
 			emailTemplate.append("          <span style=\"font-weight:bold;\">인증번호는 이메일 발송 시점으로부터 10분간만 유효합니다.</span><br>");
 		} else {
-			emailTemplate.append("          An email verification code has been issued for your Plunit account registration.<br>");
+			emailTemplate.append("          An email verification code has been issued for your Litten account registration.<br>");
 			emailTemplate.append("          Please enter the 6-digit verification code below into the ongoing screen to complete the verification process.<br>");
 			emailTemplate.append("          <span style=\"font-weight:bold;\">The verification code is valid for 10 minutes from the time the email was sent.</span><br>");
 		}
@@ -500,18 +503,14 @@ mail.sender.protocol needs to be SMTP
 		}
 		emailTemplate.append("                    </div>");
 		emailTemplate.append("                </div>");
-		emailTemplate.append("                <div style=\"width:100%;height:180px;background-color: #000000; font-size: 12px; color: #bbb; padding: 30px 20px 20px 30px;\" align=\"left\">");
-		emailTemplate.append("                    <img src=https://www.ploonet.com/mail/logo_ploonet_footer.png alt=\"Ploonet\" style=\"height: auto; outline: none; text-decoration: none; display: block; border-style: none; border-width: 0;\"><br>");
+		emailTemplate.append("                <div style=\"width:100%;background-color: #000000; font-size: 12px; color: #bbb; padding: 24px 20px 24px 30px;\" align=\"left\">");
+		emailTemplate.append("                    <p style=\"font-weight:bold;font-size:15px;color: #fff;margin:0 0 6px 0;\">리튼 (Litten)</p>");
 		if( siteLanCd.equals("KR") ) {
-			emailTemplate.append("                    <p style=\"font-weight:bold;font-size:14px;color: #ddd;\">플루닛 고객센터   대표번호 : 1533-6116  |  이메일 주소 : support@ploonet.com</p>");
-			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">(주)다이퀘스트  |  사업자등록번호 : 105-86-08825  |  통신판매허가번호 : 2022-서울강남-06647  |  대표이사 : 김경선, 전승훈 </p>");
-			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">서울특별시 송파구 올림픽로35길 123, 향군타워 9층 [05510, (구)신천동 7-29] | <a href=https://www.ploonet.com target=\"_ploonet\" style=\"color:#fff\">https://www.ploonet.com</a></p>");
+			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">본 메일은 리튼 회원가입 인증을 위해 발송되었습니다.</p>");
 		} else {
-			emailTemplate.append("                    <p style=\"font-weight:bold;font-size:14px;color: #ddd;\"> DIQUEST Customer Service Main Contact Number : 1533-6116  |  Email : support@ploonet.com</p>");
-			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">PLOONET  |  Business Registration Number : 105-86-08825  |  Telecommunication Sales Permit Number : 2022-서울강남-06647  |  CEO : Kim Kyung-sun, Jeon Seung-hoon </p>");
-			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">[05510, (former) Sincheon-dong 7-29] 9th floor of Hyanggun Tower, 123, Olympic-ro 35-gil, Songpa-gu, Seoul, Korea | <a href=https://www.ploonet.com target=\"_ploonet\" style=\"color:#fff\">https://www.ploonet.com</a></p>");
+			emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">This email was sent for Litten sign-up verification.</p>");
 		}
-		emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">ⓒ 2025 DIQUEST. All rights reserved.</p>");
+		emailTemplate.append("                    <p style=\"font-size:12px;color: #999999;\">ⓒ 2026 Litten. All rights reserved.</p>");
 		emailTemplate.append("                </div>");
 		emailTemplate.append("            </div>");
 		emailTemplate.append("        </div>");

@@ -77,15 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted) {
-        // 로그인 성공 시 이전 화면으로 돌아가기
+        // 로그인 성공 시 이전 화면으로 돌아가기 (별도 안내 메시지 없음)
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context)?.loginComingSoon ?? '로그인에 성공했습니다',
-            ),
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {

@@ -46,7 +46,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // 기기 구분용 UUID 표시 (네트워크 조회 전에 먼저 반영)
       if (mounted) setState(() => _deviceUuid = uuid);
 
-      // UUID로 계정 조회
+      // 로그인 상태면 서버(JWT)에서 내 정보(닉네임 포함)를 우선 반영 — 기기 무관(다기기 로그인 대응).
+      final loginPrefs = await SharedPreferences.getInstance();
+      final token = loginPrefs.getString('auth_token');
+      if (appState.isLoggedIn && token != null && token.isNotEmpty) {
+        final me = await apiService.getMyInfo(token: token);
+        if (me != null && mounted) {
+          final nick = (me['name'] as String?)?.trim();
+          final email = (me['memberId'] as String?)?.trim();
+          setState(() {
+            if (email != null && email.isNotEmpty) _registeredEmail = email;
+            _nickname = (nick != null && nick.isNotEmpty) ? nick : null;
+          });
+          appState.setMyNickname(_nickname);
+          if (email != null && email.isNotEmpty) {
+            await loginPrefs.setString('registered_email', email);
+          }
+          debugPrint('[SettingsScreen] 로그인 계정 정보 반영 - email: $email, 닉네임: $_nickname');
+          return; // 로그인 계정으로 확정 — device-uuid 조회는 건너뜀
+        }
+      }
+
+      // (비로그인) UUID로 계정 조회
       final accountData = await apiService.findAccountByUuid(uuid: uuid);
       debugPrint('[SettingsScreen] 계정 조회 결과: $accountData');
 
@@ -68,6 +89,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _registeredEmail = email;
               _nickname = (nick != null && nick.isNotEmpty) ? nick : null;
             });
+            // 공용 상태에도 반영 → 설정 탭 제목란이 닉네임(아이디) 형식으로 표시
+            appState.setMyNickname(_nickname);
 
             // SharedPreferences에 저장
             await prefs.setString('registered_email', email);
@@ -78,6 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _registeredEmail = null;
               _nickname = null;
             });
+            appState.setMyNickname(null);
             await prefs.remove('registered_email');
             debugPrint('[SettingsScreen] signup 상태 아님 - 등록된 계정 삭제');
           }
@@ -1547,6 +1571,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (r.ok) {
                           Navigator.pop(ctx);
                           if (mounted) setState(() => _nickname = nick);
+                          appState.setMyNickname(nick); // 탭 제목 즉시 반영
                           _loadRegisteredAccount(); // 서버 값 재동기화
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('닉네임을 변경했습니다.')));
