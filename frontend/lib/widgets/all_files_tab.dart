@@ -1912,15 +1912,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // 순서: 요약 · 퀴즈 · 클라우드 · 공유
-                    _iconBtn(
-                      icon: Icons.auto_awesome,
-                      color: file.hasSummary ? color : Colors.grey.shade400,
-                      tooltip: file.hasSummary
-                          ? (AppLocalizations.of(context)?.viewSummary ?? '요약 보기')
-                          : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
-                      onPressed: () => _showSummaryDialog(file),
-                    ),
-                    _buildQuizIcon(file.id, color),
+                    // 이미 요약/퀴즈를 담은 메모(sourceKind != null)는 그 자체가 결과물이라
+                    // 요약·퀴즈 '생성' 아이콘을 숨긴다.
+                    if (file.sourceKind == null)
+                      _iconBtn(
+                        icon: Icons.auto_awesome,
+                        color: file.hasSummary ? color : Colors.grey.shade400,
+                        tooltip: file.hasSummary
+                            ? (AppLocalizations.of(context)?.viewSummary ?? '요약 보기')
+                            : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
+                        onPressed: () => _showSummaryDialog(file),
+                      ),
+                    if (file.sourceKind == null) _buildQuizIcon(file.id, color),
                     _buildSyncIconUnified(file.syncStatus, cloudUpdatedAt: file.cloudUpdatedAt, updatedAt: file.updatedAt),
                     if (_isPremiumPlus)
                       _iconBtn(
