@@ -9,5 +9,7 @@ public interface SelfChatRepository extends JpaRepository<SelfChat, Long> {
 
     List<SelfChat> findByMemberIdAndIsDeletedFalseOrderByIdAsc(String memberId);
 
+    List<SelfChat> findByMemberIdAndIsDeletedTrue(String memberId);
+
     Optional<SelfChat> findByMemberIdAndClientId(String memberId, String clientId);
 }

@@ -45,6 +45,17 @@ public class SelfChatService {
         return result;
     }
 
+    /** 다른 기기에서 삭제된 방의 clientId 목록(삭제 전파용). */
+    public List<String> deletedClientIds(String memberId) {
+        List<String> ids = new ArrayList<>();
+        for (SelfChat c : chatRepository.findByMemberIdAndIsDeletedTrue(memberId)) {
+            if (c.getClientId() != null && !c.getClientId().isBlank()) {
+                ids.add(c.getClientId());
+            }
+        }
+        return ids;
+    }
+
     /** 방 생성(clientId 있으면 upsert). 반환: {id, clientId, name}. */
     @Transactional
     public Map<String, Object> create(String memberId, String name, String clientId) {

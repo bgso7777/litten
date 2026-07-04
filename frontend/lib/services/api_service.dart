@@ -1251,17 +1251,17 @@ class ApiService {
   }
 
   // ── 나와의 대화(셀프 채팅) 다기기 동기화 ──
-  /// 내 셀프챗 방+항목 조회. 실패 시 null. 각 방: {id, clientId, name, items:[...]}
-  Future<List<Map<String, dynamic>>?> getSelfChats({required String token}) async {
+  /// 내 셀프챗 방+항목 조회. 실패 시 null.
+  /// 반환: {selfChats:[{id, clientId, name, items:[...]}], deletedClientIds:[...]}
+  /// (deletedClientIds는 다른 기기에서 삭제된 방의 clientId — 삭제 전파용. 구버전 서버는 없을 수 있음)
+  Future<Map<String, dynamic>?> getSelfChats({required String token}) async {
     try {
       final res = await http.get(Uri.parse('$baseUrl$_selfChatEndpoint'),
               headers: _getHeaders(token: token))
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
-        if (data['success'] == true) {
-          return List<Map<String, dynamic>>.from(data['selfChats'] ?? []);
-        }
+        if (data['success'] == true) return data;
       }
       return null;
     } catch (e) {

@@ -1585,11 +1585,94 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _syncSelfChatsWithServer(); // 서버 배포 시 다기기 동기화(미배포면 조용히 무시)
   }
 
-  /// 로컬 방/항목을 서버로 push하고, 서버의 방/항목을 pull해 병합한다(best-effort).
+  /// 로컬 방/항목을 서버와 정합화한다(best-effort, 서버 기준 양방향).
+  ///  1) 서버에 있는 방/항목은 로컬로 병합(추가)
+  ///  2) deletedClientIds(다른 기기에서 삭제)에 있는 방은 로컬에서도 제거 → 삭제 전파
+  ///  3) serverId가 있으나 서버에 없고 삭제 목록에도 없는 '고아 방'(계정 식별자 변경 등으로
+  ///     서버 조회에서 빠진 방)은 serverId/serverItemId를 비워 다시 업로드 → 내용 복구
   Future<void> _syncSelfChatsWithServer() async {
     final token = await _shareToken();
     if (token == null) return;
-    // (a) serverId 없는 로컬 방 생성(clientId=로컬 id로 매칭)
+
+    // (1) 서버 조회(방 + 삭제된 clientId 목록)
+    final data = await _shareApi.getSelfChats(token: token);
+    if (data != null) {
+      final serverRooms = (data['selfChats'] as List?) ?? const [];
+      final deleted = ((data['deletedClientIds'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toSet();
+
+      // 서버 활성 방 인덱스(clientId / serverId)
+      final byClientId = <String, Map<String, dynamic>>{};
+      final bySid = <int, Map<String, dynamic>>{};
+      for (final srv in serverRooms) {
+        final m = Map<String, dynamic>.from(srv as Map);
+        final cid = m['clientId']?.toString() ?? '';
+        final sid = (m['id'] as num?)?.toInt();
+        if (cid.isNotEmpty) byClientId[cid] = m;
+        if (sid != null) bySid[sid] = m;
+      }
+
+      final matchedServer = <int>{}; // 로컬과 매칭된 서버 방 id
+      final removeIds = <String>[];  // 로컬에서 제거할 방 id(삭제 전파)
+
+      // (2) 로컬 방 정합화
+      for (final room in _selfChats) {
+        final localId = room['id'].toString();
+        final sid = (room['serverId'] as num?)?.toInt();
+        Map<String, dynamic>? srv = byClientId[localId];
+        srv ??= (sid != null ? bySid[sid] : null);
+        if (srv != null) {
+          // 서버에 존재 → 갱신 + 항목 병합
+          final ssid = (srv['id'] as num?)?.toInt();
+          if (ssid != null) { room['serverId'] = ssid; matchedServer.add(ssid); }
+          if (srv['name'] != null) room['name'] = srv['name'];
+          _mergeServerSelfItems(localId, (srv['items'] as List?) ?? const []);
+        } else if (sid != null) {
+          if (deleted.contains(localId)) {
+            removeIds.add(localId); // 다른 기기에서 삭제됨 → 로컬도 제거
+          } else {
+            // 고아 방 → 재업로드 위해 서버 식별자 제거(내용 복구)
+            room.remove('serverId');
+            for (final it in _selfChatMsgs[localId] ?? const []) {
+              it.remove('serverItemId');
+            }
+          }
+        }
+        // sid == null(신규 로컬) → 아래 (5)에서 생성
+      }
+
+      // (3) 삭제 전파: 로컬에서 제거
+      if (removeIds.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        for (final rid in removeIds) {
+          _selfChatMsgs.remove(rid);
+          await prefs.remove('self_chat_msgs_$rid');
+        }
+        _selfChats = _selfChats
+            .where((e) => !removeIds.contains(e['id'].toString()))
+            .toList();
+      }
+
+      // (4) 서버에만 있는 방 로컬 추가
+      for (final srv in serverRooms) {
+        final m = Map<String, dynamic>.from(srv as Map);
+        final sid = (m['id'] as num?)?.toInt();
+        if (sid == null || matchedServer.contains(sid)) continue;
+        final cid = m['clientId']?.toString() ?? '';
+        final newId = cid.isNotEmpty ? cid : 'srv$sid';
+        if (_selfChats.any((e) => e['id'].toString() == newId)) continue;
+        _selfChats = [..._selfChats, {
+          'id': newId, 'serverId': sid,
+          'name': m['name'] ?? '나와의 대화',
+          'createdAt': DateTime.now().toIso8601String(),
+        }];
+        _selfChatMsgs[newId] = [];
+        _mergeServerSelfItems(newId, (m['items'] as List?) ?? const []);
+      }
+    }
+
+    // (5) serverId 없는 방 생성(clientId=로컬 id) — 고아 재업로드 포함
     for (final room in _selfChats) {
       if (room['serverId'] != null) continue;
       final r = await _shareApi.createSelfChat(
@@ -1597,18 +1680,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           clientId: room['id'].toString());
       if (r != null && r['id'] != null) room['serverId'] = (r['id'] as num).toInt();
     }
-    // (b) serverItemId 없는 로컬 항목 push
+    // (6) serverItemId 없는 항목 push (type 미지정 = 텍스트로 처리)
     for (final room in _selfChats) {
       final sid = (room['serverId'] as num?)?.toInt();
       if (sid == null) continue;
       final id = room['id'].toString();
       for (final it in _selfChatMsgs[id] ?? const []) {
         if (it['serverItemId'] != null) continue;
-        if (it['type'] == 'text') {
-          final r = await _shareApi.addSelfChatMessage(
-              token: token, serverId: sid, content: it['content']?.toString() ?? '');
-          if (r != null && r['itemId'] != null) it['serverItemId'] = (r['itemId'] as num).toInt();
-        } else if (it['type'] == 'file') {
+        if (it['type'] == 'file') {
           final f = File(it['path']?.toString() ?? '');
           if (await f.exists()) {
             final r = await _shareApi.addSelfChatFile(
@@ -1618,38 +1697,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
                 contentType: it['contentType']?.toString(), file: f);
             if (r != null && r['itemId'] != null) it['serverItemId'] = (r['itemId'] as num).toInt();
           }
-        }
-      }
-    }
-    // (c) 서버 pull → 다른 기기가 만든 방/항목 병합
-    final server = await _shareApi.getSelfChats(token: token);
-    if (server != null) {
-      for (final srv in server) {
-        final clientId = srv['clientId']?.toString() ?? '';
-        final serverId = (srv['id'] as num?)?.toInt();
-        Map<String, dynamic>? local;
-        if (clientId.isNotEmpty) {
-          for (final e in _selfChats) {
-            if (e['id'].toString() == clientId) { local = e; break; }
-          }
-        }
-        if (local != null) {
-          local['serverId'] = serverId;
-          if (srv['name'] != null) local['name'] = srv['name'];
-          _mergeServerSelfItems(local['id'].toString(), (srv['items'] as List?) ?? const []);
         } else {
-          final newId = clientId.isNotEmpty ? clientId : 'srv$serverId';
-          if (_selfChats.any((e) => e['id'].toString() == newId)) continue;
-          _selfChats = [..._selfChats, {
-            'id': newId, 'serverId': serverId,
-            'name': srv['name'] ?? '나와의 대화',
-            'createdAt': DateTime.now().toIso8601String(),
-          }];
-          _selfChatMsgs[newId] = [];
-          _mergeServerSelfItems(newId, (srv['items'] as List?) ?? const []);
+          final r = await _shareApi.addSelfChatMessage(
+              token: token, serverId: sid, content: it['content']?.toString() ?? '');
+          if (r != null && r['itemId'] != null) it['serverItemId'] = (r['itemId'] as num).toInt();
         }
       }
     }
+
     await _persistSelfChats();
     for (final room in _selfChats) {
       await _persistSelfChatMsgs(room['id'].toString());

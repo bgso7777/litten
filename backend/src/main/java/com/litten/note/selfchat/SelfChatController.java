@@ -37,7 +37,9 @@ public class SelfChatController {
     public ResponseEntity<Map<String, Object>> list() {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
-        return ok(Map.of("selfChats", service.list(memberId)));
+        return ok(Map.of(
+                "selfChats", service.list(memberId),
+                "deletedClientIds", service.deletedClientIds(memberId)));
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
