@@ -462,7 +462,13 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
+        // 상단 제목 라인: 탭 종류(텍스트/아이콘)와 무관하게 박스 높이를 통일해
+        // 캘린더처럼 라인에 세로로 딱 맞춘다. 내용은 중앙정렬(위아래 여백 균일).
+        // (전체화면 모드에서는 기존 패딩 방식 유지)
+        height: isFullScreen ? null : 26,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+            horizontal: 13, vertical: isFullScreen ? 3 : 0),
         decoration: BoxDecoration(
           color: isActive
               ? Theme.of(context).primaryColor.withValues(alpha: 0.08)

@@ -4061,7 +4061,11 @@ class AllFilesTabButton extends StatelessWidget {
         addIfPositive('photo', Icons.photo_camera, photoCount);
         addIfPositive('video', Icons.videocam, videoCount);
 
-        return Row(
+        // 캘린더 탭 제목과 동일하게: 폭이 좁거나 아이콘이 많아도 상단 제목 라인에
+        // 딱 맞도록 FittedBox(scaleDown)로 감싼다(라인 높이는 부모가 고정).
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (displayTitle.isNotEmpty) ...[
@@ -4085,6 +4089,7 @@ class AllFilesTabButton extends StatelessWidget {
               _buildFilterDropdown(context, appState),
             ],
           ],
+          ),
         );
       },
     );

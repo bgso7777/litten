@@ -98,22 +98,24 @@ class _SettingsTabTitle extends StatelessWidget {
           who = email;
         }
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_circle, size: 16, color: color),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
+        // 캘린더 탭 제목과 동일하게: 상단 제목 라인에 딱 맞도록 FittedBox(scaleDown)로
+        // 감싼다(라인 높이는 부모가 고정). 긴 아이디도 라인 안에서 축소되어 들어간다.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.account_circle, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
                 // 형식: 닉네임(아이디) 구독요금제  (예: 홍길동(a@b.com) 스탠다드)
                 '$who $plan',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: color),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
