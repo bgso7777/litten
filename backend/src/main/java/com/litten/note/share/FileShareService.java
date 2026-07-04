@@ -197,6 +197,8 @@ public class FileShareService {
     /** 내가 받은 공유 목록 (전달 기준). */
     public List<Map<String, Object>> received(String memberId) {
         List<Map<String, Object>> list = new ArrayList<>();
+        // 발신자 현재 닉네임 캐시 — 스냅샷 대신 실시간 조회(닉네임 변경이 대화 이름에 반영되도록).
+        Map<String, String> nameCache = new HashMap<>();
         for (FileShareDelivery d : deliveryRepository.findByRecipientMemberIdAndIsDeletedFalseOrderByIdDesc(memberId)) {
             Optional<FileShare> sOpt = shareRepository.findById(d.getShareId());
             if (sOpt.isEmpty() || Boolean.TRUE.equals(sOpt.get().getIsDeleted())) continue;
@@ -205,7 +207,7 @@ public class FileShareService {
             m.put("deliveryId", d.getId());
             m.put("shareId", s.getId());
             m.put("status", d.getStatus());
-            m.put("senderName", s.getSenderName());
+            m.put("senderName", nameCache.computeIfAbsent(s.getSenderMemberId(), this::resolveName));
             m.put("senderMemberId", s.getSenderMemberId());
             m.put("fileType", s.getFileType());
             m.put("fileName", s.getFileName());
@@ -231,6 +233,7 @@ public class FileShareService {
     /** 내가 보낸 공유 목록 (공유 기준 + 전달 상태 요약). */
     public List<Map<String, Object>> sent(String memberId) {
         List<Map<String, Object>> list = new ArrayList<>();
+        Map<String, String> nameCache = new HashMap<>(); // 수신자 현재 닉네임 캐시
         for (FileShare s : shareRepository.findBySenderMemberIdAndIsDeletedFalseOrderByIdDesc(memberId)) {
             List<FileShareDelivery> deliveries = deliveryRepository.findByShareIdAndIsDeletedFalse(s.getId());
             int pending = 0, accepted = 0, rejected = 0;
@@ -241,6 +244,7 @@ public class FileShareService {
                 else pending++;
                 Map<String, Object> r = new HashMap<>();
                 r.put("memberId", d.getRecipientMemberId());
+                r.put("name", nameCache.computeIfAbsent(d.getRecipientMemberId(), this::resolveName));
                 r.put("status", d.getStatus());
                 recips.add(r);
             }

@@ -139,6 +139,9 @@ public class MessageService {
     /** 내가 받은 메시지 목록 (전달 기준). */
     public List<Map<String, Object>> received(String memberId) {
         List<Map<String, Object>> list = new ArrayList<>();
+        // 발신자 현재 닉네임 캐시 — 닉네임을 나중에 바꿔도 대화 이름이 최신으로 보이도록
+        // 저장된 스냅샷(senderName) 대신 현재 회원 이름을 실시간 조회한다.
+        Map<String, String> nameCache = new HashMap<>();
         for (NoteMessageDelivery d : deliveryRepository.findByRecipientMemberIdAndIsDeletedFalseOrderByIdDesc(memberId)) {
             Optional<NoteMessage> mOpt = messageRepository.findById(d.getMessageId());
             if (mOpt.isEmpty() || Boolean.TRUE.equals(mOpt.get().getIsDeleted())) continue;
@@ -146,7 +149,7 @@ public class MessageService {
             Map<String, Object> map = new HashMap<>();
             map.put("messageId", m.getId());
             map.put("deliveryId", d.getId());
-            map.put("senderName", m.getSenderName());
+            map.put("senderName", nameCache.computeIfAbsent(m.getSenderMemberId(), this::resolveName));
             map.put("senderMemberId", m.getSenderMemberId());
             map.put("groupName", m.getGroupName());
             // 수신자 측 그룹 잠금용: 발신자 그룹의 비밀번호(있으면)
@@ -166,11 +169,13 @@ public class MessageService {
     /** 내가 보낸 메시지 목록 (메시지 기준 + 수신자 요약). */
     public List<Map<String, Object>> sent(String memberId) {
         List<Map<String, Object>> list = new ArrayList<>();
+        Map<String, String> nameCache = new HashMap<>(); // 수신자 현재 닉네임 캐시
         for (NoteMessage m : messageRepository.findBySenderMemberIdAndIsDeletedFalseOrderByIdDesc(memberId)) {
             List<Map<String, Object>> recips = new ArrayList<>();
             for (NoteMessageDelivery d : deliveryRepository.findByMessageIdAndIsDeletedFalse(m.getId())) {
                 Map<String, Object> r = new HashMap<>();
                 r.put("memberId", d.getRecipientMemberId());
+                r.put("name", nameCache.computeIfAbsent(d.getRecipientMemberId(), this::resolveName));
                 recips.add(r);
             }
             Map<String, Object> map = new HashMap<>();

@@ -834,11 +834,21 @@ class _ShareSectionState extends State<_ShareSection>
               groupId: (ownedByName[group]?['groupId'] as num?)?.toInt()));
       conv.items.add(it);
       // 개인 대화 라벨: 닉네임이 있으면 닉네임만, 없으면 아이디(이메일)만. (닉네임 우선)
-      // 닉네임은 받은 항목의 senderName에서 확보(이메일과 다를 때만 닉네임으로 인정).
-      if (!isGroup && it.received) {
-        final sn = it.data['senderName']?.toString() ?? '';
+      // 서버가 senderName/수신자 name을 '현재 닉네임'으로 주므로 상대가 닉네임을 바꾸면 반영된다.
+      if (!isGroup) {
         final em = email ?? '';
-        if (sn.isNotEmpty && sn != em) conv.label = sn;
+        if (it.received) {
+          // 받은 항목: 발신자(상대) 현재 닉네임
+          final sn = it.data['senderName']?.toString() ?? '';
+          if (sn.isNotEmpty && sn != em) conv.label = sn;
+        } else {
+          // 보낸 항목: 수신자(상대) 현재 닉네임 (보낸 전용 대화 대비)
+          final recips = (it.data['recipients'] as List?) ?? const [];
+          if (recips.isNotEmpty) {
+            final rn = (recips.first as Map)['name']?.toString() ?? '';
+            if (rn.isNotEmpty && rn != em) conv.label = rn;
+          }
+        }
       }
       // 수신 그룹(남의 그룹)의 비밀번호/그룹id — 수신자 잠금 검증 및 멤버 발신용
       if (isGroup && it.received) {
