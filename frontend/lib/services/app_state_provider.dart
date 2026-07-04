@@ -2342,6 +2342,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return ok;
   }
 
+  /// 그룹 이름 변경(소유자) — 서버에서 그룹명 + 과거 공유/메시지 group_name 갱신 후
+  /// 그룹/공유 목록을 다시 읽어 다기기·멤버에 반영되도록 한다.
+  Future<bool> renameShareGroup(int groupId, String name) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.renameGroup(token: token, groupId: groupId, name: name);
+    if (ok) {
+      await reloadShareGroups();
+      await loadShares();
+    }
+    return ok;
+  }
+
   Future<Map<String, dynamic>> addShareGroupMember(int groupId, String key) async {
     final token = await _shareToken();
     if (token == null) return {'success': false, 'message': '로그인이 필요합니다.'};

@@ -1487,6 +1487,23 @@ class ApiService {
     }
   }
 
+  /// 그룹 이름 변경(소유자). 성공 시 true. 서버가 과거 공유/메시지의 group_name도 함께 갱신.
+  Future<bool> renameGroup(
+      {required String token, required int groupId, required String name}) async {
+    try {
+      final response = await http.patch(
+              Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/name'),
+              headers: _getHeaders(token: token),
+              body: jsonEncode({'name': name}))
+          .timeout(const Duration(seconds: 20));
+      return response.statusCode == 200 &&
+          (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+    } catch (e) {
+      debugPrint('[ApiService] renameGroup - 오류: $e');
+      return false;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getGroupMembers({required String token, required int groupId}) async {
     try {
       final response = await http.get(Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/members'),

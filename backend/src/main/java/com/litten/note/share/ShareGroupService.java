@@ -3,6 +3,7 @@ package com.litten.note.share;
 import com.litten.Constants;
 import com.litten.note.NoteMember;
 import com.litten.note.NoteMemberRepository;
+import com.litten.note.message.NoteMessageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,34 @@ public class ShareGroupService {
     private final ShareGroupRepository groupRepository;
     private final ShareGroupMemberRepository memberRepository;
     private final NoteMemberRepository noteMemberRepository;
+    private final FileShareRepository fileShareRepository;
+    private final NoteMessageRepository noteMessageRepository;
+
+    /** 그룹 이름 변경 — 소유자만. 그룹명 + 과거 공유/메시지의 group_name 스냅샷까지 갱신해
+     *  수신자·다기기에서 같은 대화로 묶여 새 이름으로 보이게 한다. 실패(없음/권한없음) 시 null. */
+    @Transactional
+    public Map<String, Object> renameGroup(String ownerId, Long groupId, String newName) {
+        if (newName == null || newName.trim().isEmpty()) {
+            throw new IllegalArgumentException("그룹 이름을 입력하세요.");
+        }
+        String name = newName.trim();
+        ShareGroup g = groupRepository.findById(groupId).orElse(null);
+        if (g == null || Boolean.TRUE.equals(g.getIsDeleted())
+                || !ownerId.equals(g.getOwnerMemberId())) {
+            return null;
+        }
+        g.setName(name);
+        g.setUpdateDateTime(LocalDateTime.now());
+        groupRepository.save(g);
+        int s = fileShareRepository.renameGroup(groupId, name);
+        int m = noteMessageRepository.renameGroup(groupId, name);
+        log.info("[ShareGroupService] 그룹 이름변경 - groupId:{}, name:{}, shares:{}, messages:{}",
+                groupId, name, s, m);
+        Map<String, Object> r = new HashMap<>();
+        r.put("groupId", groupId);
+        r.put("name", name);
+        return r;
+    }
 
     /** 이메일/표시이름으로 회원 조회 (없으면 null). */
     NoteMember resolveMember(String key) {

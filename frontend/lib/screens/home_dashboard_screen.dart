@@ -549,6 +549,19 @@ class _ShareSectionState extends State<_ShareSection>
   /// 나와의 대화는 실제 이름 변경, 그룹/1:1은 내 화면 표시 이름(로컬 별칭) 지정.
   Future<void> _renameConv(_Conv c) async {
     final appState = context.read<AppStateProvider>();
+    // 내가 소유한 그룹이면 groupId를 찾아 서버 이름변경(다기기·멤버 동기화) 대상으로 삼는다.
+    int? ownedGid;
+    if (c.isGroup && c.key.startsWith('g:')) {
+      final origName = c.key.substring(2);
+      for (final g in appState.shareGroups) {
+        if ((g['name']?.toString() ?? '') == origName) {
+          ownedGid = (g['groupId'] as num?)?.toInt();
+          break;
+        }
+      }
+    }
+    // 내 것(나와의 대화·소유 그룹)은 실제 이름 변경, 남의 그룹·1:1은 로컬 별칭.
+    final isRealRename = c.isSelf || ownedGid != null;
     final ctrl = TextEditingController(text: c.label);
     final newName = await showDialog<String>(
       context: context,
@@ -565,10 +578,16 @@ class _ShareSectionState extends State<_ShareSection>
                   labelText: '채팅방 이름', isDense: true, border: OutlineInputBorder()),
               onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
             ),
-            if (!c.isSelf)
+            if (!isRealRename)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text('내 화면에만 표시되는 이름입니다.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+              )
+            else if (ownedGid != null)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('참여한 모든 사람에게 반영됩니다.',
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
               ),
           ],
@@ -584,8 +603,23 @@ class _ShareSectionState extends State<_ShareSection>
     if (newName == null || newName.isEmpty) return;
     if (c.isSelf) {
       await appState.renameSelfChat(c.key.substring(5), newName); // 'self:' 제거
+    } else if (ownedGid != null) {
+      // 소유 그룹 — 서버에서 실제 이름 변경(다기기·멤버 동기화).
+      final ok = await appState.renameShareGroup(ownedGid, newName);
+      if (ok) {
+        await appState.setConvCustomName(c.key, ''); // 남아있던 로컬 별칭 제거
+        // 그룹명이 바뀌면 대화 key도 'g:새이름'으로 바뀌므로 열린 방 key도 갱신.
+        if (appState.homeOpenConvKey == c.key) {
+          appState.setHomeOpenConvKey('g:$newName');
+        }
+      } else if (mounted) {
+        // 서버 실패 시 최소한 내 화면 별칭이라도 적용.
+        await appState.setConvCustomName(c.key, newName);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('서버 이름 변경 실패 — 내 화면에만 적용했습니다.')));
+      }
     } else {
-      await appState.setConvCustomName(c.key, newName);
+      await appState.setConvCustomName(c.key, newName); // 남의 그룹·1:1 → 로컬 별칭
     }
   }
 
@@ -1251,36 +1285,63 @@ class _ShareSectionState extends State<_ShareSection>
 
   /// 참여자 아바타 — 인원수만큼(1~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
   /// 1명은 단독으로 크게 표시한다.
-  Widget _peopleAvatar(int count, Color color, bool owned) {
+  Widget _peopleAvatar(int count, Color color, bool owned, {bool mine = false}) {
     final n = count.clamp(1, 5);
+    final Widget avatar;
     if (n == 1) {
-      return CircleAvatar(
+      avatar = CircleAvatar(
         radius: 20,
-        backgroundColor: color.withValues(alpha: 0.12),
+        backgroundColor: color.withValues(alpha: mine ? 0.2 : 0.12),
         child: Icon(Icons.person, color: color, size: 22),
       );
-    }
-    const s = 15.0;    // 개별 사람 아이콘 크기
-    const step = 8.0;  // 겹침 간격
-    final w = s + (n - 1) * step;
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: color.withValues(alpha: owned ? 0.2 : 0.12),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: SizedBox(
-          width: w,
-          height: s,
-          child: Stack(
-            children: [
-              for (int i = 0; i < n; i++)
-                Positioned(
-                  left: i * step,
-                  child: Icon(Icons.person, size: s, color: color),
-                ),
-            ],
+    } else {
+      const s = 15.0;    // 개별 사람 아이콘 크기
+      const step = 8.0;  // 겹침 간격
+      final w = s + (n - 1) * step;
+      avatar = CircleAvatar(
+        radius: 20,
+        backgroundColor: color.withValues(alpha: (owned || mine) ? 0.2 : 0.12),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: SizedBox(
+            width: w,
+            height: s,
+            child: Stack(
+              children: [
+                for (int i = 0; i < n; i++)
+                  Positioned(
+                    left: i * step,
+                    child: Icon(Icons.person, size: s, color: color),
+                  ),
+              ],
+            ),
           ),
         ),
+      );
+    }
+    if (!mine) return avatar;
+    // 내가 만든 대화창(소유 그룹·나와의 대화) — 우하단 별 뱃지로 구분.
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatar,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: const Icon(Icons.star, size: 10, color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1313,7 +1374,8 @@ class _ShareSectionState extends State<_ShareSection>
     }
 
     return ListTile(
-      leading: _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned),
+      leading: _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
+          mine: isOwned || c.isSelf),
       title: Row(children: [
         Flexible(
           child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,

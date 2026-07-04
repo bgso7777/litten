@@ -55,6 +55,22 @@ public class ShareGroupController {
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PatchMapping("/note/v1/share-groups/{groupId}/name")
+    public ResponseEntity<Map<String, Object>> renameGroup(@PathVariable Long groupId,
+                                                           @RequestBody Map<String, Object> body) {
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        try {
+            String name = body.get("name") != null ? body.get("name").toString() : null;
+            Map<String, Object> g = groupService.renameGroup(memberId, groupId, name);
+            if (g == null) return badRequest("그룹을 찾을 수 없거나 권한이 없습니다.");
+            return ok(Map.of("group", g));
+        } catch (IllegalArgumentException e) {
+            return badRequest(e.getMessage());
+        }
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @DeleteMapping("/note/v1/share-groups/{groupId}")
     public ResponseEntity<Map<String, Object>> deleteGroup(@PathVariable Long groupId) {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
