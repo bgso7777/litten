@@ -894,6 +894,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadQuizItems();
     await loadSummaries();
     await _loadSharedFileIds();
+    await _loadUnlockedGroups(); // 잠금 해제한 그룹(비번 인증) 복원 — UI 빌드 전 로드
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
     await loadRemindMemoKeys(); // 리마인드 '메모로 저장됨' 캐시 (리튼 로드 후)
@@ -1819,6 +1820,28 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('conv_custom_names', jsonEncode(_convCustomNames));
+    notifyListeners();
+  }
+
+  // ── 잠금 그룹(비밀번호) 인증 유지 — 한 번 맞히면 앱 재시작 후에도 유지 ──
+  // 앱 시작 시 initializeApp에서 1회 로드하므로 UI 빌드 시점엔 항상 준비됨(레이스 없음).
+  static const String _unlockedGroupsKey = 'unlocked_groups';
+  final Set<String> _unlockedGroups = {};
+  bool isGroupUnlocked(String name) => _unlockedGroups.contains(name);
+
+  Future<void> _loadUnlockedGroups() async {
+    final prefs = await SharedPreferences.getInstance();
+    _unlockedGroups
+      ..clear()
+      ..addAll(prefs.getStringList(_unlockedGroupsKey) ?? const []);
+  }
+
+  /// 그룹 비밀번호 인증 성공 시 호출 — 영구 저장 + 즉시 반영.
+  Future<void> unlockGroup(String name) async {
+    if (name.trim().isEmpty) return;
+    if (!_unlockedGroups.add(name)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_unlockedGroupsKey, _unlockedGroups.toList());
     notifyListeners();
   }
 

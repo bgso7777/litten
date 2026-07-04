@@ -471,8 +471,7 @@ class _ShareSectionState extends State<_ShareSection>
   // 현재 열린 대화방 key (null이면 대화 목록 화면). 'g:그룹명' 또는 'u:이메일'
   // 열린 대화방 key는 AppStateProvider.homeOpenConvKey(단일 소스)를 사용한다.
   // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
-  final Set<String> _unlockedGroups = {};
-  static const String _unlockedGroupsKey = 'unlocked_groups';
+  // 잠금 그룹 인증 상태는 AppStateProvider(영구 저장, 앱 시작 시 1회 로드)에서 관리한다.
   // 대화방 하단 메시지 입력
   final TextEditingController _msgCtrl = TextEditingController();
   // 대화방 메시지 리스트 스크롤 — 진입/전송 시 맨 아래(최신)로 이동
@@ -514,14 +513,17 @@ class _ShareSectionState extends State<_ShareSection>
   /// 대화방 진입 — 읽음 처리(미읽음 뱃지 제거) 후 연다.
   /// [readUpTo]는 "여기까지 읽음" 기준 시각 — 그 대화의 최신 항목 시각을 넘겨 시계 차이와 무관하게
   /// 현재 항목이 모두 읽음 처리되도록 한다(없으면 기기 현재 시각).
-  void _openConv(String key, [DateTime? readUpTo]) {
-    final now = DateTime.now();
-    var t = readUpTo ?? now;
-    if (t.isBefore(now)) t = now; // 최소 현재 시각 보장
-    _convLastRead[key] = t;
+  /// 대화를 '현재 시각까지 읽음'으로 표시(미읽음 뱃지 제거) + 영구 저장.
+  void _markConvRead(String key) {
+    _convLastRead[key] = DateTime.now();
     SharedPreferences.getInstance().then((p) => p.setString(
         _convReadKey,
         jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
+    if (mounted) setState(() {});
+  }
+
+  void _openConv(String key, [DateTime? readUpTo]) {
+    _markConvRead(key); // 진입 시 읽음 처리
     _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
     // 대화방 상태는 provider 단일 소스 — 진입 시 열린 대화방 key를 설정하면
     // build(watch)가 대화방을 표시하고 하단 칩 바·새 채팅 FAB가 숨겨진다.
@@ -535,7 +537,6 @@ class _ShareSectionState extends State<_ShareSection>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     );
-    _loadUnlockedGroups();
     _loadConvRead();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final app = context.read<AppStateProvider>();
@@ -682,17 +683,6 @@ class _ShareSectionState extends State<_ShareSection>
     }
   }
 
-  Future<void> _loadUnlockedGroups() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_unlockedGroupsKey) ?? [];
-    if (mounted) setState(() => _unlockedGroups.addAll(saved));
-  }
-
-  Future<void> _persistUnlockedGroups() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_unlockedGroupsKey, _unlockedGroups.toList());
-  }
-
   /// 그룹 비밀번호 입력 다이얼로그 — 맞으면 잠금 해제(영구 기억) 후 해당 대화방 진입.
   Future<void> _promptGroupPassword(String name, String password, String convKey,
       [DateTime? readUpTo]) async {
@@ -721,8 +711,8 @@ class _ShareSectionState extends State<_ShareSection>
     );
     if (!mounted) return;
     if (ok == true) {
-      _unlockedGroups.add(name);
-      _persistUnlockedGroups();
+      await context.read<AppStateProvider>().unlockGroup(name); // 영구 저장(재시작 유지)
+      if (!mounted) return;
       _openConv(convKey, readUpTo); // 잠금 해제 후 대화방 진입(읽음 처리 포함)
     } else if (ok == false) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1369,7 +1359,8 @@ class _ShareSectionState extends State<_ShareSection>
     final isOwned = owned != null;
     // 발신자(그룹 소유자)는 항상 열림. 수신자는 그룹 비번이 있으면 한 번 입력해 해제.
     final recvPw = (c.isGroup && !isOwned) ? c.recvGroupPassword : null;
-    final locked = recvPw != null && recvPw.isNotEmpty && !_unlockedGroups.contains(c.label);
+    final locked = recvPw != null && recvPw.isNotEmpty &&
+        !context.read<AppStateProvider>().isGroupUnlocked(c.label);
     final last = c.last;
     // 뱃지 = 미읽음(마지막으로 연 이후 받은 메시지/공유). 대화방에 들어가면 사라진다.
     final lastRead = _convLastRead[c.key];
@@ -1490,6 +1481,8 @@ class _ShareSectionState extends State<_ShareSection>
             IconButton(
                 icon: const Icon(Icons.arrow_back), color: color,
                 onPressed: () {
+                  // 나가기 전 현재까지 읽음 처리 → 방에서 본(새로고침 포함) 내용은 미읽음 카운트에서 제거.
+                  _markConvRead(c.key);
                   // 목록 복귀(provider 단일 소스) → 칩 바 + FAB 다시 표시
                   context.read<AppStateProvider>().setHomeOpenConvKey(null);
                 }),
@@ -1514,7 +1507,11 @@ class _ShareSectionState extends State<_ShareSection>
                   child: Text('대화를 시작해 보세요.',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
               : RefreshIndicator(
-                  onRefresh: () => appState.loadShares(),
+                  onRefresh: () async {
+                    // 위로 당기면 대화 내용(공유+메시지) 새로고침 + 읽음 처리.
+                    await appState.loadShares();
+                    _markConvRead(c.key);
+                  },
                   child: ListView.builder(
                     controller: _chatScrollCtrl,
                     physics: const AlwaysScrollableScrollPhysics(),
