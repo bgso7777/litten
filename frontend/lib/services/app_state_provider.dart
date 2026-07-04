@@ -2190,17 +2190,36 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String targetType, // 'user' | 'group'
     String? recipientKey,
     int? groupId,
+    String? groupName, // 그룹 대화 묶음 키(낙관적 표시용)
     required String content,
   }) async {
     final token = await _shareToken();
     if (token == null) return (ok: false, message: '로그인이 필요합니다.');
+    // 낙관적 표시 — 서버 응답을 기다리지 않고 즉시 로컬 '보낸 메시지'에 추가해 창에 바로 보이게 한다.
+    final optimistic = <String, dynamic>{
+      'content': content,
+      'sentAt': DateTime.now().toIso8601String(),
+      'targetType': targetType,
+      if (groupName != null && groupName.isNotEmpty) 'groupName': groupName,
+      'recipients': [
+        if (recipientKey != null && recipientKey.isNotEmpty) {'memberId': recipientKey}
+      ],
+      '__optimistic': true,
+    };
+    _messagesSent = [..._messagesSent, optimistic];
+    notifyListeners();
+    // 그 다음 서버로 전송.
     final r = await _shareApi.sendMessage(
         token: token, targetType: targetType,
         recipientKey: recipientKey, groupId: groupId, content: content);
     if (r['success'] == true) {
-      await loadShares();
+      await loadShares(); // 실제 메시지(서버 id/시각)로 교체 — 임시 항목은 이 갱신으로 사라짐
       return (ok: true, message: null);
     }
+    // 전송 실패 → 임시 항목 제거
+    _messagesSent =
+        _messagesSent.where((m) => !identical(m, optimistic)).toList();
+    notifyListeners();
     return (ok: false, message: r['message']?.toString() ?? '메시지 전송에 실패했습니다.');
   }
 

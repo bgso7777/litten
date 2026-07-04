@@ -1530,7 +1530,7 @@ class _ShareSectionState extends State<_ShareSection>
                           DateTime(prev.year, prev.month, prev.day) != cur;
                       return Column(children: [
                         if (showDay) _dateHeader(cur, color),
-                        _bubble(it, color, appState),
+                        _bubble(it, color, appState, c.isGroup),
                       ]);
                     },
                   ),
@@ -1599,6 +1599,7 @@ class _ShareSectionState extends State<_ShareSection>
       targetType: c.isGroup ? 'group' : 'user',
       recipientKey: c.isGroup ? null : (c.email ?? c.key.substring(2)),
       groupId: c.isGroup ? groupId : null,
+      groupName: c.isGroup ? c.key.substring(2) : null,
       content: text,
     );
     if (mounted && !r.ok) {
@@ -1920,7 +1921,17 @@ class _ShareSectionState extends State<_ShareSection>
   }
 
   /// 간결한 말풍선 — 받음=좌측, 보냄=우측. 채팅 메시지는 텍스트, 공유는 아이콘+파일명+시간.
-  Widget _bubble(_ShareItem it, Color color, AppStateProvider appState) {
+  Widget _bubble(_ShareItem it, Color color, AppStateProvider appState,
+      [bool isGroup = false]) {
+    // 그룹 대화에서 '받은' 항목은 보낸 사람(닉네임 우선, 없으면 이메일)을 말풍선 위에 표시.
+    // 1:1은 상대가 한 명이라 제목으로 충분하므로 생략.
+    final String? senderLabel = (isGroup && it.received)
+        ? ((it.data['senderName']?.toString().trim().isNotEmpty ?? false)
+            ? it.data['senderName'].toString()
+            : (it.data['senderMemberId']?.toString().trim().isNotEmpty ?? false)
+                ? it.data['senderMemberId'].toString()
+                : null)
+        : null;
     // 채팅 메시지 말풍선
     if (it.isMessage) {
       final received = it.received;
@@ -1941,6 +1952,13 @@ class _ShareSectionState extends State<_ShareSection>
                 received ? CrossAxisAlignment.start : CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (senderLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(senderLabel,
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                ),
               Text(content, style: const TextStyle(fontSize: 14)),
               if (url != null) ...[
                 const SizedBox(height: 6),
@@ -1985,6 +2003,13 @@ class _ShareSectionState extends State<_ShareSection>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (senderLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(senderLabel,
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+              ),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(_shareFileTypeIcon(it.data['fileType']?.toString(), it.data['fileName']?.toString(), it.data['contentType']?.toString()), size: 16, color: color),
               const SizedBox(width: 6),
