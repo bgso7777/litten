@@ -1392,7 +1392,10 @@ class _ShareSectionState extends State<_ShareSection>
   /// 채팅방 — 헤더(뒤로 + 상대명, 소유 그룹이면 멤버추가) + 말풍선(받음 좌/보냄 우, 시간순).
   Widget _buildChatRoom(_Conv c, Map<String, Map<String, dynamic>> ownedByName,
       Color color, AppStateProvider appState) {
-    final owned = c.isGroup ? ownedByName[c.label] : null;
+    // 소유 그룹 판별은 원래 그룹명(key 'g:이름') 기준 — 이름을 바꿔도 정확히 유지.
+    // (c.label은 로컬 별칭으로 바뀔 수 있어 ownedByName 조회 키로 쓰면 안 됨)
+    final origName = (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
+    final owned = origName != null ? ownedByName[origName] : null;
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
@@ -1455,18 +1458,9 @@ class _ShareSectionState extends State<_ShareSection>
                   ),
                 ),
         ),
-        // 하단 메시지 입력 — 1:1 또는 내가 소유한 그룹에서만(그룹 메시지는 소유자만 발신)
-        if (!c.isGroup || groupId != null)
-          _chatInput(c, groupId, color, appState)
-        else
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            color: Colors.grey.shade100,
-            child: Text('이 그룹은 소유자만 메시지를 보낼 수 있습니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-          ),
+        // 하단 메시지 입력 — 모든 참여자가 대화 가능(1:1·그룹 소유자·그룹 멤버 모두).
+        // (향후 '공지' 형태는 생성자만 입력 가능하도록 분기 예정)
+        _chatInput(c, groupId, color, appState),
       ],
     );
   }

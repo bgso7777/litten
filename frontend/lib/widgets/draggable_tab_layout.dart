@@ -402,7 +402,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
             children: [
               // 탭 헤더 (항상 표시)
               Container(
-                height: 30, // 상단 탭 제목 바 — 콘텐츠 라인에 딱 맞춘 높이(위아래 여백 최소화)
+                height: 36, // 상단 탭 제목 바 — 상하폭 20% 확대(30→36). 박스는 stretch로 채움.
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   border: Border(

@@ -1501,7 +1501,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
 
     return Card(
       // 항목 높이 1.5배: 헤더 세로 패딩 3→10
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         children: [
           Padding(
@@ -1815,7 +1815,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final color = Theme.of(context).primaryColor;
     final isFromSTT = file.isFromSTT;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: InkWell(
         onTap: () => _openEditorView(_EditorType.text, textFile: file),
         borderRadius: BorderRadius.circular(12),
@@ -1930,7 +1930,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildHandwritingCard(HandwritingFile file) {
     final color = Theme.of(context).primaryColor;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: InkWell(
         onTap: () => _openEditorView(_EditorType.handwriting, handwritingFile: file),
         borderRadius: BorderRadius.circular(12),
@@ -2381,7 +2381,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final ext = file.extension.toUpperCase();
     final isConvertible = _isLibreOfficeSupported(file.extension);
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       // 사진(이미지 첨부)은 탭하면 필기 편집기로 열려 그 위에 그릴 수 있다.
       // (우측 동기화/공유/더보기 버튼은 각자 탭을 소비하므로 영향 없음)
       child: InkWell(
@@ -2990,7 +2990,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: InkWell(
         onTap: () => _playAudio(file),
         borderRadius: BorderRadius.circular(12),

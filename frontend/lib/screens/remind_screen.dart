@@ -677,7 +677,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 16, color: color),
+            Icon(Icons.auto_awesome, size: 20, color: color),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -791,7 +791,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         child: Row(
           children: [
-            QuizBulbIcon(size: 16, color: color),
+            QuizBulbIcon(size: 20, color: color),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
