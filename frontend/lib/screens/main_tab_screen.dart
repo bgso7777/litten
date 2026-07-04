@@ -105,8 +105,11 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
         appState.notificationService.onAppPaused();
         break;
       case AppLifecycleState.resumed:
-        debugPrint('🎵 앱이 포그라운드로 복귀 - 오디오 재생 상태 확인 + 알림 뱃지 갱신');
+        debugPrint('🎵 앱이 포그라운드로 복귀 - 오디오 재생 상태 확인 + 알림 뱃지 갱신 + 대화/셀프챗 재동기화');
         appState.notificationService.onAppResumed();
+        // 다른 기기에서 바뀐 대화 이름·공유·나와의 대화를 포그라운드 복귀 시 다시 반영한다.
+        appState.loadShares();
+        appState.loadSelfChats();
         break;
       case AppLifecycleState.detached:
         debugPrint('🎵 앱 종료 - 오디오 재생 중지');

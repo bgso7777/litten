@@ -927,7 +927,11 @@ class _ShareSectionState extends State<_ShareSection>
 
     // 새 채팅 진입점은 하단 칩 바의 + 버튼으로 일원화(기존 우측 하단 FAB 제거).
     final convBody = RefreshIndicator(
-      onRefresh: () => appState.loadShares(),
+      onRefresh: () async {
+        // 당겨서 새로고침 — 공유 + 나와의 대화(이름/항목)까지 다시 동기화.
+        await appState.loadShares();
+        await appState.loadSelfChats();
+      },
       child: convList.isEmpty
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
