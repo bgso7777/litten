@@ -16,6 +16,9 @@ class TabItem {
   final IconData icon;
   final Widget? iconWidget; // icon 대신 사용할 커스텀 위젯 (Stack 배지 등)
   final Widget? customTabWidget; // 탭 버튼 커스텀 위젯 (제공 시 icon+title 대체)
+  // 제목 영역에서 '아이콘이 아닌 바깥 영역'을 탭했을 때 호출(예: 전체 선택).
+  // 제공 시 해당 탭 헤더의 빈 영역이 이 콜백을 받는다(아이콘 내부 제스처가 우선).
+  final VoidCallback? onCustomBackgroundTap;
   TabPosition position;
   bool isVisible;
   final bool isDraggable;
@@ -27,6 +30,7 @@ class TabItem {
     required this.icon,
     this.iconWidget,
     this.customTabWidget,
+    this.onCustomBackgroundTap,
     this.position = TabPosition.fullScreen,
     this.isVisible = true,
     this.isDraggable = true,
@@ -408,6 +412,8 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                   ),
                 ),
                 child: Row(
+                  // 각 탭 제목 박스가 바 높이를 세로로 꽉 채우도록 stretch.
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: tabs.map((tab) => Expanded(
                     child: _buildTabHeader(tab, isFullScreen: false),
                   )).toList(),
@@ -442,6 +448,17 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
     );
   }
 
+  /// 제목 아이콘 '바깥 영역' 탭 콜백이 있으면 제목 콘텐츠를 감싸 빈 영역 탭을 받게 한다.
+  /// (콘텐츠 내부의 아이콘 GestureDetector가 우선하므로 아이콘 탭은 그대로 동작)
+  Widget _wrapBgTap(TabItem tab, Widget child) {
+    if (tab.onCustomBackgroundTap == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: tab.onCustomBackgroundTap,
+      child: child,
+    );
+  }
+
   Widget _buildTabHeader(TabItem tab, {required bool isFullScreen}) {
     // 전체탭만 있을 때는 항상 선택된 색으로 표시
     final visibleTabs = widget.tabs.where((t) => t.isVisible).toList();
@@ -462,10 +479,10 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        // 상단 제목 라인: 탭 종류(텍스트/아이콘)와 무관하게 박스 높이를 통일해
-        // 캘린더처럼 라인에 세로로 딱 맞춘다. 내용은 중앙정렬(위아래 여백 균일).
+        // 상단 제목 라인: 박스가 바 높이를 세로로 꽉 채우게 해(부모 Row가 stretch),
+        // 박스와 라인 사이 위아래 틈이 보이지 않게 한다. 내용은 중앙정렬.
         // (전체화면 모드에서는 기존 패딩 방식 유지)
-        height: isFullScreen ? null : 26,
+        height: isFullScreen ? null : double.infinity,
         alignment: Alignment.center,
         padding: EdgeInsets.symmetric(
             horizontal: 13, vertical: isFullScreen ? 3 : 0),
@@ -489,7 +506,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
           ] : null,
         ),
         child: tab.customTabWidget != null
-            ? Row(
+            ? _wrapBgTap(tab, Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconTheme(
@@ -522,7 +539,7 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                       ),
                     ),
                 ],
-              )
+              ))
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

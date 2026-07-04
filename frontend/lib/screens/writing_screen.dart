@@ -107,6 +107,9 @@ class _WritingScreenState extends State<WritingScreen>
           attachmentCount: attachmentCount,
           littenTitle: littenTitle,
         ),
+        // 제목 아이콘 바깥 영역 탭 → 전체 선택(모든 종류 표시).
+        onCustomBackgroundTap: () =>
+            context.read<AppStateProvider>().showAllTabTypes(),
         content: const AllFilesTab(),
         position: parsePosition(savedPositions['all'] ?? 'topLeft'),
       ),

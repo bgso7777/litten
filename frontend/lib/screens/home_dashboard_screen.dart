@@ -156,13 +156,18 @@ class _HomeChipBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(icon, size: 16, color: color),
+              // 상단 탭제목(TabCountTitle)과 동일한 아이콘 17 / 카운트 10.4 크기로 통일.
+              Icon(icon, size: 17, color: color),
               const SizedBox(width: 2),
-              Text('$n',
-                  style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                      color: color)),
+              // 카운트를 살짝 아래로 내려 탭제목의 '하단정렬' 느낌과 맞춘다(레이아웃 불변, 시각만 이동).
+              Transform.translate(
+                offset: const Offset(0, 2),
+                child: Text('$n',
+                    style: TextStyle(
+                        fontSize: 10.4,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                        color: color)),
+              ),
             ],
           ),
         ),
@@ -177,19 +182,25 @@ class _HomeChipBar extends StatelessWidget {
     add('photo', Icons.photo_camera, counts['photo'] ?? 0);
     add('video', Icons.videocam, counts['video'] ?? 0);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
-      ),
-      // 노트(_CreateChipBar)·캘린더 칩 바와 동일한 세로 패딩(9) + 콘텐츠 높이(28.0)로
-      // 바 전체 높이를 그 둘(123px ≒ 46.9dp)과 정확히 일치시킨다(= 9*2 + 28.0).
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      child: SizedBox(
-        height: 28.0,
-        child: Center(
-          child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+    // 아이콘(칩)이 아닌 빈 영역을 탭하면 종류 무관 '전체' 파일을 일자순으로 표시한다.
+    // (각 칩은 자체 GestureDetector가 있어 해당 종류로 동작하고, 그 외 영역만 'all'로 처리)
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.read<AppStateProvider>().setHomeChatFileKind('all'),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
+        ),
+        // 노트(_CreateChipBar)·캘린더 칩 바와 동일한 세로 패딩(9) + 콘텐츠 높이(28.0)로
+        // 바 전체 높이를 그 둘(123px ≒ 46.9dp)과 정확히 일치시킨다(= 9*2 + 28.0).
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: SizedBox(
+          height: 28.0,
+          child: Center(
+            child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+          ),
         ),
       ),
     );
@@ -1728,13 +1739,17 @@ class _ShareSectionState extends State<_ShareSection>
   Widget _buildChatFileKindList(
       AppStateProvider appState, Color color, String kind) {
     const kindLabels = {
+      'all': '전체',
       'memo': '메모', 'canvas': '필기', 'pdf': 'PDF', 'audio': '녹음',
       'stt': '녹음메모', 'files': '파일', 'photo': '사진', 'video': '동영상',
     };
+    // 'all'이면 종류 필터 없이 모든 파일을 일자순으로 보여준다(칩 바 빈 영역 탭).
+    final bool showAll = kind == 'all';
     final rows = <Map<String, dynamic>>[];
     // 받은 공유
     for (final s in appState.sharesReceived) {
-      if (_shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
+      if (!showAll &&
+          _shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
               s['contentType']?.toString()) != kind) {
         continue;
       }
@@ -1754,7 +1769,8 @@ class _ShareSectionState extends State<_ShareSection>
     }
     // 보낸 공유
     for (final s in appState.sharesSent) {
-      if (_shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
+      if (!showAll &&
+          _shareFileKind(s['fileType']?.toString(), s['fileName']?.toString(),
               s['contentType']?.toString()) != kind) {
         continue;
       }
@@ -1777,7 +1793,8 @@ class _ShareSectionState extends State<_ShareSection>
     // 나와의 대화 파일
     for (final f in appState.selfChatFiles) {
       final item = f['item'] as Map<String, dynamic>;
-      if (_shareFileKind(item['fileType']?.toString(), item['fileName']?.toString(),
+      if (!showAll &&
+          _shareFileKind(item['fileType']?.toString(), item['fileName']?.toString(),
               item['contentType']?.toString()) != kind) {
         continue;
       }

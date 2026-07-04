@@ -25,9 +25,11 @@ import '../widgets/share_compose_dialog.dart';
 ///  - [showSummary]/[showQuiz]: 요약·퀴즈 종류별 표시 여부(상·하단 공통)
 ///  - [confirmedOpen]: 하단(확인함) 영역을 펼칠지. 펼치면 상단 50% / 하단 50%.
 class _RemindFilter extends ChangeNotifier {
-  bool showSummary = true;    // 요약 표시
-  bool showQuiz = true;       // 퀴즈 표시
-  bool confirmedOpen = false; // 하단(확인함) 영역 펼침 — '퀴즈 end'로 토글
+  bool showSummary = true;    // 요약 표시(상단=확인 안 함 목록)
+  bool showQuiz = true;       // 퀴즈 표시(상단=확인 안 함 목록)
+  bool confirmedOpen = false; // 하단(확인함) 영역 펼침
+  // 하단(확인함) 영역 종류 필터: null=전체, 'summary'=완료 요약만, 'quiz'=완료 퀴즈만.
+  String? confirmedKind;
 
   void toggleSummary() {
     showSummary = !showSummary;
@@ -39,9 +41,65 @@ class _RemindFilter extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 하단(확인함) 영역 펼침/닫힘 토글.
+  /// 제목 요약 아이콘 탭 — 배타 선택: 요약만 활성(퀴즈 비활성). 이미 요약만이면 전체 복원.
+  void selectOnlySummary() {
+    if (showSummary && !showQuiz) {
+      showSummary = true;
+      showQuiz = true; // 재탭 → 전체
+    } else {
+      showSummary = true;
+      showQuiz = false; // 요약만
+    }
+    notifyListeners();
+  }
+
+  /// 제목 퀴즈 아이콘 탭 — 배타 선택: 퀴즈만 활성(요약 비활성). 이미 퀴즈만이면 전체 복원.
+  void selectOnlyQuiz() {
+    if (showQuiz && !showSummary) {
+      showSummary = true;
+      showQuiz = true; // 재탭 → 전체
+    } else {
+      showSummary = false;
+      showQuiz = true; // 퀴즈만
+    }
+    notifyListeners();
+  }
+
+  /// 제목 아이콘 바깥 영역 탭 — 전체 선택(요약+퀴즈 모두 활성).
+  void selectAll() {
+    if (showSummary && showQuiz) return;
+    showSummary = true;
+    showQuiz = true;
+    notifyListeners();
+  }
+
+  /// 하단 바 요약 아이콘 탭 — 확인함 영역을 열고 '완료된 요약'만 표시.
+  /// 이미 그 상태면 닫는다(토글).
+  void showConfirmedSummary() {
+    if (confirmedOpen && confirmedKind == 'summary') {
+      confirmedOpen = false;
+    } else {
+      confirmedOpen = true;
+      confirmedKind = 'summary';
+    }
+    notifyListeners();
+  }
+
+  /// 하단 바 퀴즈 아이콘 탭 — 확인함 영역을 열고 '완료된 퀴즈'만 표시.
+  void showConfirmedQuiz() {
+    if (confirmedOpen && confirmedKind == 'quiz') {
+      confirmedOpen = false;
+    } else {
+      confirmedOpen = true;
+      confirmedKind = 'quiz';
+    }
+    notifyListeners();
+  }
+
+  /// 하단(확인함) 영역 펼침/닫힘 토글(빈 영역 탭). 열 때는 종류 필터 전체로.
   void toggleConfirmed() {
     confirmedOpen = !confirmedOpen;
+    if (confirmedOpen) confirmedKind = null;
     notifyListeners();
   }
 }
@@ -93,16 +151,18 @@ class RemindScreenState extends State<RemindScreen> {
                   .length;
               return TabCountTitle([
                 [
-                  TabCount(Icons.auto_awesome, summaryCount,     // 요약 — 탭 토글
-                      active: _filter.showSummary, onTap: _filter.toggleSummary),
-                  TabCount(Icons.lightbulb_outline, quizCount,   // 퀴즈 — 전구+q, 탭 토글
+                  TabCount(Icons.auto_awesome, summaryCount,     // 요약 — 탭하면 요약만
+                      active: _filter.showSummary, onTap: _filter.selectOnlySummary),
+                  TabCount(Icons.lightbulb_outline, quizCount,   // 퀴즈 — 전구+q, 탭하면 퀴즈만
                       iconWidget: const QuizBulbIcon(),
-                      active: _filter.showQuiz, onTap: _filter.toggleQuiz),
+                      active: _filter.showQuiz, onTap: _filter.selectOnlyQuiz),
                 ],
               ]);
             },
           ),
         ),
+        // 제목 아이콘 바깥 영역 탭 → 전체(요약+퀴즈) 선택.
+        onCustomBackgroundTap: _filter.selectAll,
         // 탭 버튼이 제목 역할을 하므로 자체 헤더는 숨김(깜빡이는 유지)
         // 요약·퀴즈를 일자순으로 통합한 본문
         content: _RemindBodyView(key: _bodyKey, filter: _filter),
@@ -417,13 +477,16 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         // 상단(확인 안 함) / 하단(확인함)으로 분리:
         //  - 요약: isDone==false → 상단, true → 하단
         //  - 퀴즈 그룹: 미완료(pending) 있으면 상단, 모두 완료면 하단
-        // 제목의 요약/퀴즈 토글(showSummary/showQuiz)은 '상단 영역만' 반영한다.
-        // (하단=확인 영역은 토글과 무관하게 항상 확인 완료 항목을 보여준다.)
+        // 상단 목록: 제목의 요약/퀴즈 토글(showSummary/showQuiz) 반영.
+        // 하단 목록: 항상 '완료된 것만', 하단 바의 종류 필터(confirmedKind) 반영.
         final topItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
         final bottomItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
+        final ck = _filter.confirmedKind; // null=전체 | 'summary' | 'quiz'
         for (final s in summaries) {
           if (s.isDone) {
-            bottomItems.add((at: s.createdAt, summary: s, quizGroup: null));
+            if (ck == null || ck == 'summary') {
+              bottomItems.add((at: s.createdAt, summary: s, quizGroup: null));
+            }
           } else if (_filter.showSummary) {
             topItems.add((at: s.createdAt, summary: s, quizGroup: null));
           }
@@ -431,7 +494,9 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         for (final g in quizGroups) {
           if (g.items.isEmpty) continue;
           if (g.pendingCount == 0) {
-            bottomItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
+            if (ck == null || ck == 'quiz') {
+              bottomItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
+            }
           } else if (_filter.showQuiz) {
             topItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
           }
@@ -799,19 +864,61 @@ class _RemindBodyViewState extends State<_RemindBodyView>
             child: Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                // 채팅 하단 칩과 동일하게 하단정렬 + 카운트 2px 하향.
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Icon(Icons.auto_awesome, size: 16, color: color), // 요약
-                  const SizedBox(width: 2),
-                  Text('$doneSummary',
-                      style: TextStyle(
-                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                  // 요약: 아이콘 탭 → 확인함 영역 열고 '완료된 요약'만(재탭 시 닫힘). 비활성이면 흐리게.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _filter.showConfirmedSummary,
+                    child: Opacity(
+                      opacity: (_filter.confirmedKind == null ||
+                              _filter.confirmedKind == 'summary')
+                          ? 1.0
+                          : 0.35,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // 상단 탭제목(TabCountTitle)과 동일한 아이콘 17 / 카운트 10.4.
+                          Icon(Icons.auto_awesome, size: 17, color: color),
+                          const SizedBox(width: 2),
+                          Transform.translate(
+                            offset: const Offset(0, 2),
+                            child: Text('$doneSummary',
+                                style: TextStyle(
+                                    fontSize: 10.4, fontWeight: FontWeight.w600, color: color)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 16),
-                  QuizBulbIcon(size: 16, color: color), // 퀴즈
-                  const SizedBox(width: 2),
-                  Text('$doneQuiz',
-                      style: TextStyle(
-                          fontSize: 10.5, fontWeight: FontWeight.w600, color: color)),
+                  // 퀴즈: 아이콘 탭 → 확인함 영역 열고 '완료된 퀴즈'만(재탭 시 닫힘).
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _filter.showConfirmedQuiz,
+                    child: Opacity(
+                      opacity: (_filter.confirmedKind == null ||
+                              _filter.confirmedKind == 'quiz')
+                          ? 1.0
+                          : 0.35,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          QuizBulbIcon(size: 17, color: color),
+                          const SizedBox(width: 2),
+                          Transform.translate(
+                            offset: const Offset(0, 2),
+                            child: Text('$doneQuiz',
+                                style: TextStyle(
+                                    fontSize: 10.4, fontWeight: FontWeight.w600, color: color)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

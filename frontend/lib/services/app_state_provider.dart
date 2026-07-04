@@ -766,6 +766,33 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 전체탭 제목 아이콘 종류 키(숨김 필터 대상 전체).
+  static const Set<String> allTabTypeKeys = {
+    'text', 'stt', 'audio', 'pdf', 'canvas', 'photo', 'video', 'files', 'youtube',
+  };
+
+  /// 전체탭 제목 아이콘 배타 선택 — 누른 종류만 표시(나머지 전부 숨김).
+  /// 이미 그 종류만 표시 중이면 전체 표시로 복원(토글백).
+  void showOnlyTabType(String key) {
+    final others = allTabTypeKeys.where((k) => k != key).toSet();
+    if (_allTabHiddenTypes.length == others.length &&
+        _allTabHiddenTypes.containsAll(others)) {
+      _allTabHiddenTypes.clear(); // 이미 이 종류만 → 전체 복원
+    } else {
+      _allTabHiddenTypes
+        ..clear()
+        ..addAll(others); // 이 종류만 표시
+    }
+    notifyListeners();
+  }
+
+  /// 전체탭 제목 아이콘 바깥 영역 탭 — 전체 선택(모든 종류 표시).
+  void showAllTabTypes() {
+    if (_allTabHiddenTypes.isEmpty) return;
+    _allTabHiddenTypes.clear();
+    notifyListeners();
+  }
+
   // 알림 서비스 관련 Getters
   NotificationService get notificationService => _notificationService;
   AppIconBadgeService get appIconBadgeService => _appIconBadgeService;

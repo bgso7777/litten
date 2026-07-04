@@ -4176,7 +4176,8 @@ class AllFilesTabButton extends StatelessWidget {
     final countFontSize = (DefaultTextStyle.of(context).style.fontSize ?? 13) * 0.8;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => appState.toggleAllTabHiddenType(key),
+      // 배타 선택: 누른 종류만 표시(나머지 비활성). 재탭 시 전체 복원.
+      onTap: () => appState.showOnlyTabType(key),
       child: Opacity(
         opacity: hidden ? 0.4 : 1.0,
         child: Row(
