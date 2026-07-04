@@ -174,6 +174,8 @@ class _HomeChipBar extends StatelessWidget {
       ));
     }
     add('memo', Icons.notes, counts['memo'] ?? 0);
+    add('summary_memo', Icons.summarize, counts['summary_memo'] ?? 0);
+    add('quiz_memo', Icons.quiz, counts['quiz_memo'] ?? 0);
     add('canvas', Icons.draw, counts['canvas'] ?? 0);
     add('pdf', Icons.picture_as_pdf, counts['pdf'] ?? 0);
     add('audio', Icons.mic, counts['audio'] ?? 0);
@@ -365,6 +367,10 @@ String _shareFileKind(String? t, [String? fileName, String? contentType]) {
   switch (t) {
     case 'text':
       return 'memo';
+    case 'smry_text':
+      return 'summary_memo'; // 요약을 담은 메모
+    case 'quiz_text':
+      return 'quiz_memo'; // 퀴즈를 담은 메모
     case 'audio':
       return 'audio';
     case 'stt_text':
@@ -388,6 +394,10 @@ IconData _shareFileTypeIcon(String? t, [String? fileName, String? contentType]) 
   switch (_shareFileKind(t, fileName, contentType)) {
     case 'memo':
       return Icons.notes;
+    case 'summary_memo':
+      return Icons.summarize; // 요약 메모
+    case 'quiz_memo':
+      return Icons.quiz; // 퀴즈 메모
     case 'canvas':
       return Icons.draw;
     case 'pdf':
@@ -1641,11 +1651,24 @@ class _ShareSectionState extends State<_ShareSection>
     final entries = <_FileEntry>[];
     for (final lit in appState.littens) {
       for (final t in await fs.loadTextFiles(lit.id)) {
+        // 요약/퀴즈를 담은 메모는 공유해도 아이콘이 유지되도록 fileType에 출처를 실어 보낸다.
+        final String textType = t.isFromSTT
+            ? 'stt_text'
+            : t.sourceKind == 'summary'
+                ? 'smry_text'
+                : t.sourceKind == 'quiz'
+                    ? 'quiz_text'
+                    : 'text';
+        final IconData textIcon = t.sourceKind == 'summary'
+            ? Icons.summarize
+            : t.sourceKind == 'quiz'
+                ? Icons.quiz
+                : Icons.notes;
         entries.add(_FileEntry(
           id: t.id,
-          type: t.isFromSTT ? 'stt_text' : 'text',
+          type: textType,
           name: t.displayTitle,
-          icon: Icons.notes,
+          icon: textIcon,
           path: '${appDir.path}/littens/${lit.id}/text/${t.id}.html',
           fileName: '${t.displayTitle}.html',
           contentType: 'text/html',
@@ -1813,7 +1836,8 @@ class _ShareSectionState extends State<_ShareSection>
       AppStateProvider appState, Color color, String kind) {
     const kindLabels = {
       'all': '전체',
-      'memo': '메모', 'canvas': '필기', 'pdf': 'PDF', 'audio': '녹음',
+      'memo': '메모', 'summary_memo': '요약 메모', 'quiz_memo': '퀴즈 메모',
+      'canvas': '필기', 'pdf': 'PDF', 'audio': '녹음',
       'stt': '녹음메모', 'files': '파일', 'photo': '사진', 'video': '동영상',
     };
     // 'all'이면 종류 필터 없이 모든 파일을 일자순으로 보여준다(칩 바 빈 영역 탭).

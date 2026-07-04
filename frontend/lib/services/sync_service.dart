@@ -956,6 +956,7 @@ class SyncService {
   Future<void> _updateLocalFileFromDownload(String littenId, String localId, String fileType,
       String cloudId, String localPath, DateTime cloudUpdatedAt, [String cloudFileName = '']) async {
     final isStt = _isSttType(fileType); // 'stt_text'/'stt_audio' → 녹음 메모 복원용
+    final srcKind = _sourceKindOf(fileType); // 'smry_text'/'quiz_text' → 요약/퀴즈 메모 복원용
     fileType = _baseType(fileType);
     if (fileType == 'text') {
       final files = await _fileStorage.loadTextFiles(littenId);
@@ -970,6 +971,7 @@ class SyncService {
           cloudId: cloudId, cloudUpdatedAt: cloudUpdatedAt,
           syncStatus: SyncStatus.synced, updatedAt: cloudUpdatedAt,
           isFromSTT: isStt, // 녹음 메모(STT) 여부 보존
+          sourceKind: srcKind, // 요약/퀴즈 출처 보존(아이콘 유지). null이면 기존값 유지
         );
       } else {
         // 클라우드에만 있던 신규 파일 → 메타데이터 생성
@@ -987,6 +989,7 @@ class SyncService {
           createdAt: cloudUpdatedAt,
           updatedAt: cloudUpdatedAt,
           isFromSTT: isStt, // 녹음 메모(STT) 여부 보존
+          sourceKind: srcKind, // 요약/퀴즈 출처 보존(아이콘 유지)
         ));
         debugPrint('[SyncService] 텍스트 신규 파일 생성 - localId: $localId');
       }
@@ -1170,17 +1173,39 @@ class SyncService {
     }
   }
 
-  // STT(녹음 메모) 파일은 fileType에 'stt_' 접두어를 실어 동기화한다(서버에 STT 여부 보존).
-  // 경로/목록 매칭 등 라우팅은 기본 타입(text/audio)으로 처리하고, isFromSTT 복원에만 STT 여부 사용.
-  String _baseType(String t) => t.startsWith('stt_') ? t.substring(4) : t;
+  // 텍스트/오디오 메타(STT 여부, 요약/퀴즈 출처)는 fileType 접두어로 실어 동기화한다(서버에 메타 보존).
+  //  - stt_text / stt_audio : 녹음 메모(isFromSTT)
+  //  - smry_text            : 요약을 담은 메모(sourceKind='summary')
+  //  - quiz_text            : 퀴즈를 담은 메모(sourceKind='quiz')
+  // 경로/목록 매칭 등 라우팅은 기본 타입(text/audio)으로 처리하고, 접두어는 메타 복원에만 사용.
+  String _baseType(String t) {
+    if (t.startsWith('stt_')) return t.substring(4);
+    if (t.startsWith('smry_')) return t.substring(5);
+    if (t.startsWith('quiz_')) return t.substring(5); // 'quiz'(단독 퀴즈 타입)는 접두어 아님 → 영향 없음
+    return t;
+  }
   bool _isSttType(String t) => t == 'stt_text' || t == 'stt_audio';
 
-  /// 업로드 시 STT(녹음 메모) 파일이면 fileType에 'stt_' 접두어를 붙여 서버에 STT 여부 보존.
+  /// fileType 접두어에서 메모 출처(요약/퀴즈)를 복원한다. 아니면 null.
+  String? _sourceKindOf(String t) {
+    if (t.startsWith('smry_')) return 'summary';
+    if (t.startsWith('quiz_')) return 'quiz';
+    return null;
+  }
+
+  /// 업로드 시 파일 메타를 fileType 접두어로 실어 서버에 보존.
+  ///  - 녹음 메모(isFromSTT) → stt_text/stt_audio
+  ///  - 요약/퀴즈 메모(sourceKind) → smry_text/quiz_text
   /// (생성 업로드에서만 fileType이 서버에 기록되므로 여기서 한 번 태깅하면 모든 호출 경로 커버)
   Future<String> _effectiveUploadType(String littenId, String localId, String fileType) async {
     if (fileType == 'text') {
       final f = (await _fileStorage.loadTextFiles(littenId)).where((e) => e.id == localId);
-      if (f.isNotEmpty && f.first.isFromSTT) return 'stt_text';
+      if (f.isNotEmpty) {
+        final tf = f.first;
+        if (tf.isFromSTT) return 'stt_text';
+        if (tf.sourceKind == 'summary') return 'smry_text';
+        if (tf.sourceKind == 'quiz') return 'quiz_text';
+      }
     } else if (fileType == 'audio') {
       final f = (await _fileStorage.loadAudioFiles(littenId)).where((e) => e.id == localId);
       if (f.isNotEmpty && f.first.isFromSTT) return 'stt_audio';

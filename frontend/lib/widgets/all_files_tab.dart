@@ -1814,6 +1814,12 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildTextCard(TextFile file) {
     final color = Theme.of(context).primaryColor;
     final isFromSTT = file.isFromSTT;
+    // 요약/퀴즈를 담은 메모는 메모 아이콘 위에 출처 배지를 겹쳐 표시(동기화/공유해도 유지).
+    final IconData? sourceBadge = file.sourceKind == 'summary'
+        ? Icons.summarize
+        : file.sourceKind == 'quiz'
+            ? Icons.quiz
+            : null;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: InkWell(
@@ -1848,6 +1854,21 @@ class _AllFilesTabState extends State<AllFilesTab> {
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
                           child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                        ),
+                      )
+                    else if (sourceBadge != null)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 17,
+                          height: 17,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: Icon(sourceBadge, size: 10, color: Colors.white),
                         ),
                       ),
                   ],

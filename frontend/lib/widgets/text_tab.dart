@@ -1760,6 +1760,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
   Widget _buildTextFileItem(TextFile file) {
     final isFromSTT = file.isFromSTT;
     final color = Theme.of(context).primaryColor;
+    // 요약/퀴즈를 담은 메모는 메모 아이콘 위에 출처 배지 표시(전체탭·동기화·공유와 일관).
+    final IconData? sourceBadge = file.sourceKind == 'summary'
+        ? Icons.summarize
+        : file.sourceKind == 'quiz'
+            ? Icons.quiz
+            : null;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: ListTile(
@@ -1785,6 +1791,22 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
                     child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                  ),
+                ),
+              // 요약/퀴즈를 담은 메모 배지(STT가 아닐 때 우하단)
+              if (!isFromSTT && sourceBadge != null)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Icon(sourceBadge, size: 10, color: Colors.white),
                   ),
                 ),
               // 요약 아이콘 (STT 요약이 있을 때)
