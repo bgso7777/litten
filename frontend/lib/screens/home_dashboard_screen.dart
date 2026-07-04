@@ -513,9 +513,14 @@ class _ShareSectionState extends State<_ShareSection>
   /// 대화방 진입 — 읽음 처리(미읽음 뱃지 제거) 후 연다.
   /// [readUpTo]는 "여기까지 읽음" 기준 시각 — 그 대화의 최신 항목 시각을 넘겨 시계 차이와 무관하게
   /// 현재 항목이 모두 읽음 처리되도록 한다(없으면 기기 현재 시각).
-  /// 대화를 '현재 시각까지 읽음'으로 표시(미읽음 뱃지 제거) + 영구 저장.
-  void _markConvRead(String key) {
-    _convLastRead[key] = DateTime.now();
+  /// 대화를 읽음으로 표시(미읽음 뱃지 제거) + 영구 저장.
+  /// [upTo]는 이 대화의 최신 항목 시각(c.lastAt). 메시지 at은 서버 시각이라 기기 로컬 now보다
+  /// 앞설 수 있으므로(타임존 차이), now와 최신 항목 시각 중 더 늦은 시각으로 읽음 처리해야
+  /// 미읽음 카운트가 확실히 0이 된다.
+  void _markConvRead(String key, [DateTime? upTo]) {
+    final now = DateTime.now();
+    final t = (upTo != null && upTo.isAfter(now)) ? upTo : now;
+    _convLastRead[key] = t;
     SharedPreferences.getInstance().then((p) => p.setString(
         _convReadKey,
         jsonEncode(_convLastRead.map((k, v) => MapEntry(k, v.toIso8601String())))));
@@ -523,7 +528,7 @@ class _ShareSectionState extends State<_ShareSection>
   }
 
   void _openConv(String key, [DateTime? readUpTo]) {
-    _markConvRead(key); // 진입 시 읽음 처리
+    _markConvRead(key, readUpTo); // 진입 시 읽음 처리(최신 항목 시각까지)
     _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
     // 대화방 상태는 provider 단일 소스 — 진입 시 열린 대화방 key를 설정하면
     // build(watch)가 대화방을 표시하고 하단 칩 바·새 채팅 FAB가 숨겨진다.
@@ -1481,8 +1486,8 @@ class _ShareSectionState extends State<_ShareSection>
             IconButton(
                 icon: const Icon(Icons.arrow_back), color: color,
                 onPressed: () {
-                  // 나가기 전 현재까지 읽음 처리 → 방에서 본(새로고침 포함) 내용은 미읽음 카운트에서 제거.
-                  _markConvRead(c.key);
+                  // 나가기 전 최신 항목 시각까지 읽음 처리 → 방에서 본(새로고침 포함) 내용은 미읽음 카운트에서 제거.
+                  _markConvRead(c.key, c.lastAt);
                   // 목록 복귀(provider 단일 소스) → 칩 바 + FAB 다시 표시
                   context.read<AppStateProvider>().setHomeOpenConvKey(null);
                 }),
@@ -1510,7 +1515,7 @@ class _ShareSectionState extends State<_ShareSection>
                   onRefresh: () async {
                     // 위로 당기면 대화 내용(공유+메시지) 새로고침 + 읽음 처리.
                     await appState.loadShares();
-                    _markConvRead(c.key);
+                    _markConvRead(c.key, c.lastAt);
                   },
                   child: ListView.builder(
                     controller: _chatScrollCtrl,
