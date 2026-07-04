@@ -1427,9 +1427,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
       builder: (context, constraints) {
         return Column(
       children: [
-        // ── 위: 새 영상이 있는 채널 — 채널 수만큼만 차지(최대 50%), 넘치면 내부 스크롤 ──
+        // ── 위: 새 영상이 있는 채널 — 채널 수만큼만 차지(최대 40%), 넘치면 내부 스크롤 ──
         ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.5),
+          constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.4),
           child: ListView.builder(
             shrinkWrap: true,
             padding: const EdgeInsets.only(top: 4, bottom: 8),

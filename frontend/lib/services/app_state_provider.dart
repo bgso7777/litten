@@ -1826,17 +1826,26 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> renameSelfChat(String id, String newName) async {
     final name = newName.trim();
     if (name.isEmpty) return;
-    bool changed = false;
+    Map<String, dynamic>? room;
     for (final e in _selfChats) {
       if (e['id']?.toString() == id) {
         e['name'] = name;
-        changed = true;
+        room = e;
         break;
       }
     }
-    if (changed) {
-      await _persistSelfChats();
-      notifyListeners();
+    if (room == null) return;
+    await _persistSelfChats();
+    notifyListeners();
+    // 서버에도 이름 반영(다기기 동기화). createSelfChat은 clientId 기준 upsert라
+    // 기존 방의 이름만 갱신된다(미배포/실패면 조용히 로컬만 유지).
+    final token = await _shareToken();
+    if (token != null) {
+      final r = await _shareApi.createSelfChat(token: token, name: name, clientId: id);
+      if (r != null && r['id'] != null && room['serverId'] == null) {
+        room['serverId'] = (r['id'] as num).toInt();
+        await _persistSelfChats();
+      }
     }
   }
 
