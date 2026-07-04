@@ -1496,6 +1496,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         littenId: litten.id,
         title: title,
         content: content,
+        sourceKind: 'quiz', // 퀴즈를 담은 메모 → 목록/공유/동기화에서 퀴즈 아이콘 배지 표시
       );
       final storage = FileStorageService.instance;
       await storage.saveTextFileContent(memo);
@@ -1566,6 +1567,7 @@ class _ScriptSummarySheetState extends State<_ScriptSummarySheet> {
         littenId: litten.id,
         title: title,
         content: content,
+        sourceKind: 'summary', // 요약을 담은 메모 → 목록/공유/동기화에서 요약 아이콘 배지 표시
         summary: result.displaySummary,
         summaryHistory: [
           SummaryRecord(

@@ -174,8 +174,8 @@ class _HomeChipBar extends StatelessWidget {
       ));
     }
     add('memo', Icons.notes, counts['memo'] ?? 0);
-    add('summary_memo', Icons.summarize, counts['summary_memo'] ?? 0);
-    add('quiz_memo', Icons.quiz, counts['quiz_memo'] ?? 0);
+    add('summary_memo', Icons.auto_awesome, counts['summary_memo'] ?? 0);
+    add('quiz_memo', Icons.lightbulb, counts['quiz_memo'] ?? 0);
     add('canvas', Icons.draw, counts['canvas'] ?? 0);
     add('pdf', Icons.picture_as_pdf, counts['pdf'] ?? 0);
     add('audio', Icons.mic, counts['audio'] ?? 0);
@@ -395,9 +395,9 @@ IconData _shareFileTypeIcon(String? t, [String? fileName, String? contentType]) 
     case 'memo':
       return Icons.notes;
     case 'summary_memo':
-      return Icons.summarize; // 요약 메모
+      return Icons.auto_awesome; // 요약 메모 — 별셋(리마인드 요약 아이콘과 동일)
     case 'quiz_memo':
-      return Icons.quiz; // 퀴즈 메모
+      return Icons.lightbulb; // 퀴즈 메모 — 전구(리마인드 퀴즈 아이콘과 동일)
     case 'canvas':
       return Icons.draw;
     case 'pdf':

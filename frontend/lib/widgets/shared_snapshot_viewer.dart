@@ -145,9 +145,9 @@ class _SnapshotSheet extends StatelessWidget {
       case 'stt_text':
         return Icons.notes;
       case 'smry_text':
-        return Icons.summarize; // 요약 메모
+        return Icons.auto_awesome; // 요약 메모 — 별셋
       case 'quiz_text':
-        return Icons.quiz; // 퀴즈 메모
+        return Icons.lightbulb; // 퀴즈 메모 — 전구
       case 'audio':
       case 'stt_audio':
         return Icons.mic;

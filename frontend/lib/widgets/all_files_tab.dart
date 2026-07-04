@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'common/source_badge.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1815,10 +1816,10 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final color = Theme.of(context).primaryColor;
     final isFromSTT = file.isFromSTT;
     // 요약/퀴즈를 담은 메모는 메모 아이콘 위에 출처 배지를 겹쳐 표시(동기화/공유해도 유지).
-    final IconData? sourceBadge = file.sourceKind == 'summary'
-        ? Icons.summarize
-        : file.sourceKind == 'quiz'
-            ? Icons.quiz
+    // 요약=별셋(auto_awesome), 퀴즈=전구+q — 앱 리마인드/네비 아이콘과 동일 계열.
+    final String? sourceBadge =
+        (file.sourceKind == 'summary' || file.sourceKind == 'quiz')
+            ? file.sourceKind
             : null;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1868,7 +1869,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
-                          child: Icon(sourceBadge, size: 10, color: Colors.white),
+                          child: sourceKindBadgeChild(sourceBadge, color),
                         ),
                       ),
                   ],

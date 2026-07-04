@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'common/source_badge.dart';
 import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
@@ -1761,10 +1762,10 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     final isFromSTT = file.isFromSTT;
     final color = Theme.of(context).primaryColor;
     // 요약/퀴즈를 담은 메모는 메모 아이콘 위에 출처 배지 표시(전체탭·동기화·공유와 일관).
-    final IconData? sourceBadge = file.sourceKind == 'summary'
-        ? Icons.summarize
-        : file.sourceKind == 'quiz'
-            ? Icons.quiz
+    // 요약=별셋, 퀴즈=전구+q (앱 리마인드/네비 아이콘과 동일 계열).
+    final String? sourceBadge =
+        (file.sourceKind == 'summary' || file.sourceKind == 'quiz')
+            ? file.sourceKind
             : null;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1806,7 +1807,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    child: Icon(sourceBadge, size: 10, color: Colors.white),
+                    child: sourceKindBadgeChild(sourceBadge, color),
                   ),
                 ),
               // 요약 아이콘 (STT 요약이 있을 때)

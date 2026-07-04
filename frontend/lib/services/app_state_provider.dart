@@ -305,6 +305,84 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// 영상에서 저장한 요약/퀴즈 메모는 본문 첫머리에 앱이 넣은 고유 마커가 있다.
+  /// 요약 메모: '<!-- SUMMARY_START -->' 로 시작(순수 요약만 저장).
+  /// 퀴즈 메모: '💡 퀴즈' 헤더로 시작.
+  /// 사용자 일반 메모엔 없는 마커라 출처 판별용으로 안전하다. 아니면 null.
+  String? _kindFromMemoContent(String content) {
+    final c = content.trimLeft();
+    if (c.startsWith('<!-- SUMMARY_START -->')) return 'summary';
+    if (c.contains('💡 퀴즈') && c.indexOf('💡 퀴즈') < 40) return 'quiz';
+    return null;
+  }
+
+  /// 출처(sourceKind)가 비어 있는 '요약/퀴즈 메모'에 출처를 복원(백필)한다.
+  /// 배경: 예전 빌드에서 저장했거나 서버 동기화로 내려받은 메모는 sourceKind가
+  /// 유실되어 요약/퀴즈 아이콘 배지가 표시되지 않는다. 요약/퀴즈는 기기별로 독립
+  /// 동기화되므로, (리튼id + 제목)이 일치하는 로컬 요약/퀴즈를 찾아 메모의 출처를
+  /// 채워 넣으면 모든 기기에서 배지가 복원된다. 이미 sourceKind가 있으면 건너뛴다.
+  Future<void> backfillRemindMemoSources() async {
+    try {
+      final fs = FileStorageService.instance;
+      final summaries = await _summaryStorage.getAllSummaries();
+      final quizzes = await _quizStorage.getAllQuizzes();
+      // (리튼id   제목) → 요약id / 퀴즈 그룹 refId
+      String key(String littenId, String title) => '$littenId ${title.trim()}';
+      final summaryByKey = <String, String>{};
+      for (final s in summaries) {
+        if (s.title.trim().isEmpty) continue;
+        summaryByKey[key(s.littenId, s.title)] = s.id;
+      }
+      final quizByKey = <String, String>{};
+      for (final q in quizzes) {
+        if (q.fileName.trim().isEmpty) continue;
+        quizByKey[key(q.littenId, q.fileName)] = q.summaryGroupId ?? 'file:${q.fileId}';
+      }
+      if (summaryByKey.isEmpty && quizByKey.isEmpty) return;
+      int filled = 0;
+      for (final litten in _littens) {
+        final texts = await fs.loadTextFiles(litten.id);
+        bool changed = false;
+        for (var i = 0; i < texts.length; i++) {
+          final t = texts[i];
+          if (t.sourceKind != null) continue; // 이미 출처 있음
+          final k = key(litten.id, t.title);
+          // 1) 제목 일치(리마인드 '메모로 저장' 등 s.title==메모제목인 경우)
+          if (summaryByKey.containsKey(k)) {
+            // updatedAt은 유지(재업로드 핑퐁 방지) — 메타만 보강
+            texts[i] = t.copyWith(
+                sourceKind: 'summary', sourceRefId: summaryByKey[k],
+                updatedAt: t.updatedAt);
+            changed = true;
+            filled++;
+          } else if (quizByKey.containsKey(k)) {
+            texts[i] = t.copyWith(
+                sourceKind: 'quiz', sourceRefId: quizByKey[k],
+                updatedAt: t.updatedAt);
+            changed = true;
+            filled++;
+          } else {
+            // 2) 본문 마커 판별(영상에서 저장한 메모는 제목이 채널명-영상 축약이라 제목 매칭 실패).
+            //    앱이 삽입한 고유 마커라 사용자 메모와 혼동되지 않는다.
+            final kind = _kindFromMemoContent(t.content);
+            if (kind != null) {
+              texts[i] = t.copyWith(sourceKind: kind, updatedAt: t.updatedAt);
+              changed = true;
+              filled++;
+            }
+          }
+        }
+        if (changed) await fs.saveTextFiles(litten.id, texts);
+      }
+      if (filled > 0) {
+        debugPrint('[AppStateProvider] backfillRemindMemoSources: $filled건 출처 복원');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[AppStateProvider] backfillRemindMemoSources 실패: $e');
+    }
+  }
+
   /// 요약을 전체탭 메모로 저장(명시적 액션).
   Future<void> saveSummaryAsMemo(SummaryEntry s) async {
     await _writeRemindMemoFile(
@@ -897,6 +975,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadUnlockedGroups(); // 잠금 해제한 그룹(비번 인증) 복원 — UI 빌드 전 로드
     // 기본 리튼은 온보딩 완료 후에만 생성
     await _loadLittens();
+    await backfillRemindMemoSources(); // 출처 유실된 요약/퀴즈 메모 배지 복원(리튼 로드 후)
     await loadRemindMemoKeys(); // 리마인드 '메모로 저장됨' 캐시 (리튼 로드 후)
 
     // undefined 리튼 확인 및 생성
@@ -2518,12 +2597,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     final appDir = await getApplicationDocumentsDirectory();
     late final String savedId;
     late final String savedType;
-    if (fileType == 'text' || fileType == 'stt_text') {
+    if (fileType == 'text' || fileType == 'stt_text' ||
+        fileType == 'smry_text' || fileType == 'quiz_text') {
       final content = utf8.decode(bytes, allowMalformed: true);
-      // 'stt_text'는 녹음 메모(STT)로 받아 녹음 메모로 분류되게 한다.
+      // 'stt_text'는 녹음 메모(STT)로, 'smry_text'/'quiz_text'는 요약/퀴즈 메모로 받아
+      // 수신 측에서도 동일 아이콘(배지)으로 분류되게 한다.
       final tf = TextFile(
           littenId: littenId, title: _stripExt(fileName), content: content,
-          isFromSTT: fileType == 'stt_text');
+          isFromSTT: fileType == 'stt_text',
+          sourceKind: fileType == 'smry_text'
+              ? 'summary'
+              : fileType == 'quiz_text'
+                  ? 'quiz'
+                  : null);
       final list = await fs.loadTextFiles(littenId);
       list.add(tf);
       await fs.saveTextFiles(littenId, list);
