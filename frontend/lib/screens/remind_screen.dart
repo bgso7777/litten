@@ -102,6 +102,13 @@ class _RemindFilter extends ChangeNotifier {
     if (confirmedOpen) confirmedKind = null;
     notifyListeners();
   }
+
+  /// 확인함 영역 닫기 — 헤더 밴드를 아래로 드래그할 때 사용.
+  void closeConfirmed() {
+    if (!confirmedOpen) return;
+    confirmedOpen = false;
+    notifyListeners();
+  }
 }
 
 class RemindScreen extends StatefulWidget {
@@ -618,25 +625,35 @@ class _RemindBodyViewState extends State<_RemindBodyView>
     );
   }
 
-  /// 하단(확인함) 영역 구분 헤더.
+  /// 하단(확인함) 영역 구분 헤더. 밴드를 아래로 드래그하면 확인함 영역을 닫는다.
   Widget _confirmedHeader(Color color) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        border: Border(
-          top: BorderSide(color: color.withValues(alpha: 0.25)),
-          bottom: BorderSide(color: color.withValues(alpha: 0.1)),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // 아래로 스와이프(내림) → 확인함 영역 닫기.
+      onVerticalDragEnd: (d) {
+        if ((d.primaryVelocity ?? 0) > 0) _filter.closeConfirmed();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          border: Border(
+            top: BorderSide(color: color.withValues(alpha: 0.25)),
+            bottom: BorderSide(color: color.withValues(alpha: 0.1)),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text('확인',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-        ],
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text('확인',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+            const Spacer(),
+            // 아래로 내려 닫을 수 있음을 알리는 핸들 힌트.
+            Icon(Icons.keyboard_arrow_down, size: 18, color: color.withValues(alpha: 0.5)),
+          ],
+        ),
       ),
     );
   }

@@ -415,6 +415,34 @@ IconData _shareFileTypeIcon(String? t, [String? fileName, String? contentType]) 
   }
 }
 
+/// 채팅 파일 패널 헤더의 종류 아이콘(하단 칩 아이콘과 동일 매핑).
+IconData _kindHeaderIcon(String kind) {
+  switch (kind) {
+    case 'memo':
+      return Icons.notes;
+    case 'summary_memo':
+      return Icons.auto_awesome;
+    case 'quiz_memo':
+      return Icons.lightbulb;
+    case 'canvas':
+      return Icons.draw;
+    case 'pdf':
+      return Icons.picture_as_pdf;
+    case 'audio':
+      return Icons.mic;
+    case 'stt':
+      return Icons.record_voice_over;
+    case 'photo':
+      return Icons.photo_camera;
+    case 'video':
+      return Icons.videocam;
+    case 'all':
+      return Icons.folder_open;
+    default:
+      return Icons.description;
+  }
+}
+
 /// 표시용 파일명 — 확장자 제거. (확장자처럼 보이는 경우만: 마지막 '.' 뒤가 공백 없는 1~5자)
 String _stripShareExt(String name) {
   final d = name.lastIndexOf('.');
@@ -993,14 +1021,12 @@ class _ShareSectionState extends State<_ShareSection>
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).cardColor,
+                                  // 대화 영역과 파일 패널 경계 — 캘린더 칩위젯(탭 헤더)의 구분선과 동일한
+                                  // 회색 실선 border. (패널이 ClipRect로 잘려 그림자는 안 보이므로 실선 사용)
                                   border: Border(
-                                      top: BorderSide(color: color.withValues(alpha: 0.15))),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, -2)),
-                                  ],
+                                    top: BorderSide(
+                                        color: Colors.grey.withValues(alpha: 0.3)),
+                                  ),
                                 ),
                                 child: _paneKind != null
                                     ? _buildChatFileKindList(appState, color, _paneKind!)
@@ -1913,8 +1939,7 @@ class _ShareSectionState extends State<_ShareSection>
     }
     rows.sort((a, b) => _parseAt(b['dateIso']).compareTo(_parseAt(a['dateIso'])));
 
-    // 상단 헤더 없이 리스트만 표시(칩 재탭으로 닫음).
-    return rows.isEmpty
+    final Widget listOrEmpty = rows.isEmpty
         ? Center(
             child: Text('${kindLabels[kind] ?? kind} 파일이 없습니다.',
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade500)))
@@ -1942,6 +1967,47 @@ class _ShareSectionState extends State<_ShareSection>
               );
             },
           );
+
+    // 캘린더 '☑ 18' 칩처럼, 파일 리스트 위에 옅은 파란 헤더 밴드를 둬 대화 영역과 확실히 구분한다.
+    // (배경색 대비 + 하단 실선 → 단순 행 구분선과 헷갈리지 않음)
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 헤더 밴드 — 아래로 드래그하면 파일 패널을 닫는다(칩 해제).
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragEnd: (d) {
+            if ((d.primaryVelocity ?? 0) > 0) appState.setHomeChatFileKind(kind);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              border: Border(
+                  bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.3))),
+            ),
+            child: Row(
+              children: [
+                Icon(_kindHeaderIcon(kind), size: 17, color: color),
+                const SizedBox(width: 6),
+                Text(kindLabels[kind] ?? kind,
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(width: 6),
+                Text('${rows.length}',
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                const Spacer(),
+                // 아래로 내려 닫을 수 있음을 알리는 핸들 힌트.
+                Icon(Icons.keyboard_arrow_down,
+                    size: 20, color: color.withValues(alpha: 0.5)),
+              ],
+            ),
+          ),
+        ),
+        Expanded(child: listOrEmpty),
+      ],
+    );
   }
 
   /// 간결한 말풍선 — 받음=좌측, 보냄=우측. 채팅 메시지는 텍스트, 공유는 아이콘+파일명+시간.

@@ -1429,16 +1429,28 @@ class _AllFilesTabState extends State<AllFilesTab> {
         return Column(
       children: [
         // ── 위: 새 영상이 있는 채널 — 채널 수만큼만 차지(최대 40%), 넘치면 내부 스크롤 ──
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.4),
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.only(top: 4, bottom: 8),
-            itemCount: newChannels.length,
-            itemBuilder: (context, index) => _buildYoutubeChannelCard(newChannels[index]),
+        // 캘린더 탭 헤더와 동일한 규칙: 영역 아래에 드롭섀도우를 줘 파일 리스트와 경계를 표현.
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2)),
+            ],
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.4),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              itemCount: newChannels.length,
+              itemBuilder: (context, index) => _buildYoutubeChannelCard(newChannels[index]),
+            ),
           ),
         ),
-        Divider(height: 1, color: color.withValues(alpha: 0.2)),
+        const SizedBox(height: 3), // 그림자가 아래로 드러나도록 약간의 여백
         // ── 아래: 파일 + 일반 채널(시간순 통합) — 남은 공간 전부 ──
         Expanded(
           child: baseItems.isEmpty
