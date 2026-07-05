@@ -515,6 +515,10 @@ class _ShareSectionState extends State<_ShareSection>
   // 대화방 메시지 리스트 스크롤 — 진입/전송 시 맨 아래(최신)로 이동
   final ScrollController _chatScrollCtrl = ScrollController();
   bool _scrollChatToBottom = false;
+  // 룸 상세 세그먼트 — 'chat'(대화) / 'materials'(자료). 룸별 지역 상태(전역 재사용 금지).
+  String _roomTab = 'chat';
+  // [자료] 탭의 종류 필터 — 'all' 또는 _shareFileKind 결과값. 룸 지역 상태.
+  String _roomMaterialKind = 'all';
   // 대화별 마지막 읽은 시각 (미읽음 메시지 뱃지용 — 영구 저장)
   final Map<String, DateTime> _convLastRead = {};
   static const String _convReadKey = 'conv_last_read';
@@ -567,6 +571,8 @@ class _ShareSectionState extends State<_ShareSection>
 
   void _openConv(String key, [DateTime? readUpTo]) {
     _markConvRead(key, readUpTo); // 진입 시 읽음 처리(최신 항목 시각까지)
+    _roomTab = 'chat'; // 룸 열 때 항상 [대화] 탭으로 시작
+    _roomMaterialKind = 'all'; // 자료 종류 필터 초기화
     _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
     // 대화방 상태는 provider 단일 소스 — 진입 시 열린 대화방 key를 설정하면
     // build(watch)가 대화방을 표시하고 하단 칩 바·새 채팅 FAB가 숨겨진다.
@@ -619,7 +625,7 @@ class _ShareSectionState extends State<_ShareSection>
               controller: ctrl,
               autofocus: true,
               decoration: const InputDecoration(
-                  labelText: '채팅방 이름', isDense: true, border: OutlineInputBorder()),
+                  labelText: '스터디룸 이름', isDense: true, border: OutlineInputBorder()),
               onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
             ),
             if (!isRealRename)
@@ -981,7 +987,7 @@ class _ShareSectionState extends State<_ShareSection>
               children: [
                 const SizedBox(height: 80),
                 Center(
-                    child: Text('아직 대화가 없습니다.\n아래 + 버튼으로 새 채팅을 시작하거나 파일을 공유해 보세요.',
+                    child: Text('아직 스터디룸이 없습니다.\n아래 + 버튼으로 새 스터디룸을 만들거나 파일을 공유해 보세요.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
               ],
@@ -1099,7 +1105,7 @@ class _ShareSectionState extends State<_ShareSection>
           'fileName': item['fileName'],
           'contentType': item['contentType'],
           'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
-          'subtitle': '나와의 대화: ${f['chatName']}',
+          'subtitle': '나만의 스터디룸: ${f['chatName']}',
           'dateIso': item['sentAt']?.toString() ?? '',
           'onTap': () => _openSelfChatFile(selfIt),
         });
@@ -1155,7 +1161,7 @@ class _ShareSectionState extends State<_ShareSection>
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('로그인 필요', style: TextStyle(fontSize: 16)),
-          content: const Text('채팅 기능은 회원가입 후 로그인이 필요합니다.'),
+          content: const Text('스터디룸 기능은 회원가입 후 로그인이 필요합니다.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
@@ -1180,7 +1186,7 @@ class _ShareSectionState extends State<_ShareSection>
         length: 3,
         child: AlertDialog(
           contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          title: const Text('새 채팅', style: TextStyle(fontSize: 16)),
+          title: const Text('새 스터디룸', style: TextStyle(fontSize: 16)),
           content: SizedBox(
             width: double.maxFinite,
             height: 270,
@@ -1190,7 +1196,7 @@ class _ShareSectionState extends State<_ShareSection>
                   labelColor: color,
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: color,
-                  tabs: const [Tab(text: '1:1'), Tab(text: '그룹'), Tab(text: '나')],
+                  tabs: const [Tab(text: '1:1 룸'), Tab(text: '그룹 룸'), Tab(text: '나만의 룸')],
                 ),
                 Expanded(
                   child: TabBarView(
@@ -1210,7 +1216,7 @@ class _ShareSectionState extends State<_ShareSection>
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(ctx, '__newgroup__'),
                               icon: Icon(Icons.group_add, color: color, size: 18),
-                              label: const Text('새 그룹 만들기'),
+                              label: const Text('새 그룹 룸 만들기'),
                             ),
                             const SizedBox(height: 8),
                             Expanded(
@@ -1244,7 +1250,7 @@ class _ShareSectionState extends State<_ShareSection>
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('나 혼자 쓰는 채팅방이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)',
+                            Text('나 혼자 쓰는 스터디룸이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)',
                                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
@@ -1252,7 +1258,7 @@ class _ShareSectionState extends State<_ShareSection>
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: color, foregroundColor: Colors.white),
                               icon: const Icon(Icons.person, size: 18),
-                              label: const Text('나와의 대화'),
+                              label: const Text('나만의 스터디룸 만들기'),
                             ),
                           ],
                         ),
@@ -1411,7 +1417,7 @@ class _ShareSectionState extends State<_ShareSection>
 
     String subtitle;
     if (last == null) {
-      subtitle = '대화를 시작해 보세요';
+      subtitle = '스터디룸을 시작해 보세요';
     } else if (last.isMessage) {
       subtitle = '${last.received ? '' : '나: '}${last.data['content']?.toString() ?? ''}';
     } else {
@@ -1508,7 +1514,8 @@ class _ShareSectionState extends State<_ShareSection>
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
     // 진입/전송 직후 맨 아래(최신)로 스크롤 — 렌더 완료 후 1회.
-    if (_scrollChatToBottom && items.isNotEmpty) {
+    // [대화] 탭에서만 자동 하단 스크롤 — [자료] 탭엔 _chatScrollCtrl가 붙지 않으므로 가드.
+    if (_roomTab == 'chat' && _scrollChatToBottom && items.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _jumpChatToBottom();
         _scrollChatToBottom = false;
@@ -1524,6 +1531,9 @@ class _ShareSectionState extends State<_ShareSection>
                 onPressed: () {
                   // 나가기 전 최신 항목 시각까지 읽음 처리 → 방에서 본(새로고침 포함) 내용은 미읽음 카운트에서 제거.
                   _markConvRead(c.key, c.lastAt);
+                  // 룸 세그먼트 상태 초기화(다음 진입 시 [대화]부터)
+                  _roomTab = 'chat';
+                  _roomMaterialKind = 'all';
                   // 목록 복귀(provider 단일 소스) → 칩 바 + FAB 다시 표시
                   context.read<AppStateProvider>().setHomeOpenConvKey(null);
                 }),
@@ -1542,39 +1552,213 @@ class _ShareSectionState extends State<_ShareSection>
                 }),
           ]),
         ),
+        // [대화]/[자료] 세그먼트 바 — 대화(말풍선)와 자료(공유 파일)를 분리.
+        _buildRoomSegmentBar(color),
         Expanded(
-          child: items.isEmpty
-              ? Center(
-                  child: Text('대화를 시작해 보세요.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    // 위로 당기면 대화 내용(공유+메시지) 새로고침 + 읽음 처리.
-                    await appState.loadShares();
-                    _markConvRead(c.key, c.lastAt);
-                  },
-                  child: ListView.builder(
-                    controller: _chatScrollCtrl,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) {
-                      final it = items[i];
-                      final cur = DateTime(it.at.year, it.at.month, it.at.day);
-                      final prev = i == 0 ? null : items[i - 1].at;
-                      final showDay = prev == null ||
-                          DateTime(prev.year, prev.month, prev.day) != cur;
-                      return Column(children: [
-                        if (showDay) _dateHeader(cur, color),
-                        _bubble(it, color, appState, c.isGroup),
-                      ]);
-                    },
-                  ),
-                ),
+          child: _roomTab == 'materials'
+              // [자료] 탭 — 이 룸에 쌓인 파일(공유/셀프)만 종류별로.
+              ? _buildRoomMaterials(c, color, appState)
+              // [대화] 탭 — 기존 말풍선 리스트.
+              : (items.isEmpty
+                  ? Center(
+                      child: Text('스터디룸을 시작해 보세요.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        // 위로 당기면 대화 내용(공유+메시지) 새로고침 + 읽음 처리.
+                        await appState.loadShares();
+                        _markConvRead(c.key, c.lastAt);
+                      },
+                      child: ListView.builder(
+                        controller: _chatScrollCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: items.length,
+                        itemBuilder: (_, i) {
+                          final it = items[i];
+                          final cur = DateTime(it.at.year, it.at.month, it.at.day);
+                          final prev = i == 0 ? null : items[i - 1].at;
+                          final showDay = prev == null ||
+                              DateTime(prev.year, prev.month, prev.day) != cur;
+                          return Column(children: [
+                            if (showDay) _dateHeader(cur, color),
+                            _bubble(it, color, appState, c.isGroup),
+                          ]);
+                        },
+                      ),
+                    )),
         ),
-        // 하단 메시지 입력 — 모든 참여자가 대화 가능(1:1·그룹 소유자·그룹 멤버 모두).
+        // 하단 메시지 입력 — [대화] 탭에서만 노출(모든 참여자가 대화 가능).
         // (향후 '공지' 형태는 생성자만 입력 가능하도록 분기 예정)
-        _chatInput(c, groupId, color, appState),
+        if (_roomTab == 'chat') _chatInput(c, groupId, color, appState),
+      ],
+    );
+  }
+
+  /// 룸 상세 [대화]/[자료] 세그먼트 바 — _HomeChipBar 톤(primaryColor 옅은 배경 + top border).
+  Widget _buildRoomSegmentBar(Color color) {
+    Widget seg(String tab, IconData icon, String label) {
+      final selected = _roomTab == tab;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_roomTab == tab) return;
+            setState(() {
+              _roomTab = tab;
+              if (tab == 'chat') _scrollChatToBottom = true; // 대화로 돌아오면 최신으로
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: selected
+                ? BoxDecoration(
+                    border: Border(
+                        bottom: BorderSide(color: color, width: 2)))
+                : null,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon,
+                    size: 16,
+                    color: selected ? color : Colors.grey.shade500),
+                const SizedBox(width: 5),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                        color: selected ? color : Colors.grey.shade600)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
+      ),
+      child: Row(children: [
+        seg('chat', Icons.chat_bubble_outline, '대화'),
+        seg('materials', Icons.folder_outlined, '자료'),
+      ]),
+    );
+  }
+
+  /// [자료] 탭 — 이 룸(_Conv c)의 c.items에서 파일만(!isMessage) 종류별로 보여준다.
+  /// 새 API 호출 없이 c.items만 사용. 종류 칩은 룸 지역 상태(_roomMaterialKind).
+  Widget _buildRoomMaterials(_Conv c, Color color, AppStateProvider appState) {
+    // 파일 항목만(메시지 제외), 최신순(위→아래).
+    final files = c.items.where((it) => !it.isMessage).toList()
+      ..sort((a, b) => b.at.compareTo(a.at));
+    if (files.isEmpty) {
+      return Center(
+        child: Text('공유된 자료가 없습니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+      );
+    }
+    // 종류별 카운트 — _shareFileKind로 분류(전체탭/칩바와 동일 규칙).
+    final counts = <String, int>{};
+    for (final it in files) {
+      final k = _shareFileKind(it.data['fileType']?.toString(),
+          it.data['fileName']?.toString(), it.data['contentType']?.toString());
+      counts.update(k, (v) => v + 1, ifAbsent: () => 1);
+    }
+    // 현재 필터에 맞는 목록.
+    final shown = _roomMaterialKind == 'all'
+        ? files
+        : files.where((it) {
+            final k = _shareFileKind(it.data['fileType']?.toString(),
+                it.data['fileName']?.toString(), it.data['contentType']?.toString());
+            return k == _roomMaterialKind;
+          }).toList();
+
+    // 종류 칩 바(전체 + 존재하는 종류만). 같은 칩 재탭 시 'all'로 복귀.
+    final chips = <Widget>[];
+    void addChip(String kind, IconData icon, String label, int n) {
+      if (kind != 'all' && n <= 0) return;
+      final selected = _roomMaterialKind == kind;
+      chips.add(Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() =>
+              _roomMaterialKind = (selected && kind != 'all') ? 'all' : kind),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: selected
+                  ? color.withValues(alpha: 0.18)
+                  : Colors.grey.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: selected ? color : Colors.grey.shade600),
+              const SizedBox(width: 4),
+              Text(kind == 'all' ? label : '$label $n',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                      color: selected ? color : Colors.grey.shade700)),
+            ]),
+          ),
+        ),
+      ));
+    }
+
+    addChip('all', Icons.apps, '전체', files.length);
+    addChip('memo', Icons.notes, '메모', counts['memo'] ?? 0);
+    addChip('summary_memo', Icons.auto_awesome, '요약', counts['summary_memo'] ?? 0);
+    addChip('quiz_memo', Icons.lightbulb, '퀴즈', counts['quiz_memo'] ?? 0);
+    addChip('canvas', Icons.draw, '필기', counts['canvas'] ?? 0);
+    addChip('pdf', Icons.picture_as_pdf, 'PDF', counts['pdf'] ?? 0);
+    addChip('audio', Icons.mic, '녹음', counts['audio'] ?? 0);
+    addChip('stt', Icons.record_voice_over, '녹음메모', counts['stt'] ?? 0);
+    addChip('files', Icons.description, '파일', counts['files'] ?? 0);
+    addChip('photo', Icons.photo_camera, '사진', counts['photo'] ?? 0);
+    addChip('video', Icons.videocam, '비디오', counts['video'] ?? 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          child: Row(children: chips),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            itemCount: shown.length,
+            separatorBuilder: (_, __) => const Divider(height: 1, indent: 52),
+            itemBuilder: (_, i) {
+              final it = shown[i];
+              final isSelfFile = it.data['__selfFile'] == true;
+              final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                    _shareFileTypeIcon(it.data['fileType']?.toString(),
+                        it.data['fileName']?.toString(),
+                        it.data['contentType']?.toString()),
+                    color: color),
+                title: Text(fname,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13.5)),
+                subtitle: Text(
+                    '${it.received ? '받음' : '보냄'} · ${_shareWhen(it.data['sharedAt'] ?? it.data['sentAt'])}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                onTap: () =>
+                    isSelfFile ? _openSelfChatFile(it) : _openSharedSnapshot(it),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -1932,7 +2116,7 @@ class _ShareSectionState extends State<_ShareSection>
       rows.add({
         'fileType': item['fileType'], 'fileName': item['fileName'], 'contentType': item['contentType'],
         'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
-        'subtitle': '나와의 대화: ${f['chatName']}',
+        'subtitle': '나만의 스터디룸: ${f['chatName']}',
         'dateIso': item['sentAt']?.toString() ?? '',
         'onTap': () => _openSelfChatFile(selfIt),
       });
@@ -2870,7 +3054,7 @@ class _NewChatOneToOneTabState extends State<_NewChatOneToOneTab> {
                 disabledBackgroundColor: Colors.grey.shade300,
                 disabledForegroundColor: Colors.white70),
             icon: const Icon(Icons.chat_bubble_outline, size: 18),
-            label: const Text('대화 시작'),
+            label: const Text('룸 만들기'),
           ),
         ],
       ),

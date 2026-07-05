@@ -35,11 +35,11 @@ class ApiService {
   static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
   static const String _littensEndpoint = '/litten/note/v1/littens';
   static const String _schedulesEndpoint = '/litten/note/v1/schedules';
-  static const String _sharesEndpoint = '/litten/note/v1/shares';
-  static const String _shareGroupsEndpoint = '/litten/note/v1/share-groups';
-  static const String _messagesEndpoint = '/litten/note/v1/messages';
-  static const String _hiddenConvEndpoint = '/litten/note/v1/hidden-conversations';
-  static const String _selfChatEndpoint = '/litten/note/v1/self-chats';
+  static const String _sharesEndpoint = '/litten/note/v1/room-shares';
+  static const String _shareGroupsEndpoint = '/litten/note/v1/study-rooms';
+  static const String _messagesEndpoint = '/litten/note/v1/room-messages';
+  static const String _hiddenConvEndpoint = '/litten/note/v1/hidden-rooms';
+  static const String _selfChatEndpoint = '/litten/note/v1/my-study-rooms';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.

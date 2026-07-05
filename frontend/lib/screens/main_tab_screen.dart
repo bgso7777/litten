@@ -5,7 +5,6 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/common/ad_banner.dart';
-import '../widgets/common/round_chat_bubble_icon.dart';
 import 'home_tab_screen.dart';
 import 'home_dashboard_screen.dart';
 import 'home_screen.dart';
@@ -171,10 +170,10 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               type: BottomNavigationBarType.fixed,
               items: [
                 BottomNavigationBarItem(
-                  // 홈 탭 = 채팅 중심 화면. 직접 그린 원형(동그란) 말풍선 아이콘 사용.
+                  // 홈 탭 = 스터디룸(여럿이 대화 + 자료 공유) 화면. 겹친 말풍선(forum) 아이콘 사용.
                   //   비활성: 외곽선 / 활성: 채움.
-                  icon: const RoundChatBubbleIcon(filled: false),
-                  activeIcon: const RoundChatBubbleIcon(filled: true),
+                  icon: const Icon(Icons.forum_outlined),
+                  activeIcon: const Icon(Icons.forum),
                   label: '',
                 ),
                 BottomNavigationBarItem(
@@ -218,7 +217,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     String tooltip;
     switch (tab) {
       case _homeTab:
-        // 새 채팅 FAB는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시(칩 바와 동일 규칙).
+        // 새 스터디룸 FAB는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시(칩 바와 동일 규칙).
         // 대화방 안 / 공유받음 / 공유한 모드에서는 숨긴다.
         if (appState.homeChatOpen || appState.homeChatView != 'chat') return null;
         onPressed = () {
@@ -226,7 +225,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           _homeDashKey.currentState?.startNewChat();
         };
         icon = Icons.add;
-        tooltip = '새 채팅';
+        tooltip = '새 스터디룸';
         break;
       case _calendarTab:
         onPressed = () {
@@ -461,5 +460,5 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   }
 }
 
-// 원형 채팅 말풍선 아이콘은 widgets/common/round_chat_bubble_icon.dart(RoundChatBubbleIcon)로 이동.
-// 하단 네비게이션과 채팅 목록 제목에서 공통 사용한다.
+// 하단 네비 스터디룸 탭은 Icons.forum(겹친 말풍선)을 사용한다.
+// (원형 말풍선 RoundChatBubbleIcon은 home_dashboard의 목록 제목에서 계속 사용)
