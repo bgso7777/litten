@@ -220,7 +220,7 @@
         .section-subtitle { font-size: 1.2rem; color: var(--muted); margin-top: 1rem; }
 
         /* ── 핵심 3대 기능 ── */
-        .core { background: white; }
+        .core { background: linear-gradient(180deg, #f7fbfe 0%, #eef5fd 100%); }
 
         .core-grid {
             max-width: 1100px;
@@ -231,35 +231,32 @@
         }
 
         .core-card {
-            background: var(--bg-soft);
-            border-radius: 22px;
-            padding: 2.8rem 2.2rem;
+            background: #fff;
+            border-radius: 20px;
+            padding: 2.6rem 2rem;
             text-align: center;
-            border: 2px solid transparent;
-            transition: all 0.3s;
+            border: 1px solid var(--line);
+            transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
         }
 
         .core-card:hover {
-            transform: translateY(-10px);
-            border-color: var(--primary);
-            box-shadow: 0 24px 50px rgba(74, 144, 226, 0.18);
+            transform: translateY(-8px);
+            border-color: var(--accent, var(--primary));
+            box-shadow: 0 22px 46px rgba(74, 144, 226, 0.16);
         }
 
         .core-icon {
-            width: 84px; height: 84px;
+            width: 88px; height: 88px;
             margin: 0 auto 1.5rem;
-            border-radius: 22px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.6rem;
-            background: var(--grad);
         }
+        .core-icon svg { width: 88px; height: 88px; filter: drop-shadow(0 8px 16px rgba(74, 144, 226, 0.16)); }
 
         .core-card h3 { font-size: 1.6rem; margin-bottom: 0.8rem; color: var(--ink); }
         .core-card p { color: var(--muted); font-size: 1.05rem; line-height: 1.75; }
 
         .core-card ul { list-style: none; margin-top: 1.2rem; text-align: left; display: inline-block; }
         .core-card ul li { color: var(--muted); padding: 0.25rem 0; font-size: 0.97rem; }
-        .core-card ul li::before { content: "•"; color: var(--primary); font-weight: 700; margin-right: 0.5rem; }
+        .core-card ul li::before { content: "•"; color: var(--accent, var(--primary)); font-weight: 700; margin-right: 0.5rem; }
 
         /* ── AI 섹션 ── */
         .ai { background: var(--bg-soft); }
@@ -695,41 +692,7 @@
             <h2 class="section-title">하나의 공간, 세 가지 기록 방식</h2>
             <p class="section-subtitle">강의도, 회의도, 아이디어도 — 가장 편한 방식으로 담으세요</p>
         </div>
-        <div class="core-grid">
-            <div class="core-card reveal">
-                <div class="core-icon">🎧</div>
-                <h3>듣기 · 녹음</h3>
-                <p>강의·회의·인터뷰를 고품질로 녹음하고 다시 들으세요.</p>
-                <ul>
-                    <li>일시정지 / 재개 녹음</li>
-                    <li>0.5x ~ 2.0x 재생 속도</li>
-                    <li>백그라운드 녹음</li>
-                    <li>음성 → 텍스트 자동 변환(STT)</li>
-                </ul>
-            </div>
-            <div class="core-card reveal">
-                <div class="core-icon">✍️</div>
-                <h3>쓰기 · 텍스트</h3>
-                <p>풍부한 리치 에디터로 생각을 빠르게 정리하세요.</p>
-                <ul>
-                    <li>글꼴 · 색상 · 목록 서식</li>
-                    <li>이미지 · 링크 삽입</li>
-                    <li>실시간 자동 저장</li>
-                    <li>녹음과 나란히 작성</li>
-                </ul>
-            </div>
-            <div class="core-card reveal">
-                <div class="core-icon">🎨</div>
-                <h3>필기 · 드로잉</h3>
-                <p>PDF·이미지 위에 종이처럼 자유롭게 손으로 메모하세요.</p>
-                <ul>
-                    <li>펜 색상 · 굵기 조절</li>
-                    <li>이미지 / 문서 → PDF 변환</li>
-                    <li>PDF 뷰어 & 주석</li>
-                    <li>첨부 파일 통합 관리</li>
-                </ul>
-            </div>
-        </div>
+        <div class="core-grid" id="coreGrid"></div>
     </section>
 
     <!-- 모든 기능 -->
@@ -926,7 +889,8 @@
         const GROUPS = [
             { key:'기록', label:'📝 기록하기',     sub:'음성·글·그림·사진으로 자유롭게 기록',  color:'#3f86d8', tile:'#e3eefb' },
             { key:'ai',   label:'🤖 AI 정리·학습', sub:'요약·번역·퀴즈로 복습까지 한 번에',    color:'#7c6bd6', tile:'#ece9fb' },
-            { key:'정리', label:'🗂️ 정리·일정',    sub:'리튼 공간에 모으고 일정으로 관리',      color:'#2aa79b', tile:'#dcf3ef' },
+            { key:'정리', label:'🗂️ 정리',        sub:'리튼 공간·파일을 모으고 검색',          color:'#2aa79b', tile:'#dcf3ef' },
+            { key:'일정', label:'📅 일정',        sub:'캘린더와 알림으로 일정 관리',           color:'#d9608f', tile:'#fbe6ef' },
             { key:'공유', label:'💬 공유·미디어',  sub:'스터디룸에서 함께, 영상·웹까지',        color:'#e0805a', tile:'#fbe9e1' },
             { key:'저장', label:'☁️ 저장·동기화',  sub:'어디서나 안전하게 보관하고 동기화',      color:'#5577b3', tile:'#e7edf8' },
             { key:'맞춤', label:'⚙️ 맞춤·글로벌',  sub:'30개 언어·5가지 테마로 내 맘대로',      color:'#d59128', tile:'#fbefd8' },
@@ -935,7 +899,6 @@
             // 📝 기록하기
             { g:'기록', t:'memo',     name:'메모',      desc:'텍스트로 빠르게 기록하고 정리' },
             { g:'기록', t:'draw',     name:'필기',      desc:'이미지·PDF 위에 자유롭게 손필기' },
-            { g:'기록', t:'pdf',      name:'PDF 변환',  desc:'이미지·문서를 PDF로 변환·조회' },
             { g:'기록', t:'annotate', name:'PDF 주석',  desc:'PDF에 하이라이트·밑줄·메모 주석' },
             { g:'기록', t:'record',   name:'녹음',      desc:'강의·회의를 고품질 음성 녹음' },
             { g:'기록', t:'recmemo',  name:'녹음 메모', desc:'녹음을 자동으로 텍스트 변환(STT)' },
@@ -949,9 +912,10 @@
             // 🗂️ 정리·일정
             { g:'정리', t:'space',    name:'리튼 공간', desc:'듣기·쓰기·필기를 한 공간에 통합' },
             { g:'정리', t:'file',     name:'파일',      desc:'다양한 문서·파일 첨부 관리' },
+            { g:'정리', t:'pdf',      name:'PDF 변환',  desc:'문서(doc·xls·ppt)를 PDF로 변환' },
             { g:'정리', t:'search',   name:'파일 검색', desc:'파일명·내용을 빠르게 검색' },
-            { g:'정리', t:'calendar', name:'캘린더',    desc:'일정을 한눈에 관리' },
-            { g:'정리', t:'alarm',    name:'일정 알림', desc:'정시·10분 전 등 맞춤 알림' },
+            { g:'일정', t:'calendar', name:'캘린더',    desc:'일정을 한눈에 관리' },
+            { g:'일정', t:'alarm',    name:'일정 알림', desc:'정시·10분 전 등 맞춤 알림' },
             // 💬 공유·미디어
             { g:'공유', t:'studyroom',name:'스터디룸',  desc:'1:1·그룹·나만의 룸으로 학습자료 공유' },
             { g:'공유', t:'studytalk',name:'스터디 대화',desc:'룸 멤버와 대화하며 함께 학습' },
@@ -1106,7 +1070,7 @@
                     <path d="M17 13.1 L17.4 14.2 L18.5 14.6 L17.4 15 L17 16.1 L16.6 15 L15.5 14.6 L16.6 14.2 Z" fill="#FBBF24" opacity="0.9"/>
                     <path d="M7 13.1 L7.4 14.2 L8.5 14.6 L7.4 15 L7 16.1 L6.6 15 L5.5 14.6 L6.6 14.2 Z" fill="#FBBF24" opacity="0.9"/>`,
             };
-            return type === 'remind' ? S[type] : S[type] + star;
+            return (type === 'memo' || type === 'annotate') ? S[type] + star : S[type];
         }
         function tileSoft(inner, bg) {
             return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="5.4" fill="${bg || '#e3eefb'}"/><g transform="translate(2.6 2.6) scale(0.78)">${inner}</g></svg>`;
@@ -1118,6 +1082,19 @@
             if (!items.length) return '';
             return `<h3 class="feat-group reveal"><span class="fg-label">${g.label}</span><span class="fg-sub">${g.sub}</span></h3><div class="feature-all-grid">${items.map(f => faTile(f, g)).join('')}</div>`;
         }).join('');
+
+        // ── 핵심 3대 기록 방식 (기능 섹션과 동일한 소프트 아이콘 컨셉) ──
+        const CORE = [
+            { t:'record', color:'#3f86d8', tile:'#e3eefb', title:'듣기 · 녹음', desc:'강의·회의·인터뷰를 고품질로 녹음하고 다시 들으세요.',
+              li:['일시정지 / 재개 녹음','0.5x ~ 2.0x 재생 속도','백그라운드 녹음','음성 → 텍스트 자동 변환(STT)'] },
+            { t:'memo',   color:'#2aa79b', tile:'#dcf3ef', title:'쓰기 · 텍스트', desc:'풍부한 리치 에디터로 생각을 빠르게 정리하세요.',
+              li:['글꼴 · 색상 · 목록 서식','이미지 · 링크 삽입','실시간 자동 저장','녹음과 나란히 작성'] },
+            { t:'draw',   color:'#e0805a', tile:'#fbe9e1', title:'필기 · 드로잉', desc:'PDF·이미지 위에 종이처럼 자유롭게 손으로 메모하세요.',
+              li:['펜 색상 · 굵기 조절','이미지 / 문서 → PDF 변환','PDF 뷰어 & 주석','첨부 파일 통합 관리'] },
+        ];
+        document.getElementById('coreGrid').innerHTML = CORE.map(c =>
+            `<div class="core-card reveal" style="--accent:${c.color}"><div class="core-icon">${tileSoft(sym(c.t, c.color, '#ffffff'), c.tile)}</div><h3>${c.title}</h3><p>${c.desc}</p><ul>${c.li.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+        ).join('');
 
         // 스크롤 등장 애니메이션
         const observer = new IntersectionObserver((entries) => {
