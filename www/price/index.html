@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리튼(Litten) — 원가·전략 자료실</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:#f5f7fa;color:#1a2233;line-height:1.6;-webkit-text-size-adjust:100%;}
+header{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:40px 20px;text-align:center;}
+header h1{font-size:1.6rem;margin-bottom:8px;}
+header p{opacity:.85;font-size:.92rem;}
+main{max-width:760px;margin:0 auto;padding:28px 16px 60px;}
+.intro{color:#5b6879;font-size:.95rem;margin-bottom:22px;text-align:center;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:26px 22px;transition:transform .2s,box-shadow .2s,border-color .2s;}
+.card:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(37,99,235,.16);border-color:#2563eb;}
+.card .ico{font-size:2.4rem;margin-bottom:12px;}
+.card h2{font-size:1.2rem;color:#0f172a;margin-bottom:8px;}
+.card p{color:#5b6879;font-size:.9rem;margin-bottom:14px;}
+.card ul{list-style:none;font-size:.84rem;color:#5b6879;}
+.card ul li{padding:2px 0;padding-left:14px;position:relative;}
+.card ul li::before{content:"·";position:absolute;left:2px;color:#2563eb;font-weight:800;}
+.card .go{display:inline-block;margin-top:14px;color:#2563eb;font-weight:700;font-size:.9rem;}
+.files{margin-top:26px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 22px;}
+.files h3{font-size:.95rem;color:#1e3a8a;margin-bottom:10px;}
+.files a{color:#2563eb;text-decoration:none;font-size:.86rem;}
+.files a:hover{text-decoration:underline;}
+.files li{list-style:none;padding:3px 0;color:#5b6879;font-size:.86rem;}
+@media(max-width:620px){.cards{grid-template-columns:1fr;}header h1{font-size:1.35rem;}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 리튼(Litten) 원가·전략 자료실</h1>
+  <p>AWS 인프라 원가 · 수익 · 광고/무료·유료 전략 검토 문서</p>
+</header>
+<main>
+  <p class="intro">아래 두 문서를 확인하세요.</p>
+  <div class="cards">
+    <a class="card" href="Cost.html">
+      <div class="ico">📈</div>
+      <h2>원가표 (Cost)</h2>
+      <p>AWS S3/CloudFront 기반 인프라 원가와 수익 분석</p>
+      <ul>
+        <li>단가·사용자당·규모별 원가</li>
+        <li>CDN 효과 · 순수익 분석</li>
+        <li>경쟁사 가격 비교</li>
+        <li>무료 유저 손익 · 지역 광고 시나리오</li>
+      </ul>
+      <span class="go">원가표 열기 →</span>
+    </a>
+    <a class="card" href="AdvertisingStrategy.html">
+      <div class="ico">📣</div>
+      <h2>광고 전략 (Advertising Strategy)</h2>
+      <p>광고·무료·유료 수익화 전략 정리</p>
+      <ul>
+        <li>단계적 수익화 · 광고 배치</li>
+        <li>글로벌 배포 근거</li>
+        <li>무료 유저 경제성 · 광고 수익 규모</li>
+        <li>유료 전환율 영향 · 미결 논점</li>
+      </ul>
+      <span class="go">전략 문서 열기 →</span>
+    </a>
+  </div>
+  <div class="files">
+    <h3>원본 데이터</h3>
+    <ul>
+      <li><a href="Litten_원가표.xlsx">Litten_원가표.xlsx</a> — 원가 계산 스프레드시트</li>
+      <li><a href="cost_2026-06-04_2026-07-04.csv">cost_2026-06-04_2026-07-04.csv</a> — AWS 비용 내역</li>
+      <li><a href="원가표.txt">원가표.txt</a> — 원가 메모</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

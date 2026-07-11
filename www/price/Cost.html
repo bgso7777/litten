@@ -74,7 +74,7 @@ tbody tr:hover td { background:#f1f5f9; }
   <h1>리튼(Litten) 원가표</h1>
   <p>작성일: 2026년 7월 · AWS S3/CloudFront 기반 인프라 원가 분석</p>
 </header>
-<nav><a href="#sheet-0-요약">0_요약</a><a href="#sheet-1-단가정보">1_단가정보</a><a href="#sheet-2-사용자유형">2_사용자유형</a><a href="#sheet-3-사용자당원가">3_사용자당원가</a><a href="#sheet-4-규모별원가">4_규모별원가</a><a href="#sheet-5-CDN효과">5_CDN효과</a><a href="#sheet-6-순수익">6_순수익분석</a><a href="#sheet-7-경쟁사">7_경쟁사비교</a></nav>
+<nav><a href="#sheet-0-요약">0_요약</a><a href="#sheet-1-단가정보">1_단가정보</a><a href="#sheet-2-사용자유형">2_사용자유형</a><a href="#sheet-3-사용자당원가">3_사용자당원가</a><a href="#sheet-4-규모별원가">4_규모별원가</a><a href="#sheet-5-CDN효과">5_CDN효과</a><a href="#sheet-6-순수익">6_순수익분석</a><a href="#sheet-7-경쟁사">7_경쟁사비교</a><a href="#sheet-8-무료손익">8_무료유저손익</a><a href="#sheet-9-지역광고">9_지역광고시나리오</a></nav>
 <main>
 <div class="legend">
   <span><b>파란색 숫자</b> = 입력값(수정 가능)</span>
@@ -273,20 +273,19 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr class="title"><td colspan="6">▶ 표 F · 기능 비교 (리튼 vs 한국 주요 노트·음성기록 앱)</td></tr>
 <tr class="hdr"><th>기능</th><th class="lt">리튼(Litten)</th><th class="">네이버 클로바노트</th><th class="">다글로</th><th class="">삼성 노트</th><th class="">노션(Notion)</th></tr>
 <tr><td class="rowlab">음성 녹음·재생 (듣기)</td><td class="fc ok lt">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">첨부</td><td class="fc mid">AI메모</td></tr>
-<tr><td class="rowlab">AI 음성→텍스트 (STT)</td><td class="fc mid lt">로드맵</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">일부</td><td class="fc mid">AI</td></tr>
+<tr><td class="rowlab">AI 음성→텍스트 (STT)</td><td class="fc ok lt">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">일부</td><td class="fc mid">AI</td></tr>
 <tr><td class="rowlab">텍스트 작성·편집</td><td class="fc ok lt">✓</td><td class="fc mid">메모</td><td class="fc mid">메모</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
 <tr><td class="rowlab">이미지 위 필기 (드로잉)</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
 <tr><td class="rowlab">PDF 주석·필기</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc mid">첨부</td></tr>
 <tr><td class="rowlab">로컬 저장 (오프라인)</td><td class="fc ok lt">✓</td><td class="fc mid">△</td><td class="fc mid">△</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
 <tr><td class="rowlab">클라우드·서버 동기화</td><td class="fc mid lt">프리미엄</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
 <tr><td class="rowlab">다국어 UI (30개)</td><td class="fc ok lt">✓</td><td class="fc mid">일부</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
-<tr><td class="rowlab">광고</td><td class="fc txt lt">무료만</td><td class="fc txt">없음</td><td class="fc txt">무료有</td><td class="fc txt">없음</td><td class="fc txt">없음</td></tr>
 <tr><td class="rowlab">주 플랫폼</td><td class="fc txt lt">AOS·iOS</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">갤럭시·윈도우</td><td class="fc txt">전 플랫폼</td></tr>
 </table></div>
 <div class="twrap" style="margin-top:18px"><table class="cmp">
 <tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월 조사)</td></tr>
 <tr class="hdr"><th>앱</th><th>무료 플랜</th><th>유료 플랜</th><th>월 가격</th><th>주요 유료 혜택</th></tr>
-<tr><td class="lt"><b>리튼(Litten)</b></td><td>리튼 5·파일 제한+광고</td><td>스탠다드 / 프리미엄</td><td class="num">$4.99 / $9.99<br><span class='sub'>(약 6,990 / 13,990원)</span></td><td class="sub2">광고 제거·무제한 저장 / +서버 동기화·보관</td></tr>
+<tr><td class="lt"><b>리튼(Litten)</b></td><td>리튼 5·파일 수 제한</td><td>스탠다드 / 프리미엄</td><td class="num">$4.99 / $9.99<br><span class='sub'>(약 6,990 / 13,990원)</span></td><td class="sub2">무제한 저장 / +서버 동기화·보관</td></tr>
 <tr><td><b>네이버 클로바노트</b></td><td>월 300분(동의 시 600분)<br>AI 요약 월 15회</td><td>개인 유료 없음&lt;br&gt;(기업용 Lite)</td><td class="num">개인 0원<br><span class='sub'>기업 20,000원/인</span></td><td class="sub2">기업 Lite: 월 6,000분·AI요약 무제한·관리자</td></tr>
 <tr><td><b>다글로</b></td><td>월 4시간(녹음·파일)<br>1,000 크레딧</td><td>Pro / Premium</td><td class="num">11,900원 / 16,580원<br><span class='sub'>(Premium 연 199,000원)</span></td><td class="sub2">녹음 무제한·무광고 / 전부 무제한·4배 속도·AI채팅</td></tr>
 <tr><td><b>삼성 노트</b></td><td>전 기능 무료<br>(삼성 기기 기본)</td><td>—</td><td class="num">0원</td><td class="sub2">필기·PDF주석·삼성 클라우드 동기화 기본 제공</td></tr>
@@ -305,6 +304,100 @@ tbody tr:hover td { background:#f1f5f9; }
   <li><b>주의</b>: 가격·사용량 한도는 2026년 7월 조사 기준이며 각 사 정책에 따라 변동될 수 있음. 리튼 가격은 기획서(2_planning.txt) 계획값(환율 1,400원 환산).</li>
 </ul>
 
+</section>
+
+<section id="sheet-8-무료손익">
+<h2>8_무료유저손익 · 광고 도입 시 무료 tier 흑자 분석</h2>
+<div class="twrap"><table>
+<tr class="title"><td colspan="3">▶ 표 A · 무료 유저 월 실원가 (로컬 우선 반영)</td></tr>
+<tr class="hdr"><th>원가 항목</th><th>월 원가(₩)</th><th>비고</th></tr>
+<tr><td>S3 저장·전송·요청</td><td class="num inp">0</td><td class="sub2">무료=서버 동기화 미지원, 로컬 저장만 → 발생 안 함</td></tr>
+<tr><td>AI API (요약 2·퀴즈 2 누적분할)</td><td class="num inp">25</td><td class="sub2">누적 4회 1회성을 12개월 분할</td></tr>
+<tr><td>서버 컴퓨팅 분담</td><td class="num inp">25</td><td class="sub2">인증·유튜브 요약 등 소액 공유분</td></tr>
+<tr class="section"><td>월 실원가 합계</td><td class="num">50</td><td class="sub2">유료 라이트(₩838)의 약 1/17 수준</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 B · 무료 유저 1명당 월 광고수익 (배너, 60초 갱신)</td></tr>
+<tr class="hdr"><th>일 사용시간(월 노출)</th><th>eCPM $0.3</th><th>eCPM $0.5</th><th>eCPM $1.0</th></tr>
+<tr><td>5분/일 (150회)</td><td class="num">63</td><td class="num">105</td><td class="num">210</td></tr>
+<tr><td>15분/일 (450회)</td><td class="num">189</td><td class="num">315</td><td class="num">630</td></tr>
+<tr><td>30분/일 (900회)</td><td class="num">378</td><td class="num">630</td><td class="num">1,260</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 C · 무료 유저 1명당 월 순익 (광고수익 − 원가 ₩50)</td></tr>
+<tr class="hdr"><th>일 사용시간</th><th>eCPM $0.3</th><th>eCPM $0.5</th><th>eCPM $1.0</th></tr>
+<tr><td>5분/일</td><td class="num">13</td><td class="num">55</td><td class="num">160</td></tr>
+<tr><td>15분/일</td><td class="num">139</td><td class="num">265</td><td class="num">580</td></tr>
+<tr><td>30분/일</td><td class="num">328</td><td class="num">580</td><td class="num">1,210</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 D · 규모별 무료 tier 총 순익 (월, ₩)</td></tr>
+<tr class="hdr"><th>시나리오 (1인당 순익)</th><th>10,000명</th><th>100,000명</th><th>1,000,000명</th></tr>
+<tr><td>보수 (5분·$0.3, +13)</td><td class="num">130,000</td><td class="num">1,300,000</td><td class="num">13,000,000</td></tr>
+<tr><td>기본 (15분·$0.5, +265)</td><td class="num">2,650,000</td><td class="num">26,500,000</td><td class="num">265,000,000</td></tr>
+<tr><td>낙관 (30분·$1.0, +1210)</td><td class="num">12,100,000</td><td class="num">121,000,000</td><td class="num">1,210,000,000</td></tr>
+<tr class="section"><td>기본 시나리오 연 환산</td><td class="num">31,800,000</td><td class="num">318,000,000</td><td class="num">3,180,000,000</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 E · A안(광고+무료) vs B안(무광고) — 무료 tier 월 손익</td></tr>
+<tr class="hdr"><th>구분</th><th>10,000명</th><th>100,000명</th><th>1,000,000명</th></tr>
+<tr><td>A안: 광고 도입 (기본)</td><td class="num">2,650,000</td><td class="num">26,500,000</td><td class="num">265,000,000</td></tr>
+<tr><td>B안: 무광고 (원가만)</td><td class="num neg">-500,000</td><td class="num neg">-5,000,000</td><td class="num neg">-50,000,000</td></tr>
+<tr class="section"><td>차이 (A − B)</td><td class="num">3,150,000</td><td class="num">31,500,000</td><td class="num">315,000,000</td></tr>
+</table></div>
+
+<div class="legend" style="margin-top:14px">
+  <span><b>파란색</b> = 입력 가정값</span>
+  <span style="color:#dc2626">붉은색 = 순손실</span>
+</div>
+<ul class="memo">
+  <li><b>핵심</b>: 무료 유저는 <b>서버 동기화 미지원(로컬 저장)</b> + AI 누적 제한이라 월 실원가가 <b>약 ₩50</b>에 불과. 유료 라이트(₩838)의 1/17 수준.</li>
+  <li>따라서 배너 광고만 붙여도 대부분 시나리오에서 <b>무료 유저 1인당 흑자</b>(기본 +₩265/월). 100만 무료 유저 기준 기본 시나리오 <b>연 약 32.0억</b>.</li>
+  <li><b>주의 1</b>: 무료 제한을 완화(서버 동기화 허용, AI 무제한 등)하면 원가가 급증해 흑자가 깨질 수 있음 — 무료는 <b>로컬 우선 유지</b>가 전제.</li>
+  <li><b>주의 2</b>: eCPM·사용시간은 추정치. 실제 도입 시 실측 필요. 광고가 <b>브랜드·유료 전환율</b>에 주는 영향은 수치에 미반영(정성적 트레이드오프).</li>
+  <li><b>전략 함의</b>: 무료 유저가 흑자면 "무료+광고로 흑자 내며 확장"(A안)이 재무적으로 유리. 단 초기엔 절대액이 작고(월 수백만), "방해 없는 학습 앱" 브랜드가 전환에 유리할 수 있어 B안(초기 무광고)도 합리적. → <b>초기 B안 → 규모 확대 후 A안 전환</b>이 절충.</li>
+</ul>
+
+</section>
+
+<section id="sheet-9-지역광고">
+<h2>9_지역광고시나리오 · 스터디룸+일정 한정, 지역 eCPM 차등</h2>
+<div class="twrap"><table>
+<tr class="title"><td colspan="5">▶ 표 A · 지역 티어 가정 (입력값)</td></tr>
+<tr class="hdr"><th>티어</th><th>대표 지역</th><th>배너 eCPM($)</th><th>글로벌 무료 비중</th><th>구독 전환율(참고)</th></tr>
+<tr><td><b>선진국</b></td><td class="sub2">미국·일본·유럽·한국</td><td class="num inp">1.5</td><td class="num inp">20%</td><td class="num inp">5.0%</td></tr>
+<tr><td><b>신흥국</b></td><td class="sub2">동남아·중동·남미</td><td class="num inp">0.4</td><td class="num inp">35%</td><td class="num inp">1.5%</td></tr>
+<tr><td><b>개도국</b></td><td class="sub2">인도·아프리카</td><td class="num inp">0.1</td><td class="num inp">45%</td><td class="num inp">0.5%</td></tr>
+<tr class="note"><td colspan="5">무료 유저 1인당 월 광고 노출(스터디룸+일정 한정) = <b>40회</b> · 무료 유저 월 실원가 = <b>₩50</b> · 환율 1,400₩/$</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 (광고수익 − 원가)</td></tr>
+<tr class="hdr"><th>티어</th><th>광고수익(₩)</th><th>원가(₩)</th><th>순익(₩)</th><th>원가 커버율</th></tr>
+<tr><td><b>선진국</b></td><td class="num">84</td><td class="num">50</td><td class="num">34</td><td class="num">168% ✅</td></tr>
+<tr><td><b>신흥국</b></td><td class="num">22</td><td class="num">50</td><td class="num neg">-28</td><td class="num">45%</td></tr>
+<tr><td><b>개도국</b></td><td class="num">6</td><td class="num">50</td><td class="num neg">-44</td><td class="num">11%</td></tr>
+<tr class="section"><td>글로벌 가중평균</td><td class="num">27</td><td class="num">50</td><td class="num neg">-23</td><td class="num">54%</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 C · 규모별 글로벌 무료 tier 총액 (월, ₩, 가중평균 기준)</td></tr>
+<tr class="hdr"><th>구분</th><th>100,000명</th><th>1,000,000명</th><th>10,000,000명</th></tr>
+<tr><td>광고 수익</td><td class="num">2,716,000</td><td class="num">27,160,000</td><td class="num">271,600,000</td></tr>
+<tr><td>무료 유저 원가</td><td class="num">5,000,000</td><td class="num">50,000,000</td><td class="num">500,000,000</td></tr>
+<tr class="section"><td>순익(광고−원가)</td><td class="num neg">-2,284,000</td><td class="num neg">-22,840,000</td><td class="num neg">-228,400,000</td></tr>
+<tr class="note"><td colspan="4">연 환산(순익, 가중평균): 100,000명 → -27,408,000 · 1,000,000명 → -274,080,000 · 10,000,000명 → -2,740,800,000</td></tr>
+</table></div>
+
+<div class="legend" style="margin-top:14px">
+  <span><b>파란색</b> = 입력 가정값</span>
+  <span style="color:#dc2626">붉은색 = 순손실</span>
+</div>
+<ul class="memo">
+  <li><b>선진국은 광고만으로 흑자</b>(원가 커버율 168%). 신흥국 45%·개도국 11%는 원가를 부분만 커버하지만, <b>원가 자체가 월 ₩50 이하</b>라 손실 절대액이 극소(월 ₩수십).</li>
+  <li><b>글로벌 가중평균: 광고가 무료 원가의 약 54% 커버</b> → 전 세계 무료 기반을 "거의 적자 없이" 확장 가능. 광고는 수익 엔진이 아니라 <b>무료 유저 원가 상쇄 장치</b>.</li>
+  <li><b>신흥/개도국에서 광고의 의미</b>: 구독 전환율이 0.5~1.5%로 매우 낮아(선진국 5% 대비) <b>광고가 사실상 유일한 수익화 수단</b>. 소액이라도 "0원 → 최소 수익"이 핵심.</li>
+  <li><b>커버율 올리는 법</b>: 스터디룸·일정 사용률↑(노출↑), eCPM 높은 지역 비중↑, 또는 무료 원가↓(로컬 우선 강화). 노출을 40→80회로 올리면 글로벌 커버율 약 109%.</li>
+  <li><b>주의</b>: eCPM·노출·비중·전환율은 추정. 실제 배포 후 지역별 실측으로 갱신 필요. 핵심 학습(녹음·필기·복습)은 전 지역 무광고 유지.</li>
+</ul>
 </section>
 
 </main>
