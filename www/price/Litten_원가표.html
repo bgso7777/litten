@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리튼(Litten) 원가표</title>
+<style>
+:root {
+  --bg:#f5f7fa; --card:#ffffff; --ink:#1a2233; --muted:#5b6879;
+  --line:#e2e8f0; --head:#2b3a55; --headink:#ffffff;
+  --accent:#2563eb; --inp:#1d4ed8; --section:#eef2ff; --note:#f8fafc;
+  --title:#0f172a;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  background:var(--bg); color:var(--ink); line-height:1.5; -webkit-text-size-adjust:100%; }
+header { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:28px 20px; }
+header h1 { margin:0 0 6px; font-size:1.5rem; }
+header p { margin:0; opacity:.85; font-size:.9rem; }
+nav { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.95); backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line); padding:10px 16px; display:flex; gap:8px; flex-wrap:wrap; overflow-x:auto; }
+nav a { font-size:.8rem; color:var(--accent); text-decoration:none; padding:5px 10px; border:1px solid var(--line);
+  border-radius:999px; white-space:nowrap; }
+nav a:hover { background:var(--accent); color:#fff; }
+main { max-width:1000px; margin:0 auto; padding:20px 16px 60px; }
+section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 18px 22px;
+  margin-bottom:22px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+section h2 { margin:0 0 14px; font-size:1.15rem; color:var(--title);
+  padding-bottom:8px; border-bottom:2px solid var(--accent); }
+.twrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; font-size:.86rem; min-width:520px; }
+td, th { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+th { background:var(--head); color:var(--headink); font-weight:600; }
+tr.hdr th { position:relative; }
+tr.title td { font-size:1.05rem; font-weight:700; background:#0f172a; color:#fff; text-align:center; }
+tr.section td { font-weight:700; background:var(--section); color:#1e3a8a; }
+tr.note td { background:var(--note); color:var(--muted); font-size:.82rem; }
+tr.spacer td { border:none; padding:4px; background:transparent; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.inp { color:var(--inp); font-weight:600; }
+td.neg { color:#dc2626; font-weight:600; }
+tr.cur td { background:#fffbeb; }
+tr.cur:hover td { background:#fef3c7; }
+.sub { color:var(--muted); font-weight:400; font-size:.82em; }
+ul.memo { margin:14px 0 0; padding-left:18px; font-size:.83rem; color:var(--muted); }
+ul.memo li { margin:5px 0; }
+ul.memo b { color:var(--ink); }
+table.cmp td.fc { text-align:center; font-weight:600; }
+td.fc.ok { color:#16a34a; }
+td.fc.mid { color:#d97706; }
+td.fc.no { color:#9ca3af; }
+td.fc.txt { color:var(--ink); font-weight:400; font-size:.82rem; }
+td.rowlab { font-weight:600; background:#f8fafc; white-space:nowrap; }
+th.lt, td.lt { background:#eff6ff !important; color:#1e3a8a; }
+td.fc.lt { background:#eff6ff; }
+td.sub2 { font-size:.8rem; color:var(--muted); }
+.chip { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:5px; font-weight:700; color:#fff; }
+.chip.ok { background:#16a34a; } .chip.mid { background:#d97706; } .chip.no { background:#9ca3af; }
+.lt-chip { color:#1e3a8a; font-weight:600; }
+
+
+tbody tr:hover td { background:#f1f5f9; }
+.legend { margin:14px 0 0; font-size:.8rem; color:var(--muted); display:flex; gap:18px; flex-wrap:wrap; }
+.legend b { color:var(--inp); }
+@media (max-width:640px) {
+  header h1 { font-size:1.25rem; }
+  table { font-size:.8rem; }
+  td, th { padding:6px 7px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>리튼(Litten) 원가표</h1>
+  <p>작성일: 2026년 7월 · AWS S3/CloudFront 기반 인프라 원가 분석</p>
+</header>
+<nav><a href="#sheet-0-요약">0_요약</a><a href="#sheet-1-단가정보">1_단가정보</a><a href="#sheet-2-사용자유형">2_사용자유형</a><a href="#sheet-3-사용자당원가">3_사용자당원가</a><a href="#sheet-4-규모별원가">4_규모별원가</a><a href="#sheet-5-CDN효과">5_CDN효과</a><a href="#sheet-6-순수익">6_순수익분석</a><a href="#sheet-7-경쟁사">7_경쟁사비교</a></nav>
+<main>
+<div class="legend">
+  <span><b>파란색 숫자</b> = 입력값(수정 가능)</span>
+  <span>검정색 숫자 = 계산식(자동 계산)</span>
+</div>
+<section id="sheet-0-요약"><h2>0_요약</h2><div class="twrap"><table><tr class="title"><td colspan="5">리튼(Litten) 원가표 요약</td></tr>
+<tr class=""><td>작성일: 2026년 7월</td><td></td><td></td><td></td><td></td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="section"><td colspan="5">▶ 핵심 원가 지표</td></tr>
+<tr class="hdr"><th>구분</th><th>라이트</th><th>미디엄</th><th>헤비</th><th>설명</th></tr>
+<tr class=""><td>월 원가 (₩, CDN 미적용)</td><td class="num">837.655</td><td class="num">2,992.591</td><td class="num">8,723.155</td><td>1,000명 규모 기준</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="section"><td colspan="5">▶ 규모별 사용자당 평균 원가</td></tr>
+<tr class="hdr"><th>사용자 수</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr class=""><td>사용자당 원가 (₩)</td><td class="num">2,320.6858</td><td class="num">2,100.6858</td><td class="num">2,068.6858</td><td class="num">2,060.6858</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="section"><td colspan="5">▶ 핵심 인사이트</td></tr>
+<tr class=""><td class="inp">1</td><td>가장 큰 원가는 데이터 전송(egress)</td><td colspan="3">저장·요청보다 다운로드 전송이 원가의 30~50% 차지</td></tr>
+<tr class=""><td class="inp">2</td><td>규모 확대 시 사용자당 원가 감소</td><td colspan="3">고정비 분산으로 100명 → 10,000명 시 사용자당 원가 50% 감소</td></tr>
+<tr class=""><td class="inp">3</td><td>CDN 도입은 1,000명부터 필수</td><td colspan="3">전송 원가 50~70% 절감 가능</td></tr>
+<tr class=""><td class="inp">4</td><td>프리미엄 무제한 = 위험</td><td colspan="3">헤비 유저 원가가 프리미엄 매출 초과 가능, 공정 사용 정책 필수</td></tr>
+<tr class=""><td class="inp">5</td><td>학기 데이터 특성 활용</td><td colspan="3">오래된 학기 자료는 Standard-IA로 자동 이동해 저장 원가 45% 절감</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="section"><td colspan="5">▶ 시트 구성</td></tr>
+<tr class=""><td class="inp">1_단가정보</td><td colspan="4">AWS S3/CloudFront/서버 단가 (수정하면 전체 원가 재계산)</td></tr>
+<tr class=""><td class="inp">2_사용자유형</td><td colspan="4">라이트/미디엄/헤비 유저의 사용량 가정 (수정 시 원가 변경)</td></tr>
+<tr class=""><td class="inp">3_사용자당원가</td><td colspan="4">사용자 1명당 월 원가 계산</td></tr>
+<tr class=""><td class="inp">4_규모별원가</td><td colspan="4">100명~50,000명 사용자 규모별 총 원가</td></tr>
+<tr class=""><td class="inp">5_CDN효과</td><td colspan="4">CloudFront 도입 시 절감 효과</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>▶ 셀 색상 안내</td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td class="inp">파란색 숫자 = 입력값 (수정 가능)</td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td>검정색 숫자 = 계산식 (자동 계산)</td><td></td><td></td><td></td><td></td></tr></table></div></section><section id="sheet-1-단가정보"><h2>1_단가정보</h2><div class="twrap"><table><tr class="title"><td colspan="5">리튼(Litten) 원가 단가 정보</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>환율 (₩/USD)</td><td class="inp num">1,400</td><td>가정값 (수시 조정)</td><td></td><td></td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">1. AWS S3 요금 (Standard)</td></tr>
+<tr class="hdr"><th>항목</th><th>단가 (USD)</th><th>단위</th><th>단가 (₩)</th><th>출처</th></tr>
+<tr class=""><td>저장 (S3 Standard)</td><td class="inp num">0.025</td><td>GB/월</td><td class="num">35</td><td>AWS 공식</td></tr>
+<tr class=""><td>PUT/COPY/POST/LIST 요청</td><td class="inp num">0.0045</td><td>1,000요청</td><td class="num">6.3</td><td>AWS 공식</td></tr>
+<tr class=""><td>GET/SELECT 요청</td><td class="inp num">0.0003</td><td>1,000요청</td><td class="num">0.49</td><td>AWS 공식</td></tr>
+<tr class=""><td>데이터 전송 (인터넷, 첫 10TB)</td><td class="inp num">0.09</td><td>GB</td><td class="num">126</td><td>AWS 공식</td></tr>
+<tr class=""><td>데이터 전송 (인터넷, 10~50TB)</td><td class="inp num">0.085</td><td>GB</td><td class="num">119</td><td>AWS 공식</td></tr>
+<tr class=""><td>S3 Standard-IA 저장</td><td class="inp num">0.0138</td><td>GB/월</td><td class="num">19.32</td><td>AWS 공식</td></tr>
+<tr class=""><td>S3 Glacier Instant 저장</td><td class="inp num">0.005</td><td>GB/월</td><td class="num">7</td><td>AWS 공식</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">2. AWS CloudFront (CDN) 요금</td></tr>
+<tr class="hdr"><th>항목</th><th>단가 (USD)</th><th>단위</th><th>단가 (₩)</th><th>출처</th></tr>
+<tr class=""><td>CDN 데이터 전송 (아시아, 첫 10TB)</td><td class="inp num">0.12</td><td>GB</td><td class="num">168</td><td>AWS 공식</td></tr>
+<tr class=""><td>CDN HTTP/HTTPS 요청 (아시아)</td><td class="inp num">0.012</td><td>10,000요청</td><td class="num">16.8</td><td>AWS 공식</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">3. 서버 컴퓨팅 요금</td></tr>
+<tr class="hdr"><th>항목</th><th>월 요금 (₩)</th><th>사양</th><th>지원 사용자</th><th>출처</th></tr>
+<tr class=""><td>초기 서버 (Cafe24 가상)</td><td class="inp num">30,000</td><td>1vCPU/1GB</td><td>약 300명</td><td>Cafe24 참조</td></tr>
+<tr class=""><td>성장 서버 (AWS EC2 t3.medium)</td><td class="inp num">55,000</td><td>2vCPU/4GB</td><td>약 2,000명</td><td>AWS 참조</td></tr>
+<tr class=""><td>확대 서버 (AWS EC2 t3.xlarge)</td><td class="inp num">210,000</td><td>4vCPU/16GB</td><td>약 10,000명</td><td>AWS 참조</td></tr>
+<tr class=""><td>DB (AWS RDS db.t3.micro)</td><td class="inp num">25,000</td><td>MySQL 기본</td><td>약 1,000명</td><td>AWS 참조</td></tr></table></div></section><section id="sheet-2-사용자유형"><h2>2_사용자유형</h2><div class="twrap"><table><tr class="title"><td colspan="5">사용자 유형별 월 사용량 가정</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">리튼 4단계 사이클 기반 사용 패턴 (헤비 유저 실측: 필기66, 녹음6, 음성35, 문서3, 영상20, 사진3)</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="hdr"><th>구분</th><th>라이트</th><th>미디엄</th><th>헤비</th><th>설명</th></tr>
+<tr class=""><td>월 콘텐츠 생성 개수 (건)</td><td class="inp num">20</td><td class="inp num">60</td><td class="inp num">140</td><td>메모+녹음+필기+파일 합계</td></tr>
+<tr class=""><td>파일 크기 평균 (MB)</td><td class="inp num">5</td><td class="inp num">15</td><td class="inp num">20</td><td>녹음·영상 포함 가중평균</td></tr>
+<tr class=""><td>월 저장 증가량 (GB)</td><td class="num">0.0977</td><td class="num">0.8789</td><td class="num">2.7344</td><td>개수 × 크기 / 1024</td></tr>
+<tr class=""><td>누적 저장량 (GB)</td><td class="inp num">0.5</td><td class="inp num">3</td><td class="inp num">10</td><td>3~6개월 누적 가정</td></tr>
+<tr class=""><td>월 PUT 요청 수</td><td class="inp num">60</td><td class="inp num">200</td><td class="inp num">500</td><td>업로드+동기화</td></tr>
+<tr class=""><td>월 GET 요청 수</td><td class="inp num">300</td><td class="inp num">900</td><td class="inp num">2,500</td><td>열람+동기화</td></tr>
+<tr class=""><td>월 LIST 요청 수</td><td class="inp num">100</td><td class="inp num">300</td><td class="inp num">600</td><td>앱 실행·목록 조회</td></tr>
+<tr class=""><td>월 다운로드량 (GB)</td><td class="inp num">1.5</td><td class="inp num">4</td><td class="inp num">7.5</td><td>재생·미리보기·재동기화</td></tr>
+<tr class=""><td>월 AI API 사용 (USD)</td><td class="inp num">0.3</td><td class="inp num">1.5</td><td class="inp num">5</td><td>STT+요약+번역</td></tr></table></div></section><section id="sheet-3-사용자당원가"><h2>3_사용자당원가</h2><div class="twrap"><table><tr class=""><td colspan="6">사용자 1명당 월 원가 계산</td><td></td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class=""><td colspan="6">모든 값은 시트 &#x27;1_단가정보&#x27;와 &#x27;2_사용자유형&#x27;을 참조합니다</td><td></td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class="hdr"><th>원가 항목</th><th>라이트 (USD)</th><th>미디엄 (USD)</th><th>헤비 (USD)</th><th>라이트 (₩)</th><th>미디엄 (₩)</th><th>헤비 (₩)</th></tr>
+<tr class=""><td>S3 저장 (Standard)</td><td class="num">0.0125</td><td class="num">0.075</td><td class="num">0.25</td><td class="num">17.5</td><td class="num">105</td><td class="num">350</td></tr>
+<tr class=""><td>S3 요청 (PUT/GET/LIST)</td><td class="num">0.0008</td><td class="num">0.0026</td><td class="num">0.0058</td><td class="num">1.155</td><td class="num">3.591</td><td class="num">8.155</td></tr>
+<tr class=""><td>S3 데이터 전송</td><td class="num">0.135</td><td class="num">0.36</td><td class="num">0.675</td><td class="num">189</td><td class="num">504</td><td class="num">945</td></tr>
+<tr class=""><td>AI API (STT/요약/번역)</td><td class="num">0.3</td><td class="num">1.5</td><td class="num">5</td><td class="num">420</td><td class="num">2,100</td><td class="num">7,000</td></tr>
+<tr class=""><td>서버 컴퓨팅 분담</td><td class="inp num">0.15</td><td class="inp num">0.2</td><td class="inp num">0.3</td><td class="num">210</td><td class="num">280</td><td class="num">420</td></tr>
+<tr class=""><td>직접 변동비 소계</td><td class="num">0.5983</td><td class="num">2.1376</td><td class="num">6.2308</td><td class="num">837.655</td><td class="num">2,992.591</td><td class="num">8,723.155</td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class=""><td>※ 참고사항</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td>• 위 원가는 CloudFront 미적용 기준. CDN 도입 시 데이터 전송 50~70% 절감 가능</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td>• 서버 컴퓨팅 분담은 사용자 1,000명 기준 추정 (사용자 증가 시 감소)</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td>• 결제 수수료(15~30%)와 고정비(개발·마케팅·CS)는 별도</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr class=""><td>• AI API 원가는 실측 데이터 기반, 사용 패턴에 따라 변동 가능</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table></div></section><section id="sheet-4-규모별원가"><h2>4_규모별원가</h2><div class="twrap"><table><tr class="title"><td colspan="7">사용자 규모별 월 총 원가</td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class="note"><td colspan="7">규모 확장 시 원가 구조 변화 및 인프라 단계 확인용</td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class="hdr"><th>구분</th><th>100명</th><th>500명</th><th>1,000명</th><th>5,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr class=""><td>라이트 유저 (60%)</td><td class="inp num">60</td><td class="inp num">300</td><td class="inp num">600</td><td class="inp num">3,000</td><td class="inp num">6,000</td><td class="inp num">30,000</td></tr>
+<tr class=""><td>미디엄 유저 (30%)</td><td class="inp num">30</td><td class="inp num">150</td><td class="inp num">300</td><td class="inp num">1,500</td><td class="inp num">3,000</td><td class="inp num">15,000</td></tr>
+<tr class=""><td>헤비 유저 (10%)</td><td class="inp num">10</td><td class="inp num">50</td><td class="inp num">100</td><td class="inp num">500</td><td class="inp num">1,000</td><td class="inp num">5,000</td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class=""><td>S3 저장 (₩)</td><td class="num">7,700</td><td class="num">38,500</td><td class="num">77,000</td><td class="num">385,000</td><td class="num">770,000</td><td class="num">3,850,000</td></tr>
+<tr class=""><td>S3 요청 (₩)</td><td class="num">258.58</td><td class="num">1,292.9</td><td class="num">2,585.8</td><td class="num">12,929</td><td class="num">25,858</td><td class="num">129,290</td></tr>
+<tr class=""><td>S3 데이터 전송 (₩)</td><td class="num">35,910</td><td class="num">179,550</td><td class="num">359,100</td><td class="num">1,795,500</td><td class="num">3,591,000</td><td class="num">17,955,000</td></tr>
+<tr class=""><td>AI API (₩)</td><td class="num">158,200</td><td class="num">791,000</td><td class="num">1,582,000</td><td class="num">7,910,000</td><td class="num">15,820,000</td><td class="num">79,100,000</td></tr>
+<tr class=""><td>서버·DB 고정비 (₩)</td><td class="inp num">30,000</td><td class="inp num">55,000</td><td class="inp num">80,000</td><td class="inp num">240,000</td><td class="inp num">480,000</td><td class="inp num">2,000,000</td></tr>
+<tr class=""><td>월 총 원가 (₩)</td><td class="num">232,068.58</td><td class="num">1,065,342.9</td><td class="num">2,100,685.8</td><td class="num">10,343,429</td><td class="num">20,686,858</td><td class="num">103,034,290</td></tr>
+<tr class=""><td>사용자당 평균 (₩)</td><td class="num">2,320.6858</td><td class="num">2,130.6858</td><td class="num">2,100.6858</td><td class="num">2,068.6858</td><td class="num">2,068.6858</td><td class="num">2,060.6858</td></tr>
+<tr class="spacer"><td colspan="7"></td></tr>
+<tr class=""><td>▶ 권장 인프라 단계</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr class="note"><td colspan="7">• 100명: Cafe24 초기 서버, S3 Standard, CDN 없음</td></tr>
+<tr class="note"><td colspan="7">• 500명: 동일 + DB 별도 검토</td></tr>
+<tr class="note"><td colspan="7">• 1,000명: AWS EC2 t3.medium 전환, RDS 도입, CloudFront 검토</td></tr>
+<tr class="note"><td colspan="7">• 5,000명: CloudFront 필수, S3 계층형 스토리지 시작</td></tr>
+<tr class="note"><td colspan="7">• 10,000명: AWS EC2 t3.xlarge, 오래된 데이터 Standard-IA 이동</td></tr>
+<tr class="note"><td colspan="7">• 50,000명: Auto Scaling, ELB, Multi-AZ, Enterprise 계약 협상</td></tr></table></div></section><section id="sheet-5-CDN효과"><h2>5_CDN효과</h2><div class="twrap"><table><tr class="title"><td colspan="5">CloudFront CDN 적용 전후 원가 비교</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">CDN 캐시율 가정: 70% (자주 접근하는 콘텐츠가 캐시에서 응답)</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>CDN 도입 시 전송 원가 절감률</td><td class="inp num">0.4</td><td></td><td></td><td></td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="hdr"><th>구분</th><th>1,000명</th><th>5,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr class="section"><td colspan="5">▶ CDN 미적용 시</td></tr>
+<tr class=""><td>S3 데이터 전송 원가</td><td class="num">359,100</td><td class="num">1,795,500</td><td class="num">3,591,000</td><td class="num">17,955,000</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="section"><td colspan="5">▶ CDN 적용 시 (실무 절감률 40% 가정)</td></tr>
+<tr class=""><td>CDN 적용 후 전송 원가</td><td class="num">215,460</td><td class="num">1,077,300</td><td class="num">2,154,600</td><td class="num">10,773,000</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>CDN 적용 시 총 전송 원가</td><td class="num">215,460</td><td class="num">1,077,300</td><td class="num">2,154,600</td><td class="num">10,773,000</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>월 절감액</td><td class="num">143,640</td><td class="num">718,200</td><td class="num">1,436,400</td><td class="num">7,182,000</td></tr>
+<tr class=""><td>절감률</td><td class="num">0.4</td><td class="num">0.4</td><td class="num">0.4</td><td class="num">0.4</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class=""><td>▶ 결론</td><td></td><td></td><td></td><td></td></tr>
+<tr class="note"><td colspan="5">• 사용자 1,000명 이상에서 CDN 도입 시 명확한 절감 효과</td></tr>
+<tr class="note"><td colspan="5">• 캐시율이 높을수록(자주 열람되는 콘텐츠) 효과 커짐</td></tr>
+<tr class="note"><td colspan="5">• 학기 자료 특성상 시험 기간 반복 열람 → CDN 효과 큼</td></tr>
+<tr class="note"><td colspan="5">• CDN 자체 요금(요청·설정)은 별도이나 절감액이 훨씬 큼</td></tr></table></div></section>
+<section id="sheet-6-순수익">
+<h2>6_순수익분석 · 구독플랜 × 금액 × 유저수</h2>
+<div class="twrap"><table>
+<tr class="title"><td colspan="7">▶ 표 A · 사용자 1명당 월 순수익 (요금제별 상세)</td></tr>
+<tr class="hdr"><th>플랜</th><th>요금제</th><th>월 매출(₩)</th><th>수수료 30% (₩)</th><th>인프라 원가(₩)</th><th>사용자당 순수익(₩)</th><th>순수익률</th></tr>
+<tr><td rowspan="3"><b>스탠다드</b></td><td>월간 <span class="sub">($4.99)</span></td><td class="num inp">6,986</td><td class="num">2,096</td><td class="num inp">2,993</td><td class="num">1,898</td><td class="num">27.2%</td></tr>
+<tr><td>연간(월 환산) <span class="sub">($3.33)</span></td><td class="num inp">4,666</td><td class="num">1,400</td><td class="num inp">2,993</td><td class="num">273</td><td class="num">5.9%</td></tr>
+<tr><td>학생 <span class="sub">($2.49)</span></td><td class="num inp">3,486</td><td class="num">1,046</td><td class="num inp">2,993</td><td class="num neg">-552</td><td class="num neg">-15.8%</td></tr>
+<tr><td rowspan="3"><b>프리미엄</b></td><td>월간 <span class="sub">($9.99)</span></td><td class="num inp">13,986</td><td class="num">4,196</td><td class="num inp">8,723</td><td class="num">1,067</td><td class="num">7.6%</td></tr>
+<tr><td>연간(월 환산) <span class="sub">($6.67)</span></td><td class="num inp">9,332</td><td class="num">2,800</td><td class="num inp">8,723</td><td class="num neg">-2,191</td><td class="num neg">-23.5%</td></tr>
+<tr><td>학생 <span class="sub">($4.99)</span></td><td class="num inp">6,986</td><td class="num">2,096</td><td class="num inp">8,723</td><td class="num neg">-3,833</td><td class="num neg">-54.9%</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="5">▶ 표 B · 스탠다드 — 요금제 × 유저수 월 순수익 (전원 스탠다드 가입 가정)</td></tr>
+<tr class="hdr"><th>요금제</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr><td>월간 <span class="sub">($4.99)</span></td><td class="num">189,761</td><td class="num">1,897,609</td><td class="num">18,976,090</td><td class="num">94,880,450</td></tr>
+<tr><td>연간(월 환산) <span class="sub">($3.33)</span></td><td class="num">27,326</td><td class="num">273,259</td><td class="num">2,732,590</td><td class="num">13,662,950</td></tr>
+<tr><td>학생 <span class="sub">($2.49)</span></td><td class="num neg">-55,239</td><td class="num neg">-552,391</td><td class="num neg">-5,523,910</td><td class="num neg">-27,619,550</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="5">▶ 표 C · 프리미엄 — 요금제 × 유저수 월 순수익 (전원 프리미엄 가입 가정)</td></tr>
+<tr class="hdr"><th>요금제</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr><td>월간 <span class="sub">($9.99)</span></td><td class="num">106,704</td><td class="num">1,067,045</td><td class="num">10,670,450</td><td class="num">53,352,250</td></tr>
+<tr><td>연간(월 환산) <span class="sub">($6.67)</span></td><td class="num neg">-219,064</td><td class="num neg">-2,190,638</td><td class="num neg">-21,906,383</td><td class="num neg">-109,531,917</td></tr>
+<tr><td>학생 <span class="sub">($4.99)</span></td><td class="num neg">-383,296</td><td class="num neg">-3,832,955</td><td class="num neg">-38,329,550</td><td class="num neg">-191,647,750</td></tr>
+</table></div>
+
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="6">▶ 표 D · 스탠다드 금액 민감도 (월 구독가별 순수익)</td></tr>
+<tr class="hdr"><th>월 구독가</th><th>사용자당 순수익(₩)</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr><td class="inp">$2.99</td><td class="num neg">-62</td><td class="num neg">-6,239</td><td class="num neg">-62,391</td><td class="num neg">-623,910</td><td class="num neg">-3,119,550</td></tr>
+<tr><td class="inp">$3.99</td><td class="num">918</td><td class="num">91,761</td><td class="num">917,609</td><td class="num">9,176,090</td><td class="num">45,880,450</td></tr>
+<tr class="cur"><td class="inp">$4.99 <b>(현재)</b></td><td class="num">1,898</td><td class="num">189,761</td><td class="num">1,897,609</td><td class="num">18,976,090</td><td class="num">94,880,450</td></tr>
+<tr><td class="inp">$5.99</td><td class="num">2,878</td><td class="num">287,761</td><td class="num">2,877,609</td><td class="num">28,776,090</td><td class="num">143,880,450</td></tr>
+<tr><td class="inp">$6.99</td><td class="num">3,858</td><td class="num">385,761</td><td class="num">3,857,609</td><td class="num">38,576,090</td><td class="num">192,880,450</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="6">▶ 표 E · 프리미엄 금액 민감도 (월 구독가별 순수익)</td></tr>
+<tr class="hdr"><th>월 구독가</th><th>사용자당 순수익(₩)</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr><td class="inp">$7.99</td><td class="num neg">-893</td><td class="num neg">-89,296</td><td class="num neg">-892,955</td><td class="num neg">-8,929,550</td><td class="num neg">-44,647,750</td></tr>
+<tr><td class="inp">$8.99</td><td class="num">87</td><td class="num">8,704</td><td class="num">87,045</td><td class="num">870,450</td><td class="num">4,352,250</td></tr>
+<tr class="cur"><td class="inp">$9.99 <b>(현재)</b></td><td class="num">1,067</td><td class="num">106,704</td><td class="num">1,067,045</td><td class="num">10,670,450</td><td class="num">53,352,250</td></tr>
+<tr><td class="inp">$10.99</td><td class="num">2,047</td><td class="num">204,704</td><td class="num">2,047,045</td><td class="num">20,470,450</td><td class="num">102,352,250</td></tr>
+<tr><td class="inp">$12.99</td><td class="num">4,007</td><td class="num">400,704</td><td class="num">4,007,045</td><td class="num">40,070,450</td><td class="num">200,352,250</td></tr>
+</table></div>
+<div class="legend" style="margin-top:16px">
+  <span><b>파란색</b> = 입력 가정값(수정 가능)</span>
+  <span style="color:#dc2626">붉은색 = 순손실(적자)</span>
+</div>
+<ul class="memo">
+  <li><b>순수익 정의</b>: 월 매출 − 앱스토어 결제 수수료(30%) − 인프라 원가. 개발·마케팅·CS 등 고정비는 별도.</li>
+  <li><b>인프라 원가 가정</b>: 스탠다드=미디엄 유저(₩2,993), 프리미엄=헤비 유저(₩8,723) 기준(원가표 3시트). 실제 사용 패턴에 따라 변동.</li>
+  <li><b>환율</b>: 1,400₩/$ · <b>수수료</b>: 30%(앱스토어 최대). 연 매출 $100만 이하 또는 구독 1년 경과 시 15%로 낮아질 수 있음.</li>
+  <li><b>손익분기 월 구독료</b>: 스탠다드 ≈ <b>$3.05</b>, 프리미엄 ≈ <b>$8.90</b> (이보다 낮으면 사용자당 적자).</li>
+  <li><b>핵심 시사점</b>: 프리미엄 연간·학생 요금은 헤비 유저 원가를 밑돌아 <span style="color:#dc2626">적자</span> — 요약 시트의 "프리미엄 무제한 = 위험"과 일치. 공정 사용 정책·용량 제한 필요.</li>
+</ul>
+
+</section>
+
+<section id="sheet-7-경쟁사">
+<h2>7_경쟁사비교 · 한국 노트 앱 기능·가격</h2>
+<div class="twrap"><table class="cmp">
+<tr class="title"><td colspan="6">▶ 표 F · 기능 비교 (리튼 vs 한국 주요 노트·음성기록 앱)</td></tr>
+<tr class="hdr"><th>기능</th><th class="lt">리튼(Litten)</th><th class="">네이버 클로바노트</th><th class="">다글로</th><th class="">삼성 노트</th><th class="">노션(Notion)</th></tr>
+<tr><td class="rowlab">음성 녹음·재생 (듣기)</td><td class="fc ok lt">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">첨부</td><td class="fc mid">AI메모</td></tr>
+<tr><td class="rowlab">AI 음성→텍스트 (STT)</td><td class="fc mid lt">로드맵</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">일부</td><td class="fc mid">AI</td></tr>
+<tr><td class="rowlab">텍스트 작성·편집</td><td class="fc ok lt">✓</td><td class="fc mid">메모</td><td class="fc mid">메모</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
+<tr><td class="rowlab">이미지 위 필기 (드로잉)</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
+<tr><td class="rowlab">PDF 주석·필기</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc mid">첨부</td></tr>
+<tr><td class="rowlab">로컬 저장 (오프라인)</td><td class="fc ok lt">✓</td><td class="fc mid">△</td><td class="fc mid">△</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
+<tr><td class="rowlab">클라우드·서버 동기화</td><td class="fc mid lt">프리미엄</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
+<tr><td class="rowlab">다국어 UI (30개)</td><td class="fc ok lt">✓</td><td class="fc mid">일부</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
+<tr><td class="rowlab">광고</td><td class="fc txt lt">무료만</td><td class="fc txt">없음</td><td class="fc txt">무료有</td><td class="fc txt">없음</td><td class="fc txt">없음</td></tr>
+<tr><td class="rowlab">주 플랫폼</td><td class="fc txt lt">AOS·iOS</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">갤럭시·윈도우</td><td class="fc txt">전 플랫폼</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table class="cmp">
+<tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월 조사)</td></tr>
+<tr class="hdr"><th>앱</th><th>무료 플랜</th><th>유료 플랜</th><th>월 가격</th><th>주요 유료 혜택</th></tr>
+<tr><td class="lt"><b>리튼(Litten)</b></td><td>리튼 5·파일 제한+광고</td><td>스탠다드 / 프리미엄</td><td class="num">$4.99 / $9.99<br><span class='sub'>(약 6,990 / 13,990원)</span></td><td class="sub2">광고 제거·무제한 저장 / +서버 동기화·보관</td></tr>
+<tr><td><b>네이버 클로바노트</b></td><td>월 300분(동의 시 600분)<br>AI 요약 월 15회</td><td>개인 유료 없음&lt;br&gt;(기업용 Lite)</td><td class="num">개인 0원<br><span class='sub'>기업 20,000원/인</span></td><td class="sub2">기업 Lite: 월 6,000분·AI요약 무제한·관리자</td></tr>
+<tr><td><b>다글로</b></td><td>월 4시간(녹음·파일)<br>1,000 크레딧</td><td>Pro / Premium</td><td class="num">11,900원 / 16,580원<br><span class='sub'>(Premium 연 199,000원)</span></td><td class="sub2">녹음 무제한·무광고 / 전부 무제한·4배 속도·AI채팅</td></tr>
+<tr><td><b>삼성 노트</b></td><td>전 기능 무료<br>(삼성 기기 기본)</td><td>—</td><td class="num">0원</td><td class="sub2">필기·PDF주석·삼성 클라우드 동기화 기본 제공</td></tr>
+<tr><td><b>노션(Notion)</b></td><td>개인 무료</td><td>Plus / Business</td><td class="num">16,800원 / 36,000원<br><span class='sub'>(연 결제 14,000 / 30,000원)</span></td><td class="sub2">협업·용량 확대 / +Notion AI·고급 관리</td></tr>
+</table></div>
+
+<div class="legend" style="margin-top:14px">
+  <span><span class="chip ok">✓</span> 지원</span>
+  <span><span class="chip mid">△</span> 부분·제한·로드맵</span>
+  <span><span class="chip no">✗</span> 미지원</span>
+  <span class="lt-chip">리튼 = 강조 열</span>
+</div>
+<ul class="memo">
+  <li><b>리튼의 차별점</b>: 음성(듣기)·텍스트·<b>이미지 위 필기</b>를 한 앱에서 통합 + <b>30개 다국어</b> + 완전 로컬 우선. 클로바노트·다글로는 음성 STT 특화(필기 없음), 삼성노트는 필기 강점이나 삼성 기기 종속.</li>
+  <li><b>가격 포지셔닝</b>: 리튼 스탠다드 $4.99(≈6,990원)는 다글로 Pro(11,900원)·노션 Plus(16,800원)보다 저렴, 삼성노트(무료)보다는 상위. 음성+필기 통합 대비 가성비 소구 가능.</li>
+  <li><b>주의</b>: 가격·사용량 한도는 2026년 7월 조사 기준이며 각 사 정책에 따라 변동될 수 있음. 리튼 가격은 기획서(2_planning.txt) 계획값(환율 1,400원 환산).</li>
+</ul>
+
+</section>
+
+</main>
+</body>
+</html>

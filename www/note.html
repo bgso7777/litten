@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼 노트 서비스 - 듣기, 쓰기, 필기를 통합한 강력한 노트 기능">
+    <meta name="description" content="리튼 노트 서비스 - 듣기, 쓰기, 필기에 스터디룸까지 통합한 강력한 노트 기능">
     <title>노트 서비스 - Litten</title>
     <style>
         * {
@@ -85,7 +85,9 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+            background:
+                repeating-linear-gradient(0deg, transparent 0, transparent 99px, rgba(255,255,255,0.1) 99px, rgba(255,255,255,0.1) 100px),
+                repeating-linear-gradient(90deg, transparent 0, transparent 99px, rgba(255,255,255,0.1) 99px, rgba(255,255,255,0.1) 100px);
             opacity: 0.3;
         }
 
@@ -498,7 +500,7 @@
     <section class="hero">
         <div class="hero-content">
             <h1>📝 리튼 노트 서비스</h1>
-            <p>듣기, 쓰기, 필기 - 세 가지 강력한 방식으로 당신의 아이디어를 기록하고 관리하세요</p>
+            <p>듣기, 쓰기, 필기 그리고 스터디룸 - 기록하고, 함께 나누며 관리하세요</p>
         </div>
     </section>
 
@@ -508,6 +510,7 @@
             <button class="tab-button active" onclick="showTab('listening')">🎵 듣기 (녹음)</button>
             <button class="tab-button" onclick="showTab('writing')">✍️ 쓰기 (텍스트)</button>
             <button class="tab-button" onclick="showTab('handwriting')">🎨 필기 (그리기)</button>
+            <button class="tab-button" onclick="showTab('studyroom')">💬 스터디룸</button>
         </div>
     </div>
 
@@ -689,6 +692,58 @@
         </div>
     </div>
 
+    <!-- 스터디룸 탭 -->
+    <div id="studyroom" class="tab-content">
+        <div class="feature-showcase">
+            <div class="feature-text">
+                <h2>💬 함께 공부하는 스터디룸</h2>
+                <p>혼자서도, 함께서도 — 대화와 학습자료를 한 방에 모아 공부하세요. 1:1 룸, 그룹 룸, 나만의 룸까지 목적에 맞게 스터디룸을 만들 수 있습니다.</p>
+
+                <h3>주요 기능</h3>
+                <ul>
+                    <li>1:1 룸 · 그룹 룸 · 나만의 룸 생성</li>
+                    <li>노트·녹음·필기·PDF·요약·퀴즈 등 학습자료 공유</li>
+                    <li>한 방 안에 [대화] 탭과 [자료] 탭이 함께</li>
+                    <li>나만의 스터디룸으로 주제별 기록 관리</li>
+                    <li>읽지 않은 새 메시지·참여자 표시</li>
+                    <li>룸 이름 변경 및 멤버 관리</li>
+                </ul>
+
+                <div class="highlight-box">
+                    <h4>💡 Pro Tip</h4>
+                    <p>스터디룸은 회원가입 후 로그인하면 이용할 수 있습니다. 노트·녹음·필기 등 리튼에서 만든 자료를 그대로 룸에 공유해 함께 정리하세요.</p>
+                </div>
+            </div>
+            <div class="feature-image">
+                <span>💬 스터디룸 화면</span>
+            </div>
+        </div>
+
+        <h2 class="section-title">활용 사례</h2>
+        <div class="use-cases">
+            <div class="use-case-card">
+                <div class="use-case-icon">👥</div>
+                <h4>스터디 그룹</h4>
+                <p>그룹 룸을 만들어 시험 자료와 필기를 함께 공유하고, 대화로 모르는 부분을 물어보며 협력 학습하세요.</p>
+            </div>
+            <div class="use-case-card">
+                <div class="use-case-icon">🧑‍🏫</div>
+                <h4>과외·멘토링</h4>
+                <p>1:1 룸으로 학생과 자료를 주고받고 피드백을 남기세요. 녹음·필기 자료가 한 방에 정리됩니다.</p>
+            </div>
+            <div class="use-case-card">
+                <div class="use-case-icon">🗂️</div>
+                <h4>나만의 정리방</h4>
+                <p>나만의 스터디룸에 메모처럼 자유롭게 기록하고, 주제별로 여러 방을 운영하며 자료를 모으세요.</p>
+            </div>
+            <div class="use-case-card">
+                <div class="use-case-icon">📖</div>
+                <h4>독서·세미나 모임</h4>
+                <p>모임 룸에서 발제 자료와 요약·퀴즈를 공유하고 대화로 토론 내용을 남겨 두세요.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- 통합 사용 섹션 -->
     <div class="integration-section">
         <div class="integration-content">
@@ -717,6 +772,11 @@
                     <div class="integration-feature-icon">💾</div>
                     <h4>자동 저장</h4>
                     <p>작업 내용이 자동으로 저장됨</p>
+                </div>
+                <div class="integration-feature">
+                    <div class="integration-feature-icon">💬</div>
+                    <h4>스터디룸</h4>
+                    <p>대화·자료를 한 방에 모아 함께 공부</p>
                 </div>
             </div>
         </div>

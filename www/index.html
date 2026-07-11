@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼(Litten) - 녹음·텍스트·필기에 AI 요약·퀴즈까지. 듣고, 쓰고, 그리고, 정리하는 올인원 노트 앱">
+    <meta name="description" content="리튼(Litten) - 녹음·텍스트·필기에 AI 요약·퀴즈, 스터디룸까지. 듣고, 쓰고, 그리고, 함께 정리하는 올인원 노트 앱">
     <meta property="og:title" content="Litten - 기록은 나답게, 정리는 AI답게">
-    <meta property="og:description" content="음성 녹음·STT·텍스트·필기에 AI 요약/퀴즈/유튜브 요약까지. 30개 언어, 5가지 테마를 지원하는 크로스 플랫폼 노트 앱">
+    <meta property="og:description" content="음성 녹음·STT·텍스트·필기에 AI 요약/퀴즈/유튜브 요약, 스터디룸까지. 30개 언어, 5가지 테마를 지원하는 크로스 플랫폼 노트 앱">
     <title>Litten - 기록은 나답게, 정리는 AI답게</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/><path d='M21 11 L21.5 12.5 L23 13 L21.5 13.5 L21 15 L20.5 13.5 L19 13 L20.5 12.5 Z' fill='%23FBBF24'/><path d='M22 0.9 L22.38 2 L23.5 2.4 L22.38 2.8 L22 3.9 L21.62 2.8 L20.5 2.4 L21.62 2 Z' fill='%23FBBF24'/></svg>">
     <style>
@@ -110,12 +110,6 @@
             overflow: hidden;
         }
 
-        .hero::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: url('data:image/svg+xml,<svg width="80" height="80" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="g" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(74,144,226,0.10)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
-        }
 
         .hero-content { position: relative; z-index: 1; max-width: 860px; }
 
@@ -596,8 +590,9 @@
         /* 모든 기능 (소프트 아이콘) */
         .features-all { background: var(--bg-soft); }
         .feature-all-grid { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.2rem; }
-        .fa-item { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem 1rem; text-align: center; transition: transform .25s, box-shadow .25s; }
+        .fa-item { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem 1rem; text-align: center; transition: transform .25s, box-shadow .25s; }
         .fa-item:hover { transform: translateY(-6px); box-shadow: 0 16px 36px rgba(74,144,226,0.14); }
+        .fa-badge { position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.64rem; font-weight:700; padding:2px 7px; border-radius:999px; letter-spacing:0.02em; }
         .fa-icon svg { width: 58px; height: 58px; filter: drop-shadow(0 5px 10px rgba(74,144,226,0.14)); }
         .fa-item h4 { font-size: 1.05rem; margin: 0.7rem 0 0.3rem; color: var(--ink); }
         .fa-item p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
@@ -673,7 +668,7 @@
                 <path d="M171 58 L173 65.5 L180 67.5 L173 69.5 L171 77 L169 69.5 L162 67.5 L169 65.5 Z" fill="#FBBF24" opacity="0.85"/>
                 <path d="M168 21 L169.6 26 L174.5 28 L169.6 30 L168 35 L166.4 30 L161.5 28 L166.4 26 Z" fill="#FBBF24" opacity="0.7"/>
             </svg>
-            <span class="hero-badge">✨ 듣기 · ✍️ 쓰기 · 🎨 필기 · 🤖 AI 정리</span>
+            <span class="hero-badge">✨ 듣기 · ✍️ 쓰기 · 🎨 필기 · 🤖 AI 정리 · 💬 스터디룸</span>
             <h1>기록은 나답게,<br class="d-br">정리는 AI답게</h1>
             <p class="tagline">음성 녹음부터 텍스트·필기, 그리고 <strong>AI 요약·퀴즈</strong>까지<br>흩어진 모든 기록을 하나의 <strong>리튼 공간</strong>에 담으세요</p>
             <div class="cta-buttons">
@@ -738,7 +733,7 @@
         <div class="section-head reveal">
             <span class="eyebrow">Features</span>
             <h2 class="section-title">리튼의 모든 기능</h2>
-            <p class="section-subtitle">듣기·쓰기·필기부터 AI 요약·퀴즈, 동기화까지 한 앱에서</p>
+            <p class="section-subtitle">듣기·쓰기·필기부터 AI 요약·퀴즈, 스터디룸, 동기화까지 한 앱에서</p>
         </div>
         <div class="feature-all-grid" id="featGrid"></div>
     </section>
@@ -927,17 +922,34 @@
         const FEATURES = [
             { t:'memo',     name:'메모',      desc:'텍스트로 빠르게 기록하고 정리' },
             { t:'draw',     name:'필기',      desc:'이미지·PDF 위에 자유롭게 손필기' },
+            { t:'pdf',      name:'PDF 변환',  desc:'이미지·문서를 PDF로 변환·조회' },
+            { t:'annotate', name:'PDF 주석',  desc:'PDF에 하이라이트·밑줄·메모 주석' },
             { t:'record',   name:'녹음',      desc:'강의·회의를 고품질 음성 녹음' },
             { t:'recmemo',  name:'녹음 메모', desc:'녹음을 자동으로 텍스트 변환(STT)' },
             { t:'photo',    name:'사진',      desc:'사진을 첨부해 함께 보관' },
             { t:'video',    name:'비디오',    desc:'영상을 첨부하고 재생' },
             { t:'channel',  name:'영상채널',  desc:'유튜브 채널 구독·영상 요약' },
+            { t:'space',    name:'리튼 공간', desc:'듣기·쓰기·필기를 한 공간에 통합' },
             { t:'file',     name:'파일',      desc:'다양한 문서·파일 첨부 관리' },
+            { t:'search',   name:'파일 검색', desc:'파일명·내용을 빠르게 검색' },
+            { t:'browser',  name:'인앱 브라우저', desc:'앱에서 바로 웹 검색·자료 열람' },
             { t:'sync',     name:'동기화',    desc:'기기 간 클라우드 자동 동기화' },
+            { t:'backup',   name:'클라우드 백업', desc:'파일을 서버에 안전하게 보관' },
+            { t:'offline',  name:'오프라인 우선', desc:'네트워크 없이도 작업·자동 저장' },
+            { t:'stats',    name:'파일 통계', desc:'리튼·파일 수와 사용량 한눈에' },
             { t:'share',    name:'공유',      desc:'리튼·파일을 손쉽게 공유' },
+            { t:'summary',  name:'AI 요약',   desc:'텍스트·음성·PDF를 자동 요약' },
+            { t:'translate',name:'다국어 요약', desc:'원문을 다른 언어로 요약·번역' },
             { t:'quiz',     name:'퀴즈',      desc:'AI가 학습 퀴즈를 자동 생성' },
+            { t:'studyroom',name:'스터디룸',  desc:'1:1·그룹·나만의 룸으로 학습자료 공유' },
+            { t:'studytalk',name:'스터디 대화',desc:'룸 멤버와 대화하며 함께 학습' },
             { t:'calendar', name:'캘린더',    desc:'일정을 한눈에 관리' },
+            { t:'alarm',    name:'일정 알림', desc:'정시·10분 전 등 맞춤 알림' },
             { t:'remind',   name:'리마인드',  desc:'요약·퀴즈를 모아 복습' },
+            { t:'split',    name:'4면 분할', desc:'화면을 4분할해 동시 작업' },
+            { t:'fab',      name:'FAB 커스터마이즈', desc:'빠른 추가 버튼을 내 맘대로 구성' },
+            { t:'lang',     name:'30개 언어', desc:'전 세계 30개 언어 지원' },
+            { t:'theme',    name:'5가지 테마', desc:'취향대로 5가지 색상 테마' },
         ];
         function sym(type, body, cut) {
             const star = `<path d="M19.3 1 L20.2 3.1 L22.3 4 L20.2 4.9 L19.3 7 L18.4 4.9 L16.3 4 L18.4 3.1 Z" fill="#FBBF24"/>
@@ -989,6 +1001,75 @@
                     <circle cx="16.5" cy="18.5" r="2.7" fill="${body}"/>
                     <path d="M8.9 10.7 L14.1 6.8" stroke="${body}" stroke-width="1.8" stroke-linecap="round"/>
                     <path d="M8.9 13.3 L14.1 17.2" stroke="${body}" stroke-width="1.8" stroke-linecap="round"/>`,
+                studyroom: `<rect x="2.4" y="4" width="13.5" height="10" rx="2.6" fill="${body}"/>
+                    <path d="M5.6 13.4 L5.6 16.8 L9.4 13.4 Z" fill="${body}"/>
+                    <rect x="5" y="6.9" width="8.3" height="1.4" rx="0.7" fill="${cut}"/>
+                    <rect x="5" y="9.6" width="5.6" height="1.4" rx="0.7" fill="${cut}"/>
+                    <rect x="11.5" y="10" width="10.1" height="8" rx="2.3" fill="${body}"/>
+                    <path d="M18.2 17.6 L18.2 20.8 L14.8 17.6 Z" fill="${body}"/>
+                    <circle cx="14.6" cy="14" r="1.05" fill="${cut}"/>
+                    <circle cx="18" cy="14" r="1.05" fill="${cut}"/>`,
+                studytalk: `<rect x="2.6" y="4.2" width="18.8" height="13" rx="3.2" fill="${body}"/>
+                    <path d="M8 17.2 L8 21 L13.4 17.2 Z" fill="${body}"/>
+                    <circle cx="8" cy="10.7" r="1.25" fill="${cut}"/>
+                    <circle cx="12" cy="10.7" r="1.25" fill="${cut}"/>
+                    <circle cx="16" cy="10.7" r="1.25" fill="${cut}"/>`,
+                search: `<circle cx="10.2" cy="10.2" r="6.4" fill="none" stroke="${body}" stroke-width="2.4"/>
+                    <circle cx="10.2" cy="10.2" r="3" fill="${cut}"/>
+                    <path d="M15 15 L20.2 20.2" stroke="${body}" stroke-width="2.7" stroke-linecap="round"/>`,
+                summary: `<rect x="4" y="5.4" width="16" height="1.9" rx="0.95" fill="${body}"/>
+                    <rect x="6" y="9.1" width="12" height="1.9" rx="0.95" fill="${body}"/>
+                    <rect x="8" y="12.8" width="8" height="1.9" rx="0.95" fill="${body}"/>
+                    <rect x="10" y="16.5" width="4" height="1.9" rx="0.95" fill="${body}"/>`,
+                pdf: `<path d="M6 2.5 h7 l5 5 v12.4 a1.6 1.6 0 0 1 -1.6 1.6 h-9.8 a1.6 1.6 0 0 1 -1.6 -1.6 v-15.8 a1.6 1.6 0 0 1 1.6 -1.6 Z" fill="${body}"/>
+                    <path d="M13 2.5 v5 h5 Z" fill="${cut}"/>
+                    <text x="11.2" y="17.2" font-family="-apple-system,Arial,sans-serif" font-size="5.4" font-weight="800" fill="${cut}" text-anchor="middle">PDF</text>`,
+                alarm: `<path d="M12 3.4 a5.2 5.2 0 0 1 5.2 5.2 c0 3.8 1.3 5.4 2.1 6.2 a1 1 0 0 1 -0.7 1.7 H5.4 a1 1 0 0 1 -0.7 -1.7 c0.8 -0.8 2.1 -2.4 2.1 -6.2 A5.2 5.2 0 0 1 12 3.4 Z" fill="${body}"/>
+                    <path d="M9.8 18.4 a2.3 2.3 0 0 0 4.4 0 Z" fill="${body}"/>
+                    <circle cx="12" cy="3.4" r="1.5" fill="${cut}"/>`,
+                backup: `<path d="M17.4 15.4 H7 a4.3 4.3 0 0 1 -0.5 -8.57 a5.7 5.7 0 0 1 10.8 1.1 A3.7 3.7 0 0 1 17.4 15.4 Z" fill="${body}"/>
+                    <rect x="9" y="13.6" width="6" height="5.6" rx="1.1" fill="${body}"/>
+                    <path d="M10.3 13.6 v-1.4 a1.7 1.7 0 0 1 3.4 0 v1.4" fill="none" stroke="${body}" stroke-width="1.2"/>
+                    <circle cx="12" cy="16" r="0.95" fill="${cut}"/>
+                    <rect x="11.5" y="16.4" width="1" height="1.8" rx="0.5" fill="${cut}"/>`,
+                annotate: `<path d="M6 2.5 h7 l5 5 v12.4 a1.6 1.6 0 0 1 -1.6 1.6 h-9.8 a1.6 1.6 0 0 1 -1.6 -1.6 v-15.8 a1.6 1.6 0 0 1 1.6 -1.6 Z" fill="${body}"/>
+                    <path d="M13 2.5 v5 h5 Z" fill="${cut}"/>
+                    <rect x="7.6" y="10.6" width="8.8" height="2.6" rx="1.3" fill="#FBBF24"/>
+                    <rect x="7.6" y="15" width="6" height="1.4" rx="0.7" fill="${cut}"/>`,
+                translate: `<circle cx="12" cy="12" r="8.2" fill="${body}"/>
+                    <ellipse cx="12" cy="12" rx="3.4" ry="8.2" fill="none" stroke="${cut}" stroke-width="1.1"/>
+                    <path d="M3.9 12 H20.1" stroke="${cut}" stroke-width="1.1"/>
+                    <path d="M5.2 8.2 H18.8 M5.2 15.8 H18.8" stroke="${cut}" stroke-width="1" opacity="0.75"/>`,
+                space: `<rect x="3" y="4.5" width="18" height="15" rx="3" fill="${body}"/>
+                    <circle cx="8" cy="9.6" r="1.9" fill="${cut}"/>
+                    <rect x="11.8" y="8" width="6.2" height="1.5" rx="0.75" fill="${cut}"/>
+                    <rect x="11.8" y="10.7" width="4.3" height="1.5" rx="0.75" fill="${cut}"/>
+                    <rect x="6" y="13.8" width="12" height="1.5" rx="0.75" fill="${cut}"/>
+                    <rect x="6" y="16.3" width="8" height="1.5" rx="0.75" fill="${cut}"/>`,
+                offline: `<path d="M17.4 15.4 H7 a4.3 4.3 0 0 1 -0.5 -8.57 a5.7 5.7 0 0 1 10.8 1.1 A3.7 3.7 0 0 1 17.4 15.4 Z" fill="${body}"/>
+                    <path d="M6.5 6 L17.2 15.8" stroke="${cut}" stroke-width="1.9" stroke-linecap="round"/>`,
+                browser: `<rect x="2.5" y="4" width="19" height="16" rx="2.6" fill="${body}"/>
+                    <path d="M2.5 8.4 H21.5" stroke="${cut}" stroke-width="1.1"/>
+                    <circle cx="5.2" cy="6.2" r="0.85" fill="${cut}"/>
+                    <circle cx="7.7" cy="6.2" r="0.85" fill="${cut}"/>
+                    <circle cx="10.2" cy="6.2" r="0.85" fill="${cut}"/>
+                    <rect x="6" y="11.4" width="12" height="1.6" rx="0.8" fill="${cut}"/>
+                    <rect x="6" y="14.4" width="9" height="1.6" rx="0.8" fill="${cut}"/>`,
+                stats: `<rect x="3.6" y="12" width="3.6" height="7.6" rx="1" fill="${body}"/>
+                    <rect x="10.2" y="7.6" width="3.6" height="12" rx="1" fill="${body}"/>
+                    <rect x="16.8" y="4" width="3.6" height="15.6" rx="1" fill="${body}"/>`,
+                split: `<rect x="3" y="3" width="18" height="18" rx="2.8" fill="${body}"/>
+                    <path d="M12 3.6 V20.4 M3.6 12 H20.4" stroke="${cut}" stroke-width="1.7"/>`,
+                fab: `<circle cx="12" cy="12" r="8.4" fill="${body}"/>
+                    <path d="M12 7.6 V16.4 M7.6 12 H16.4" stroke="${cut}" stroke-width="2.3" stroke-linecap="round"/>`,
+                lang: `<circle cx="12" cy="12" r="9" fill="${body}"/>
+                    <text x="9.2" y="12.6" font-family="-apple-system,Arial,sans-serif" font-size="8.5" font-weight="800" fill="${cut}" text-anchor="middle">A</text>
+                    <text x="15" y="16.8" font-family="-apple-system,Arial,sans-serif" font-size="7" font-weight="800" fill="${cut}" text-anchor="middle">文</text>`,
+                theme: `<rect x="2.6" y="6.5" width="3.2" height="11" rx="1.5" fill="#4A90E2"/>
+                    <rect x="6.5" y="6.5" width="3.2" height="11" rx="1.5" fill="#2d3748"/>
+                    <rect x="10.4" y="6.5" width="3.2" height="11" rx="1.5" fill="#38a169"/>
+                    <rect x="14.3" y="6.5" width="3.2" height="11" rx="1.5" fill="#dd6b20"/>
+                    <rect x="18.2" y="6.5" width="3.2" height="11" rx="1.5" fill="#718096"/>`,
                 quiz: `<circle cx="12" cy="9.3" r="6" fill="${body}"/>
                     <rect x="9.2" y="14.3" width="5.6" height="2" rx="0.6" fill="${body}"/>
                     <rect x="9.8" y="16.6" width="4.4" height="1.7" rx="0.6" fill="${body}"/>
@@ -1013,7 +1094,7 @@
             return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="5.4" fill="#e3eefb"/><g transform="translate(2.6 2.6) scale(0.78)">${inner}</g></svg>`;
         }
         document.getElementById('featGrid').innerHTML = FEATURES.map(f =>
-            `<div class="fa-item reveal"><div class="fa-icon">${tileSoft(sym(f.t, '#3f86d8', '#ffffff'))}</div><h4>${f.name}</h4><p>${f.desc}</p></div>`).join('');
+            `<div class="fa-item reveal">${f.badge ? `<span class="fa-badge">${f.badge}</span>` : ''}<div class="fa-icon">${tileSoft(sym(f.t, '#3f86d8', '#ffffff'))}</div><h4>${f.name}</h4><p>${f.desc}</p></div>`).join('');
 
         // 스크롤 등장 애니메이션
         const observer = new IntersectionObserver((entries) => {
