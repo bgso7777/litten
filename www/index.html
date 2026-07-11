@@ -3,10 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼(Litten) - 녹음·텍스트·필기에 AI 요약·퀴즈, 스터디룸까지. 듣고, 쓰고, 그리고, 함께 정리하는 올인원 노트 앱">
-    <meta property="og:title" content="Litten - 기록은 나답게, 정리는 AI답게">
-    <meta property="og:description" content="음성 녹음·STT·텍스트·필기에 AI 요약/퀴즈/유튜브 요약, 스터디룸까지. 30개 언어, 5가지 테마를 지원하는 크로스 플랫폼 노트 앱">
-    <title>Litten - 기록은 나답게, 정리는 AI답게</title>
+    <meta name="description" content="리튼(Litten) - 예습·노트·복습·공유를 잇는 학습 플랫폼. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께 공부하세요.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://www.litten7.com">
+    <meta property="og:site_name" content="Litten 리튼">
+    <meta property="og:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 플랫폼">
+    <meta property="og:description" content="학습 채널 구독으로 예습하고, 수업을 필기·녹음·PDF 주석으로 담고, AI 요약·퀴즈로 복습하고, 스터디룸에서 함께 — 예습부터 복습까지 잇는 올인원 학습 플랫폼.">
+    <meta property="og:image" content="http://www.litten7.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="리튼 - 배우고 기록하고 복습하는 학습 플랫폼">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 플랫폼">
+    <meta name="twitter:description" content="예습·노트·복습·공유를 잇는 올인원 학습 플랫폼. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께.">
+    <meta name="twitter:image" content="http://www.litten7.com/og-image.png">
+    <title>리튼(Litten) - 예습·노트·복습·공유 올인원 학습 플랫폼</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/><path d='M21 11 L21.5 12.5 L23 13 L21.5 13.5 L21 15 L20.5 13.5 L19 13 L20.5 12.5 Z' fill='%23FBBF24'/><path d='M22 0.9 L22.38 2 L23.5 2.4 L22.38 2.8 L22 3.9 L21.62 2.8 L20.5 2.4 L21.62 2 Z' fill='%23FBBF24'/></svg>">
     <style>
         :root {
@@ -95,6 +106,31 @@
             font-weight: 600;
         }
 
+        .mobile-only { display: none; }
+        .nav-toggle {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: none; border: none; cursor: pointer;
+            font-size: 1.55rem; line-height: 1; color: var(--ink);
+            padding: 0.15rem 0.4rem; border-radius: 8px;
+        }
+        .nav-toggle:hover { color: var(--primary); background: rgba(74,144,226,0.08); }
+        .mobile-menu {
+            display: none; flex-direction: column;
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: rgba(255,255,255,0.98); backdrop-filter: blur(12px);
+            border-top: 1px solid var(--line);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+            padding: 0.4rem 1.5rem 0.8rem;
+        }
+        .mobile-menu.open { display: flex; }
+        .mobile-menu a {
+            padding: 0.85rem 0.2rem; text-decoration: none;
+            color: var(--ink); font-weight: 600; font-size: 1rem;
+            border-bottom: 1px solid var(--line);
+        }
+        .mobile-menu a:last-child { border-bottom: none; }
+        .mobile-menu a:hover { color: var(--primary); }
+
         /* ── 히어로 ── */
         .hero {
             margin-top: 70px;
@@ -125,18 +161,30 @@
             50% { transform: translateY(-13px) rotate(1deg); }
         }
 
-        .hero-badge {
-            display: inline-block;
-            background: rgba(74, 144, 226, 0.1);
-            border: 1px solid rgba(74, 144, 226, 0.35);
-            color: var(--primary-dark);
-            padding: 0.5rem 1.2rem;
-            border-radius: 50px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin-bottom: 1.8rem;
+        .hero-feats {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.6rem;
+            max-width: 640px;
+            margin: 0 auto 2rem;
             animation: fadeInUp 0.8s ease;
         }
+        .hero-feats span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(74, 144, 226, 0.09);
+            border: 1.5px solid rgba(74, 144, 226, 0.3);
+            color: var(--primary-dark);
+            padding: 0.55rem 1.15rem;
+            border-radius: 50px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .hero-feats span:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(74,144,226,0.18); }
+        .hero-feats span .fe { font-size: 1.15rem; }
 
         .hero-content h1 {
             font-size: 4rem;
@@ -223,20 +271,35 @@
         .core { background: linear-gradient(180deg, #f7fbfe 0%, #eef5fd 100%); }
 
         .core-grid {
-            max-width: 1100px;
+            max-width: 1160px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 1.6rem;
         }
 
         .core-card {
+            position: relative;
             background: #fff;
             border-radius: 20px;
-            padding: 2.6rem 2rem;
+            padding: 2.6rem 1.7rem 2.2rem;
             text-align: center;
             border: 1px solid var(--line);
             transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+        }
+        .core-step {
+            display: inline-block;
+            margin-bottom: 1.1rem;
+            padding: 0.28rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--accent, var(--primary));
+            background: #eef3fb;
+            background: color-mix(in srgb, var(--accent, var(--primary)) 12%, #fff);
+            border: 1px solid #dbe6f3;
+            border-color: color-mix(in srgb, var(--accent, var(--primary)) 30%, #fff);
         }
 
         .core-card:hover {
@@ -251,8 +314,8 @@
         }
         .core-icon svg { width: 88px; height: 88px; filter: drop-shadow(0 8px 16px rgba(74, 144, 226, 0.16)); }
 
-        .core-card h3 { font-size: 1.6rem; margin-bottom: 0.8rem; color: var(--ink); }
-        .core-card p { color: var(--muted); font-size: 1.05rem; line-height: 1.75; }
+        .core-card h3 { font-size: 1.3rem; margin-bottom: 0.7rem; color: var(--ink); }
+        .core-card p { color: var(--muted); font-size: 0.95rem; line-height: 1.65; }
 
         .core-card ul { list-style: none; margin-top: 1.2rem; text-align: left; display: inline-block; }
         .core-card ul li { color: var(--muted); padding: 0.25rem 0; font-size: 0.97rem; }
@@ -536,10 +599,12 @@
 
             .hero { margin-top: 60px; min-height: auto; padding: 2.6rem 1rem; }
             .hero-mascot { width: 128px; height: 128px; margin-bottom: 1.1rem; }
-            .hero-badge { font-size: 0.82rem; padding: 0.45rem 1rem; margin-bottom: 1.3rem; }
-            .hero-content h1 { font-size: 2.1rem; margin-bottom: 1rem; }
-            /* 태그라인: 문장 중간 줄바꿈 없이 한 줄씩(2문장=2줄), 폭에 맞춰 자동 축소 */
-            .hero-content .tagline { font-size: clamp(0.9rem, 3.85vw, 1.2rem); white-space: nowrap; margin-bottom: 1.8rem; line-height: 1.75; }
+            .hero-feats { gap: 0.5rem; margin-bottom: 1.5rem; }
+            .hero-feats span { font-size: 0.92rem; padding: 0.45rem 0.9rem; }
+            .hero-feats span .fe { font-size: 1rem; }
+            .hero-content h1 { font-size: 2rem; margin-bottom: 1rem; }
+            /* 태그라인: 모바일에선 문단으로 자연스럽게 줄바꿈(넘침 방지) */
+            .hero-content .tagline { font-size: clamp(0.92rem, 4vw, 1.15rem); margin-bottom: 1.8rem; line-height: 1.7; }
             .hero-pills { margin-top: 1.8rem; gap: 0.5rem; }
             .hero-pills span { font-size: 0.82rem; padding: 0.4rem 0.85rem; }
 
@@ -549,6 +614,7 @@
             .btn { text-align: center; }
             .nav-links { gap: 1rem; font-size: 0.9rem; }
             .nav-links .hide-mobile { display: none; }
+            .mobile-only { display: flex; }
             .nav-container { padding: 0 1.3rem; }
             .footer-container { grid-template-columns: 1fr 1fr; }
             section { padding: 4rem 1.5rem; }
@@ -562,7 +628,7 @@
             .logo { font-size: 1.5rem; }
             .hero { padding: 2.2rem 0.9rem; }
             .hero-mascot { width: 108px; height: 108px; }
-            .hero-badge { font-size: 0.76rem; padding: 0.4rem 0.85rem; }
+            .hero-feats span { font-size: 0.86rem; padding: 0.42rem 0.8rem; }
             .hero-content h1 { font-size: 1.85rem; line-height: 1.25; }
             .hero-content .tagline { font-size: clamp(0.75rem, 3.85vw, 1.12rem); }
             .btn { padding: 0.95rem 1.6rem; font-size: 1rem; }
@@ -622,9 +688,16 @@
                 <li class="hide-mobile"><a href="#core">핵심 기능</a></li>
                 <li class="hide-mobile"><a href="#features">기능</a></li>
                 <li class="hide-mobile"><a href="#global">글로벌</a></li>
-                <li><a href="#pricing">요금제</a></li>
+                <li class="hide-mobile"><a href="#pricing">요금제</a></li>
                 <li><a href="#cta" class="nav-cta">무료 시작</a></li>
+                <li class="mobile-only"><button class="nav-toggle" aria-label="메뉴 열기" aria-expanded="false" onclick="toggleMenu(this)">☰</button></li>
             </ul>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="#core" onclick="closeMenu()">핵심 기능</a>
+            <a href="#features" onclick="closeMenu()">기능</a>
+            <a href="#global" onclick="closeMenu()">글로벌</a>
+            <a href="#pricing" onclick="closeMenu()">요금제</a>
         </div>
     </nav>
 
@@ -669,9 +742,15 @@
                 <path d="M171 58 L173 65.5 L180 67.5 L173 69.5 L171 77 L169 69.5 L162 67.5 L169 65.5 Z" fill="#FBBF24" opacity="0.85"/>
                 <path d="M168 21 L169.6 26 L174.5 28 L169.6 30 L168 35 L166.4 30 L161.5 28 L166.4 26 Z" fill="#FBBF24" opacity="0.7"/>
             </svg>
-            <span class="hero-badge">✨ 듣기 · ✍️ 쓰기 · 🎨 필기 · 🤖 AI 정리 · 💬 스터디룸</span>
-            <h1>기록은 나답게,<br class="d-br">정리는 AI답게</h1>
-            <p class="tagline">음성 녹음부터 텍스트·필기, 그리고 <strong>AI 요약·퀴즈</strong>까지<br>흩어진 모든 기록을 하나의 <strong>리튼 공간</strong>에 담으세요</p>
+            <div class="hero-feats">
+                <span><span class="fe">📚</span> 예습</span>
+                <span><span class="fe">✍️</span> 노트</span>
+                <span><span class="fe">🔁</span> 복습</span>
+                <span><span class="fe">🤖</span> AI 요약·퀴즈</span>
+                <span><span class="fe">💬</span> 스터디룸</span>
+            </div>
+            <h1>배우고 기록하고,<br>복습하고 나누다</h1>
+            <p class="tagline">학습 채널로 <strong>예습</strong>하고, 수업을 노트에 담고, <strong>AI 요약·퀴즈</strong>로 복습하고,<br class="d-br"><strong>스터디룸</strong>에서 함께 — 리튼은 학습의 전 과정을 하나로 잇습니다</p>
             <div class="cta-buttons">
                 <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
                 <a href="#core" class="btn btn-secondary">기능 살펴보기</a>
@@ -685,12 +764,12 @@
         </div>
     </section>
 
-    <!-- 핵심 3대 기능 -->
+    <!-- 학습 사이클 -->
     <section id="core" class="core">
         <div class="section-head reveal">
-            <span class="eyebrow">Core</span>
-            <h2 class="section-title">하나의 공간, 세 가지 기록 방식</h2>
-            <p class="section-subtitle">강의도, 회의도, 아이디어도 — 가장 편한 방식으로 담으세요</p>
+            <span class="eyebrow">Learning Cycle</span>
+            <h2 class="section-title">예습부터 복습까지, 학습의 한 사이클</h2>
+            <p class="section-subtitle">구독으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 스터디룸에서 함께</p>
         </div>
         <div class="core-grid" id="coreGrid"></div>
     </section>
@@ -828,7 +907,7 @@
     <!-- CTA -->
     <section id="cta" class="cta-section">
         <h2>지금, 리튼과 함께 시작하세요</h2>
-        <p>듣기·쓰기·필기에 AI 정리까지 — 흩어진 기록을 하나로 모으는 가장 스마트한 방법</p>
+        <p>예습 · 노트 · 복습 · 공유 — 학습의 한 사이클을 하나로 잇는 가장 스마트한 방법</p>
         <div class="cta-buttons">
             <a href="/litten-1.0.0.apk" class="btn btn-primary" download>📥 Android APK 다운로드</a>
             <a href="#" class="btn btn-secondary" aria-disabled="true" style="opacity:0.55; pointer-events:none;">App Store (준비 중)</a>
@@ -852,7 +931,7 @@
                     </svg>
                     Litten
                 </h3>
-                <p>듣기, 쓰기, 필기에 AI 정리까지 통합한 크로스 플랫폼 노트 앱. "Listen + Write", 리튼.</p>
+                <p>예습·노트·복습·공유를 잇는 크로스 플랫폼 학습 앱. "Listen + Write", 리튼.</p>
             </div>
             <div class="footer-section">
                 <h3>제품</h3>
@@ -1083,18 +1162,32 @@
             return `<h3 class="feat-group reveal"><span class="fg-label">${g.label}</span><span class="fg-sub">${g.sub}</span></h3><div class="feature-all-grid">${items.map(f => faTile(f, g)).join('')}</div>`;
         }).join('');
 
-        // ── 핵심 3대 기록 방식 (기능 섹션과 동일한 소프트 아이콘 컨셉) ──
+        // ── 학습 사이클 4단계 (기능 섹션과 동일한 소프트 아이콘 컨셉) ──
         const CORE = [
-            { t:'record', color:'#3f86d8', tile:'#e3eefb', title:'듣기 · 녹음', desc:'강의·회의·인터뷰를 고품질로 녹음하고 다시 들으세요.',
-              li:['일시정지 / 재개 녹음','0.5x ~ 2.0x 재생 속도','백그라운드 녹음','음성 → 텍스트 자동 변환(STT)'] },
-            { t:'memo',   color:'#2aa79b', tile:'#dcf3ef', title:'쓰기 · 텍스트', desc:'풍부한 리치 에디터로 생각을 빠르게 정리하세요.',
-              li:['글꼴 · 색상 · 목록 서식','이미지 · 링크 삽입','실시간 자동 저장','녹음과 나란히 작성'] },
-            { t:'draw',   color:'#e0805a', tile:'#fbe9e1', title:'필기 · 드로잉', desc:'PDF·이미지 위에 종이처럼 자유롭게 손으로 메모하세요.',
-              li:['펜 색상 · 굵기 조절','이미지 / 문서 → PDF 변환','PDF 뷰어 & 주석','첨부 파일 통합 관리'] },
+            { t:'channel',  color:'#3f86d8', tile:'#e3eefb', step:'예습', title:'채널 구독으로 예습', desc:'관심 학습 채널을 구독하고 영상을 미리 학습하세요.',
+              li:['유튜브 채널 구독·새 영상 알림','영상 자막 추출','영상 AI 요약·퀴즈','링크 하나로 저장'] },
+            { t:'memo',     color:'#2aa79b', tile:'#dcf3ef', step:'노트', title:'수업을 노트로 기록', desc:'메모·필기·PDF 주석·녹음으로 수업을 자유롭게 담으세요.',
+              li:['리치 텍스트 메모','이미지·PDF 위 필기','PDF 하이라이트·주석','음성 녹음 + STT'] },
+            { t:'remind',   color:'#7c6bd6', tile:'#ece9fb', step:'복습', title:'AI로 정리하고 복습', desc:'AI 요약·퀴즈로 정리하고 리마인드로 반복 복습하세요.',
+              li:['AI 요약 (1~5단계)','학습 퀴즈 자동 생성','리마인드 모아보기','일정 알림으로 복습'] },
+            { t:'studyroom', color:'#e0805a', tile:'#fbe9e1', step:'공유', title:'스터디룸에서 함께', desc:'자료와 대화를 나누며 친구·스터디원과 함께 공부하세요.',
+              li:['1:1 · 그룹 · 나만의 룸','학습자료 공유','스터디 대화','룸별 자료·대화 관리'] },
         ];
-        document.getElementById('coreGrid').innerHTML = CORE.map(c =>
-            `<div class="core-card reveal" style="--accent:${c.color}"><div class="core-icon">${tileSoft(sym(c.t, c.color, '#ffffff'), c.tile)}</div><h3>${c.title}</h3><p>${c.desc}</p><ul>${c.li.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+        document.getElementById('coreGrid').innerHTML = CORE.map((c, i) =>
+            `<div class="core-card reveal" style="--accent:${c.color}"><span class="core-step">STEP ${i + 1} · ${c.step}</span><div class="core-icon">${tileSoft(sym(c.t, c.color, '#ffffff'), c.tile)}</div><h3>${c.title}</h3><p>${c.desc}</p><ul>${c.li.map(x => `<li>${x}</li>`).join('')}</ul></div>`
         ).join('');
+
+        // 모바일 햄버거 메뉴
+        function toggleMenu(btn) {
+            const m = document.getElementById('mobileMenu');
+            const open = m.classList.toggle('open');
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        function closeMenu() {
+            document.getElementById('mobileMenu').classList.remove('open');
+            const b = document.querySelector('.nav-toggle');
+            if (b) b.setAttribute('aria-expanded', 'false');
+        }
 
         // 스크롤 등장 애니메이션
         const observer = new IntersectionObserver((entries) => {
