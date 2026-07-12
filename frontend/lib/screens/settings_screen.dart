@@ -5,6 +5,9 @@ import '../l10n/app_localizations.dart';
 
 import '../services/app_state_provider.dart';
 import '../config/plan_limits.dart';
+import '../widgets/common/tab_count_title.dart';
+import '../widgets/common/quiz_bulb_icon.dart';
+import '../widgets/common/round_chat_bubble_icon.dart';
 import '../services/background_notification_service.dart';
 import '../services/api_service.dart';
 import '../config/themes.dart';
@@ -297,6 +300,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: _getAllTabFabText(appState.allTabFabVisibility, l10n),
                 iconColor: Theme.of(context).primaryColor,
                 onTap: () => _showAllTabFabVisibilityDialog(context, appState),
+              ),
+              _buildSettingsItem(
+                icon: Icons.title,
+                title: '전체탭 제목',
+                subtitle: appState.allTabTitleMode == 'search' ? '검색' : '파일 통계',
+                iconColor: Theme.of(context).primaryColor,
+                onTap: () => _showAllTabTitleModeDialog(context, appState),
               ),
               _buildSettingsSwitchItem(
                 icon: Icons.subscriptions_outlined,
@@ -633,46 +643,173 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return languageMap[languageCode] ?? languageCode.toUpperCase();
   }
 
+  void _showAllTabTitleModeDialog(BuildContext context, AppStateProvider appState) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('전체탭 제목'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String>(
+              value: 'search',
+              groupValue: appState.allTabTitleMode,
+              title: const Text('검색'),
+              subtitle: const Text('제목 자리에 파일명 검색바 표시'),
+              onChanged: (v) {
+                appState.setAllTabTitleMode(v!);
+                Navigator.of(context).pop();
+              },
+            ),
+            RadioListTile<String>(
+              value: 'stats',
+              groupValue: appState.allTabTitleMode,
+              title: const Text('파일 통계'),
+              subtitle: const Text('제목 자리에 종류별 아이콘 카운트 표시'),
+              onChanged: (v) {
+                appState.setAllTabTitleMode(v!);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showUsageDialog(BuildContext context, AppStateProvider appState) {
     final l10n = AppLocalizations.of(context);
+    final isFree = appState.subscriptionType == SubscriptionType.free;
+
+    // 스터디룸(홈) — 전체(계정) 기준
+    final chatN = appState.homeConversationCount;
+    final inN = appState.sharesReceived.length;
+    final outN = appState.sharesSent.length + appState.selfChatFileCount;
+
+    // 노트 · 전체 합계 (모든 리튼 합산) — 전체탭 제목과 동일 9종
+    final awMemo = appState.appWideMemoCount;
+    final awCanvas = appState.appWideCanvasCount;
+    final awPdf = appState.appWidePdfCount;
+    final awRecording = appState.appWideRecordingCount;
+    final awStt = appState.appWideSttCount;
+    final awFile = appState.appWideFileCount;
+    final awPhoto = appState.appWidePhotoCount;
+    final awVideo = appState.appWideVideoCount;
+    final awYt = appState.actualYoutubeChannelCount;
+
+    // 노트 · 현재 선택 리튼 세부 (탭 제목과 동일 계산)
+    final sel = appState.selectedLitten;
+    final memo = (appState.actualTextCount - appState.actualSttTextCount).clamp(0, 1 << 31);
+    final canvas = appState.actualCanvasCount;
+    final pdf = appState.actualPdfCount;
+    final recording = (appState.actualAudioCount - appState.actualSttMemoCount).clamp(0, 1 << 31);
+    final stt = appState.actualSttTextCount + appState.actualSttMemoCount;
+    final otherFiles = (appState.actualAttachmentCount - appState.actualPhotoCount - appState.actualVideoCount).clamp(0, 1 << 31);
+    final ytCh = appState.actualYoutubeChannelCount;
+    final photo = appState.actualPhotoCount;
+    final video = appState.actualVideoCount;
+
+    // 리마인드 — 탭 제목과 동일: '확인 안 한 것(미완료)'만
+    final sumPending = appState.summaries.where((s) => !s.isDone).length;
+    final quizPending = appState.quizTargets
+        .where((g) => g.items.isNotEmpty && g.pendingCount > 0)
+        .length;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n?.usageStatistics ?? '사용량 통계'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildUsageRow(
-              l10n?.createLitten ?? '일정 수',
-              '${appState.littens.where((l) => l.title != 'undefined').length}${l10n?.littensCount ?? '개'}',
-              appState.subscriptionType == SubscriptionType.free
-                  ? ' / ${l10n?.maxLittensLimit ?? '최대 5개'}'
-                  : '',
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildUsageRow(
+                  l10n?.createLitten ?? '일정 수',
+                  '${appState.littens.where((l) => l.title != 'undefined').length}${l10n?.littensCount ?? '개'}',
+                  isFree ? ' / ${l10n?.maxLittensLimit ?? '최대 5개'}' : '',
+                ),
+                _buildUsageRow(
+                  l10n?.totalFiles ?? '총 파일 수',
+                  '${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개'}',
+                  '',
+                ),
+
+                // 💬 스터디룸 (탭 제목과 동일: 대화·공유받음·공유함)
+                _buildStatHeader(context, Icons.forum, '스터디룸'),
+                _buildCountStrip([
+                  TabCount(Icons.chat_bubble_outline, chatN,
+                      iconWidget: const RoundChatBubbleIcon(filled: true, size: 20)),
+                  TabCount(Icons.download, inN),
+                  TabCount(Icons.upload, outN),
+                ]),
+
+                // 📝 노트 · 전체 합계 (전체탭 제목과 동일 9종, 모든 리튼 합산)
+                _buildStatHeader(context, Icons.notes, '노트 · 전체 합계'),
+                _buildCountStrip([
+                  TabCount(Icons.notes, awMemo),
+                  TabCount(Icons.draw, awCanvas),
+                  TabCount(Icons.picture_as_pdf, awPdf),
+                  TabCount(Icons.mic, awRecording),
+                  TabCount(Icons.record_voice_over, awStt),
+                  TabCount(Icons.description, awFile),
+                  TabCount(Icons.subscriptions, awYt),
+                  TabCount(Icons.photo_camera, awPhoto),
+                  TabCount(Icons.videocam, awVideo),
+                ].where((c) => c.count > 0).toList()),
+
+                // 📁 노트 · 현재 리튼 (탭 제목과 동일 9종, 0은 숨김)
+                if (sel != null && sel.title != 'undefined') ...[
+                  _buildStatHeader(context, Icons.folder_open, '노트 · 현재 리튼 (${sel.title})'),
+                  _buildCountStrip([
+                    TabCount(Icons.notes, memo),
+                    TabCount(Icons.draw, canvas),
+                    TabCount(Icons.picture_as_pdf, pdf),
+                    TabCount(Icons.mic, recording),
+                    TabCount(Icons.record_voice_over, stt),
+                    TabCount(Icons.description, otherFiles),
+                    TabCount(Icons.subscriptions, ytCh),
+                    TabCount(Icons.photo_camera, photo),
+                    TabCount(Icons.videocam, video),
+                  ].where((c) => c.count > 0).toList()),
+                ],
+
+                // 🔁 리마인드 (탭 제목과 동일: 요약·퀴즈, 미완료 기준)
+                _buildStatHeader(context, Icons.auto_awesome, '리마인드'),
+                _buildCountStrip([
+                  TabCount(Icons.auto_awesome, sumPending),
+                  TabCount(Icons.lightbulb_outline, quizPending,
+                      iconWidget: const QuizBulbIcon(size: 20)),
+                ]),
+
+                if (isFree) ...[
+                  const Divider(height: 24),
+                  Text(
+                    l10n?.freeUserLimits ?? '무료 사용자 제한:',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  _buildUsageRow('• 메모', '최대 ${PlanLimits.memos(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 녹음', '최대 ${PlanLimits.audios(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 녹음 메모', '최대 ${PlanLimits.sttMemos(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 필기', '최대 ${PlanLimits.handwritings(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 첨부파일', '최대 ${PlanLimits.attachments(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 영상 구독', '최대 ${PlanLimits.youtubeChannels(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 일정', '최대 ${PlanLimits.schedules(SubscriptionType.free)}개', ''),
+                  _buildUsageRow('• 요약', '${PlanLimits.summaryPerMonth(SubscriptionType.free)}회 (누적)', ''),
+                  _buildUsageRow('• 퀴즈', '${PlanLimits.quizPerMonth(SubscriptionType.free)}회 (누적)', ''),
+                  _buildUsageRow('• 파일 변환', '${PlanLimits.fileConvertTotal(SubscriptionType.free)}회 (누적)', ''),
+                ],
+              ],
             ),
-            _buildUsageRow(
-              l10n?.totalFiles ?? '총 파일 수',
-              '${_getTotalFileCount(appState)}${l10n?.filesCount ?? '개'}',
-              '',
-            ),
-            if (appState.subscriptionType == SubscriptionType.free) ...[
-              const Divider(),
-              Text(
-                l10n?.freeUserLimits ?? '무료 사용자 제한:',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              _buildUsageRow('• 메모', '최대 ${PlanLimits.memos(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 녹음', '최대 ${PlanLimits.audios(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 녹음 메모', '최대 ${PlanLimits.sttMemos(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 필기', '최대 ${PlanLimits.handwritings(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 첨부파일', '최대 ${PlanLimits.attachments(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 영상 구독', '최대 ${PlanLimits.youtubeChannels(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 일정', '최대 ${PlanLimits.schedules(SubscriptionType.free)}개', ''),
-              _buildUsageRow('• 요약', '${PlanLimits.summaryPerMonth(SubscriptionType.free)}회 (누적)', ''),
-              _buildUsageRow('• 퀴즈', '${PlanLimits.quizPerMonth(SubscriptionType.free)}회 (누적)', ''),
-              _buildUsageRow('• 파일 변환', '${PlanLimits.fileConvertTotal(SubscriptionType.free)}회 (누적)', ''),
-            ],
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -680,6 +817,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(l10n?.close ?? '닫기'),
           ),
         ],
+      ),
+    );
+  }
+
+  // 사용량 통계 섹션 헤더 (아이콘 + 제목)
+  Widget _buildStatHeader(BuildContext context, IconData icon, String title) {
+    final color = Theme.of(context).primaryColor;
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(title,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+        ],
+      ),
+    );
+  }
+
+  // 탭 제목과 동일한 "아이콘 + 카운트" 가로 배열 (TabCountTitle 재사용)
+  Widget _buildCountStrip(List<TabCount> counts) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4, bottom: 2),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: counts.isEmpty
+            ? Text('0', style: TextStyle(color: Colors.grey[500], fontSize: 13))
+            : IconTheme(
+                data: IconThemeData(size: 20, color: Theme.of(context).colorScheme.onSurface),
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 13),
+                  child: TabCountTitle([counts]),
+                ),
+              ),
       ),
     );
   }

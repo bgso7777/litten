@@ -13,7 +13,7 @@ import '../services/shared_snapshot_service.dart';
 import '../widgets/share_compose_dialog.dart';
 import '../widgets/shared_snapshot_viewer.dart';
 import '../widgets/common/tab_count_title.dart';
-import '../widgets/common/round_chat_bubble_icon.dart';
+import '../widgets/common/tab_title_search.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
@@ -140,12 +140,17 @@ class _HomeChipBar extends StatelessWidget {
     final chips = <Widget>[];
     void add(String kind, IconData icon, int n) {
       if (n <= 0) return;
-      if (chips.isNotEmpty) chips.add(const SizedBox(width: 12));
+      // 전체탭 탭제목 아이콘카운트와 동일한 항목 간격(8).
+      if (chips.isNotEmpty) chips.add(const SizedBox(width: 8));
       final selected = selectedKind == kind;
       chips.add(GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => context.read<AppStateProvider>().setHomeChatFileKind(kind),
-        child: Container(
+        // 기본(미선택)은 흐리게(비활성), 탭해서 선택하면 밝게(활성) — 상단 탭제목 아이콘의
+        // active opacity 패턴과 동일. 선택 시 배경 하이라이트 + 파일 패널이 위로 슬라이드업된다.
+        child: Opacity(
+          opacity: selected ? 1.0 : 0.4,
+          child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: selected
               ? BoxDecoration(
@@ -163,12 +168,13 @@ class _HomeChipBar extends StatelessWidget {
               Transform.translate(
                 offset: const Offset(0, 2),
                 child: Text('$n',
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 10.4,
-                        fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                        color: color)),
+                        fontWeight: FontWeight.normal,
+                        color: Colors.black)),
               ),
             ],
+          ),
           ),
         ),
       ));
@@ -184,6 +190,18 @@ class _HomeChipBar extends StatelessWidget {
     add('photo', Icons.photo_camera, counts['photo'] ?? 0);
     add('video', Icons.videocam, counts['video'] ?? 0);
 
+    // 우측 검색 ↔ 통계 토글(하단 전용 상태 homeBottomSearch — 상단 토글과 독립, 검색어는 공유).
+    final isSearch = app.homeBottomSearch;
+    final toggle = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () =>
+          context.read<AppStateProvider>().setHomeBottomSearch(!isSearch),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(isSearch ? Icons.bar_chart : Icons.search,
+            size: 18, color: color),
+      ),
+    );
     // 아이콘(칩)이 아닌 빈 영역을 탭하면 종류 무관 '전체' 파일을 일자순으로 표시한다.
     // (각 칩은 자체 GestureDetector가 있어 해당 종류로 동작하고, 그 외 영역만 'all'로 처리)
     return GestureDetector(
@@ -200,8 +218,35 @@ class _HomeChipBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: SizedBox(
           height: 28.0,
+          // 전체탭 탭제목처럼 [아이콘카운트/검색 + 토글]을 한 묶음으로 가운데 정렬.
+          // 검색 모드면 이 자리에 검색창을(하단에서 켰으니 하단에 표시), 아니면 칩 목록을 표시.
           child: Center(
-            child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+            child: isSearch
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TabTitleSearchField(
+                        initialValue: app.homeSearchQuery,
+                        onChanged: (v) => context
+                            .read<AppStateProvider>()
+                            .setHomeSearchQuery(v),
+                      ),
+                      const SizedBox(width: 8),
+                      toggle,
+                    ],
+                  )
+                // 칩이 많아 넘치면 축소(전체탭 제목과 동일한 FittedBox scaleDown).
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...chips,
+                        const SizedBox(width: 8),
+                        toggle,
+                      ],
+                    ),
+                  ),
           ),
         ),
       ),
@@ -472,20 +517,47 @@ class ShareTabTitle extends StatelessWidget {
         // 표시 모드 전환(라디오식): 채팅(기본 선택) | 공유받음 | 공유한.
         // 선택된 것만 밝게(active) 보이고, 받음/보냄은 선택 시 공유 파일을 일자순 리스트로 보여준다.
         final mode = app.homeChatView;
-        return TabCountTitle([
-          [
-            TabCount(Icons.chat_bubble_outline, chatN,
-                iconWidget: RoundChatBubbleIcon(filled: mode == 'chat', size: 20),
-                active: mode == 'chat',
-                onTap: () => app.setHomeChatView('chat')),
-            TabCount(Icons.download, inN,
-                active: mode == 'received',
-                onTap: () => app.setHomeChatView('received')),
-            TabCount(Icons.upload, outN,
-                active: mode == 'sent',
-                onTap: () => app.setHomeChatView('sent')),
+        final primary = Theme.of(context).primaryColor;
+        // 상단 토글: 누르면 이 자리(상단)에 검색창이 뜬다. 하단 토글과 독립이며 검색어는 공유.
+        final isSearch = app.homeTitleMode == 'search';
+        final toggle = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => app.setHomeTitleMode(isSearch ? 'stats' : 'search'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Icon(isSearch ? Icons.bar_chart : Icons.search,
+                size: 18, color: primary),
+          ),
+        );
+        final Widget titleBody = isSearch
+            ? TabTitleSearchField(
+                initialValue: app.homeSearchQuery,
+                onChanged: app.setHomeSearchQuery,
+              )
+            : TabCountTitle([
+                [
+                  // 메인 하단 네비 '스터디룸' 아이콘 계열(Icons.forum_outlined) 사용.
+                  // 옆의 공유받음(download)·공유한(upload)과 동일하게 '선택 안 된'(외곽선)
+                  // 아이콘으로 통일 — 선택 여부는 밝기(active opacity)로만 표시. 크기도 자동 일치.
+                  TabCount(Icons.forum_outlined, chatN,
+                      active: mode == 'chat',
+                      onTap: () => app.setHomeChatView('chat')),
+                  TabCount(Icons.download, inN,
+                      active: mode == 'received',
+                      onTap: () => app.setHomeChatView('received')),
+                  TabCount(Icons.upload, outN,
+                      active: mode == 'sent',
+                      onTap: () => app.setHomeChatView('sent')),
+                ],
+              ], countColor: Colors.black);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: titleBody),
+            const SizedBox(width: 8),
+            toggle,
           ],
-        ]);
+        );
       },
     );
   }
@@ -967,8 +1039,16 @@ class _ShareSectionState extends State<_ShareSection>
       return _buildSharedFileList(mode, appState, color);
     }
 
+    // 상단/하단 중 하나라도 검색이 켜져 있으면 대화방을 검색어(방 이름/이메일)로 필터한다.
+    final hq = appState.homeSearchActive
+        ? appState.homeSearchQuery.trim().toLowerCase()
+        : '';
     final convList = convs.values
         .where((c) => !appState.isConversationHidden(c.key, c.lastAt))
+        .where((c) =>
+            hq.isEmpty ||
+            c.label.toLowerCase().contains(hq) ||
+            (c.email ?? '').toLowerCase().contains(hq))
         .toList()
       ..sort((a, b) => b.lastAt.compareTo(a.lastAt));
     // 아이콘 사람 수 산정 시 '나와의 채팅'(상대가 나 자신) 판별용 내 이메일(memberId).

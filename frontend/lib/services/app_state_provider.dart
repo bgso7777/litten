@@ -345,6 +345,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         bool changed = false;
         for (var i = 0; i < texts.length; i++) {
           final t = texts[i];
+          // STT 음성 메모(전사+메모+AI요약)는 '원본' 메모다. 요약/퀴즈 결과 메모가 아니므로
+          // sourceKind를 부여하면 안 된다(부여되면 전체탭 요약/퀴즈 아이콘이 통째로 숨겨짐).
+          // 자기 자신의 요약을 recordSummary하면 (리튼id+제목)이 일치해 오분류됐고,
+          // 본문의 <!-- SUMMARY_START --> 마커로도 오분류됐다 → STT 메모는 건너뛰고,
+          // 과거에 잘못 부여된 출처가 있으면 초기화해 아이콘을 복원한다.
+          if (t.isFromSTT) {
+            if (t.sourceKind != null) {
+              texts[i] = t.copyWith(clearSource: true, updatedAt: t.updatedAt);
+              changed = true;
+              filled++;
+            }
+            continue;
+          }
           if (t.sourceKind != null) continue; // 이미 출처 있음
           final k = key(litten.id, t.title);
           // 1) 제목 일치(리마인드 '메모로 저장' 등 s.title==메모제목인 경우)
@@ -835,6 +848,77 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 전체탭 제목 표시 모드: 'search'(검색바) | 'stats'(파일 통계 아이콘 카운트). 기본 파일 통계.
+  String _allTabTitleMode = 'stats';
+  String get allTabTitleMode => _allTabTitleMode;
+  Future<void> setAllTabTitleMode(String mode) async {
+    if (_allTabTitleMode == mode) return;
+    _allTabTitleMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('all_tab_title_mode', mode);
+    notifyListeners();
+  }
+
+  // 전체탭 파일명 검색어(세션 한정). 제목 검색바 ↔ 파일 목록 공유.
+  String _allTabSearchQuery = '';
+  String get allTabSearchQuery => _allTabSearchQuery;
+  void setAllTabSearchQuery(String q) {
+    if (_allTabSearchQuery == q) return;
+    _allTabSearchQuery = q;
+    notifyListeners();
+  }
+
+  // 스터디룸 제목 모드/검색어(세션 한정): 'stats'(대화·공유 카운트) | 'search'(대화방 검색).
+  String _homeTitleMode = 'stats';
+  String get homeTitleMode => _homeTitleMode;
+  void setHomeTitleMode(String m) {
+    if (_homeTitleMode == m) return;
+    _homeTitleMode = m;
+    notifyListeners();
+  }
+  String _homeSearchQuery = '';
+  String get homeSearchQuery => _homeSearchQuery;
+  void setHomeSearchQuery(String q) {
+    if (_homeSearchQuery == q) return;
+    _homeSearchQuery = q;
+    notifyListeners();
+  }
+  // 하단(칩 바) 검색 모드 — 상단 제목 토글과 독립. 검색어(homeSearchQuery)는 공유한다.
+  bool _homeBottomSearch = false;
+  bool get homeBottomSearch => _homeBottomSearch;
+  void setHomeBottomSearch(bool on) {
+    if (_homeBottomSearch == on) return;
+    _homeBottomSearch = on;
+    notifyListeners();
+  }
+  // 상단·하단 중 하나라도 검색이 켜져 있으면 목록 필터를 적용한다.
+  bool get homeSearchActive => _homeTitleMode == 'search' || _homeBottomSearch;
+
+  // 리마인드 제목 모드/검색어(세션 한정): 'stats'(요약·퀴즈 카운트) | 'search'(제목 검색).
+  String _remindTitleMode = 'stats';
+  String get remindTitleMode => _remindTitleMode;
+  void setRemindTitleMode(String m) {
+    if (_remindTitleMode == m) return;
+    _remindTitleMode = m;
+    notifyListeners();
+  }
+  String _remindSearchQuery = '';
+  String get remindSearchQuery => _remindSearchQuery;
+  void setRemindSearchQuery(String q) {
+    if (_remindSearchQuery == q) return;
+    _remindSearchQuery = q;
+    notifyListeners();
+  }
+  // 하단(확인 바) 검색 모드 — 상단 제목 토글과 독립. 검색어(remindSearchQuery)는 공유한다.
+  bool _remindBottomSearch = false;
+  bool get remindBottomSearch => _remindBottomSearch;
+  void setRemindBottomSearch(bool on) {
+    if (_remindBottomSearch == on) return;
+    _remindBottomSearch = on;
+    notifyListeners();
+  }
+  bool get remindSearchActive => _remindTitleMode == 'search' || _remindBottomSearch;
+
   // ⭐ 전체탭 제목 아이콘 토글로 "숨긴 종류" 집합(세션 한정). 비어있으면 전부 표시.
   // 키: text/audio/canvas/pdf/files/photo/video/youtube
   final Set<String> _allTabHiddenTypes = {};
@@ -909,6 +993,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get actualVideoCount => _actualVideoCount;
   int get actualAttachmentCount => _actualAttachmentCount;
   int get actualYoutubeChannelCount => _actualYoutubeChannelCount;
+
+  // 전체(모든 리튼) 노트 종류별 카운트 — 전체탭 제목 9종과 동일 분류 (사용량 통계 '전체 합계'용)
+  int get appWideMemoCount => _appWideCounts['text'] ?? 0;               // 메모(비STT 텍스트)
+  int get appWideRecordingCount => _appWideCounts['audio'] ?? 0;         // 녹음(비STT 오디오)
+  int get appWideSttCount => (_appWideCounts['stt'] ?? 0) + (_appWideCounts['nSttAudio'] ?? 0); // 녹음메모(STT 텍스트+오디오)
+  int get appWideCanvasCount => _appWideCounts['nCanvas'] ?? 0;          // 필기(캔버스)
+  int get appWidePdfCount => _appWideCounts['nPdf'] ?? 0;                // PDF
+  int get appWideFileCount => _appWideCounts['nFile'] ?? 0;             // 파일(사진·비디오 제외 첨부)
+  int get appWidePhotoCount => _appWideCounts['nPhoto'] ?? 0;           // 사진
+  int get appWideVideoCount => _appWideCounts['nVideo'] ?? 0;           // 비디오
 
   // 전체 파일 카운트 Getters (캘린더 통계 영역용 - 항상 전체 합계)
   int get totalAudioCount => _totalAudioCount;
@@ -1176,6 +1270,9 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     debugPrint('✅ [AppStateProvider] 구독 플랜 복원: $_subscriptionType');
+
+    // 전체탭 제목 모드 복원 (기본 '파일 통계')
+    _allTabTitleMode = prefs.getString('all_tab_title_mode') ?? 'stats';
 
     // ⭐ 쓰기 탭 위치 복원 (저장된 값이 없으면 기본값 '전체' 사용)
     _currentWritingTabId = prefs.getString('current_writing_tab_id') ?? 'all';
@@ -4191,6 +4288,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     int selectedPhoto = 0, selectedVideo = 0; // 첨부 중 이미지/비디오 분리 카운트 — 전체탭 사진/비디오 필터용
     // 앱 전체 제한용 분리 카운트
     int awMemo = 0, awStt = 0, awAudioOnly = 0, awHand = 0, awAttach = 0;
+    // 앱 전체(모든 리튼) 노트 9종 세부 카운트 — 전체탭 제목과 동일 분류(사용량 통계 '전체 합계'용)
+    int awSttAudio = 0, awCanvas = 0, awPdf = 0, awPhoto = 0, awVideo = 0, awFile = 0;
 
     for (final litten in _littens) {
       final audioFiles = await _audioService.getAudioFiles(litten);
@@ -4206,10 +4305,16 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (t.isFromSTT) { awStt++; } else { awMemo++; }
       }
       for (final a in audioFiles) {
-        if (!a.isFromSTT) awAudioOnly++;
+        if (!a.isFromSTT) { awAudioOnly++; } else { awSttAudio++; }
       }
       awHand += handwritingFiles.length;
       awAttach += attachmentFiles.length;
+      // 앱 전체 9종 세부 (모든 리튼 합산)
+      awCanvas += handwritingFiles.where((f) => f.type == HandwritingType.drawing).length;
+      awPdf += handwritingFiles.where((f) => f.type == HandwritingType.pdfConvert).length;
+      awPhoto += attachmentFiles.where((f) => f.isImage).length;
+      awVideo += attachmentFiles.where((f) => f.isVideo).length;
+      awFile += attachmentFiles.where((f) => !f.isImage && !f.isVideo).length;
 
       if (littenId == null || litten.id == littenId) {
         // 녹음 = 일반 녹음 + 음성메모 녹음 모두 포함
@@ -4237,6 +4342,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _appWideCounts['audio'] = awAudioOnly;
     _appWideCounts['handwriting'] = awHand;
     _appWideCounts['attachment'] = awAttach;
+    // 사용량 통계 '노트 전체 합계' 9종용 (플랜 제한 키와 분리)
+    _appWideCounts['nSttAudio'] = awSttAudio;
+    _appWideCounts['nCanvas'] = awCanvas;
+    _appWideCounts['nPdf'] = awPdf;
+    _appWideCounts['nPhoto'] = awPhoto;
+    _appWideCounts['nVideo'] = awVideo;
+    _appWideCounts['nFile'] = awFile;
 
     // 선택 리튼 카운트 업데이트 (WritingScreen 헤더용)
     _actualAudioCount = selectedAudio;

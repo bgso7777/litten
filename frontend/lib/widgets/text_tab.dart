@@ -1367,11 +1367,9 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     _summaryTimer = null;
     debugPrint('⏰ STT 자동 저장 타이머 중지');
 
-    // 종료 시 요약 모드: 녹음 중지 시 자동 요약 실행
-    if (_isSttMode && _sttSettings.summaryIntervalMinutes == -1) {
-      debugPrint('⏹️ [SttMode] 종료 시 요약 실행');
-      _autoSummarizeStt();
-    }
+    // 종료 시 요약 모드: 실제 요약은 텍스트 확정 후·최종 저장 '직전'에 await로 실행한다.
+    // (예전엔 여기서 await 없이 호출 → 요약 API 완료 시점이 최종 저장과 겹치면
+    //  _isSaving 가드에 걸려 요약 저장이 스킵 → 목록/전체탭 요약 아이콘이 비활성으로 보였음)
 
     // ⭐ HTML 에디터 다시 활성화 - 키보드 입력 가능하도록
     try {
@@ -1437,6 +1435,13 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
     // 🎙️ STT와 함께 녹음이 진행 중이었다면 녹음도 중지하고 파일 저장
     if (_isRecordingWithSTT) {
       await _stopRecordingWithSTT();
+    }
+
+    // ⏹️ 종료 시 요약 모드: 최종 저장 '직전'에 요약을 끝까지 대기한다.
+    // → summary 필드가 파일에 확실히 반영되어(_isSaving 레이스 제거) 요약 아이콘이 활성화됨.
+    if (_isSttMode && _sttSettings.summaryIntervalMinutes == -1) {
+      debugPrint('⏹️ [SttMode] 종료 시 요약 실행 (최종 저장 전 대기)');
+      await _autoSummarizeStt();
     }
 
     // 💾 STT 중지 시 텍스트 자동 저장 (편집 화면은 유지)
@@ -1647,6 +1652,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           content: htmlContent.isEmpty
               ? '<p><br></p>'
               : htmlContent, // 빈 내용일 때 기본 HTML 추가
+          // STT 결합 저장으로 본문에 AI 요약이 포함되면 summary 필드도 함께 채운다.
+          // (본문↔필드 일관성 → 목록/전체탭의 요약 아이콘 hasSummary가 정확히 활성화)
+          // 값이 없으면 null → copyWith가 기존 summary를 그대로 보존(비STT 저장 영향 없음).
+          summary: (_isSttMode && _sttSummary.trim().isNotEmpty)
+              ? _sttSummary.trim()
+              : null,
         );
 
         // 파일 목록에 추가 또는 업데이트

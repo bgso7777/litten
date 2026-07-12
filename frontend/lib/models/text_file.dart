@@ -125,6 +125,7 @@ class TextFile {
     bool clearCloud = false, // true면 클라우드 동기화 상태(cloudId 등) 초기화
     String? sourceKind,
     String? sourceRefId,
+    bool clearSource = false, // true면 출처(sourceKind/sourceRefId) 초기화
   }) {
     return TextFile(
       id: id,
@@ -141,8 +142,8 @@ class TextFile {
       cloudUpdatedAt: clearCloud ? null : (cloudUpdatedAt ?? this.cloudUpdatedAt),
       syncStatus: clearCloud ? SyncStatus.none : (syncStatus ?? this.syncStatus),
       isFromSTT: isFromSTT ?? this.isFromSTT,
-      sourceKind: sourceKind ?? this.sourceKind,
-      sourceRefId: sourceRefId ?? this.sourceRefId,
+      sourceKind: clearSource ? null : (sourceKind ?? this.sourceKind),
+      sourceRefId: clearSource ? null : (sourceRefId ?? this.sourceRefId),
     );
   }
 

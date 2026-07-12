@@ -9,6 +9,7 @@ import '../services/app_state_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/draggable_tab_layout.dart';
 import '../widgets/common/tab_count_title.dart';
+import '../widgets/common/tab_title_search.dart';
 import '../widgets/common/quiz_bulb_icon.dart';
 import '../widgets/share_compose_dialog.dart';
 
@@ -156,15 +157,43 @@ class RemindScreenState extends State<RemindScreen> {
               final quizCount = appState.quizTargets
                   .where((g) => g.items.isNotEmpty && g.pendingCount > 0)
                   .length;
-              return TabCountTitle([
-                [
-                  TabCount(Icons.auto_awesome, summaryCount,     // 요약 — 탭하면 요약만
-                      active: _filter.showSummary, onTap: _filter.selectOnlySummary),
-                  TabCount(Icons.lightbulb_outline, quizCount,   // 퀴즈 — 전구+q, 탭하면 퀴즈만
-                      iconWidget: const QuizBulbIcon(),
-                      active: _filter.showQuiz, onTap: _filter.selectOnlyQuiz),
+              final primary = Theme.of(context).primaryColor;
+              // 상단 토글: 누르면 이 자리(상단)에 검색창이 뜬다. 하단 토글과 독립이며 검색어는 공유.
+              final isSearch = appState.remindTitleMode == 'search';
+              final toggle = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    appState.setRemindTitleMode(isSearch ? 'stats' : 'search'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Icon(isSearch ? Icons.bar_chart : Icons.search,
+                      size: 18, color: primary),
+                ),
+              );
+              final Widget titleBody = isSearch
+                  ? TabTitleSearchField(
+                      initialValue: appState.remindSearchQuery,
+                      onChanged: appState.setRemindSearchQuery,
+                    )
+                  : TabCountTitle([
+                      [
+                        TabCount(Icons.auto_awesome, summaryCount,     // 요약 — 탭하면 요약만
+                            active: _filter.showSummary,
+                            onTap: _filter.selectOnlySummary),
+                        TabCount(Icons.lightbulb_outline, quizCount,   // 퀴즈 — 전구+q, 탭하면 퀴즈만
+                            iconWidget: const QuizBulbIcon(),
+                            active: _filter.showQuiz,
+                            onTap: _filter.selectOnlyQuiz),
+                      ],
+                    ], countColor: Colors.black);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(child: titleBody),
+                  const SizedBox(width: 8),
+                  toggle,
                 ],
-              ]);
+              );
             },
           ),
         ),
@@ -489,7 +518,12 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         final topItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
         final bottomItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
         final ck = _filter.confirmedKind; // null=전체 | 'summary' | 'quiz'
+        // 상단/하단 중 하나라도 검색이 켜져 있으면 제목(요약=title, 퀴즈=fileName)으로 필터.
+        final rq = appState.remindSearchActive
+            ? appState.remindSearchQuery.trim().toLowerCase()
+            : '';
         for (final s in summaries) {
+          if (rq.isNotEmpty && !s.title.toLowerCase().contains(rq)) continue;
           if (s.isDone) {
             if (ck == null || ck == 'summary') {
               bottomItems.add((at: s.createdAt, summary: s, quizGroup: null));
@@ -500,6 +534,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         }
         for (final g in quizGroups) {
           if (g.items.isEmpty) continue;
+          if (rq.isNotEmpty && !g.fileName.toLowerCase().contains(rq)) continue;
           if (g.pendingCount == 0) {
             if (ck == null || ck == 'quiz') {
               bottomItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
@@ -863,6 +898,18 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         .where((g) => g.items.isNotEmpty && g.pendingCount == 0)
         .length;
 
+    // 우측 검색 ↔ 통계 토글(하단 전용 상태 remindBottomSearch — 상단 토글과 독립, 검색어는 공유).
+    final isSearch = appState.remindBottomSearch;
+    final searchToggle = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => appState.setRemindBottomSearch(!isSearch),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(isSearch ? Icons.bar_chart : Icons.search,
+            size: 18, color: color),
+      ),
+    );
+
     return Material(
       color: color.withValues(alpha: 0.08), // 바 배경(InkWell 잉크가 보이도록 Material로)
       child: InkWell(
@@ -878,8 +925,24 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           // 노트(_CreateChipBar)·캘린더·홈 칩 바와 동일한 콘텐츠 높이(28.0)로 바 높이를 일치시킨다.
           child: SizedBox(
             height: 28.0,
+            // 전체탭 탭제목처럼 [카운트/검색 + 토글]을 한 묶음으로 가운데 정렬.
+            // 검색 모드면 이 자리(카운트 위치)에 검색창을, 아니면 확인완료 카운트를 표시.
             child: Center(
-              child: Row(
+              child: isSearch
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TabTitleSearchField(
+                          initialValue: appState.remindSearchQuery,
+                          onChanged: appState.setRemindSearchQuery,
+                        ),
+                        const SizedBox(width: 8),
+                        searchToggle,
+                      ],
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
                 mainAxisSize: MainAxisSize.min,
                 // 채팅 하단 칩과 동일하게 하단정렬 + 카운트 2px 하향.
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -889,10 +952,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                     behavior: HitTestBehavior.opaque,
                     onTap: _filter.showConfirmedSummary,
                     child: Opacity(
-                      opacity: (_filter.confirmedKind == null ||
-                              _filter.confirmedKind == 'summary')
-                          ? 1.0
-                          : 0.35,
+                      // 기본(미선택)은 흐리게(비활성). 요약을 탭해 확인함이 펼쳐지면 밝게(활성).
+                      opacity: _filter.confirmedKind == 'summary' ? 1.0 : 0.35,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -903,23 +964,21 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                           Transform.translate(
                             offset: const Offset(0, 2),
                             child: Text('$doneSummary',
-                                style: TextStyle(
-                                    fontSize: 10.4, fontWeight: FontWeight.w600, color: color)),
+                                style: const TextStyle(
+                                    fontSize: 10.4, fontWeight: FontWeight.normal, color: Colors.black)),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8), // 전체탭 탭제목 아이콘카운트와 동일한 항목 간격(8).
                   // 퀴즈: 아이콘 탭 → 확인함 영역 열고 '완료된 퀴즈'만(재탭 시 닫힘).
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _filter.showConfirmedQuiz,
                     child: Opacity(
-                      opacity: (_filter.confirmedKind == null ||
-                              _filter.confirmedKind == 'quiz')
-                          ? 1.0
-                          : 0.35,
+                      // 기본(미선택)은 흐리게(비활성). 퀴즈를 탭해 확인함이 펼쳐지면 밝게(활성).
+                      opacity: _filter.confirmedKind == 'quiz' ? 1.0 : 0.35,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -929,15 +988,18 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                           Transform.translate(
                             offset: const Offset(0, 2),
                             child: Text('$doneQuiz',
-                                style: TextStyle(
-                                    fontSize: 10.4, fontWeight: FontWeight.w600, color: color)),
+                                style: const TextStyle(
+                                    fontSize: 10.4, fontWeight: FontWeight.normal, color: Colors.black)),
                           ),
                         ],
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  searchToggle,
                 ],
               ),
+                    ),
             ),
           ),
         ),

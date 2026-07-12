@@ -1271,30 +1271,54 @@ class _AllFilesTabState extends State<AllFilesTab> {
     }
   }
 
+  // 검색 매칭용 파일 표시명 (타입별 이름 필드가 달라 통일)
+  String _searchNameOf(_MergedFile m) {
+    switch (m.type) {
+      case _FileType.text:
+        return (m.file as TextFile).title;
+      case _FileType.handwriting:
+        return (m.file as HandwritingFile).title;
+      case _FileType.audio:
+        return (m.file as AudioFile).fileName;
+      case _FileType.attachment:
+        return (m.file as AttachmentFile).fileName;
+    }
+  }
+
   Widget _buildFileList() {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final hidden = appState.allTabHiddenTypes;
-    // 단일 필터(드롭다운, 현재 히든) + 제목 아이콘 토글 숨김을 함께 적용
+    // 검색은 전체탭('all') 제목 검색바에서만 구동 — STT/첨부 전용 뷰엔 미적용.
+    final q = (widget.showOnlySTT || widget.showOnlyAttachments)
+        ? ''
+        : appState.allTabSearchQuery.trim().toLowerCase();
+    // 단일 필터(드롭다운, 현재 히든) + 제목 아이콘 토글 숨김 + 파일명 검색을 함께 적용
     final merged = _applyFilter(_mergedFiles)
         .where((m) => !_hiddenByTitleToggle(m, hidden))
+        .where((m) => q.isEmpty || _searchNameOf(m).toLowerCase().contains(q))
         .toList();
-    final showYoutubeSection = !widget.showOnlySTT && !widget.showOnlyAttachments
+    // 검색 중에는 파일(이름) 결과에 집중 — 영상 채널 섹션은 숨긴다.
+    final showYoutubeSection = q.isEmpty
+        && !widget.showOnlySTT && !widget.showOnlyAttachments
         && (_fileFilter == _FileFilter.all || _fileFilter == _FileFilter.youtube)
         && !hidden.contains('youtube')
         && appState.showYoutubeInAllTab
         && (_youtubeChannels.isNotEmpty || _loadingChannels);
 
     if (merged.isEmpty && !showYoutubeSection) {
+      final searching = q.isNotEmpty;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              widget.showOnlySTT
-                  ? Icons.record_voice_over
-                  : widget.showOnlyAttachments
-                      ? Icons.drive_folder_upload
-                      : Icons.folder_open,
+              searching
+                  ? Icons.search_off
+                  : widget.showOnlySTT
+                      ? Icons.record_voice_over
+                      : widget.showOnlyAttachments
+                          ? Icons.drive_folder_upload
+                          : Icons.folder_open,
               size: 48,
               color: Colors.grey[400],
             ),
@@ -1302,11 +1326,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
             Builder(builder: (ctx) {
               final l10n = AppLocalizations.of(ctx);
               return Text(
-                widget.showOnlySTT
-                    ? (l10n?.noVoiceMemos ?? '녹음 메모가 없습니다.\n아래 버튼으로 시작하세요.')
-                    : widget.showOnlyAttachments
-                        ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
-                        : (l10n?.noFilesPrompt ?? '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요'),
+                searching
+                    ? '"$q"\n검색 결과가 없습니다'
+                    : widget.showOnlySTT
+                        ? (l10n?.noVoiceMemos ?? '녹음 메모가 없습니다.\n아래 버튼으로 시작하세요.')
+                        : widget.showOnlyAttachments
+                            ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
+                            : (l10n?.noFilesPrompt ?? '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500]),
               );
@@ -1827,6 +1853,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Widget _buildTextCard(TextFile file) {
     final color = Theme.of(context).primaryColor;
     final isFromSTT = file.isFromSTT;
+    // STT 결합 메모는 요약이 본문에 <!-- SUMMARY_START --> 마커로 삽입된다.
+    // summary 필드가 비어 있어도(레거시 파일·저장 레이스) 마커가 있으면 요약 아이콘을 활성화한다.
+    final hasSummary = file.hasSummary || file.content.contains('<!-- SUMMARY_START -->');
     // 요약/퀴즈를 담은 메모는 메모 아이콘 위에 출처 배지를 겹쳐 표시(동기화/공유해도 유지).
     // 요약=별셋(auto_awesome), 퀴즈=전구+q — 앱 리마인드/네비 아이콘과 동일 계열.
     final String? sourceBadge =
@@ -1929,8 +1958,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     if (file.sourceKind == null)
                       _iconBtn(
                         icon: Icons.auto_awesome,
-                        color: file.hasSummary ? color : Colors.grey.shade400,
-                        tooltip: file.hasSummary
+                        color: hasSummary ? color : Colors.grey.shade400,
+                        tooltip: hasSummary
                             ? (AppLocalizations.of(context)?.viewSummary ?? '요약 보기')
                             : (AppLocalizations.of(context)?.noSummary ?? '요약 없음'),
                         onPressed: () => _showSummaryDialog(file),
@@ -3820,8 +3849,8 @@ class _CreateChipBarState extends State<_CreateChipBar> {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: active ? Colors.white : color,
+                    fontWeight: FontWeight.normal,
+                    color: active ? Colors.white : Colors.black,
                   ),
                 ),
               ],
@@ -4033,6 +4062,169 @@ class RecordMemoSpeedDialIcon extends StatelessWidget {
 // ───────────────────────────── 탭 버튼 위젯 ─────────────────────────────
 
 /// DraggableTabLayout 탭 버튼에 표시할 일정명 + 3개 아이콘 + 파일수 위젯
+/// 전체탭 제목 — 앱설정(allTabTitleMode)에 따라 "검색바" 또는 "파일 통계"를 표시.
+class AllFilesTabTitle extends StatelessWidget {
+  final int textCount;
+  final int canvasCount;
+  final int pdfCount;
+  final int audioCount;
+  final int attachmentCount;
+  final String? littenTitle;
+
+  const AllFilesTabTitle({
+    super.key,
+    required this.textCount,
+    required this.canvasCount,
+    required this.pdfCount,
+    required this.audioCount,
+    required this.attachmentCount,
+    this.littenTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppStateProvider>(
+      builder: (context, app, _) {
+        final isSearch = app.allTabTitleMode == 'search';
+        final primary = Theme.of(context).primaryColor;
+        // 우측: 통계 ↔ 검색 토글 아이콘
+        final toggle = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => app.setAllTabTitleMode(isSearch ? 'stats' : 'search'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Icon(isSearch ? Icons.bar_chart : Icons.search,
+                size: 18, color: primary),
+          ),
+        );
+
+        if (isSearch) {
+          // "파일 N  [검색창]  [통계토글]" — N개 파일 안에서 검색하는 느낌.
+          final total = textCount + audioCount + canvasCount + pdfCount + attachmentCount;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 파일 아이콘 + 전체파일수 (통계 카운트 스타일: 작은 숫자, 아이콘에 바짝, 하단 정렬)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Icon(Icons.description, size: 16, color: primary),
+                  const SizedBox(width: 1),
+                  Text('$total',
+                      style: const TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.normal, color: Colors.black)),
+                ],
+              ),
+              const SizedBox(width: 12),
+              const _AllTabTitleSearch(),
+              const SizedBox(width: 10),
+              toggle,
+            ],
+          );
+        }
+
+        // 통계 모드: 아이콘 카운트 + 검색토글 (넘치면 자동 축소)
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AllFilesTabButton(
+                textCount: textCount,
+                canvasCount: canvasCount,
+                pdfCount: pdfCount,
+                audioCount: audioCount,
+                attachmentCount: attachmentCount,
+                littenTitle: littenTitle,
+              ),
+              const SizedBox(width: 6),
+              toggle,
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 전체탭 제목 검색바 (compact). provider.allTabSearchQuery와 동기화 → 파일 목록 필터.
+class _AllTabTitleSearch extends StatefulWidget {
+  const _AllTabTitleSearch();
+  @override
+  State<_AllTabTitleSearch> createState() => _AllTabTitleSearchState();
+}
+
+class _AllTabTitleSearchState extends State<_AllTabTitleSearch> {
+  late final TextEditingController _c;
+  @override
+  void initState() {
+    super.initState();
+    _c = TextEditingController(
+        text: context.read<AppStateProvider>().allTabSearchQuery);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).primaryColor;
+    final l10n = AppLocalizations.of(context);
+    // 하단 생성 칩 알약과 동일한 크기·스타일 (radius 20, 테두리 alpha0.2, 바탕 alpha0.15, 아이콘16, 폰트13, 세로패딩3)
+    return SizedBox(
+      width: 180,
+      height: 28,
+      child: TextField(
+        controller: _c,
+        onChanged: (v) {
+          context.read<AppStateProvider>().setAllTabSearchQuery(v);
+          setState(() {}); // 지우기 버튼 갱신
+        },
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: l10n?.enterSearchTerm ?? '검색어를 입력하세요...',
+          hintStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+          prefixIcon: Icon(Icons.search, size: 16, color: primary),
+          prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 24),
+          suffixIcon: _c.text.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _c.clear();
+                    context.read<AppStateProvider>().setAllTabSearchQuery('');
+                    FocusScope.of(context).unfocus();
+                    setState(() {});
+                  },
+                  child: const Icon(Icons.close, size: 14),
+                )
+              : null,
+          suffixIconConstraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+          contentPadding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          filled: true,
+          fillColor: primary.withValues(alpha: 0.15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: primary.withValues(alpha: 0.2)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: primary.withValues(alpha: 0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: primary, width: 1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AllFilesTabButton extends StatelessWidget {
   // ⭐ 전체탭 제목 영역 종류 필터 표시 여부. 현재 히든. 다시 보이려면 true.
   static const bool _showAllTabFilter = false;
@@ -4226,10 +4418,11 @@ class AllFilesTabButton extends StatelessWidget {
             const SizedBox(width: 2),
             Text(
               count.toString(),
-              // 폰트는 아이콘보다 약간 작게. 숨김이면 normal로 고정, 표시면 상위 weight(활성 탭 bold) 상속
+              // 폰트는 아이콘보다 약간 작게. 숫자는 검정 + 일반 굵기.
               style: TextStyle(
                 fontSize: countFontSize,
-                fontWeight: hidden ? FontWeight.normal : null,
+                fontWeight: FontWeight.normal,
+                color: Colors.black,
               ),
             ),
           ],

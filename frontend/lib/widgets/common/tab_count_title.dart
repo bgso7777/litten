@@ -38,7 +38,11 @@ class TabCountTitle extends StatelessWidget {
   final List<List<TabCount>> groups;
   final String separator;
 
-  const TabCountTitle(this.groups, {super.key, this.separator = '/'});
+  /// 지정하면 카운트 숫자 색을 이 값으로 고정한다(기본 null = 부모 상속색).
+  final Color? countColor;
+
+  const TabCountTitle(this.groups,
+      {super.key, this.separator = '/', this.countColor});
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +82,12 @@ class TabCountTitle extends StatelessWidget {
       children: [
         c.iconWidget ?? Icon(c.icon, color: c.color),
         const SizedBox(width: 2),
-        Text('${c.count}', style: TextStyle(fontSize: countFontSize)),
+        Text('${c.count}',
+            style: TextStyle(
+                fontSize: countFontSize,
+                color: countColor,
+                // countColor를 지정한 커스텀 탭제목(스터디룸)은 일반 굵기로.
+                fontWeight: countColor != null ? FontWeight.normal : null)),
       ],
     );
     // 비활성(필터 꺼짐)이면 흐리게.

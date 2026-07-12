@@ -99,7 +99,7 @@ class _WritingScreenState extends State<WritingScreen>
         id: 'all',
         title: '',
         icon: Icons.apps,
-        customTabWidget: AllFilesTabButton(
+        customTabWidget: AllFilesTabTitle(
           textCount: textCount,
           canvasCount: canvasCount,
           pdfCount: pdfCount,

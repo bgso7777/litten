@@ -2400,10 +2400,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 ],
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.black,
                   ),
                 ),
               ],
