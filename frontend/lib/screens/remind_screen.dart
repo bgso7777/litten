@@ -518,28 +518,35 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         final topItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
         final bottomItems = <({DateTime at, SummaryEntry? summary, QuizTarget? quizGroup})>[];
         final ck = _filter.confirmedKind; // null=전체 | 'summary' | 'quiz'
-        // 상단/하단 중 하나라도 검색이 켜져 있으면 제목(요약=title, 퀴즈=fileName)으로 필터.
-        final rq = appState.remindSearchActive
+        // 상단(확인 안 함) = 제목란 토글 검색어로, 하단(확인함 패널) = 패널 상단 바 검색어로 각각 필터.
+        final topQ = appState.remindSearchActive
             ? appState.remindSearchQuery.trim().toLowerCase()
             : '';
+        final paneQ = appState.remindPaneSearchOn
+            ? appState.remindPaneSearchQuery.trim().toLowerCase()
+            : '';
         for (final s in summaries) {
-          if (rq.isNotEmpty && !s.title.toLowerCase().contains(rq)) continue;
+          final t = s.title.toLowerCase();
           if (s.isDone) {
+            if (paneQ.isNotEmpty && !t.contains(paneQ)) continue;
             if (ck == null || ck == 'summary') {
               bottomItems.add((at: s.createdAt, summary: s, quizGroup: null));
             }
           } else if (_filter.showSummary) {
+            if (topQ.isNotEmpty && !t.contains(topQ)) continue;
             topItems.add((at: s.createdAt, summary: s, quizGroup: null));
           }
         }
         for (final g in quizGroups) {
           if (g.items.isEmpty) continue;
-          if (rq.isNotEmpty && !g.fileName.toLowerCase().contains(rq)) continue;
+          final t = g.fileName.toLowerCase();
           if (g.pendingCount == 0) {
+            if (paneQ.isNotEmpty && !t.contains(paneQ)) continue;
             if (ck == null || ck == 'quiz') {
               bottomItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
             }
           } else if (_filter.showQuiz) {
+            if (topQ.isNotEmpty && !t.contains(topQ)) continue;
             topItems.add((at: g.items.first.createdAt, summary: null, quizGroup: g));
           }
         }
@@ -581,7 +588,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                                         height: halfH,
                                         child: Column(
                                           children: [
-                                            _confirmedHeader(color),
+                                            _confirmedHeader(color, appState),
                                             Expanded(
                                               child: _paneList(bottomItems, color, appState,
                                                   emptyText: '확인한 항목이 없습니다.'),
@@ -661,7 +668,39 @@ class _RemindBodyViewState extends State<_RemindBodyView>
   }
 
   /// 하단(확인함) 영역 구분 헤더. 밴드를 아래로 드래그하면 확인함 영역을 닫는다.
-  Widget _confirmedHeader(Color color) {
+  Widget _confirmedHeader(Color color, AppStateProvider appState) {
+    final searchOn = appState.remindPaneSearchOn;
+    final doneSummary = appState.summaries.where((s) => s.isDone).length;
+    final doneQuiz = appState.quizTargets
+        .where((g) => g.items.isNotEmpty && g.pendingCount == 0)
+        .length;
+    // 확인함 종류 필터에 따른 활성(전체=null이면 둘 다 활성).
+    bool act(String k) =>
+        _filter.confirmedKind == null || _filter.confirmedKind == k;
+    // 하단 칩과 동일한 '아이콘+카운트' 요소(탭하면 해당 종류만 확인함으로 필터).
+    Widget kindCount(String k, Widget icon, int n, VoidCallback onTap) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            icon,
+            const SizedBox(width: 2),
+            Transform.translate(
+              offset: const Offset(0, 2),
+              child: Text('$n',
+                  style: TextStyle(
+                      fontSize: 10.4,
+                      fontWeight: FontWeight.normal,
+                      color: act(k) ? Colors.black : Colors.grey.shade400)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // 아래로 스와이프(내림) → 확인함 영역 닫기.
@@ -670,7 +709,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+        // 바 상하 높이를 하단 칩 위젯과 동일하게(= 세로패딩9 + 콘텐츠28 = 46).
+        padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
           border: Border(
@@ -678,17 +718,88 @@ class _RemindBodyViewState extends State<_RemindBodyView>
             bottom: BorderSide(color: color.withValues(alpha: 0.1)),
           ),
         ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text('확인',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-            const Spacer(),
-            // 아래로 내려 닫을 수 있음을 알리는 핸들 힌트.
-            Icon(Icons.keyboard_arrow_down, size: 18, color: color.withValues(alpha: 0.5)),
-          ],
+        child: SizedBox(
+          height: 28.0,
+          child: searchOn
+              // 검색 모드: 리마인드 제목의 검색과 동일한 크기(고정 180×28)로, 가운데 정렬.
+              ? Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TabTitleSearchField(
+                        initialValue: appState.remindPaneSearchQuery,
+                        onChanged: (v) => context
+                            .read<AppStateProvider>()
+                            .setRemindPaneSearchQuery(v),
+                      ),
+                      const SizedBox(width: 8),
+                      _paneToggle(color, searchOn),
+                    ],
+                  ),
+                )
+              // 통계 모드: '✓ 확인'은 좌측 정렬, '요약/퀴즈 카운트 + 검색 토글'은 가운데 정렬.
+              : Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 좌측: ✓ 확인
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, size: 14, color: color),
+                          const SizedBox(width: 6),
+                          Text('확인',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: color)),
+                        ],
+                      ),
+                    ),
+                    // 가운데: 요약/퀴즈 카운트 + 검색 토글
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        kindCount(
+                            'summary',
+                            Icon(Icons.auto_awesome,
+                                size: 17,
+                                color: act('summary')
+                                    ? color
+                                    : Colors.grey.shade400),
+                            doneSummary,
+                            _filter.showConfirmedSummary),
+                        const SizedBox(width: 8),
+                        kindCount(
+                            'quiz',
+                            QuizBulbIcon(
+                                size: 17,
+                                color:
+                                    act('quiz') ? color : Colors.grey.shade400),
+                            doneQuiz,
+                            _filter.showConfirmedQuiz),
+                        const SizedBox(width: 8),
+                        _paneToggle(color, searchOn),
+                      ],
+                    ),
+                  ],
+                ),
         ),
+      ),
+    );
+  }
+
+  /// 확인함 헤더 우측 통계↔검색 토글 아이콘.
+  Widget _paneToggle(Color color, bool searchOn) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () =>
+          context.read<AppStateProvider>().setRemindPaneSearchOn(!searchOn),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Icon(searchOn ? Icons.bar_chart : Icons.search,
+            size: 18, color: color),
       ),
     );
   }
@@ -898,18 +1009,6 @@ class _RemindBodyViewState extends State<_RemindBodyView>
         .where((g) => g.items.isNotEmpty && g.pendingCount == 0)
         .length;
 
-    // 우측 검색 ↔ 통계 토글(하단 전용 상태 remindBottomSearch — 상단 토글과 독립, 검색어는 공유).
-    final isSearch = appState.remindBottomSearch;
-    final searchToggle = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => appState.setRemindBottomSearch(!isSearch),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(isSearch ? Icons.bar_chart : Icons.search,
-            size: 18, color: color),
-      ),
-    );
-
     return Material(
       color: color.withValues(alpha: 0.08), // 바 배경(InkWell 잉크가 보이도록 Material로)
       child: InkWell(
@@ -921,82 +1020,80 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
           ),
-          // 가운데: 확인 완료 카운트(아이콘+숫자). 메모 추가 +는 우측 하단 FAB(MainTabScreen)로 이동.
+          // 가운데: 확인 완료 카운트(아이콘+숫자). 검색은 확인함 패널 상단 바로 이동(패널 내부만 검색).
           // 노트(_CreateChipBar)·캘린더·홈 칩 바와 동일한 콘텐츠 높이(28.0)로 바 높이를 일치시킨다.
           child: SizedBox(
             height: 28.0,
-            // 전체탭 탭제목처럼 [카운트/검색 + 토글]을 한 묶음으로 가운데 정렬.
-            // 검색 모드면 이 자리(카운트 위치)에 검색창을, 아니면 확인완료 카운트를 표시.
             child: Center(
-              child: isSearch
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TabTitleSearchField(
-                          initialValue: appState.remindSearchQuery,
-                          onChanged: appState.setRemindSearchQuery,
-                        ),
-                        const SizedBox(width: 8),
-                        searchToggle,
-                      ],
-                    )
-                  : FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
                 mainAxisSize: MainAxisSize.min,
                 // 채팅 하단 칩과 동일하게 하단정렬 + 카운트 2px 하향.
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   // 요약: 아이콘 탭 → 확인함 영역 열고 '완료된 요약'만(재탭 시 닫힘). 비활성이면 흐리게.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _filter.showConfirmedSummary,
-                    child: Opacity(
-                      // 기본(미선택)은 흐리게(비활성). 요약을 탭해 확인함이 펼쳐지면 밝게(활성).
-                      opacity: _filter.confirmedKind == 'summary' ? 1.0 : 0.35,
+                  Builder(builder: (context) {
+                    // 확인함이 열려 '전체(kind=null)'면 요약·퀴즈 모두 활성, '요약'만 선택하면 요약만 활성.
+                    // 닫혀 있으면(미터치) 회색(비활성).
+                    final sel = _filter.confirmedOpen &&
+                        (_filter.confirmedKind == null ||
+                            _filter.confirmedKind == 'summary');
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _filter.showConfirmedSummary,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           // 상단 탭제목(TabCountTitle)과 동일한 아이콘 17 / 카운트 10.4.
-                          Icon(Icons.auto_awesome, size: 17, color: color),
+                          Icon(Icons.auto_awesome,
+                              size: 17,
+                              color: sel ? color : Colors.grey.shade400),
                           const SizedBox(width: 2),
                           Transform.translate(
                             offset: const Offset(0, 2),
                             child: Text('$doneSummary',
-                                style: const TextStyle(
-                                    fontSize: 10.4, fontWeight: FontWeight.normal, color: Colors.black)),
+                                style: TextStyle(
+                                    fontSize: 10.4,
+                                    fontWeight: FontWeight.normal,
+                                    color: sel ? Colors.black : Colors.grey.shade400)),
                           ),
                         ],
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                   const SizedBox(width: 8), // 전체탭 탭제목 아이콘카운트와 동일한 항목 간격(8).
                   // 퀴즈: 아이콘 탭 → 확인함 영역 열고 '완료된 퀴즈'만(재탭 시 닫힘).
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _filter.showConfirmedQuiz,
-                    child: Opacity(
-                      // 기본(미선택)은 흐리게(비활성). 퀴즈를 탭해 확인함이 펼쳐지면 밝게(활성).
-                      opacity: _filter.confirmedKind == 'quiz' ? 1.0 : 0.35,
+                  Builder(builder: (context) {
+                    // 확인함이 열려 '전체(kind=null)'면 요약·퀴즈 모두 활성, '퀴즈'만 선택하면 퀴즈만 활성.
+                    // 닫혀 있으면(미터치) 회색(비활성).
+                    final sel = _filter.confirmedOpen &&
+                        (_filter.confirmedKind == null ||
+                            _filter.confirmedKind == 'quiz');
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _filter.showConfirmedQuiz,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          QuizBulbIcon(size: 17, color: color),
+                          QuizBulbIcon(
+                              size: 17,
+                              color: sel ? color : Colors.grey.shade400),
                           const SizedBox(width: 2),
                           Transform.translate(
                             offset: const Offset(0, 2),
                             child: Text('$doneQuiz',
-                                style: const TextStyle(
-                                    fontSize: 10.4, fontWeight: FontWeight.normal, color: Colors.black)),
+                                style: TextStyle(
+                                    fontSize: 10.4,
+                                    fontWeight: FontWeight.normal,
+                                    color: sel ? Colors.black : Colors.grey.shade400)),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  searchToggle,
+                    );
+                  }),
                 ],
               ),
                     ),

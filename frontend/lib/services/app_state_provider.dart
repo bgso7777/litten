@@ -919,6 +919,38 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
   bool get remindSearchActive => _remindTitleMode == 'search' || _remindBottomSearch;
 
+  // 스터디룸 파일 패널(칩 선택 시 위로 열리는 창) — 상단 탭제목과 동일한 통계↔검색 토글.
+  bool _homePaneSearchOn = false; // false=통계(아이콘+카운트) | true=검색(검색창)
+  bool get homePaneSearchOn => _homePaneSearchOn;
+  void setHomePaneSearchOn(bool on) {
+    if (_homePaneSearchOn == on) return;
+    _homePaneSearchOn = on;
+    notifyListeners();
+  }
+  String _homePaneSearchQuery = '';
+  String get homePaneSearchQuery => _homePaneSearchQuery;
+  void setHomePaneSearchQuery(String q) {
+    if (_homePaneSearchQuery == q) return;
+    _homePaneSearchQuery = q;
+    notifyListeners();
+  }
+
+  // 리마인드 확인함 패널(위로 열리는 창) — 상단 탭제목과 동일한 통계↔검색 토글.
+  bool _remindPaneSearchOn = false;
+  bool get remindPaneSearchOn => _remindPaneSearchOn;
+  void setRemindPaneSearchOn(bool on) {
+    if (_remindPaneSearchOn == on) return;
+    _remindPaneSearchOn = on;
+    notifyListeners();
+  }
+  String _remindPaneSearchQuery = '';
+  String get remindPaneSearchQuery => _remindPaneSearchQuery;
+  void setRemindPaneSearchQuery(String q) {
+    if (_remindPaneSearchQuery == q) return;
+    _remindPaneSearchQuery = q;
+    notifyListeners();
+  }
+
   // ⭐ 전체탭 제목 아이콘 토글로 "숨긴 종류" 집합(세션 한정). 비어있으면 전부 표시.
   // 키: text/audio/canvas/pdf/files/photo/video/youtube
   final Set<String> _allTabHiddenTypes = {};

@@ -491,19 +491,13 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
               ? Theme.of(context).primaryColor.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
+          // 하단 칩 위젯(평평한 0.08 배경)과 톤을 맞추기 위해 파란 테두리를 옅게, 그림자는 제거.
           border: Border.all(
             color: isActive
-                ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
                 : Colors.transparent,
             width: 1,
           ),
-          boxShadow: isActive ? [
-            BoxShadow(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
         ),
         child: tab.customTabWidget != null
             ? _wrapBgTap(tab, Row(

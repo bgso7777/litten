@@ -142,17 +142,17 @@ class _HomeChipBar extends StatelessWidget {
       if (n <= 0) return;
       // 전체탭 탭제목 아이콘카운트와 동일한 항목 간격(8).
       if (chips.isNotEmpty) chips.add(const SizedBox(width: 8));
-      final selected = selectedKind == kind;
+      // 이 칩만 콕 선택된 상태(배경 pill 표시용).
+      final isThisPick = selectedKind == kind;
+      // 활성(컬러) 규칙: '전체(all)' 보기면 모든 칩 활성, 특정 종류 선택이면 그 칩만 활성.
+      final active = selectedKind == 'all' || isThisPick;
       chips.add(GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => context.read<AppStateProvider>().setHomeChatFileKind(kind),
-        // 기본(미선택)은 흐리게(비활성), 탭해서 선택하면 밝게(활성) — 상단 탭제목 아이콘의
-        // active opacity 패턴과 동일. 선택 시 배경 하이라이트 + 파일 패널이 위로 슬라이드업된다.
-        child: Opacity(
-          opacity: selected ? 1.0 : 0.4,
-          child: Container(
+        // 전체 보기=모두 컬러(활성), 특정 선택=그 칩만 컬러+배경 하이라이트, 나머지는 회색(비활성).
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: selected
+          decoration: isThisPick
               ? BoxDecoration(
                   color: color.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10))
@@ -162,19 +162,18 @@ class _HomeChipBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // 상단 탭제목(TabCountTitle)과 동일한 아이콘 17 / 카운트 10.4 크기로 통일.
-              Icon(icon, size: 17, color: color),
+              Icon(icon, size: 17, color: active ? color : Colors.grey.shade400),
               const SizedBox(width: 2),
               // 카운트를 살짝 아래로 내려 탭제목의 '하단정렬' 느낌과 맞춘다(레이아웃 불변, 시각만 이동).
               Transform.translate(
                 offset: const Offset(0, 2),
                 child: Text('$n',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10.4,
                         fontWeight: FontWeight.normal,
-                        color: Colors.black)),
+                        color: active ? Colors.black : Colors.grey.shade400)),
               ),
             ],
-          ),
           ),
         ),
       ));
@@ -190,20 +189,9 @@ class _HomeChipBar extends StatelessWidget {
     add('photo', Icons.photo_camera, counts['photo'] ?? 0);
     add('video', Icons.videocam, counts['video'] ?? 0);
 
-    // 우측 검색 ↔ 통계 토글(하단 전용 상태 homeBottomSearch — 상단 토글과 독립, 검색어는 공유).
-    final isSearch = app.homeBottomSearch;
-    final toggle = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () =>
-          context.read<AppStateProvider>().setHomeBottomSearch(!isSearch),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(isSearch ? Icons.bar_chart : Icons.search,
-            size: 18, color: color),
-      ),
-    );
     // 아이콘(칩)이 아닌 빈 영역을 탭하면 종류 무관 '전체' 파일을 일자순으로 표시한다.
     // (각 칩은 자체 GestureDetector가 있어 해당 종류로 동작하고, 그 외 영역만 'all'로 처리)
+    // 검색은 칩을 눌러 위로 열리는 파일 패널의 상단 바로 이동했다(패널 내부만 검색).
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.read<AppStateProvider>().setHomeChatFileKind('all'),
@@ -218,35 +206,12 @@ class _HomeChipBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: SizedBox(
           height: 28.0,
-          // 전체탭 탭제목처럼 [아이콘카운트/검색 + 토글]을 한 묶음으로 가운데 정렬.
-          // 검색 모드면 이 자리에 검색창을(하단에서 켰으니 하단에 표시), 아니면 칩 목록을 표시.
+          // 아이콘 카운트를 한 묶음으로 가운데 정렬. 칩이 많아 넘치면 축소(FittedBox scaleDown).
           child: Center(
-            child: isSearch
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TabTitleSearchField(
-                        initialValue: app.homeSearchQuery,
-                        onChanged: (v) => context
-                            .read<AppStateProvider>()
-                            .setHomeSearchQuery(v),
-                      ),
-                      const SizedBox(width: 8),
-                      toggle,
-                    ],
-                  )
-                // 칩이 많아 넘치면 축소(전체탭 제목과 동일한 FittedBox scaleDown).
-                : FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ...chips,
-                        const SizedBox(width: 8),
-                        toggle,
-                      ],
-                    ),
-                  ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+            ),
           ),
         ),
       ),
@@ -2203,17 +2168,31 @@ class _ShareSectionState extends State<_ShareSection>
     }
     rows.sort((a, b) => _parseAt(b['dateIso']).compareTo(_parseAt(a['dateIso'])));
 
-    final Widget listOrEmpty = rows.isEmpty
+    // 패널 상단 바 검색 — 이 패널(해당 종류 파일)만 파일명으로 필터(검색 토글 ON일 때만).
+    final paneSearchOn = appState.homePaneSearchOn;
+    final pq = paneSearchOn
+        ? appState.homePaneSearchQuery.trim().toLowerCase()
+        : '';
+    final shownRows = pq.isEmpty
+        ? rows
+        : rows
+            .where((r) =>
+                (r['fname']?.toString() ?? '').toLowerCase().contains(pq))
+            .toList();
+    final Widget listOrEmpty = shownRows.isEmpty
         ? Center(
-            child: Text('${kindLabels[kind] ?? kind} 파일이 없습니다.',
+            child: Text(
+                pq.isNotEmpty
+                    ? '"$pq" 검색 결과가 없습니다.'
+                    : '${kindLabels[kind] ?? kind} 파일이 없습니다.',
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade500)))
         : ListView.separated(
             padding: const EdgeInsets.only(top: 4, bottom: 8),
-            itemCount: rows.length,
+            itemCount: shownRows.length,
             separatorBuilder: (_, i) =>
                 Divider(height: 1, color: color.withValues(alpha: 0.08)),
             itemBuilder: (_, i) {
-              final r = rows[i];
+              final r = shownRows[i];
               return ListTile(
                 leading: Icon(
                     _shareFileTypeIcon(r['fileType']?.toString(),
@@ -2244,28 +2223,63 @@ class _ShareSectionState extends State<_ShareSection>
             if ((d.primaryVelocity ?? 0) > 0) appState.setHomeChatFileKind(kind);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            // 바 상하 높이를 하단 칩 위젯과 동일하게(= 세로패딩9 + 콘텐츠28 = 46).
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.08),
               border: Border(
                   bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.3))),
             ),
-            child: Row(
-              children: [
-                Icon(_kindHeaderIcon(kind), size: 17, color: color),
-                const SizedBox(width: 6),
-                Text(kindLabels[kind] ?? kind,
-                    style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(width: 6),
-                Text('${rows.length}',
-                    style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-                const Spacer(),
-                // 아래로 내려 닫을 수 있음을 알리는 핸들 힌트.
-                Icon(Icons.keyboard_arrow_down,
-                    size: 20, color: color.withValues(alpha: 0.5)),
-              ],
+            child: SizedBox(
+              height: 28.0,
+              // 상단 탭제목과 동일한 통계↔검색 토글. 통계=파일아이콘+카운트, 검색=검색창.
+              // 우측 토글: 검색 중이면 통계아이콘, 통계 중이면 검색아이콘.
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: paneSearchOn
+                          ? TabTitleSearchField(
+                              initialValue: appState.homePaneSearchQuery,
+                              onChanged: (v) => context
+                                  .read<AppStateProvider>()
+                                  .setHomePaneSearchQuery(v),
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              // 전체탭 탭제목 좌측의 '파일아이콘 카운트'와 완전히 동일한 모양:
+                              // 파일(문서) 아이콘 16 · 간격 1 · 카운트 10 normal 검정 · 하단정렬.
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Icon(Icons.description, size: 16, color: color),
+                                const SizedBox(width: 1),
+                                Text('${rows.length}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.normal,
+                                        color: Colors.black)),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context
+                          .read<AppStateProvider>()
+                          .setHomePaneSearchOn(!paneSearchOn),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
+                        child: Icon(
+                            paneSearchOn ? Icons.bar_chart : Icons.search,
+                            size: 18,
+                            color: color),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

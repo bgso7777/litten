@@ -418,7 +418,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(
               title,
               style: AppTextStyles.label.copyWith(
-                color: primaryColor,
+                color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
             ),
