@@ -208,6 +208,8 @@ class Litten {
   final List<String> attachmentFileIds; // ⭐ 임의 첨부 파일 ID들
   final LittenSchedule? schedule;
   final int notificationCount; // 알림 발생 횟수 카운트
+  // 일정 색 인덱스(0~4). 일정 바/알약 배경 기준색. 기본 0=파랑(AppColors.scheduleColors 참조).
+  final int colorIndex;
 
   Litten({
     String? id,
@@ -221,6 +223,7 @@ class Litten {
     List<String>? attachmentFileIds,
     this.schedule,
     this.notificationCount = 0,
+    this.colorIndex = 0,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
@@ -248,6 +251,7 @@ class Litten {
     List<String>? attachmentFileIds,
     LittenSchedule? schedule,
     int? notificationCount,
+    int? colorIndex,
   }) {
     return Litten(
       id: id,
@@ -261,6 +265,7 @@ class Litten {
       attachmentFileIds: attachmentFileIds ?? this.attachmentFileIds,
       schedule: schedule ?? this.schedule,
       notificationCount: notificationCount ?? this.notificationCount,
+      colorIndex: colorIndex ?? this.colorIndex,
     );
   }
 
@@ -277,6 +282,7 @@ class Litten {
       'attachmentFileIds': attachmentFileIds,
       'schedule': schedule?.toJson(),
       'notificationCount': notificationCount,
+      'colorIndex': colorIndex,
     };
   }
 
@@ -293,6 +299,7 @@ class Litten {
       attachmentFileIds: List<String>.from(json['attachmentFileIds'] ?? []),
       schedule: json['schedule'] != null ? LittenSchedule.fromJson(json['schedule']) : null,
       notificationCount: json['notificationCount'] ?? 0,
+      colorIndex: json['colorIndex'] ?? 0, // 기존 일정(색 없음) → 0=파랑 기본
     );
   }
 }

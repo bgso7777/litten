@@ -3127,7 +3127,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // 리튼 생성
-  Future<Litten> createLitten(String title, {LittenSchedule? schedule}) async {
+  Future<Litten> createLitten(String title,
+      {LittenSchedule? schedule, int colorIndex = 0}) async {
     debugPrint('🔄 리튼 생성 시작: $title');
 
     try {
@@ -3175,6 +3176,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 실제 생성 시각을 사용한다. (일정 날짜를 넣으면 이후 수정/삭제가 "과거"로 판정돼 무시됨)
         updatedAt: DateTime.now(),
         schedule: schedule,
+        colorIndex: colorIndex,
       );
 
       await _littenService.saveLitten(litten);

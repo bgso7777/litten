@@ -26,6 +26,27 @@ class AppColors {
   static const Color grey300 = Color(0xFFE0E0E0);
   static const Color grey600 = Color(0xFF757575);
   static const Color grey800 = Color(0xFF424242);
+
+  // 일정(스케줄)별 선택 색 — 홈페이지 학습 사이클 브랜드 팔레트와 동일. index 0~4.
+  // 일정 바(선택색 alpha 0.8) / 알약(선택색 alpha 0.15) 배경 기준색이 된다.
+  static const List<Color> scheduleColors = [
+    Color(0xFF3F86D8), // 0 파랑 (예습/기록)
+    Color(0xFF2AA79B), // 1 초록 (노트/정리)
+    Color(0xFF7C6BD6), // 2 보라 (복습/AI)
+    Color(0xFFE0805A), // 3 주황 (공유·미디어)
+    Color(0xFFD9608F), // 4 로즈 (일정/캘린더)
+    Color(0xFF5577B3), // 5 슬레이트블루 (저장·동기화)
+    Color(0xFFD59128), // 6 골드/앰버 (맞춤·글로벌)
+  ];
+  static const int defaultScheduleColorIndex = 0; // 기본값 = 파랑(제일 앞)
+
+  /// colorIndex를 안전하게 색으로 변환(범위 밖이면 기본값).
+  static Color scheduleColor(int? index) {
+    if (index == null || index < 0 || index >= scheduleColors.length) {
+      return scheduleColors[defaultScheduleColorIndex];
+    }
+    return scheduleColors[index];
+  }
 }
 
 class AppTextStyles {

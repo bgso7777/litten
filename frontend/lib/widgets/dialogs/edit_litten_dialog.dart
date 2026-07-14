@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/app_state_provider.dart';
 import '../../models/litten.dart';
+import '../../config/themes.dart';
 import '../home/schedule_picker.dart';
 import '../home/notification_settings.dart';
 
@@ -25,6 +27,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
   late TextEditingController _titleController;  // Controller 사용
   late LittenSchedule? _selectedSchedule;
   int _currentTabIndex = 0;
+  int _selectedColorIndex = AppColors.defaultScheduleColorIndex; // 일정 색
   final FocusNode _titleFocusNode = FocusNode();  // FocusNode 추가
 
   @override
@@ -33,6 +36,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     // Controller에 즉시 텍스트 설정 - PostFrameCallback 사용하지 않음
     _titleController = TextEditingController(text: widget.litten.title);
     _selectedSchedule = widget.litten.schedule;
+    _selectedColorIndex = widget.litten.colorIndex; // 기존 일정 색 로드
     debugPrint('📝 EditLittenDialog initState - 제목: "${widget.litten.title}"');
     debugPrint('📝 Controller text: "${_titleController.text}"');
 
@@ -65,33 +69,43 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 제목 입력 필드
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _titleController,
-              builder: (context, value, child) {
-                return TextField(
-                  controller: _titleController,
-                  focusNode: _titleFocusNode,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: l10n?.scheduleTitle ?? '일정 제목을 입력하세요.',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
+            // 제목 입력 필드 + 우측 5색 선택기(제목 폭이 약간 줄어듦)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _titleController,
+                    builder: (context, value, child) {
+                      return TextField(
+                        controller: _titleController,
+                        focusNode: _titleFocusNode,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText:
+                              l10n?.scheduleTitle ?? '일정 제목을 입력하세요.',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
                   ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
+                ),
+                const SizedBox(width: 8),
+                _buildColorPicker(),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -121,6 +135,34 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
           child: Text(l10n?.save ?? '저장'),
         ),
       ],
+    );
+  }
+
+  /// 일정 색 선택기 — 세로 롤링(번호 고르듯). 가운데(선택 밴드)에 온 색이 선택된다.
+  Widget _buildColorPicker() {
+    return SizedBox(
+      width: 40,
+      height: 78, // itemExtent 26 × 3칸
+      child: CupertinoPicker(
+        itemExtent: 26,
+        looping: true, // 완전 롤링(끝에서 처음으로 무한 순환)
+        scrollController:
+            FixedExtentScrollController(initialItem: _selectedColorIndex),
+        onSelectedItemChanged: (i) {
+          final n = AppColors.scheduleColors.length;
+          setState(() => _selectedColorIndex = ((i % n) + n) % n);
+        },
+        children: [
+          for (final c in AppColors.scheduleColors)
+            Center(
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -327,6 +369,7 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
         textFileIds: widget.litten.textFileIds,
         handwritingFileIds: widget.litten.handwritingFileIds,
         schedule: _selectedSchedule,
+        colorIndex: _selectedColorIndex,
       );
 
       // 리튼 업데이트

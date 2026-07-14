@@ -1485,6 +1485,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     // 해당 월의 일정들 수집 (모든 일정)
     final schedules = <Map<String, dynamic>>[];
 
+    // 제목 → 일정 색 인덱스 맵(일정 바 색 조회용). 같은 제목이면 같은 색.
+    final titleColorIndex = <String, int>{
+      for (final l in appState.littens)
+        if (l.title != 'undefined' && l.schedule != null)
+          l.title: l.colorIndex,
+    };
+
     for (final litten in appState.littens) {
       debugPrint('   리튼: "${litten.title}", schedule: ${litten.schedule != null ? "있음" : "없음"}');
 
@@ -1800,7 +1807,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                    // 일정 색: 선택한 색 기준(alpha 0.8, 진한 톤).
+                    color: AppColors.scheduleColor(titleColorIndex[title])
+                        .withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -2196,19 +2205,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   /// 다가오는 일정(미래)들을 시작 시각 오름차순으로 수집한다.
   /// 펼친 일정 목록(litten_unified_list_view)과 **동일한** schedule_utils.nextScheduleOccurrence
   /// 로직을 써서, 칩 바와 펼친 목록의 일정 집합이 일치하도록 한다.
-  List<({String title, DateTime when})> _getUpcomingSchedules(
+  List<({String title, DateTime when, int colorIndex})> _getUpcomingSchedules(
     List<Litten> littens,
     String languageCode, {
     int limit = 50,
   }) {
     final now = nowForLanguage(languageCode);
-    final result = <({String title, DateTime when})>[];
+    final result = <({String title, DateTime when, int colorIndex})>[];
 
     for (final litten in littens) {
       if (litten.schedule == null || litten.title == 'undefined') continue;
       final next = schedule_utils.nextScheduleOccurrence(litten.schedule!, now);
       if (next != null && next.isAfter(now)) {
-        result.add((title: litten.title, when: next));
+        result.add((
+          title: litten.title,
+          when: next,
+          colorIndex: litten.colorIndex,
+        ));
       }
     }
 
@@ -2333,7 +2346,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           _scheduleChip(
             // "남은시간 · 일정제목" 순서로 표시 (아이콘 없음)
             label: '${schedule_utils.remainingLabel(s.when, now) ?? ''} · ${s.title}',
-            color: color,
+            // 알약 배경/테두리 기준색 = 그 일정의 선택색(alpha 0.15/0.2).
+            color: AppColors.scheduleColor(s.colorIndex),
             onTap: toggleList,
           ),
       ];
