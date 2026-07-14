@@ -64,11 +64,11 @@ class _CalendarTabScreenState extends State<CalendarTabScreen> {
                   Text(
                     DateFormat.yMMMM(appState.locale.languageCode)
                         .format(appState.focusedDate),
-                    // 캘린더 탭 제목(년월)만 키움 (부모 DefaultTextStyle 13 → 15) + 검정 + 일반 굵기
+                    // 캘린더 탭 제목(년월)만 키움 (부모 DefaultTextStyle 13 → 15) + 검정 + 굵게
                     style: const TextStyle(
                         fontSize: 15,
                         color: Colors.black,
-                        fontWeight: FontWeight.normal),
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 80),
                   InkWell(

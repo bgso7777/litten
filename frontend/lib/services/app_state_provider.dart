@@ -1714,6 +1714,14 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get messagesReceived => _messagesReceived;
   List<Map<String, dynamic>> get messagesSent => _messagesSent;
 
+  // 스터디룸(공유방/대화) 로컬 캐시 키 — 노트/자기대화처럼 로컬에 저장해두고 즉시 표시한다.
+  // 서버 재요청 없이 렌더 + 오프라인/토큰만료에도 방 유지 + 서버 트래픽 절감.
+  static const String _sharesReceivedKey = 'shares_received_cache';
+  static const String _sharesSentKey = 'shares_sent_cache';
+  static const String _shareGroupsKey = 'share_groups_cache';
+  static const String _messagesReceivedKey = 'messages_received_cache';
+  static const String _messagesSentKey = 'messages_sent_cache';
+
   // 홈 공유 목록 표시 토글: 받은 것/한 것 각각 독립 on/off (제목의 받음/보냄 카운트 아이콘으로 토글)
   // 기본값은 둘 다 켜짐(보임). 한쪽을 끄면 해당 목록만 숨겨진다.
   bool _showReceivedShares = true;
@@ -2357,19 +2365,69 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// 스터디룸(공유방/대화)을 로컬 캐시에 저장한다(노트/자기대화처럼 로컬 우선 표시용).
+  Future<void> _saveSharesCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_sharesReceivedKey, jsonEncode(_sharesReceived));
+      await prefs.setString(_sharesSentKey, jsonEncode(_sharesSent));
+      await prefs.setString(_shareGroupsKey, jsonEncode(_shareGroups));
+      await prefs.setString(_messagesReceivedKey, jsonEncode(_messagesReceived));
+      await prefs.setString(_messagesSentKey, jsonEncode(_messagesSent));
+    } catch (e) {
+      debugPrint('[AppStateProvider] _saveSharesCache 실패: $e');
+    }
+  }
+
+  /// 로컬 캐시에서 스터디룸을 in-memory로 불러온다(서버 요청 없이 즉시 표시).
+  Future<void> _loadSharesCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<Map<String, dynamic>> dec(String? raw) {
+      if (raw == null || raw.isEmpty) return [];
+      try {
+        return (jsonDecode(raw) as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+    _sharesReceived = dec(prefs.getString(_sharesReceivedKey));
+    _sharesSent = dec(prefs.getString(_sharesSentKey));
+    _shareGroups = dec(prefs.getString(_shareGroupsKey));
+    _messagesReceived = dec(prefs.getString(_messagesReceivedKey));
+    _messagesSent = dec(prefs.getString(_messagesSentKey));
+  }
+
   /// 받은/보낸 공유 + 그룹 로드 (로그인 시/홈 진입 시).
+  /// 로컬 캐시를 먼저 보여주고(서버 재요청 없이 즉시 렌더 + 오프라인/토큰만료에도 방 유지),
+  /// 그 다음 서버에서 최신분을 받아와 캐시를 갱신한다. 서버 실패 시 캐시를 그대로 유지한다.
   Future<void> loadShares() async {
+    // 1) in-memory가 비어있으면(앱 재시작 직후) 로컬 캐시에서 먼저 불러와 즉시 표시.
+    if (_sharesReceived.isEmpty &&
+        _sharesSent.isEmpty &&
+        _shareGroups.isEmpty &&
+        _messagesReceived.isEmpty &&
+        _messagesSent.isEmpty) {
+      await _loadSharesCache();
+      if (_sharesReceived.isNotEmpty ||
+          _sharesSent.isNotEmpty ||
+          _messagesReceived.isNotEmpty ||
+          _messagesSent.isNotEmpty) {
+        notifyListeners();
+      }
+    }
+
     final token = await _shareToken();
     if (token == null) {
-      _sharesReceived = [];
-      _sharesSent = [];
-      _shareGroups = [];
-      notifyListeners();
+      // 게스트/로그아웃 상태: 서버 요청 불가 → 캐시를 그대로 유지(표시 지속, 재요청 없음).
       return;
     }
+
+    // 2) 서버에서 최신분 받아오기(성공한 항목만 반영 → 실패 시 캐시 유지).
     final received = await _shareApi.getSharesReceived(token: token);
     final sent = await _shareApi.getSharesSent(token: token);
-    // 로드 성공(null 아님)일 때만 반영 — 실패 시 기존 목록 유지(취소 오삭제 방지)
+    final serverOk = received != null || sent != null; // 서버 응답 성공(토큰 유효)
     if (received != null) {
       await _reconcileCancelledShares(received); // 발신자 취소분 로컬 저장본 삭제
       final dismissed = await _loadDismissedDeliveries(); // 사용자가 삭제(숨김)한 항목 제외
@@ -2383,12 +2441,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
           .where((s) => !dismissedSent.contains((s['shareId'] as num?)?.toInt()))
           .toList();
     }
-    _shareGroups = await _shareApi.getGroups(token: token);
-    // 채팅 메시지도 함께 로드(비실시간 — 홈 진입/당겨서 새로고침 시 갱신)
-    final msgR = await _shareApi.getMessagesReceived(token: token);
-    final msgS = await _shareApi.getMessagesSent(token: token);
-    if (msgR != null) _messagesReceived = msgR;
-    if (msgS != null) _messagesSent = msgS;
+    if (serverOk) {
+      // 토큰이 유효할 때만 그룹/메시지도 갱신(실패 시 캐시 유지).
+      _shareGroups = await _shareApi.getGroups(token: token);
+      final msgR = await _shareApi.getMessagesReceived(token: token);
+      final msgS = await _shareApi.getMessagesSent(token: token);
+      if (msgR != null) _messagesReceived = msgR;
+      if (msgS != null) _messagesSent = msgS;
+      await _saveSharesCache(); // 3) 서버 최신분을 로컬 캐시에 저장
+    }
     notifyListeners();
     await loadHiddenConvs(); // 대화 숨김('방 나가기') 상태 다기기 동기화
   }

@@ -105,7 +105,7 @@ class _SettingsTabTitle extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.account_circle, size: 32, color: color),
+              Icon(Icons.account_circle, size: 25.6, color: color),
               const SizedBox(width: 6),
               Text(
                 // 형식: 닉네임(아이디) 구독요금제  (예: 홍길동(a@b.com) 스탠다드)

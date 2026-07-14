@@ -63,7 +63,8 @@ public class JWTFilter extends GenericFilterBean {
                 }
             } catch (ExpiredJwtException e1) {
                 httpServletResponse.setHeader(Constants.TAG_RESULT, Integer.toString(Constants.RESULT_AUTH_TOKEN_ERROR));
-                log.error("ExpiredJwtException : {}"+" authToken-->>"+jwt, e1);
+                // 만료된 토큰은 정상적인(재로그인 필요) 상황 → ERROR/스택트레이스 대신 간결한 INFO 한 줄로 기록.
+                log.info("만료된 인증 토큰 요청(재로그인 필요): {}", e1.getMessage());
             } catch (JwtException e2) {
                 httpServletResponse.setHeader(Constants.TAG_RESULT, Integer.toString(Constants.RESULT_AUTH_TOKEN_ERROR));
                 log.error("JwtException : {}"+" authToken-->>"+jwt, e2);

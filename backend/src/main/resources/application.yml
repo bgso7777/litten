@@ -19,9 +19,11 @@ server:
 
 
 logging:
-  config: classpath:log4j2/log4j2-local.xml
+  config: classpath:log4j2/log4j2.xml
   level:
-    root: debug
+    # root DEBUG는 프레임워크(hikari/hibernate 등) 로그까지 쏟아져 catalina.out을 폭증시킴.
+    # 애플리케이션 상세 로그(com.aice)는 log4j2 설정에서 DEBUG로 유지(일별 파일 기록).
+    root: info
   multifile:
     useyn: false
 

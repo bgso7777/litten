@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Properties>
-        <Property name="log-name">accountManager</Property>
-        <Property name="base-dir">$${sys:LOG_DIR}</Property>
+        <Property name="log-name">litten</Property>
+        <!-- 로그 저장 위치: 서버는 Tomcat의 catalina.base/logs(=/home/backend/tomcat/logs),
+             로컬 개발은 ./logs 로 폴백(catalina.base 미설정 시). -->
+        <Property name="base-dir">${sys:catalina.base:-.}/logs</Property>
         <Property name="format-console"><![CDATA[%d{ISO8601_OFFSET_DATE_TIME_HH} [%-5level] #prcnum:%X{PRCNUM} (%F:%line)\t%msg %n]]></Property>
     </Properties>
 
@@ -10,62 +12,61 @@
         <Console name="consoleAppender" target="SYSTEM_OUT">
             <PatternLayout pattern="${format-console}" />
         </Console>
+
+        <!-- 일별 롤링 파일 로그.
+             - 매일 자정(modulate)마다 litten.YYYY-MM-DD.log 로 분리(일별 로깅)
+             - 하루 로그가 100MB를 넘으면 .1/.2 인덱스로 추가 분할
+             - 14일이 지난 과거 로그는 자동 삭제(디스크 폭증 방지) -->
+        <RollingFile name="fileAppender"
+                     fileName="${base-dir}/${log-name}.log"
+                     filePattern="${base-dir}/${log-name}.%d{yyyy-MM-dd}.%i.log">
+            <PatternLayout pattern="${format-console}" />
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true" />
+                <SizeBasedTriggeringPolicy size="100MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${base-dir}" maxDepth="1">
+                    <IfFileName glob="${log-name}.*.log" />
+                    <IfLastModified age="14d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <Async name="asyncFileAppender" includeLocation="true">
+            <AppenderRef ref="fileAppender"/>
+        </Async>
     </Appenders>
     <!--
-        OFF
-        가능한 가장 높은 순위이며 로깅을 해제
-        FATAL
-        조기 종료를 유발하는 심각한 오류. 콘솔에 즉시 표시 될 것으로 예상
-        ERROR
-        런타임 오류 또는 예기치 않은 조건. 콘솔에 즉시 표시
-        WARN
-        더 이상 사용되지 않는 API 사용, ‘거의’오류에 가까운 상황.
-        상태 콘솔에 즉시 표시
-        INFO
-        런타임 이벤트. 콘솔에 즉시 보일 것으로 예상되므로 보수적이며 최소한으로 유지
-        DEBUG
-        시스템을 통한 흐름에 대한 자세한 정보.
-        로그에만 쓰여질 것으로 예상, 일반적으로 응용 프로그램에서 기록한 대부분의 줄은 DEBUG로 작성.
-        TRACE
-        가장 자세한 정보. 이것들은 로그에만 쓰여질 것으로 예상됩니다.
+        OFF   : 로깅 해제
+        FATAL : 조기 종료를 유발하는 심각한 오류
+        ERROR : 런타임 오류 또는 예기치 않은 조건
+        WARN  : 곧 오류가 될 수 있는 상황
+        INFO  : 런타임 이벤트(최소한으로 유지)
+        DEBUG : 흐름에 대한 자세한 정보(로그 파일 전용)
+        TRACE : 가장 자세한 정보
      -->
     <Loggers>
-        <!-- Application Loggers -->
+        <!-- 애플리케이션 상세 로그(DEBUG)는 '일별 파일'에만 기록한다.
+             → catalina.out(콘솔)로는 흘리지 않아 catalina.out 폭증을 막는다. -->
         <Logger name="com.aice" level="DEBUG" additivity="false">
-            <AppenderRef ref="consoleAppender" />
-        </Logger>
-        <!-- Hibernate Loggers -->
-        <!-- org.hibernate.engine.jdbc.spi.SqlStatementLogger -->
-        <!--
-        <Logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
             <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
         </Logger>
-        <Logger name="org.hibernate.internal.util.EntityPrinter" level="DEBUG" additivity="false">
+        <!-- HikariCP 커넥션풀의 주기적 DEBUG 소음 억제(30초마다 찍히던 로그). -->
+        <Logger name="com.zaxxer.hikari" level="WARN" additivity="false">
             <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
         </Logger>
-        <Logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" additivity="false">
+        <!-- 유튜브 채널 폴링(YoutubeScheduler/YoutubeService)이 매 주기 21개 채널을 각각
+             INFO로 찍어(신규 영상이 없어도 "신규처리:0, 스킵:15") 로그가 계속 쌓인다.
+             → 유튜브 패키지는 WARN 이상만 기록(에러/경고는 유지, 정상 폴링 로그는 제외). -->
+        <Logger name="com.litten.note.youtube" level="WARN" additivity="false">
             <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
         </Logger>
-        <Logger name="org.hibernate.type.descriptor.sql.BasicExtractor" level="TRACE" additivity="false">
-            <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
-        </Logger>
-        <Logger name="org.hibernate.transaction.JDBCTransaction" level="DEBUG" additivity="false">
-            <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
-        </Logger>
-        <Logger name="org.springframework.orm.jpa.JpaTransactionManager" level="DEBUG" additivity="false">
-            <AppenderRef ref="asyncFileAppender"/>
-            <AppenderRef ref="consoleAppender" />
-        </Logger>
-        -->
-        <!-- FATAL, ERROR, WARN, INFO, DEBUG, TRACE -->
 
-        <!-- FATAL, ERROR, WARN, INFO, DEBUG, TRACE -->
-        <Root level="INFO" >
+        <!-- 그 외(프레임워크)는 INFO 레벨로 일별 파일 + 콘솔에 기록.
+             콘솔(catalina.out)에는 INFO 이상만 소량 남는다. -->
+        <Root level="INFO">
+            <AppenderRef ref="asyncFileAppender"/>
             <AppenderRef ref="consoleAppender" />
         </Root>
     </Loggers>

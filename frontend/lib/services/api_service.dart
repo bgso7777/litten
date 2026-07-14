@@ -48,6 +48,13 @@ class ApiService {
   /// device-uuid 헤더는 비로그인(token 없음) 요청에만 붙인다.
   static String? deviceUuid;
 
+  /// 서버가 인증 요청마다 응답 헤더 'auth-token'으로 재발급하는 새 토큰을 저장하는 콜백(A).
+  /// AuthService.checkAuthStatus()에서 등록한다.
+  static Future<void> Function(String token)? onTokenRefreshed;
+
+  /// 인증 만료(401) 응답 시 호출되는 콜백(B) — 자동 로그아웃 유도.
+  static Future<void> Function()? onUnauthorized;
+
   Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};
     if (token != null && token.isNotEmpty) {
@@ -57,6 +64,20 @@ class ApiService {
       headers['device-uuid'] = deviceUuid!;
     }
     return headers;
+  }
+
+  /// 인증 요청의 응답을 후처리한다:
+  ///  - 200 계열이고 응답 헤더 'auth-token'이 있으면 → 재발급 토큰 저장(A, 사용 중 자동 갱신)
+  ///  - 401(인증 만료)이면 → 자동 로그아웃 콜백 호출(B)
+  /// 인증이 필요한 요청(token 전달) 뒤에 호출한다.
+  void _processAuthResponse(http.Response response) {
+    final newToken = response.headers['auth-token'];
+    if (newToken != null && newToken.isNotEmpty) {
+      onTokenRefreshed?.call(newToken);
+    }
+    if (response.statusCode == 401) {
+      onUnauthorized?.call();
+    }
   }
 
   /// UUID 등록 (처음 설치 시)
@@ -1369,6 +1390,7 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse(url), headers: _getHeaders(token: token))
           .timeout(const Duration(seconds: 20));
+      _processAuthResponse(response); // 토큰 자동 갱신(A) / 401 자동 로그아웃(B)
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {

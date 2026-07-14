@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
@@ -227,6 +228,10 @@ class AuthServiceImpl extends AuthService {
   Future<void> checkAuthStatus() async {
     debugPrint('🔐 AuthService: 로그인 상태 확인');
 
+    // API 응답 기반 훅 등록(1회): 서버가 재발급한 토큰 저장(A) / 401(만료) 시 자동 로그아웃(B).
+    ApiService.onTokenRefreshed = (token) => saveRefreshedToken(token);
+    ApiService.onUnauthorized = () => enforceTokenValidity();
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString(_keyToken);
@@ -235,6 +240,17 @@ class AuthServiceImpl extends AuthService {
 
       // 디바이스 UUID 확인 또는 생성
       await _getOrCreateDeviceUuid();
+
+      // 저장된 토큰이 이미 만료됐으면 로그인 상태로 시작하지 않는다(로그아웃 상태 → 재로그인 유도).
+      if (token != null && _isJwtExpired(token)) {
+        debugPrint('🔐 AuthService: 저장된 토큰 만료 → 로그아웃 상태로 시작');
+        await _clearAuthData();
+        _token = null;
+        _currentUser = null;
+        _authStatus = AuthStatus.unauthenticated;
+        notifyListeners();
+        return;
+      }
 
       if (token != null && email != null && userId != null) {
         _token = token;
@@ -290,6 +306,63 @@ class AuthServiceImpl extends AuthService {
     await prefs.remove(_keyEmail);
     await prefs.remove(_keyUserId);
     await prefs.remove(_keyTokenExpiredDate);
+  }
+
+  /// JWT의 exp(만료 시각)를 로컬에서 디코드해 만료 여부를 판단한다(서버 호출 없음).
+  /// 형식이 이상하거나 파싱 실패면 만료로 간주한다.
+  bool _isJwtExpired(String? token) {
+    if (token == null || token.isEmpty) return true;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      final map =
+          jsonDecode(utf8.decode(base64.decode(payload))) as Map<String, dynamic>;
+      final exp = map['exp'];
+      if (exp is! int) return true;
+      // exp는 epoch seconds. 경계 오차 방지를 위해 30초 여유를 두고 미리 만료 처리.
+      final expMs = exp * 1000 - 30000;
+      return DateTime.now().millisecondsSinceEpoch >= expMs;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// 현재 저장된 토큰의 만료 여부(비로그인/토큰없음도 만료로 취급).
+  Future<bool> isTokenExpired() async {
+    final prefs = await SharedPreferences.getInstance();
+    return _isJwtExpired(prefs.getString(_keyToken));
+  }
+
+  /// 로그인 상태인데 토큰이 만료됐으면 로컬 로그아웃 처리하고 true를 반환한다.
+  /// (메인 메뉴 탭 등에서 호출 → "로그인 표시되는데 실제론 만료" 상태를 해소)
+  /// 서버 호출 없이 로컬만 정리한다(만료 토큰은 서버 로그아웃도 어차피 거부됨).
+  Future<bool> enforceTokenValidity() async {
+    if (_authStatus != AuthStatus.authenticated) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_keyToken);
+    if (!_isJwtExpired(token)) return false; // 유효 → 그대로 둠
+    debugPrint('🔐 AuthService: 토큰 만료 감지 → 자동 로그아웃(로컬)');
+    _token = null;
+    _currentUser = null;
+    _authStatus = AuthStatus.unauthenticated;
+    await _clearAuthData();
+    notifyListeners();
+    return true;
+  }
+
+  /// 서버가 응답 헤더('auth-token')로 재발급해준 새 토큰을 저장한다.
+  /// 사용 중 매 요청마다 갱신되므로, 앱을 계속 쓰면 토큰이 만료되지 않는다(A).
+  Future<void> saveRefreshedToken(String newToken) async {
+    if (newToken.isEmpty || _authStatus != AuthStatus.authenticated) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_keyToken) == newToken) return; // 동일하면 스킵
+    _token = newToken;
+    await prefs.setString(_keyToken, newToken);
+    debugPrint('🔐 AuthService: 토큰 자동 갱신 저장');
   }
 
   /// 회원탈퇴 시 모든 인증 정보 삭제 (registered_email 포함)

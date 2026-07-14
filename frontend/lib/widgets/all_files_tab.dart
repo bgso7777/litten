@@ -1460,8 +1460,9 @@ class _AllFilesTabState extends State<AllFilesTab> {
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             boxShadow: [
+              // 상단 채널 목록과 하단 파일 목록 사이 경계 — 지금보다 2배 진하게(0.1→0.2).
               BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2)),
             ],

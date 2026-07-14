@@ -12,6 +12,7 @@ import 'calendar_tab_screen.dart';
 import 'writing_screen.dart';
 import 'remind_screen.dart';
 import 'settings_tab_screen.dart';
+import 'login_screen.dart';
 
 /// 메인 5탭: 홈(0) · 캘린더(1) · +(2, 노트) · 리마인드(3) · 설정(4)
 /// 가운데 +는 페이지가 아니라 "파일 생성" 진입점 — 탭하면 바텀시트를 띄우고,
@@ -258,8 +259,36 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   }
 
   /// 하단 탭 탭 처리
+  /// 메인 메뉴 탭 시 토큰 만료 검사 → 로그인 상태인데 만료면 자동 로그아웃 + 재로그인 안내.
+  void _checkTokenExpiryOnTap(BuildContext context, AppStateProvider appState) {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    appState.authService.enforceTokenValidity().then((expired) {
+      if (!mounted || !expired) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('세션이 만료되어 로그아웃되었습니다. 다시 로그인해 주세요.'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: '로그인',
+            onPressed: () {
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+          ),
+        ),
+      );
+    });
+  }
+
   void _onTabTapped(BuildContext context, AppStateProvider appState, int index) {
     debugPrint('🔍 [MainTabScreen] 탭 터치: $index (현재: ${appState.selectedTabIndex})');
+
+    // 메인 메뉴를 누를 때마다 토큰 만료 여부를 검사한다.
+    // 로그인 상태인데 토큰이 만료됐으면 자동 로그아웃 + 재로그인 안내(스낵바).
+    _checkTokenExpiryOnTap(context, appState);
 
     _logCurrentPlaybackState();
 
