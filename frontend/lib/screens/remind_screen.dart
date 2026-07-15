@@ -251,6 +251,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
     with SingleTickerProviderStateMixin {
   _RemindFilter get _filter => widget.filter;
   late final AnimationController _paneAnim; // 하단(확인) 영역 슬라이드용
+  // 확인함(하단) 목록을 최상단에서 아래로 당긴 누적량 — 임계치 넘으면 창을 닫는다.
+  double _confirmedPullDown = 0;
 
   @override
   void initState() {
@@ -272,6 +274,9 @@ class _RemindBodyViewState extends State<_RemindBodyView>
 
   // 제목 탭/하단 바가 필터를 바꾸면 본문을 다시 그린다.
   void _onFilterChanged() {
+    // 확인함이 열리거나 닫힐 때마다 오버스크롤 누적값을 초기화한다.
+    // (초기화하지 않으면 직전 제스처의 잔류 누적으로 다음에 열자마자 조금만 당겨도 닫혀버림)
+    _confirmedPullDown = 0;
     // 하단(확인) 영역은 아래에서 위로 슬라이드하며 열리고/닫힌다.
     if (_filter.confirmedOpen) {
       _paneAnim.forward();
@@ -591,7 +596,10 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                                             _confirmedHeader(color, appState),
                                             Expanded(
                                               child: _paneList(bottomItems, color, appState,
-                                                  emptyText: '확인한 항목이 없습니다.'),
+                                                  emptyText: '확인한 항목이 없습니다.',
+                                                  // 최상단에서 아래로 더 당기면 확인함 창 닫기.
+                                                  onPullDownAtTop:
+                                                      _filter.closeConfirmed),
                                             ),
                                           ],
                                         ),
@@ -619,10 +627,9 @@ class _RemindBodyViewState extends State<_RemindBodyView>
     Color color,
     AppStateProvider appState, {
     required String emptyText,
+    VoidCallback? onPullDownAtTop,
   }) {
-    return RefreshIndicator(
-      onRefresh: () => _onRefresh(appState),
-      child: items.isEmpty
+    final Widget list = items.isEmpty
           ? ListView(
               // 비어 있어도 당겨서 새로고침이 되도록 스크롤 가능하게.
               physics: const AlwaysScrollableScrollPhysics(),
@@ -663,7 +670,37 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                 }
                 return row;
               },
-            ),
+            );
+
+    // 확인함(하단) 영역: 최상단에서 아래로 더 당기면 창을 닫는다(당겨서 새로고침 대신).
+    if (onPullDownAtTop != null) {
+      return NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is OverscrollNotification &&
+              n.overscroll < 0 &&
+              n.metrics.pixels <= n.metrics.minScrollExtent) {
+            // 위쪽 오버스크롤 누적 — 임계치(56px)를 넘으면 닫는다.
+            // (짧은 목록은 드래그 중 Scroll Start/End가 반복되므로 그때는 리셋하지 않고,
+            //  실제 콘텐츠를 스크롤해 최상단을 벗어났을 때만 누적을 초기화한다.)
+            _confirmedPullDown += -n.overscroll;
+            if (_confirmedPullDown > 56) {
+              _confirmedPullDown = 0;
+              onPullDownAtTop();
+            }
+          } else if (n is ScrollUpdateNotification &&
+              n.metrics.pixels > n.metrics.minScrollExtent) {
+            _confirmedPullDown = 0;
+          }
+          return false;
+        },
+        child: list,
+      );
+    }
+
+    // 상단(확인 안 함) 영역: 당겨서 새로고침.
+    return RefreshIndicator(
+      onRefresh: () => _onRefresh(appState),
+      child: list,
     );
   }
 
@@ -703,6 +740,9 @@ class _RemindBodyViewState extends State<_RemindBodyView>
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      // 헤더(아이콘 제외 배경/‘확인’ 영역)를 탭하면 확인함 영역 닫기.
+      // 아이콘(카운트·검색 토글)은 각자 GestureDetector가 opaque로 이벤트를 흡수하므로 닫히지 않는다.
+      onTap: _filter.closeConfirmed,
       // 아래로 스와이프(내림) → 확인함 영역 닫기.
       onVerticalDragEnd: (d) {
         if ((d.primaryVelocity ?? 0) > 0) _filter.closeConfirmed();
@@ -1024,10 +1064,28 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           // 노트(_CreateChipBar)·캘린더·홈 칩 바와 동일한 콘텐츠 높이(28.0)로 바 높이를 일치시킨다.
           child: SizedBox(
             height: 28.0,
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
+            // 확인함 패널 상단(_confirmedHeader)과 동일하게: 좌측 '✓ 확인' + 가운데 카운트.
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 좌측: ✓ 확인 (확인함 패널 상단과 동일한 위치·스타일).
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle, size: 14, color: color),
+                      const SizedBox(width: 6),
+                      Text('확인',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: color)),
+                    ],
+                  ),
+                ),
+                // 가운데: 확인 완료 카운트(요약/퀴즈 아이콘+숫자).
+                Row(
                 mainAxisSize: MainAxisSize.min,
                 // 채팅 하단 칩과 동일하게 하단정렬 + 카운트 2px 하향.
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1095,8 +1153,8 @@ class _RemindBodyViewState extends State<_RemindBodyView>
                     );
                   }),
                 ],
-              ),
-                    ),
+                ),
+              ],
             ),
           ),
         ),

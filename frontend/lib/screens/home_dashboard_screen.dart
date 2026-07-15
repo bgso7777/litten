@@ -543,6 +543,8 @@ class _ShareSectionState extends State<_ShareSection>
   late final AnimationController _paneAnim;
   String? _reqPaneKind; // 마지막으로 애니메이션 구동에 반영한 종류
   String? _paneKind; // 패널에 표시 중인 종류(닫히는 동안 유지)
+  // 파일 패널 목록을 최상단에서 아래로 당긴 누적량 — 임계치 넘으면 패널을 닫는다.
+  double _paneListPullDown = 0;
   // 현재 열린 대화방 key (null이면 대화 목록 화면). 'g:그룹명' 또는 'u:이메일'
   // 열린 대화방 key는 AppStateProvider.homeOpenConvKey(단일 소스)를 사용한다.
   // 비밀번호를 한 번 맞춰 잠금 해제된 그룹 이름 (다음부터 안 물어봄 — 영구 저장)
@@ -836,6 +838,9 @@ class _ShareSectionState extends State<_ShareSection>
     if (kindFilter != _reqPaneKind) {
       _reqPaneKind = kindFilter;
       if (kindFilter != null) _paneKind = kindFilter;
+      // 패널이 열리거나 닫힐 때마다 오버스크롤 누적값을 초기화한다.
+      // (직전 제스처의 잔류 누적으로 다음에 열자마자 닫히는 것을 방지)
+      _paneListPullDown = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (kindFilter != null) {
@@ -2180,13 +2185,26 @@ class _ShareSectionState extends State<_ShareSection>
                 (r['fname']?.toString() ?? '').toLowerCase().contains(pq))
             .toList();
     final Widget listOrEmpty = shownRows.isEmpty
-        ? Center(
-            child: Text(
-                pq.isNotEmpty
-                    ? '"$pq" 검색 결과가 없습니다.'
-                    : '${kindLabels[kind] ?? kind} 파일이 없습니다.',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade500)))
+        ? ListView(
+            // 비어 있어도 최상단 오버스크롤로 닫을 수 있도록 스크롤 가능하게.
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: Center(
+                  child: Text(
+                      pq.isNotEmpty
+                          ? '"$pq" 검색 결과가 없습니다.'
+                          : '${kindLabels[kind] ?? kind} 파일이 없습니다.',
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+                ),
+              ),
+            ],
+          )
         : ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 4, bottom: 8),
             itemCount: shownRows.length,
             separatorBuilder: (_, i) =>
@@ -2216,9 +2234,11 @@ class _ShareSectionState extends State<_ShareSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 헤더 밴드 — 아래로 드래그하면 파일 패널을 닫는다(칩 해제).
+        // 헤더 밴드 — 탭 또는 아래로 드래그하면 파일 패널을 닫는다(칩 해제).
+        // 우측 통계↔검색 토글 아이콘은 자식 GestureDetector가 opaque로 흡수하므로 닫히지 않는다.
         GestureDetector(
           behavior: HitTestBehavior.opaque,
+          onTap: () => appState.setHomeChatFileKind(kind),
           onVerticalDragEnd: (d) {
             if ((d.primaryVelocity ?? 0) > 0) appState.setHomeChatFileKind(kind);
           },
@@ -2283,7 +2303,30 @@ class _ShareSectionState extends State<_ShareSection>
             ),
           ),
         ),
-        Expanded(child: listOrEmpty),
+        // 목록 최상단에서 아래로 더 당기면 파일 패널을 닫는다.
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is OverscrollNotification &&
+                  n.overscroll < 0 &&
+                  n.metrics.pixels <= n.metrics.minScrollExtent) {
+                // 위쪽 오버스크롤 누적 — 임계치(56px)를 넘으면 닫는다.
+                // (짧은 목록은 드래그 중 Scroll Start/End가 반복되므로 그때는 리셋하지 않고,
+                //  실제 콘텐츠를 스크롤해 최상단을 벗어났을 때만 누적을 초기화한다.)
+                _paneListPullDown += -n.overscroll;
+                if (_paneListPullDown > 56) {
+                  _paneListPullDown = 0;
+                  appState.setHomeChatFileKind(kind);
+                }
+              } else if (n is ScrollUpdateNotification &&
+                  n.metrics.pixels > n.metrics.minScrollExtent) {
+                _paneListPullDown = 0;
+              }
+              return false;
+            },
+            child: listOrEmpty,
+          ),
+        ),
       ],
     );
   }
