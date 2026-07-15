@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'common/record_memo_icon.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 
@@ -501,7 +502,7 @@ class _RecordingTabState extends State<RecordingTab> {
                                                   shape: BoxShape.circle,
                                                   border: Border.all(color: Colors.white, width: 1.5),
                                                 ),
-                                                child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                                                child: const RecordMemoIcon(size: 12, color: Colors.white),
                                               ),
                                             ),
                                         ],

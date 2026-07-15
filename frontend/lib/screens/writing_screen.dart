@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
+import '../widgets/common/record_memo_icon.dart';
 import '../l10n/app_localizations.dart';
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
@@ -149,6 +150,8 @@ class _WritingScreenState extends State<WritingScreen>
         id: 'sttMemo',
         title: sttMemoCount.toString(),
         icon: Icons.record_voice_over,
+        // 녹음 메모 탭 아이콘 — 녹음+메모 합성 아이콘.
+        iconWidget: const RecordMemoIcon(),
         content: AllFilesTab(key: _sttMemoTabKey, showOnlySTT: true),
         position: parsePosition(savedPositions['sttMemo'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('sttMemo'),

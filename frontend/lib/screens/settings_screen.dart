@@ -7,6 +7,7 @@ import '../services/app_state_provider.dart';
 import '../config/plan_limits.dart';
 import '../widgets/common/tab_count_title.dart';
 import '../widgets/common/quiz_bulb_icon.dart';
+import '../widgets/common/record_memo_icon.dart';
 import '../widgets/common/round_chat_bubble_icon.dart';
 import '../services/background_notification_service.dart';
 import '../services/api_service.dart';
@@ -759,7 +760,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TabCount(Icons.draw, awCanvas),
                   TabCount(Icons.picture_as_pdf, awPdf),
                   TabCount(Icons.mic, awRecording),
-                  TabCount(Icons.record_voice_over, awStt),
+                  TabCount(Icons.record_voice_over, awStt,
+                      iconWidget: const RecordMemoIcon()),
                   TabCount(Icons.description, awFile),
                   TabCount(Icons.subscriptions, awYt),
                   TabCount(Icons.photo_camera, awPhoto),
@@ -774,7 +776,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     TabCount(Icons.draw, canvas),
                     TabCount(Icons.picture_as_pdf, pdf),
                     TabCount(Icons.mic, recording),
-                    TabCount(Icons.record_voice_over, stt),
+                    TabCount(Icons.record_voice_over, stt,
+                        iconWidget: const RecordMemoIcon()),
                     TabCount(Icons.description, otherFiles),
                     TabCount(Icons.subscriptions, ytCh),
                     TabCount(Icons.photo_camera, photo),
@@ -2141,7 +2144,10 @@ class _NoteTabVisibilityDialogState extends State<_NoteTabVisibilityDialog> {
             final isChecked = _selected.contains(id);
             return CheckboxListTile(
               dense: true,
-              secondary: Icon(icon, size: 20, color: isChecked ? themeColor : Colors.grey),
+              // 녹음 메모(sttMemo)는 녹음+메모 합성 아이콘.
+              secondary: id == 'sttMemo'
+                  ? RecordMemoIcon(size: 20, color: isChecked ? themeColor : Colors.grey)
+                  : Icon(icon, size: 20, color: isChecked ? themeColor : Colors.grey),
               title: Text(label),
               value: isChecked,
               activeColor: themeColor,
@@ -2205,29 +2211,9 @@ class _AllTabFabVisibilityDialogState extends State<_AllTabFabVisibilityDialog> 
     {'id': 'video',  'label': '비디오',                          'icon': Icons.videocam},
   ];
 
-  /// 녹음+메모 합성 아이콘 (단색 컨텍스트용 — 마이크 + 흰 배경 메모 배지)
-  Widget _recordMemoIcon(Color color) {
-    return SizedBox(
-      width: 20, height: 20,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Icon(Icons.mic, size: 20, color: color),
-          Positioned(
-            right: -3, bottom: -3,
-            child: Container(
-              width: 12, height: 12,
-              decoration: BoxDecoration(
-                color: Colors.white, shape: BoxShape.circle,
-                border: Border.all(color: color, width: 1),
-              ),
-              child: Center(child: Icon(Icons.edit_note, size: 8, color: color)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// 녹음+메모 합성 아이콘 (단색 컨텍스트용) — 공용 [RecordMemoIcon]에 위임.
+  Widget _recordMemoIcon(Color color) =>
+      RecordMemoIcon(size: 20, color: color);
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'common/source_badge.dart';
+import 'common/record_memo_icon.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1190,7 +1191,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
           backgroundColor: color,
           foregroundColor: Colors.white,
           onPressed: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-          child: const Icon(Icons.record_voice_over),
+          // 흰 아이콘/색 배경 FAB → 색 배지 변형(RecordMemoSpeedDialIcon) 사용.
+          child: const RecordMemoSpeedDialIcon(),
         ),
       ),
     );
@@ -1311,17 +1313,17 @@ class _AllFilesTabState extends State<AllFilesTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              searching
-                  ? Icons.search_off
-                  : widget.showOnlySTT
-                      ? Icons.record_voice_over
-                      : widget.showOnlyAttachments
-                          ? Icons.drive_folder_upload
-                          : Icons.folder_open,
-              size: 48,
-              color: Colors.grey[400],
-            ),
+            (!searching && widget.showOnlySTT)
+                ? RecordMemoIcon(size: 48, color: Colors.grey[400])
+                : Icon(
+                    searching
+                        ? Icons.search_off
+                        : widget.showOnlyAttachments
+                            ? Icons.drive_folder_upload
+                            : Icons.folder_open,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
             const SizedBox(height: 12),
             Builder(builder: (ctx) {
               final l10n = AppLocalizations.of(ctx);
@@ -1896,7 +1898,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
-                          child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                          child: const RecordMemoIcon(size: 12, color: Colors.white),
                         ),
                       )
                     else if (sourceBadge != null)
@@ -3093,7 +3095,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
-                          child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                          child: const RecordMemoIcon(size: 12, color: Colors.white),
                         ),
                       ),
                   ],
@@ -3821,7 +3823,8 @@ class _CreateChipBarState extends State<_CreateChipBar> {
       required String label,
       required Color color,
       required VoidCallback onTap,
-      bool active = false}) {
+      bool active = false,
+      Widget? iconWidget}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
@@ -3844,7 +3847,8 @@ class _CreateChipBarState extends State<_CreateChipBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: active ? Colors.white : color),
+                iconWidget ??
+                    Icon(icon, size: 16, color: active ? Colors.white : color),
                 const SizedBox(width: 6),
                 Text(
                   label,
@@ -3906,6 +3910,7 @@ class _CreateChipBarState extends State<_CreateChipBar> {
     if (fabVis.contains('stt')) {
       chips.add(_chip(context,
           icon: Icons.record_voice_over,
+          iconWidget: RecordMemoIcon(size: 16, color: color),
           label: l10n?.voiceMemoLabel ?? '녹음 메모',
           color: color,
           onTap: widget.onTextWithSTT));
@@ -4052,7 +4057,7 @@ class RecordMemoSpeedDialIcon extends StatelessWidget {
               color: color, shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1),
             ),
-            child: const Center(child: Icon(Icons.edit_note, size: 9, color: Colors.white)),
+            child: const Center(child: Icon(Icons.notes, size: 9, color: Colors.white)),
           ),
         ),
       ],
@@ -4415,7 +4420,8 @@ class AllFilesTabButton extends StatelessWidget {
           // 작은 카운트 숫자를 가운데가 아니라 아이콘 하단에 맞춘다.
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Icon(icon),
+            // 녹음 메모(stt)는 녹음+메모 합성 아이콘으로 표시.
+            key == 'stt' ? const RecordMemoIcon() : Icon(icon),
             const SizedBox(width: 2),
             Text(
               count.toString(),

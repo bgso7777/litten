@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'common/source_badge.dart';
+import 'common/record_memo_icon.dart';
 import 'package:provider/provider.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:flutter/foundation.dart';
@@ -1802,7 +1803,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    child: const Icon(Icons.record_voice_over, size: 10, color: Colors.white),
+                    child: const RecordMemoIcon(size: 12, color: Colors.white),
                   ),
                 ),
               // 요약/퀴즈를 담은 메모 배지(STT가 아닐 때 우하단)

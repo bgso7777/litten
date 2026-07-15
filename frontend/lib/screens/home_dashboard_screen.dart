@@ -14,6 +14,7 @@ import '../widgets/share_compose_dialog.dart';
 import '../widgets/shared_snapshot_viewer.dart';
 import '../widgets/common/tab_count_title.dart';
 import '../widgets/common/tab_title_search.dart';
+import '../widgets/common/record_memo_icon.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
@@ -162,7 +163,12 @@ class _HomeChipBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // 상단 탭제목(TabCountTitle)과 동일한 아이콘 17 / 카운트 10.4 크기로 통일.
-              Icon(icon, size: 17, color: active ? color : Colors.grey.shade400),
+              // 녹음 메모(stt)는 녹음+메모 합성 아이콘.
+              kind == 'stt'
+                  ? RecordMemoIcon(
+                      size: 17, color: active ? color : Colors.grey.shade400)
+                  : Icon(icon,
+                      size: 17, color: active ? color : Colors.grey.shade400),
               const SizedBox(width: 2),
               // 카운트를 살짝 아래로 내려 탭제목의 '하단정렬' 느낌과 맞춘다(레이아웃 불변, 시각만 이동).
               Transform.translate(
@@ -423,6 +429,16 @@ IconData _shareFileTypeIcon(String? t, [String? fileName, String? contentType]) 
     default:
       return Icons.description;
   }
+}
+
+/// 공유 파일 아이콘 위젯 — 녹음 메모(stt)는 녹음+메모 합성 아이콘, 그 외는 일반 아이콘.
+Widget _shareFileTypeIconWidget(String? t,
+    {String? fileName, String? contentType, double? size, Color? color}) {
+  if (_shareFileKind(t, fileName, contentType) == 'stt') {
+    return RecordMemoIcon(size: size, color: color);
+  }
+  return Icon(_shareFileTypeIcon(t, fileName, contentType),
+      size: size, color: color);
 }
 
 /// 채팅 파일 패널 헤더의 종류 아이콘(하단 칩 아이콘과 동일 매핑).
@@ -1184,7 +1200,7 @@ class _ShareSectionState extends State<_ShareSection>
               itemBuilder: (_, i) {
                 final r = rows[i];
                 return ListTile(
-                  leading: Icon(_shareFileTypeIcon(r['fileType']?.toString(), r['fileName']?.toString(), r['contentType']?.toString()), color: color),
+                  leading: _shareFileTypeIconWidget(r['fileType']?.toString(), fileName: r['fileName']?.toString(), contentType: r['contentType']?.toString(), color: color),
                   title: Text(r['fname']?.toString() ?? '',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
@@ -1753,7 +1769,12 @@ class _ShareSectionState extends State<_ShareSection>
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, size: 14, color: selected ? color : Colors.grey.shade600),
+              // 녹음 메모(stt)는 녹음+메모 합성 아이콘.
+              kind == 'stt'
+                  ? RecordMemoIcon(
+                      size: 14, color: selected ? color : Colors.grey.shade600)
+                  : Icon(icon,
+                      size: 14, color: selected ? color : Colors.grey.shade600),
               const SizedBox(width: 4),
               Text(kind == 'all' ? label : '$label $n',
                   style: TextStyle(
@@ -1799,10 +1820,10 @@ class _ShareSectionState extends State<_ShareSection>
               final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
               return ListTile(
                 dense: true,
-                leading: Icon(
-                    _shareFileTypeIcon(it.data['fileType']?.toString(),
-                        it.data['fileName']?.toString(),
-                        it.data['contentType']?.toString()),
+                leading: _shareFileTypeIconWidget(
+                    it.data['fileType']?.toString(),
+                    fileName: it.data['fileName']?.toString(),
+                    contentType: it.data['contentType']?.toString(),
                     color: color),
                 title: Text(fname,
                     maxLines: 1,
@@ -2220,9 +2241,9 @@ class _ShareSectionState extends State<_ShareSection>
             itemBuilder: (_, i) {
               final r = shownRows[i];
               return ListTile(
-                leading: Icon(
-                    _shareFileTypeIcon(r['fileType']?.toString(),
-                        r['fileName']?.toString(), r['contentType']?.toString()),
+                leading: _shareFileTypeIconWidget(r['fileType']?.toString(),
+                    fileName: r['fileName']?.toString(),
+                    contentType: r['contentType']?.toString(),
                     color: color),
                 title: Text(r['fname']?.toString() ?? '',
                     maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -2430,7 +2451,7 @@ class _ShareSectionState extends State<_ShareSection>
                         fontSize: 11, fontWeight: FontWeight.w600, color: color)),
               ),
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_shareFileTypeIcon(it.data['fileType']?.toString(), it.data['fileName']?.toString(), it.data['contentType']?.toString()), size: 16, color: color),
+              _shareFileTypeIconWidget(it.data['fileType']?.toString(), fileName: it.data['fileName']?.toString(), contentType: it.data['contentType']?.toString(), size: 16, color: color),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(fname, maxLines: 2, overflow: TextOverflow.ellipsis,

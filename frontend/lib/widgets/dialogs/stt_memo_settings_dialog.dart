@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
+import '../common/record_memo_icon.dart';
 
 const _kLanguages = [
   ('ko', '한국어'),
@@ -97,7 +98,7 @@ class _SttMemoSettingsDialogState extends State<SttMemoSettingsDialog> {
 
     return AlertDialog(
       title: Row(children: [
-        Icon(Icons.record_voice_over, color: color, size: 20),
+        RecordMemoIcon(color: color, size: 20),
         const SizedBox(width: 8),
         Text(l10n?.voiceMemoSettings ?? '녹음 메모 설정', style: const TextStyle(fontSize: 15)),
       ]),
