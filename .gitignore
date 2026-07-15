@@ -122,3 +122,6 @@ setting*.loca*.json
 nul
 .idea/
 ./logs
+
+# 백엔드 시크릿(키) 디렉토리 — 저장소에 커밋 금지
+key/
