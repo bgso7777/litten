@@ -50,6 +50,9 @@ class DraggableTabLayout extends StatefulWidget {
   final double initialLeftHeightRatio;
   final double initialRightHeightRatio;
   final void Function(double column, double left, double right)? onAreaRatioChanged;
+  // 선택된 탭 글씨(제목·숫자) 색 오버라이드. null이면 기존대로 테마 primaryColor 사용.
+  // (메모 편집창 등 특정 화면에서만 검은색으로 쓰기 위해 주입)
+  final Color? activeTitleColor;
 
   const DraggableTabLayout({
     super.key,
@@ -64,6 +67,7 @@ class DraggableTabLayout extends StatefulWidget {
     this.initialLeftHeightRatio = 0.5,
     this.initialRightHeightRatio = 0.5,
     this.onAreaRatioChanged,
+    this.activeTitleColor,
   });
 
   @override
@@ -515,7 +519,8 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                         fontSize: 13,
                         fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                         color: isActive
-                            ? Theme.of(context).primaryColor
+                            ? (widget.activeTitleColor ??
+                                Theme.of(context).primaryColor)
                             : Colors.grey[700],
                       ),
                       child: tab.customTabWidget!,
@@ -565,7 +570,8 @@ class _DraggableTabLayoutState extends State<DraggableTabLayout>
                           fontSize: isFullScreen ? 17 : 14,
                           fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                           color: isActive
-                              ? Theme.of(context).primaryColor
+                              ? (widget.activeTitleColor ??
+                                  Theme.of(context).primaryColor)
                               : Colors.grey[700],
                         ),
                         overflow: TextOverflow.ellipsis,

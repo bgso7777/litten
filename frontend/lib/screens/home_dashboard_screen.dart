@@ -1574,7 +1574,8 @@ class _ShareSectionState extends State<_ShareSection>
     return Column(
       children: [
         Material(
-          color: color.withValues(alpha: 0.08),
+          // 헤더 라인 전체를 흰색 배경으로.
+          color: Colors.white,
           child: Row(children: [
             IconButton(
                 icon: const Icon(Icons.arrow_back), color: color,
@@ -1589,9 +1590,14 @@ class _ShareSectionState extends State<_ShareSection>
                 }),
             Icon(c.isGroup ? Icons.group : Icons.person, size: 18, color: color),
             const SizedBox(width: 6),
+            // 제목은 라인 가운데 정렬.
             Expanded(
-              child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              child: Text(c.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             if (c.isGroup && owned != null)
               IconButton(
@@ -1677,7 +1683,8 @@ class _ShareSectionState extends State<_ShareSection>
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                        color: selected ? color : Colors.grey.shade600)),
+                        // 선택된 탭 글씨는 검은색(아이콘·밑줄은 테마색 유지).
+                        color: selected ? Colors.black : Colors.grey.shade600)),
               ],
             ),
           ),
@@ -1752,7 +1759,8 @@ class _ShareSectionState extends State<_ShareSection>
                   style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                      color: selected ? color : Colors.grey.shade700)),
+                      // 선택된 칩 글씨·숫자는 검은색(아이콘·배경은 테마색 유지).
+                      color: selected ? Colors.black : Colors.grey.shade700)),
             ]),
           ),
         ),

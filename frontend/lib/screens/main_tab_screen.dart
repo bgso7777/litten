@@ -172,29 +172,42 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               items: [
                 BottomNavigationBarItem(
                   // 홈 탭 = 스터디룸(여럿이 대화 + 자료 공유) 화면. 겹친 말풍선(forum) 아이콘 사용.
-                  //   비활성: 외곽선 / 활성: 채움.
-                  icon: const Icon(Icons.forum_outlined),
-                  activeIcon: const Icon(Icons.forum),
+                  //   비활성: 외곽선 / 활성: 채움. 활성 시 아이콘 하단 언더라인 표시.
+                  icon: _withUnderline(
+                      context, const Icon(Icons.forum_outlined), false),
+                  activeIcon:
+                      _withUnderline(context, const Icon(Icons.forum), true),
                   label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: _buildCalendarIconWithBadge(appState),
+                  icon: _withUnderline(
+                      context, _buildCalendarIconWithBadge(appState), false),
+                  activeIcon: _withUnderline(
+                      context, _buildCalendarIconWithBadge(appState), true),
                   label: '',
                 ),
                 BottomNavigationBarItem(
                   // ⭐ 비활성: 연한 바탕 원 + 진한 테마색 +(테두리 없음).
-                  //    활성: 진한 테마색 원 + 흰 +.
-                  icon: _buildAddIcon(context, appState.selectedTabIndex == _createTab),
+                  //    활성: 진한 테마색 원 + 흰 +. (+는 activeIcon이 따로 없어 선택여부를 직접 계산)
+                  icon: _withUnderline(
+                      context,
+                      _buildAddIcon(
+                          context, appState.selectedTabIndex == _createTab),
+                      appState.selectedTabIndex == _createTab),
                   label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: _buildRemindIcon(false),
-                  activeIcon: _buildRemindIcon(true),
+                  icon: _withUnderline(context, _buildRemindIcon(false), false),
+                  activeIcon:
+                      _withUnderline(context, _buildRemindIcon(true), true),
                   label: '',
                 ),
                 BottomNavigationBarItem(
                   // 설정 탭 = '...'(더보기) 아이콘 + 라벨 없음
-                  icon: const Icon(Icons.more_horiz),
+                  icon: _withUnderline(
+                      context, const Icon(Icons.more_horiz), false),
+                  activeIcon: _withUnderline(
+                      context, const Icon(Icons.more_horiz), true),
                   label: '',
                 ),
               ],
@@ -364,6 +377,27 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     debugPrint('🎵 탭 변경 시 재생 상태 확인:');
     debugPrint('   - 오디오 재생 중: ${audioService.isPlaying}');
     debugPrint('   - 현재 재생 파일: ${audioService.currentPlayingFile?.fileName ?? "없음"}');
+  }
+
+  /// 선택된 탭 아이콘 하단에 언더라인을 표시한다.
+  /// 비활성일 때도 동일 크기의 투명 언더라인으로 공간을 예약해 아이콘 세로 정렬이 흔들리지 않게 한다.
+  Widget _withUnderline(BuildContext context, Widget icon, bool active) {
+    final color = Theme.of(context).primaryColor;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        const SizedBox(height: 3),
+        Container(
+          width: 18,
+          height: 2.5,
+          decoration: BoxDecoration(
+            color: active ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
   }
 
   /// 가운데 +(노트) 버튼 아이콘.

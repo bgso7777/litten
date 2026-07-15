@@ -2564,12 +2564,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
       },
       child: Column(
         children: [
-        // 상단 헤더 — 테마색(primaryColor) 적용(앱 공통 헤더 스타일과 통일)
+        // 상단 헤더 — 흰색 배경, 아이콘은 테마색·글씨(제목/저장)는 검은색.
         Container(
           height: 50,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+            color: Colors.white,
             border: Border(
                 bottom: BorderSide(
                     color: Theme.of(context).primaryColor.withValues(alpha: 0.15))),
@@ -2589,23 +2589,25 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   });
                 },
                 icon: const Icon(Icons.arrow_back),
+                // 아이콘은 테마색 유지.
                 color: Theme.of(context).primaryColor,
               ),
               Expanded(
                 child: Text(
                   _currentTextFile?.displayTitle ?? '새 텍스트',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
+                    // 제목 글씨·숫자는 검은색.
+                    color: Colors.black,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
               TextButton(
                 onPressed: _saveCurrentTextFile,
-                style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).primaryColor),
+                // 저장 글씨는 검은색.
+                style: TextButton.styleFrom(foregroundColor: Colors.black),
                 child: Text(l10n?.save ?? '저장'),
               ),
             ],

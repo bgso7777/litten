@@ -218,6 +218,8 @@ class _WritingScreenState extends State<WritingScreen>
         final draggableTabLayout = DraggableTabLayout(
           key: ValueKey(appState.targetWritingTabId),
           tabs: _tabs,
+          // 노트(메모 편집창) 상단 탭은 선택 시 글씨·숫자를 검은색으로.
+          activeTitleColor: Colors.black,
           initialActiveTabId: appState.currentWritingTabId,
           visibleAreas: appState.visibleAreas,
           initialColumnRatio: appState.columnWidthRatio,
