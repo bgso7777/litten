@@ -2181,7 +2181,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           items: kLangs.map((l) => DropdownMenuItem(
             value: l.$1,
             child: Text('${l.$2}(${l.$1})', overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: color)),
+              style: const TextStyle(fontSize: 11, color: Colors.black)),
           )).toList(),
           onChanged: onChanged,
         );
@@ -2615,17 +2615,19 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
           ),
         ),
 
-        // 에디터 + 요약 영역 (STT 모드: 1/3 + 2/3, 일반: 전체)
+        // 에디터 + 요약 영역 (일반: 전체)
+        // STT 모드: 전사(1단)는 전사 3줄 정도 보이게, 나머지를 요약·메모에 배분.
+        //   flex 4 : 5 : 5 → 전사 4/14, 요약 5/14, 메모 5/14.
         Expanded(
           child: _isSttMode
               ? Column(
                   children: [
                     // 1단 — STT 시작/중지 + 언어 선택 + 전사창
-                    Expanded(flex: 1, child: _buildEditorContainer()),
+                    Expanded(flex: 4, child: _buildEditorContainer()),
                     // 2단 — 요약 조건(드롭다운) + 요약 내용
-                    Expanded(flex: 1, child: _buildSttSummaryArea()),
+                    Expanded(flex: 5, child: _buildSttSummaryArea()),
                     // 3단 — 메모 입력창 (저장 시 전사 내용 아래에 위치)
-                    Expanded(flex: 1, child: _buildMemoArea()),
+                    Expanded(flex: 5, child: _buildMemoArea()),
                   ],
                 )
               : _buildEditorContainer(),
@@ -3066,10 +3068,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(children: [
+              // 아이콘은 테마색, 글씨는 검정.
               Icon(Icons.edit_note, size: 14, color: color),
               const SizedBox(width: 4),
               Text('메모',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
             ]),
           ),
           Expanded(
@@ -3177,11 +3180,11 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
-                // 좌측: AI 요약 레이블
+                // 좌측: AI 요약 레이블 — 아이콘은 테마색, 글씨는 검정.
                 Icon(Icons.auto_awesome, size: 13, color: color),
                 const SizedBox(width: 4),
                 Text(l10n?.aiSummary ?? 'AI 요약',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
                 const Spacer(),
                 // 우측: 드롭다운들
                 // 요약언어
@@ -3190,7 +3193,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   isDense: true,
                   underline: const SizedBox(),
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
                   items: const [
                     ('ko', '한국어'), ('en', 'English'), ('zh', '中文'), ('ja', '日本語'),
@@ -3204,7 +3207,7 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   ].map((l) => DropdownMenuItem(
                     value: l.$1,
                     child: Text('${l.$2}(${l.$1})', overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: color)),
+                      style: const TextStyle(fontSize: 11, color: Colors.black)),
                   )).toList(),
                   onChanged: (v) => _onSttSettingChanged(summaryLanguage: v),
                 ),
@@ -3215,12 +3218,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   isDense: true,
                   underline: const SizedBox(),
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
                   items: intervalItems
                       .map((opt) => DropdownMenuItem(
                         value: opt.$1,
-                        child: Text(opt.$2, style: TextStyle(fontSize: 11, color: color)),
+                        child: Text(opt.$2, style: const TextStyle(fontSize: 11, color: Colors.black)),
                       )).toList(),
                   onChanged: (v) => _onSttSettingChanged(summaryIntervalMinutes: v),
                 ),
@@ -3231,12 +3234,12 @@ class _TextTabState extends State<TextTab> with WidgetsBindingObserver {
                   isDense: true,
                   underline: const SizedBox(),
                   icon: Icon(Icons.arrow_drop_down, size: 14, color: color),
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w500),
                   dropdownColor: Theme.of(context).cardColor,
                   items: levelItems
                       .map((l) => DropdownMenuItem(
                         value: l.$1,
-                        child: Text('Lv.${l.$1} ${l.$2}', style: TextStyle(fontSize: 11, color: color)),
+                        child: Text('Lv.${l.$1} ${l.$2}', style: const TextStyle(fontSize: 11, color: Colors.black)),
                       )).toList(),
                   onChanged: (v) => _onSttSettingChanged(summaryLevel: v),
                 ),

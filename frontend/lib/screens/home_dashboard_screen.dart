@@ -1576,6 +1576,8 @@ class _ShareSectionState extends State<_ShareSection>
     // (c.label은 로컬 별칭으로 바뀔 수 있어 ownedByName 조회 키로 쓰면 안 됨)
     final origName = (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
     final owned = origName != null ? ownedByName[origName] : null;
+    final isOwned = owned != null;
+    final myEmail = appState.currentUser?.id ?? '';
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
@@ -1604,9 +1606,7 @@ class _ShareSectionState extends State<_ShareSection>
                   // 목록 복귀(provider 단일 소스) → 칩 바 + FAB 다시 표시
                   context.read<AppStateProvider>().setHomeOpenConvKey(null);
                 }),
-            Icon(c.isGroup ? Icons.group : Icons.person, size: 18, color: color),
-            const SizedBox(width: 6),
-            // 제목은 라인 가운데 정렬.
+            // 제목은 라인 가운데 정렬(좌: 뒤로 아이콘, 우: 사람/그룹 아이콘).
             Expanded(
               child: Text(c.label,
                   maxLines: 1,
@@ -1615,13 +1615,19 @@ class _ShareSectionState extends State<_ShareSection>
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
+            const SizedBox(width: 6),
+            // 우측 아이콘은 스터디룸 목록의 앞쪽 아바타와 동일하게 표시.
+            _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
+                mine: isOwned || c.isSelf),
             if (c.isGroup && owned != null)
               IconButton(
                 icon: const Icon(Icons.group_add), color: color, tooltip: '멤버 추가',
                 onPressed: () async {
                   await showGroupMembersDialog(context, groupId!, c.label);
                   if (mounted) context.read<AppStateProvider>().reloadShareGroups();
-                }),
+                })
+            else
+              const SizedBox(width: 12),
           ]),
         ),
         // [대화]/[자료] 세그먼트 바 — 대화(말풍선)와 자료(공유 파일)를 분리.
@@ -2005,6 +2011,8 @@ class _ShareSectionState extends State<_ShareSection>
     // 최신순 정렬(날짜 구분 헤더용) — 메인 파일 리스트와 동일 컨벤션.
     entries.sort((a, b) => b.date.compareTo(a.date));
     if (!mounted) return;
+    // 파일 검색어(시트 리빌드에도 유지되도록 메서드 스코프에 보관).
+    String searchQuery = '';
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2012,50 +2020,88 @@ class _ShareSectionState extends State<_ShareSection>
         expand: false,
         initialChildSize: 0.6,
         maxChildSize: 0.9,
-        builder: (ctx, scrollCtrl) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(children: [
-                Icon(Icons.share, size: 18, color: color),
-                const SizedBox(width: 6),
-                Text('파일 공유 — ${c.label}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: entries.isEmpty
-                  ? Center(
-                      child: Text('공유할 파일이 없습니다.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
-                  : ListView.builder(
-                      controller: scrollCtrl,
-                      itemCount: entries.length,
-                      itemBuilder: (_, i) {
-                        final e = entries[i];
-                        // 날짜(연월일)가 바뀌는 지점마다 헤더 삽입(오늘/어제/yyyy년 M월 d일 (E)).
-                        final cur = DateTime(e.date.year, e.date.month, e.date.day);
-                        final prev = i == 0 ? null : entries[i - 1].date;
-                        final showDay = prev == null ||
-                            DateTime(prev.year, prev.month, prev.day) != cur;
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (showDay) _fileDateHeader(cur, color),
-                            ListTile(
-                              dense: true,
-                              leading: Icon(e.icon, color: color, size: 20),
-                              title: Text(e.name,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                              onTap: () => Navigator.pop(ctx, e),
-                            ),
-                          ],
-                        );
-                      },
+        builder: (ctx, scrollCtrl) => StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final q = searchQuery.trim().toLowerCase();
+            final shown = q.isEmpty
+                ? entries
+                : entries
+                    .where((e) => e.name.toLowerCase().contains(q))
+                    .toList();
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    Icon(Icons.share, size: 18, color: color),
+                    const SizedBox(width: 6),
+                    Text('파일 공유 — ${c.label}',
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+                // 상단 파일 검색창.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: TextField(
+                    onChanged: (v) => setSheetState(() => searchQuery = v),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '파일 검색',
+                      prefixIcon: Icon(Icons.search, size: 20, color: color),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 10),
                     ),
-            ),
-          ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: shown.isEmpty
+                      ? Center(
+                          child: Text(
+                              q.isEmpty
+                                  ? '공유할 파일이 없습니다.'
+                                  : '"$searchQuery" 검색 결과가 없습니다.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade500)))
+                      : ListView.builder(
+                          controller: scrollCtrl,
+                          itemCount: shown.length,
+                          itemBuilder: (_, i) {
+                            final e = shown[i];
+                            // 날짜(연월일)가 바뀌는 지점마다 헤더 삽입.
+                            final cur =
+                                DateTime(e.date.year, e.date.month, e.date.day);
+                            final prev = i == 0 ? null : shown[i - 1].date;
+                            final showDay = prev == null ||
+                                DateTime(prev.year, prev.month, prev.day) != cur;
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (showDay) _fileDateHeader(cur, color),
+                                ListTile(
+                                  dense: true,
+                                  // 전체탭과 동일한 종류별 아이콘 매핑 사용.
+                                  leading: _shareFileTypeIconWidget(e.type,
+                                      fileName: e.fileName,
+                                      contentType: e.contentType,
+                                      color: color,
+                                      size: 20),
+                                  title: Text(e.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  onTap: () => Navigator.pop(ctx, e),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     ).then((picked) async {
