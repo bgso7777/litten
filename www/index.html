@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼(Litten) - 예습·노트·복습·공유를 잇는 학습 플랫폼. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께 공부하세요.">
+    <meta name="description" content="리튼(Litten) - 예습·노트·복습·공유를 잇는 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께 공부하세요.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="http://www.litten7.com">
     <meta property="og:site_name" content="Litten 리튼">
-    <meta property="og:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 플랫폼">
-    <meta property="og:description" content="학습 채널 구독으로 예습하고, 수업을 필기·녹음·PDF 주석으로 담고, AI 요약·퀴즈로 복습하고, 스터디룸에서 함께 — 예습부터 복습까지 잇는 올인원 학습 플랫폼.">
+    <meta property="og:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 메이트">
+    <meta property="og:description" content="학습 채널 구독으로 예습하고, 수업을 필기·녹음·PDF 주석으로 담고, AI 요약·퀴즈로 복습하고, 스터디룸에서 함께 — 예습부터 복습까지 잇는 올인원 학습 메이트.">
     <meta property="og:image" content="http://www.litten7.com/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="리튼 - 배우고 기록하고 복습하는 학습 플랫폼">
+    <meta property="og:image:alt" content="리튼 - 배우고 기록하고 복습하는 학습 메이트">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 플랫폼">
-    <meta name="twitter:description" content="예습·노트·복습·공유를 잇는 올인원 학습 플랫폼. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께.">
+    <meta name="twitter:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 메이트">
+    <meta name="twitter:description" content="예습·노트·복습·공유를 잇는 올인원 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께.">
     <meta name="twitter:image" content="http://www.litten7.com/og-image.png">
-    <title>리튼(Litten) - 예습·노트·복습·공유 올인원 학습 플랫폼</title>
+    <title>리튼(Litten) - 예습·노트·복습·공유 올인원 학습 메이트</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/><path d='M21 11 L21.5 12.5 L23 13 L21.5 13.5 L21 15 L20.5 13.5 L19 13 L20.5 12.5 Z' fill='%23FBBF24'/><path d='M22 0.9 L22.38 2 L23.5 2.4 L22.38 2.8 L22 3.9 L21.62 2.8 L20.5 2.4 L21.62 2 Z' fill='%23FBBF24'/></svg>">
     <style>
         :root {
@@ -472,6 +472,39 @@
         .anywhere-visual .av-text { font-size: 1.3rem; font-weight: 600; }
         .anywhere-visual .av-sub { font-size: 1rem; opacity: 0.85; }
 
+        /* ── 스크린샷 쇼케이스 ── */
+        .screens { background: var(--bg-tint); overflow: hidden; }
+        .screens-track {
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4rem 2rem;
+        }
+        .screen-card {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .screen-frame {
+            width: 100%; max-width: 260px; aspect-ratio: 9 / 19.5;
+            border-radius: 26px; overflow: hidden;
+            background: #fff;
+            border: 1px solid var(--line);
+            box-shadow: 0 18px 40px rgba(53, 122, 189, 0.16);
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+        }
+        .screen-card:hover .screen-frame {
+            transform: translateY(-8px);
+            box-shadow: 0 26px 54px rgba(53, 122, 189, 0.24);
+        }
+        .screen-frame img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+        .screen-label { margin-top: 1.2rem; font-size: 1.12rem; font-weight: 700; color: var(--ink); }
+        .screen-desc { margin-top: 0.35rem; font-size: 0.96rem; color: var(--muted); line-height: 1.5; max-width: 240px; }
+
+        @media (max-width: 900px) {
+            .screens-track { grid-template-columns: repeat(2, 1fr); gap: 2.2rem 1.6rem; }
+        }
+        @media (max-width: 520px) {
+            .screens-track { grid-template-columns: 1fr; gap: 2.4rem; }
+            .screen-frame { max-width: 240px; }
+        }
+
         /* ── 요금제 ── */
         .pricing { background: white; }
 
@@ -769,7 +802,7 @@
         <div class="section-head reveal">
             <span class="eyebrow">Learning Cycle</span>
             <h2 class="section-title">예습부터 복습까지, 학습의 한 사이클</h2>
-            <p class="section-subtitle">구독으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 스터디룸에서 함께</p>
+            <p class="section-subtitle">학습 영상으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 스터디룸에서 함께</p>
         </div>
         <div class="core-grid" id="coreGrid"></div>
     </section>
@@ -836,6 +869,47 @@
                 <div class="av-big">☁️</div>
                 <div class="av-text">기기 간 자동 동기화</div>
                 <div class="av-sub">폰 · 태블릿 어디서든 이어서</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 스크린샷 쇼케이스 -->
+    <section class="screens">
+        <div class="section-head reveal">
+            <span class="eyebrow">Screens</span>
+            <h2 class="section-title">직접 보는 리튼</h2>
+            <p class="section-subtitle">듣기부터 복습까지, 한 앱 안에서</p>
+        </div>
+        <div class="screens-track">
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/01-space.png?v=2" alt="스터디룸 목록 화면" loading="lazy"></div>
+                <div class="screen-label">스터디룸</div>
+                <p class="screen-desc">함께 공부할 방을 만들고 노트·자료를 나눠요</p>
+            </div>
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/02-record.png?v=2" alt="음성 녹음 및 AI 요약 화면" loading="lazy"></div>
+                <div class="screen-label">듣기 · AI 요약</div>
+                <p class="screen-desc">녹음이 끝나면 자동으로 받아쓰고 요약까지 해줘요</p>
+            </div>
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/03-write.png?v=2" alt="텍스트 작성 화면" loading="lazy"></div>
+                <div class="screen-label">메모</div>
+                <p class="screen-desc">서식 있는 에디터로 배운 내용을 깔끔하게 정리해요</p>
+            </div>
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/04-draw.png?v=2" alt="이미지 위 필기 화면" loading="lazy"></div>
+                <div class="screen-label">필기</div>
+                <p class="screen-desc">PDF·이미지 위에 펜과 형광펜으로 자유롭게 주석해요</p>
+            </div>
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/05-calendar.png?v=3" alt="캘린더 일정 화면" loading="lazy"></div>
+                <div class="screen-label">캘린더</div>
+                <p class="screen-desc">월간 일정을 한눈에 보고 다가올 일정을 미리 챙겨요</p>
+            </div>
+            <div class="screen-card reveal">
+                <div class="screen-frame"><img src="screens/06-review.png?v=2" alt="리마인드 목록 화면" loading="lazy"></div>
+                <div class="screen-label">리마인드</div>
+                <p class="screen-desc">정해진 때 알림으로 챙겨줘 놓치지 않고 다시 확인해요</p>
             </div>
         </div>
     </section>
