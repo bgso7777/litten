@@ -104,8 +104,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (mounted) {
-        // 로그인 성공 시 이전 화면으로 돌아가기 (별도 안내 메시지 없음)
-        Navigator.pop(context);
+        // 로그인 성공 → 홈으로 이동(스택 정리).
+        // pop을 쓰면 탈퇴 후처럼 로그인 화면이 스택 최하위일 때 빈 검은 화면이 됨.
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
     } catch (e) {
       if (mounted) {

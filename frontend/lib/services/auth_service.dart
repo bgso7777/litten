@@ -775,8 +775,9 @@ class AuthServiceImpl extends AuthService {
       await _clearAllAuthData();
       debugPrint('🔐 AuthService: 인증 정보 삭제 완료');
 
-      // 3. 로컬 파일은 유지 (삭제하지 않음)
-      debugPrint('ℹ️ AuthService: 로컬 파일 유지');
+      // 3. 로컬 데이터(리튼/녹음/텍스트/필기/스터디룸 등) 전체 삭제 — 탈퇴 안내 문구("모든 데이터 영구 삭제")대로 초기화
+      await _deleteAllLocalFiles();
+      debugPrint('🗑️ AuthService: 로컬 데이터 삭제 완료');
 
       // 4. 무료 플랜으로 전환
       await _resetToFreePlan();
@@ -825,7 +826,11 @@ class AuthServiceImpl extends AuthService {
         if (key.contains('text_files_') ||
             key.contains('handwriting_files_') ||
             key.contains('audio_files_') ||
-            key.contains('littens')) {
+            key.contains('littens') ||
+            key.contains('shares_') ||         // 스터디룸 공유(받은/보낸) 캐시
+            key.contains('share_groups') ||    // 스터디룸 그룹 캐시
+            key.contains('messages_') ||       // 스터디룸 메시지 캐시
+            key.contains('self_chats')) {      // 나만의 스터디룸(셀프챗)
           await prefs.remove(key);
           debugPrint('🗑️ SharedPreferences 키 삭제: $key');
         }

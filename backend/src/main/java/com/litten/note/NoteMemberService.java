@@ -443,8 +443,13 @@ public class NoteMemberService extends CustomHttpService {
         }
 
         // 4) 자체 JWT 발급 — 비번 없이 인증 객체 직접 구성(권한은 일반 로그인과 동일: ROLE_MEMBER_INDIVIDUAL)
-        org.springframework.security.core.Authentication authentication = new UsernamePasswordAuthenticationToken(
-                noteMember.getId(), null, List.of(AuthoritiesConstants.ROLE_MEMBER_INDIVIDUAL));
+        // principal은 반드시 MemberDetails 타입이어야 함(TokenProvider가 principal을 MemberDetails로 캐스팅).
+        java.util.List<org.springframework.security.core.GrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(AuthoritiesConstants.ROLE_MEMBER_INDIVIDUAL);
+        com.litten.common.security.MemberDetails principal = new com.litten.common.security.MemberDetails(
+                noteMember.getName(), noteMember.getId(), noteMember.getPassword(), authorities);
+        org.springframework.security.core.Authentication authentication =
+                new UsernamePasswordAuthenticationToken(principal, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         Long tokenValidityInMilliseconds = isMobile
