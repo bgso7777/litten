@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
+import 'main_tab_screen.dart';
 
 /// 회원가입 화면
 /// 이메일과 비밀번호를 입력받아 회원가입을 진행합니다.
@@ -241,14 +242,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
 
       if (provider == 'apple') {
-        await appState.authService.signInWithApple();
+        await appState.authService.signInWithApple(allowSignup: true);
       } else {
-        await appState.authService.signInWithGoogle();
+        await appState.authService.signInWithGoogle(allowSignup: true);
       }
 
       if (mounted) {
         // 소셜 가입/로그인 성공 → 로그인 완료 상태이므로 홈으로 이동(스택 정리)
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainTabScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -292,15 +296,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     children: [
                       const SizedBox(height: 32),
 
-                      // 환영 메시지
-                      Text(
-                        AppLocalizations.of(context)?.createAccount ?? '계정 만들기',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
                       Text(
                         AppLocalizations.of(context)?.signUpDescription ??
                             '무료로 계정을 만들고 시작하세요',

@@ -112,14 +112,14 @@ abstract class AuthService extends ChangeNotifier {
   });
 
   /// Google 로그인
-  ///
-  /// Returns: 성공 시 User 객체, 실패 시 예외 발생
-  Future<User> signInWithGoogle();
+  /// [allowSignup] 미가입 계정이면 새로 생성할지 여부(회원가입 버튼=true, 로그인 버튼=false).
+  /// Returns: 성공 시 User 객체, 미가입+allowSignup=false면 SignupRequiredException, 그 외 실패 시 예외.
+  Future<User> signInWithGoogle({bool allowSignup = false});
 
   /// Apple 로그인
-  ///
-  /// Returns: 성공 시 User 객체, 실패 시 예외 발생
-  Future<User> signInWithApple();
+  /// [allowSignup] 미가입 계정이면 새로 생성할지 여부(회원가입 버튼=true, 로그인 버튼=false).
+  /// Returns: 성공 시 User 객체, 미가입+allowSignup=false면 SignupRequiredException, 그 외 실패 시 예외.
+  Future<User> signInWithApple({bool allowSignup = false});
 
   /// 로그아웃
   Future<void> signOut();
@@ -381,17 +381,12 @@ class AuthServiceImpl extends AuthService {
       debugPrint('🔐 AuthService: 계정 존재 확인 실패(무시) - $e');
       return false;
     }
-    // 여기 도달 = 서버가 '계정 없음'을 명확히 반환 = 다른 기기에서 탈퇴됨 → 이 기기 완전 정리
-    debugPrint('🔐 AuthService: 서버 계정 없음 감지(다른 기기 탈퇴) → 로그아웃 + 로컬 데이터 삭제');
+    // 여기 도달 = 서버가 '계정 없음'을 명확히 반환 = 다른 기기에서 탈퇴됨 → 이 기기는 강제 로그아웃만(로컬 데이터는 유지)
+    debugPrint('🔐 AuthService: 서버 계정 없음 감지(다른 기기 탈퇴) → 강제 로그아웃(로컬 데이터 유지)');
     _token = null;
     _currentUser = null;
     _authStatus = AuthStatus.unauthenticated;
     await _clearAllAuthData();
-    try {
-      await _deleteAllLocalFiles();
-    } catch (e) {
-      debugPrint('🔐 AuthService: 로컬 데이터 삭제 실패 - $e');
-    }
     await _resetToFreePlan();
     notifyListeners();
     return true;
@@ -541,8 +536,8 @@ class AuthServiceImpl extends AuthService {
   }
 
   @override
-  Future<User> signInWithGoogle() async {
-    debugPrint('🔐 AuthService: Google 로그인 시도');
+  Future<User> signInWithGoogle({bool allowSignup = false}) async {
+    debugPrint('🔐 AuthService: Google 로그인 시도 (allowSignup: $allowSignup)');
 
     try {
       _authStatus = AuthStatus.loading;
@@ -572,6 +567,7 @@ class AuthServiceImpl extends AuthService {
         idToken: idToken,
         email: account.email,
         displayName: account.displayName,
+        allowSignup: allowSignup,
       );
     } catch (e) {
       _authStatus = AuthStatus.unauthenticated;
@@ -582,8 +578,8 @@ class AuthServiceImpl extends AuthService {
   }
 
   @override
-  Future<User> signInWithApple() async {
-    debugPrint('🔐 AuthService: Apple 로그인 시도');
+  Future<User> signInWithApple({bool allowSignup = false}) async {
+    debugPrint('🔐 AuthService: Apple 로그인 시도 (allowSignup: $allowSignup)');
 
     try {
       _authStatus = AuthStatus.loading;
@@ -619,6 +615,7 @@ class AuthServiceImpl extends AuthService {
         idToken: idToken,
         email: credential.email,
         displayName: displayName,
+        allowSignup: allowSignup,
       );
     } catch (e) {
       _authStatus = AuthStatus.unauthenticated;
@@ -634,6 +631,7 @@ class AuthServiceImpl extends AuthService {
     required String idToken,
     String? email,
     String? displayName,
+    bool allowSignup = false,
   }) async {
     final uuid = await getDeviceUuid();
     debugPrint('🔐 AuthService: 소셜 로그인 UUID - $uuid');
@@ -642,6 +640,7 @@ class AuthServiceImpl extends AuthService {
       provider: provider,
       idToken: idToken,
       uuid: uuid,
+      allowSignup: allowSignup,
     );
 
     final token = response['authToken'] as String?;
@@ -810,9 +809,8 @@ class AuthServiceImpl extends AuthService {
       await _clearAllAuthData();
       debugPrint('🔐 AuthService: 인증 정보 삭제 완료');
 
-      // 3. 로컬 데이터(리튼/녹음/텍스트/필기/스터디룸 등) 전체 삭제 — 탈퇴 안내 문구("모든 데이터 영구 삭제")대로 초기화
-      await _deleteAllLocalFiles();
-      debugPrint('🗑️ AuthService: 로컬 데이터 삭제 완료');
+      // 3. 로컬 데이터는 유지 — 탈퇴해도 이 기기의 리튼/녹음/텍스트/필기 등 로컬 파일은 남긴다.
+      debugPrint('ℹ️ AuthService: 로컬 데이터 유지(탈퇴 후에도 이 기기 데이터 보존)');
 
       // 4. 무료 플랜으로 전환
       await _resetToFreePlan();

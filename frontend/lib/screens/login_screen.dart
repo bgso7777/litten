@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import '../services/api_service.dart';
 import 'signup_screen.dart';
+import 'main_tab_screen.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -106,7 +107,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         // 로그인 성공 → 홈으로 이동(스택 정리).
         // pop을 쓰면 탈퇴 후처럼 로그인 화면이 스택 최하위일 때 빈 검은 화면이 됨.
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainTabScreen()),
+              (route) => false,
+            );
+      }
+    } on SignupRequiredException catch (e) {
+      // 미가입 계정 → 회원가입 유도(로그인 버튼으로는 자동 가입하지 않음)
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _promptSignup(provider, e.message);
       }
     } catch (e) {
       if (mounted) {
@@ -128,6 +138,33 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// 미가입 소셜 계정 → 회원가입 화면으로 유도하는 다이얼로그.
+  void _promptSignup(String provider, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('회원가입 필요'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SignUpScreen()),
+              );
+            },
+            child: const Text('회원가입'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -142,7 +179,10 @@ class _LoginScreenState extends State<LoginScreen> {
             // 뒤로가기 버튼 클릭 시 홈 화면으로 이동
             Navigator.of(
               context,
-            ).pushNamedAndRemoveUntil('/', (route) => false);
+            ).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainTabScreen()),
+              (route) => false,
+            );
           },
         ),
       ),

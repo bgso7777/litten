@@ -339,6 +339,9 @@ public class NoteMemberService extends CustomHttpService {
 
         String idToken = requestBody.has("idToken") && !requestBody.get("idToken").isNull() ? requestBody.get("idToken").asText() : null;
         String uuid = requestBody.has("uuid") && !requestBody.get("uuid").isNull() ? requestBody.get("uuid").asText() : null;
+        // 신규 계정 자동 생성 허용 여부. 로그인 버튼=false(기존 회원만), 회원가입 버튼=true(신규 가입 허용).
+        // 탈퇴 후 로그인 시 자동 재가입을 막고 명시적 회원가입을 거치게 하기 위함.
+        boolean allowSignup = requestBody.has("allowSignup") && requestBody.get("allowSignup").asBoolean(false);
         if (idToken == null || idToken.isBlank() || uuid == null || uuid.isBlank()) {
             result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
             result.put(Constants.TAG_RESULT_MESSAGE, "idToken과 uuid는 필수입니다.");
@@ -372,6 +375,15 @@ public class NoteMemberService extends CustomHttpService {
                 noteMember = byEmail;
                 log.info("[NoteMemberService] 소셜-이메일 계정 병합 id={} provider={}", byEmail.getId(), provider);
             }
+        }
+        //   (c-0) 계정이 없는데 자동 가입이 허용되지 않으면(로그인 버튼) → 가입 필요 응답(계정 생성 안 함).
+        //         탈퇴 후 로그인 시 자동 재가입을 막고 회원가입을 유도한다.
+        if (noteMember == null && !allowSignup) {
+            log.info("[NoteMemberService] 소셜 로그인 - 미가입 계정, 회원가입 필요 provider={} email={}", provider, profile.email);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put("needSignup", true);
+            result.put(Constants.TAG_RESULT_MESSAGE, "가입되지 않은 계정입니다. 회원가입 후 이용해 주세요.");
+            return result;
         }
         //   (c) 신규 계정 생성
         if (noteMember == null) {

@@ -8,6 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/youtube_channel.dart';
 import '../models/summary_result.dart';
 
+/// 소셜 로그인 시 가입되지 않은 계정이라 회원가입이 필요할 때 던지는 예외.
+/// (로그인 버튼으로는 자동 가입하지 않고, 이 예외를 받으면 회원가입을 유도한다.)
+class SignupRequiredException implements Exception {
+  final String message;
+  SignupRequiredException(this.message);
+  @override
+  String toString() => message;
+}
+
 /// API 서비스
 /// 백엔드 API와의 통신을 담당합니다.
 class ApiService {
@@ -521,14 +530,19 @@ class ApiService {
     required String provider, // 'google' | 'apple'
     required String idToken,
     required String uuid,
+    bool allowSignup = false, // 신규 계정 자동 생성 허용(회원가입 버튼=true, 로그인 버튼=false)
   }) async {
-    debugPrint('[ApiService] loginSocial - provider: $provider, uuid: $uuid');
+    debugPrint('[ApiService] loginSocial - provider: $provider, uuid: $uuid, allowSignup: $allowSignup');
 
     final endpoint =
         provider == 'apple' ? _loginAppleEndpoint : _loginGoogleEndpoint;
     try {
       final url = Uri.parse('$baseUrl$endpoint');
-      final body = jsonEncode({'idToken': idToken, 'uuid': uuid});
+      final body = jsonEncode({
+        'idToken': idToken,
+        'uuid': uuid,
+        'allowSignup': allowSignup,
+      });
 
       debugPrint('[ApiService] loginSocial - URL: $url');
 
@@ -547,6 +561,10 @@ class ApiService {
         if (result == 1) {
           debugPrint('[ApiService] loginSocial - Success');
           return data;
+        } else if (data['needSignup'] == true) {
+          // 미가입 계정 — 로그인 버튼으로는 자동 가입하지 않고 회원가입을 유도한다.
+          debugPrint('[ApiService] loginSocial - 회원가입 필요');
+          throw SignupRequiredException(message ?? '가입되지 않은 계정입니다. 회원가입 후 이용해 주세요.');
         } else {
           final errorMsg = message != null
               ? '소셜 로그인 실패: result=$result, message=$message'

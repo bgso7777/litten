@@ -306,7 +306,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
       // 계정이 삭제됐으면 이 기기도 로그아웃 + 로컬 데이터 삭제된다.
       appState.authService.enforceAccountValidity().then((deleted) {
         if (!mounted || !deleted) return;
-        appState.resetAllDataAfterAccountDeletion(); // 화면의 메모리 데이터도 즉시 비움
+        // 로컬 데이터는 유지하고 강제 로그아웃만 안내
         showRelogin('계정이 삭제되어 로그아웃되었습니다. (다른 기기에서 회원탈퇴)');
       });
     });
