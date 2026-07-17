@@ -362,6 +362,41 @@ class AuthServiceImpl extends AuthService {
     return true;
   }
 
+  /// 서버에 계정이 아직 존재하는지 확인하고, 다른 기기에서 탈퇴돼 삭제된 계정이면
+  /// 이 기기도 로그아웃 + 로컬 데이터(파일/캐시) 전체 삭제한다.
+  ///
+  /// 반환: 계정이 삭제되어 로그아웃/삭제를 수행했으면 true, 정상이거나 판단 불가(오프라인 등)면 false.
+  /// 오프라인/네트워크 오류를 '계정 삭제'로 오인해 파일을 지우지 않도록,
+  /// 서버가 명확히 '계정 없음'을 반환한 경우에만 삭제한다.
+  Future<bool> enforceAccountValidity() async {
+    if (_authStatus != AuthStatus.authenticated) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = _token ?? prefs.getString(_keyToken);
+      if (token == null) return false;
+      final exists = await _apiService.checkAccountExists(token: token);
+      if (exists) return false; // 계정 정상
+    } catch (e) {
+      // 네트워크 오류/애매한 응답 → 안전하게 아무 것도 하지 않음
+      debugPrint('🔐 AuthService: 계정 존재 확인 실패(무시) - $e');
+      return false;
+    }
+    // 여기 도달 = 서버가 '계정 없음'을 명확히 반환 = 다른 기기에서 탈퇴됨 → 이 기기 완전 정리
+    debugPrint('🔐 AuthService: 서버 계정 없음 감지(다른 기기 탈퇴) → 로그아웃 + 로컬 데이터 삭제');
+    _token = null;
+    _currentUser = null;
+    _authStatus = AuthStatus.unauthenticated;
+    await _clearAllAuthData();
+    try {
+      await _deleteAllLocalFiles();
+    } catch (e) {
+      debugPrint('🔐 AuthService: 로컬 데이터 삭제 실패 - $e');
+    }
+    await _resetToFreePlan();
+    notifyListeners();
+    return true;
+  }
+
   /// 서버가 응답 헤더('auth-token')로 재발급해준 새 토큰을 저장한다.
   /// 사용 중 매 요청마다 갱신되므로, 앱을 계속 쓰면 토큰이 만료되지 않는다(A).
   Future<void> saveRefreshedToken(String newToken) async {

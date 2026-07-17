@@ -907,6 +907,29 @@ class ApiService {
     }
   }
 
+  /// 서버에 내 계정이 아직 존재하는지 확인.
+  /// GET /litten/note/v1/members/me
+  /// - result==1 → true (계정 존재)
+  /// - result==0(NOT_FOUND) → false (계정 삭제됨 — 다른 기기에서 탈퇴)
+  /// - 그 외(네트워크 오류/타임아웃/애매한 응답) → 예외를 던져 호출측이 절대 로그아웃/삭제하지 않게 함.
+  ///   (오프라인 상태를 '계정 삭제'로 오인해 로컬 파일을 지우는 사고를 방지)
+  Future<bool> checkAccountExists({required String token}) async {
+    final url = Uri.parse('$baseUrl$_myInfoEndpoint');
+    final response = await http
+        .get(url, headers: _getHeaders(token: token))
+        .timeout(const Duration(seconds: 10));
+    _processAuthResponse(response);
+    debugPrint('[ApiService] checkAccountExists - status: ${response.statusCode}, body: ${response.body}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final result = data['result'];
+      if (result == 1) return true;   // 계정 존재
+      if (result == 0) return false;  // 명확한 NOT_FOUND — 계정 삭제됨
+    }
+    // 애매한 응답은 판단하지 않음(안전: 삭제로 오인하지 않도록 예외)
+    throw Exception('checkAccountExists: 판단 불가 (status=${response.statusCode})');
+  }
+
   /// 내 구독 플랜 조회
   /// GET /litten/note/v1/members/me
   /// Response: {"result": 1, "subscriptionPlan": "free|standard|premium"}

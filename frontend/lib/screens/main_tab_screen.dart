@@ -272,16 +272,17 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   }
 
   /// 하단 탭 탭 처리
-  /// 메인 메뉴 탭 시 토큰 만료 검사 → 로그인 상태인데 만료면 자동 로그아웃 + 재로그인 안내.
+  /// 메인 메뉴 탭 시 ①토큰 만료 검사(로컬) → ②서버 계정 존재 검사(다른 기기 탈퇴 감지).
+  /// 만료/삭제면 자동 로그아웃(+삭제 시 로컬 데이터 정리) 후 재로그인 안내.
   void _checkTokenExpiryOnTap(BuildContext context, AppStateProvider appState) {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    appState.authService.enforceTokenValidity().then((expired) {
-      if (!mounted || !expired) return;
+    void showRelogin(String message) {
+      if (!mounted) return;
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('세션이 만료되어 로그아웃되었습니다. 다시 로그인해 주세요.'),
+          content: Text(message),
           duration: const Duration(seconds: 6),
           action: SnackBarAction(
             label: '로그인',
@@ -293,6 +294,21 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           ),
         ),
       );
+    }
+
+    appState.authService.enforceTokenValidity().then((expired) {
+      if (!mounted) return;
+      if (expired) {
+        showRelogin('세션이 만료되어 로그아웃되었습니다. 다시 로그인해 주세요.');
+        return;
+      }
+      // 토큰은 유효 → 서버에 계정이 아직 존재하는지 확인(다른 기기에서 탈퇴됐는지).
+      // 계정이 삭제됐으면 이 기기도 로그아웃 + 로컬 데이터 삭제된다.
+      appState.authService.enforceAccountValidity().then((deleted) {
+        if (!mounted || !deleted) return;
+        appState.resetAllDataAfterAccountDeletion(); // 화면의 메모리 데이터도 즉시 비움
+        showRelogin('계정이 삭제되어 로그아웃되었습니다. (다른 기기에서 회원탈퇴)');
+      });
     });
   }
 

@@ -1443,6 +1443,22 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         : 'en';
   }
 
+  /// 회원탈퇴 후 메모리 상태 초기화.
+  /// 로컬 디스크 데이터(리튼/파일/캐시)는 이미 삭제된 상태에서 호출하며,
+  /// 화면에 남아 있는 리튼/스터디룸/셀프챗 목록을 즉시 비운다.
+  Future<void> resetAllDataAfterAccountDeletion() async {
+    _selectedLitten = null;
+    _sharesReceived = [];
+    _sharesSent = [];
+    _shareGroups = [];
+    _messagesReceived = [];
+    _messagesSent = [];
+    _selfChats = [];
+    // prefs('littens')가 비어 있으므로 _littens = [] 로 갱신됨
+    await _loadLittens();
+    notifyListeners();
+  }
+
   // 리튼 로드
   Future<void> _loadLittens() async {
     _littens = await _littenService.getAllLittens();

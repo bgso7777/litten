@@ -1950,8 +1950,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
 
               try {
-                // 회원탈퇴 실행 (로컬 파일 유지, 무료 플랜 전환)
+                // 회원탈퇴 실행 (로컬 데이터 전체 삭제 + 무료 플랜 전환)
                 await appState.authService.deleteAccountAndAllData();
+
+                // 화면에 남아 있는 메모리 상태(리튼/스터디룸/셀프챗)도 즉시 비움
+                await appState.resetAllDataAfterAccountDeletion();
 
                 // 설정 화면의 registered_email 상태 초기화
                 if (mounted) {
