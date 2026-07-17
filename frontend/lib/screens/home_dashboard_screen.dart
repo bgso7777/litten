@@ -930,6 +930,13 @@ class _ShareSectionState extends State<_ShareSection>
               key: key, isGroup: isGroup, email: email, label: label,
               groupId: (ownedByName[group]?['groupId'] as num?)?.toInt()));
       conv.items.add(it);
+      // 룸 리스트 탈퇴 표시 규칙:
+      //  - 개인 대화(1:1): 상대(발신자)가 탈퇴하면 리스트에 (탈퇴)
+      //  - 그룹 대화: 방장이 탈퇴(룸 삭제)했을 때만 리스트에 (탈퇴). 일부 멤버 탈퇴는 방 안에서만 표시.
+      if (it.received) {
+        if (!isGroup && it.data['senderWithdrawn'] == true) conv.senderWithdrawn = true;
+        if (isGroup && it.data['ownerWithdrawn'] == true) conv.senderWithdrawn = true;
+      }
       // 개인 대화 라벨: 닉네임이 있으면 닉네임만, 없으면 아이디(이메일)만. (닉네임 우선)
       // 서버가 senderName/수신자 name을 '현재 닉네임'으로 주므로 상대가 닉네임을 바꾸면 반영된다.
       if (!isGroup) {
@@ -1132,6 +1139,7 @@ class _ShareSectionState extends State<_ShareSection>
         peer = s['senderName']?.toString().isNotEmpty == true
             ? s['senderName'].toString()
             : (s['senderMemberId']?.toString() ?? '');
+        if (s['senderWithdrawn'] == true) peer = '$peer (탈퇴)';
       } else {
         final g = (s['groupName']?.toString() ?? '').trim();
         if (g.isNotEmpty) {
@@ -1499,6 +1507,11 @@ class _ShareSectionState extends State<_ShareSection>
           child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         ),
+        if (c.senderWithdrawn) ...[
+          const SizedBox(width: 4),
+          const Icon(Icons.person_off, size: 14, color: Colors.red),
+          const Text(' (탈퇴)', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w600)),
+        ],
         if (locked)
           Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.lock, size: 14, color: color)),
       ]),
@@ -2188,9 +2201,10 @@ class _ShareSectionState extends State<_ShareSection>
       final it = _ShareItem(
           received: true, data: s, at: _parseAt(s['sharedAt']),
           group: (s['groupName']?.toString() ?? '').trim());
-      final sender = s['senderName']?.toString().isNotEmpty == true
+      var sender = s['senderName']?.toString().isNotEmpty == true
           ? s['senderName'].toString()
           : (s['senderMemberId']?.toString() ?? '');
+      if (s['senderWithdrawn'] == true) sender = '$sender (탈퇴)';
       rows.add({
         'fileType': s['fileType'], 'fileName': s['fileName'], 'contentType': s['contentType'],
         'fname': _stripShareExt(s['fileName']?.toString() ?? ''),
@@ -2411,13 +2425,17 @@ class _ShareSectionState extends State<_ShareSection>
       [bool isGroup = false]) {
     // 그룹 대화에서 '받은' 항목은 보낸 사람(닉네임 우선, 없으면 이메일)을 말풍선 위에 표시.
     // 1:1은 상대가 한 명이라 제목으로 충분하므로 생략.
-    final String? senderLabel = (isGroup && it.received)
+    final String? senderLabelBase = (isGroup && it.received)
         ? ((it.data['senderName']?.toString().trim().isNotEmpty ?? false)
             ? it.data['senderName'].toString()
             : (it.data['senderMemberId']?.toString().trim().isNotEmpty ?? false)
                 ? it.data['senderMemberId'].toString()
                 : null)
         : null;
+    // 발신자 탈퇴 시 라벨에 (탈퇴)를 빨강으로 표시(렌더에서 처리)
+    final String? senderLabel = senderLabelBase;
+    final bool senderLabelWithdrawn =
+        senderLabelBase != null && it.data['senderWithdrawn'] == true;
     // 채팅 메시지 말풍선
     if (it.isMessage) {
       final received = it.received;
@@ -2441,9 +2459,19 @@ class _ShareSectionState extends State<_ShareSection>
               if (senderLabel != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(senderLabel,
-                      style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                  child: senderLabelWithdrawn
+                      ? RichText(
+                          text: TextSpan(
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                            children: [
+                              TextSpan(text: senderLabel),
+                              const TextSpan(text: ' (탈퇴)', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        )
+                      : Text(senderLabel,
+                          style: TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
                 ),
               Text(content, style: const TextStyle(fontSize: 14)),
               if (url != null) ...[
@@ -2492,9 +2520,19 @@ class _ShareSectionState extends State<_ShareSection>
             if (senderLabel != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
-                child: Text(senderLabel,
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                child: senderLabelWithdrawn
+                    ? RichText(
+                        text: TextSpan(
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                          children: [
+                            TextSpan(text: senderLabel),
+                            const TextSpan(text: ' (탈퇴)', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      )
+                    : Text(senderLabel,
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600, color: color)),
               ),
             Row(mainAxisSize: MainAxisSize.min, children: [
               _shareFileTypeIconWidget(it.data['fileType']?.toString(), fileName: it.data['fileName']?.toString(), contentType: it.data['contentType']?.toString(), size: 16, color: color),
@@ -2761,6 +2799,7 @@ class _Conv {
   String? recvGroupPassword; // 수신 그룹(남의 그룹)의 비밀번호 — 수신자 잠금 해제 검증용
   int? recvGroupId;       // 수신 그룹의 id — 멤버가 그룹 대화/공유에 사용
   final bool isSelf;      // 나와의 대화(로컬 셀프 채팅방)인지
+  bool senderWithdrawn = false; // 개인 대화 상대(발신자)가 탈퇴했는지
   final List<_ShareItem> items = [];
   _Conv({required this.key, required this.isGroup, this.groupId, this.email,
       required this.label, this.isSelf = false});
@@ -2859,8 +2898,29 @@ class _ReceivedCard extends StatelessWidget {
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
             ]),
             const SizedBox(height: 4),
-            Text('보낸이: $sender',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            if (share['senderWithdrawn'] == true)
+              Row(children: [
+                const Icon(Icons.person_off, size: 13, color: Colors.red),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: RichText(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      children: [
+                        TextSpan(text: '보낸이: $sender '),
+                        const TextSpan(
+                            text: '(탈퇴)',
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ])
+            else
+              Text('보낸이: $sender',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             if (message != null && message.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),

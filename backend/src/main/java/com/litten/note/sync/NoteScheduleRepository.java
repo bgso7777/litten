@@ -13,4 +13,7 @@ public interface NoteScheduleRepository extends JpaRepository<NoteSchedule, Long
     List<NoteSchedule> findByMemberId(String memberId);
 
     Optional<NoteSchedule> findByMemberIdAndLittenId(String memberId, String littenId);
+    // 회원 탈퇴 — 회원의 일정 전체 삭제
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByMemberId(String memberId);
 }

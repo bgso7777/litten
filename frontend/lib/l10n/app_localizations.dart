@@ -1498,6 +1498,18 @@ abstract class AppLocalizations {
   /// **'• Subscription will be automatically cancelled'**
   String get deleteAccountWarning4;
 
+  /// Delete account warning 5 - study room deletion
+  ///
+  /// In en, this message translates to:
+  /// **'• Study rooms you created are deleted, and shares you sent are marked as \'withdrawn\' to others'**
+  String get deleteAccountWarning5;
+
+  /// Delete account warning 6 - schedule deletion
+  ///
+  /// In en, this message translates to:
+  /// **'• Schedules synced to the server are deleted (local schedules are kept)'**
+  String get deleteAccountWarning6;
+
   /// Delete account button
   ///
   /// In en, this message translates to:

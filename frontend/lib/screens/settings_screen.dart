@@ -1862,6 +1862,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildWarningItem(l10n?.deleteAccountWarning2 ?? '• 서버에 저장된 파일이 모두 삭제됩니다'),
             _buildWarningItem(l10n?.deleteAccountWarning3 ?? '• 계정 복구가 불가능합니다'),
             _buildWarningItem(l10n?.deleteAccountWarning4 ?? '• 구독이 자동으로 취소됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning5 ?? '• 내가 만든 스터디룸은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning6 ?? '• 서버에 동기화된 일정이 삭제됩니다 (기기 일정은 유지)'),
           ],
         ),
         actions: [

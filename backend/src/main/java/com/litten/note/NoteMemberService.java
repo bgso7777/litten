@@ -693,6 +693,9 @@ public class NoteMemberService extends CustomHttpService {
 //            for (NoteMember tempNoteMember : noteMembers)
 //                memberRepository.delete(tempNoteMember);
 
+            // 연관 서버 데이터(파일/리튼/일정/요약/유튜브/스터디룸 등) 삭제 — 계정 레코드 삭제 전에 정리
+            deleteMemberAssociatedData(noteMember.getId(), noteMember.getUuid());
+
             memberRepository.deleteByUuid(noteMember.getUuid());
 
             // 성공 결과 설정
@@ -700,6 +703,83 @@ public class NoteMemberService extends CustomHttpService {
             result.put(Constants.TAG_RESULT_MESSAGE,"회원탈퇴 성공");
         }
         return result;
+    }
+
+    /**
+     * 회원 탈퇴 시 연관 서버 데이터 삭제.
+     * memberId(=이메일) 기준 데이터 + memberUuid(계정 UUID) 기준 요약/퀴즈를 정리한다.
+     * 각 단계를 개별 try-catch로 감싸 하나가 실패해도 나머지 삭제와 계정 삭제는 진행한다.
+     * (스터디룸 '발신자 탈퇴 표시'는 A-2에서 별도 처리. 여기서는 본인 데이터만 삭제.)
+     */
+    private void deleteMemberAssociatedData(String memberId, String memberUuid) {
+        // 1) 동기화 파일: 서버 저장 파일 삭제 후 DB 레코드 삭제
+        try {
+            var cfr = BeanUtil.getBean2(com.litten.note.sync.CloudFileRepository.class);
+            var lss = BeanUtil.getBean2(com.litten.note.sync.LocalStorageService.class);
+            var files = cfr.findAllByMemberId(memberId);
+            for (var f : files) {
+                if (f.getFilePath() != null) {
+                    try { lss.delete(f.getFilePath()); }
+                    catch (Exception e) { log.warn("[탈퇴] 파일 삭제 실패 path={} err={}", f.getFilePath(), e.getMessage()); }
+                }
+            }
+            cfr.deleteByMemberId(memberId);
+            log.info("[탈퇴] 파일 {}건 삭제 id={}", files.size(), memberId);
+        } catch (Exception e) { log.error("[탈퇴] 파일 삭제 오류 id=" + memberId, e); }
+
+        // 2) 리튼 메타
+        try { BeanUtil.getBean2(com.litten.note.sync.LittenRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 리튼 삭제 오류 id=" + memberId, e); }
+
+        // 3) 일정
+        try { BeanUtil.getBean2(com.litten.note.sync.NoteScheduleRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 일정 삭제 오류 id=" + memberId, e); }
+
+        // 4) 요약/퀴즈 (memberUuid 기준) — 퀴즈를 먼저(요약 FK) 삭제 후 요약 삭제
+        try {
+            BeanUtil.getBean2(com.litten.note.summary.QuizResultRepository.class).deleteByMemberUuidViaSummary(memberUuid);
+            BeanUtil.getBean2(SummaryResultRepository.class).deleteByMemberUuid(memberUuid);
+        } catch (Exception e) { log.error("[탈퇴] 요약/퀴즈 삭제 오류 uuid=" + memberUuid, e); }
+
+        // 5) 나만의 스터디룸(항목 → 룸)
+        try { BeanUtil.getBean2(com.litten.note.selfroom.SelfStudyRoomItemRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 셀프룸 항목 삭제 오류 id=" + memberId, e); }
+        try { BeanUtil.getBean2(com.litten.note.selfroom.SelfStudyRoomRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 셀프룸 삭제 오류 id=" + memberId, e); }
+
+        // 6) 유튜브 채널/시청상태
+        try { BeanUtil.getBean2(MemberYoutubeChannelRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 유튜브 채널 삭제 오류 id=" + memberId, e); }
+        try { BeanUtil.getBean2(ChannelWatchStateRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 유튜브 시청상태 삭제 오류 id=" + memberId, e); }
+
+        // 7) 받은 공유/메시지(수신자 기준)
+        try { BeanUtil.getBean2(com.litten.note.studyroom.RoomShareDeliveryRepository.class).deleteByRecipientMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 받은 공유 삭제 오류 id=" + memberId, e); }
+        try { BeanUtil.getBean2(com.litten.note.studyroom.message.RoomMessageDeliveryRepository.class).deleteByRecipientMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 받은 메시지 삭제 오류 id=" + memberId, e); }
+
+        // 8) 룸 멤버십
+        try { BeanUtil.getBean2(com.litten.note.studyroom.StudyRoomMemberRepository.class).deleteByMemberId(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 룸 멤버십 삭제 오류 id=" + memberId, e); }
+
+        // 9) 내가 보낸 공유/메시지 → 삭제하지 않고 '발신자 탈퇴'로 표시(수신자 화면에 탈퇴 표시)
+        try { BeanUtil.getBean2(com.litten.note.studyroom.RoomShareRepository.class).markSenderWithdrawn(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 공유 발신자탈퇴 표시 오류 id=" + memberId, e); }
+        try { BeanUtil.getBean2(com.litten.note.studyroom.message.RoomMessageRepository.class).markSenderWithdrawn(memberId); }
+        catch (Exception e) { log.error("[탈퇴] 메시지 발신자탈퇴 표시 오류 id=" + memberId, e); }
+
+        // 10) 내가 방장인 그룹 스터디룸 → 룸 및 룸 멤버십 삭제(룸 삭제 정책)
+        try {
+            var srr = BeanUtil.getBean2(com.litten.note.studyroom.StudyRoomRepository.class);
+            var srmr = BeanUtil.getBean2(com.litten.note.studyroom.StudyRoomMemberRepository.class);
+            var rooms = srr.findByOwnerMemberId(memberId);
+            for (var room : rooms) srmr.deleteByRoomId(room.getId());
+            srr.deleteByOwnerMemberId(memberId);
+            log.info("[탈퇴] 방장 룸 {}건 삭제 id={}", rooms.size(), memberId);
+        } catch (Exception e) { log.error("[탈퇴] 방장 룸 삭제 오류 id=" + memberId, e); }
+
+        log.info("[탈퇴] 연관 데이터 삭제 완료 id={} uuid={}", memberId, memberUuid);
     }
 
     /**

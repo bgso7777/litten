@@ -41,4 +41,7 @@ public class RoomMessage extends BaseEntity implements Serializable {
 
     @Column(name = "is_deleted", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '삭제 여부'")
     private Boolean isDeleted = false;
+
+    @Column(name = "sender_withdrawn", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '발신자 탈퇴 여부'")
+    private Boolean senderWithdrawn = false;
 }

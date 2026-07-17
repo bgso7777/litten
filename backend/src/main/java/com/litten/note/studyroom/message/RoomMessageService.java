@@ -151,6 +151,7 @@ public class RoomMessageService {
             map.put("deliveryId", d.getId());
             map.put("senderName", nameCache.computeIfAbsent(m.getSenderMemberId(), this::resolveName));
             map.put("senderMemberId", m.getSenderMemberId());
+            map.put("senderWithdrawn", Boolean.TRUE.equals(m.getSenderWithdrawn())); // 발신자 탈퇴 여부(수신자 표시용)
             map.put("groupName", m.getGroupName());
             // 수신자 측 룸 잠금용: 발신자 룸의 비밀번호(있으면)
             map.put("groupId", m.getRoomId());

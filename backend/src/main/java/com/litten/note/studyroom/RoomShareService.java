@@ -209,6 +209,7 @@ public class RoomShareService {
             m.put("status", d.getStatus());
             m.put("senderName", nameCache.computeIfAbsent(s.getSenderMemberId(), this::resolveName));
             m.put("senderMemberId", s.getSenderMemberId());
+            m.put("senderWithdrawn", Boolean.TRUE.equals(s.getSenderWithdrawn())); // 발신자 탈퇴 여부(수신자 표시용)
             m.put("fileType", s.getFileType());
             m.put("fileName", s.getFileName());
             m.put("fileSize", s.getFileSize());
@@ -218,6 +219,8 @@ public class RoomShareService {
             m.put("groupName", s.getGroupName());
             // 수신자 측 룸 잠금용: 발신자 룸의 비밀번호(있으면). 한 번 맞추면 클라이언트가 기억.
             m.put("groupId", s.getRoomId());
+            // 방장 탈퇴 여부 — 그룹 공유인데 원본 룸이 삭제됐으면(방장 탈퇴로 룸 삭제) true.
+            m.put("ownerWithdrawn", s.getRoomId() != null && roomRepository.findById(s.getRoomId()).isEmpty());
             m.put("groupPassword", s.getRoomId() == null ? null
                     : roomRepository.findById(s.getRoomId()).map(StudyRoom::getPassword).orElse(null));
             // 받은 룸의 총 인원 산정용 — 오너 제외 멤버 수(프론트는 +1(오너)로 총원 계산)

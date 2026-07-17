@@ -15,4 +15,10 @@ public interface RoomShareRepository extends JpaRepository<RoomShare, Long> {
     @Modifying
     @Query("update RoomShare f set f.groupName = :name where f.roomId = :roomId")
     int renameGroup(@Param("roomId") Long roomId, @Param("name") String name);
+
+    /** 회원 탈퇴 — 내가 보낸 공유를 삭제하지 않고 '발신자 탈퇴'로 표시(수신자 화면 보존). */
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("update RoomShare f set f.senderWithdrawn = true where f.senderMemberId = :memberId")
+    int markSenderWithdrawn(@Param("memberId") String memberId);
 }

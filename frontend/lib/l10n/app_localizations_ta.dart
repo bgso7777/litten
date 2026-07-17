@@ -719,6 +719,14 @@ class AppLocalizationsTa extends AppLocalizations {
       '• Subscription will be automatically cancelled';
 
   @override
+  String get deleteAccountWarning5 =>
+      '• Study rooms you created are deleted, and shares you sent are marked as \'withdrawn\' to others';
+
+  @override
+  String get deleteAccountWarning6 =>
+      '• Schedules synced to the server are deleted (local schedules are kept)';
+
+  @override
   String get deleteAccountButton => 'Delete Account';
 
   @override

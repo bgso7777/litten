@@ -11,4 +11,7 @@ public interface RoomShareDeliveryRepository extends JpaRepository<RoomShareDeli
 
     // 특정 공유의 전달들 (보낸 목록의 상태 요약/취소 시 사용)
     List<RoomShareDelivery> findByShareIdAndIsDeletedFalse(Long shareId);
+    // 회원 탈퇴 — 회원이 받은 공유(수신자) 전체 삭제
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByRecipientMemberId(String recipientMemberId);
 }

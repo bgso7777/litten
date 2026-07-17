@@ -1172,6 +1172,16 @@
     "description": "Delete account warning 4"
   },
 
+  "deleteAccountWarning5": "• Study rooms you created are deleted, and shares you sent are marked as 'withdrawn' to others",
+  "@deleteAccountWarning5": {
+    "description": "Delete account warning 5 - study room deletion"
+  },
+
+  "deleteAccountWarning6": "• Schedules synced to the server are deleted (local schedules are kept)",
+  "@deleteAccountWarning6": {
+    "description": "Delete account warning 6 - schedule deletion"
+  },
+
   "deleteAccountButton": "Delete Account",
   "@deleteAccountButton": {
     "description": "Delete account button"

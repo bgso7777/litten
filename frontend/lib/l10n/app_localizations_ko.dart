@@ -700,6 +700,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get deleteAccountWarning4 => '• 구독이 자동으로 취소됩니다';
 
   @override
+  String get deleteAccountWarning5 =>
+      '• 내가 만든 스터디룸은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다';
+
+  @override
+  String get deleteAccountWarning6 => '• 서버에 동기화된 일정이 삭제됩니다 (기기 일정은 유지)';
+
+  @override
   String get deleteAccountButton => '탈퇴하기';
 
   @override

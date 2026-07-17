@@ -11,4 +11,7 @@ public interface RoomMessageDeliveryRepository extends JpaRepository<RoomMessage
 
     // 특정 메시지의 전달들 (보낸 목록의 수신자 요약용)
     List<RoomMessageDelivery> findByMessageIdAndIsDeletedFalse(Long messageId);
+    // 회원 탈퇴 — 회원이 받은 메시지(수신자) 전체 삭제
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByRecipientMemberId(String recipientMemberId);
 }

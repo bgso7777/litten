@@ -12,4 +12,7 @@ public interface SelfStudyRoomRepository extends JpaRepository<SelfStudyRoom, Lo
     List<SelfStudyRoom> findByMemberIdAndIsDeletedTrue(String memberId);
 
     Optional<SelfStudyRoom> findByMemberIdAndClientId(String memberId, String clientId);
+    // 회원 탈퇴 — 회원의 나만의 스터디룸 전체 삭제
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByMemberId(String memberId);
 }

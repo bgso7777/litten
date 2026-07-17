@@ -16,4 +16,10 @@ public interface RoomMessageRepository extends JpaRepository<RoomMessage, Long> 
     @Modifying
     @Query("update RoomMessage m set m.groupName = :name where m.roomId = :roomId")
     int renameGroup(@Param("roomId") Long roomId, @Param("name") String name);
+
+    /** 회원 탈퇴 — 내가 보낸 메시지를 삭제하지 않고 '발신자 탈퇴'로 표시(수신자 화면 보존). */
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("update RoomMessage m set m.senderWithdrawn = true where m.senderMemberId = :memberId")
+    int markSenderWithdrawn(@Param("memberId") String memberId);
 }

@@ -16,4 +16,7 @@ public interface LittenRepository extends JpaRepository<Litten, Long> {
     List<Litten> findByMemberId(String memberId);
 
     Optional<Litten> findByMemberIdAndLittenId(String memberId, String littenId);
+    // 회원 탈퇴 — 회원의 리튼 메타 전체 삭제
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByMemberId(String memberId);
 }

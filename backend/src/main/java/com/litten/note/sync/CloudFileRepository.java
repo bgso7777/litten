@@ -17,4 +17,9 @@ public interface CloudFileRepository extends JpaRepository<CloudFile, Long> {
 
     // localId 단건 조회 (삭제 포함) — 업서트/재활성화(수정 우선) 경로에서 사용.
     Optional<CloudFile> findByMemberIdAndLocalId(String memberId, String localId);
+
+    // 회원 탈퇴 — 회원의 모든 파일 조회(서버 파일 삭제용) 및 DB 레코드 삭제.
+    List<CloudFile> findAllByMemberId(String memberId);
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByMemberId(String memberId);
 }

@@ -63,4 +63,7 @@ public class RoomShare extends BaseEntity implements Serializable {
 
     @Column(name = "deleted_at", columnDefinition = "TIMESTAMP NULL DEFAULT NULL COMMENT '삭제/취소 일시'")
     private LocalDateTime deletedAt;
+
+    @Column(name = "sender_withdrawn", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '발신자 탈퇴 여부'")
+    private Boolean senderWithdrawn = false;
 }

@@ -1229,6 +1229,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('[AppStateProvider] 로그인 전환 → 일정 이관+병합 시작');
         ScheduleSyncService.instance.uploadAllSchedules().then(
             (_) => ScheduleSyncService.instance.pullSchedules());
+        // 스터디룸(공유+셀프챗)은 계정별 서버 데이터 → 이전 계정 캐시를 비우고 새 계정 기준으로 재로드
+        resetStudyRoomsForAccountSwitch();
       }
     }
 
@@ -1457,6 +1459,30 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     // prefs('littens')가 비어 있으므로 _littens = [] 로 갱신됨
     await _loadLittens();
     notifyListeners();
+  }
+
+  /// 계정 전환(로그인/가입) 시 스터디룸(공유방/메시지 + 셀프챗)을 초기화하고 새 계정 기준으로 재로드.
+  /// 스터디룸은 계정별 서버 데이터이므로 이전 계정의 로컬 캐시가 남으면 안 된다.
+  Future<void> resetStudyRoomsForAccountSwitch() async {
+    // 공유 스터디룸(서버 기반)만 계정 기준으로 초기화한다.
+    // 셀프챗(나만의 스터디룸)은 로컬 전용 데이터이므로 유지한다(계정과 무관하게 이 기기에 보존).
+    debugPrint('[AppStateProvider] 계정 전환 → 공유 스터디룸만 초기화(셀프챗 로컬 유지)');
+    // 공유/메시지 메모리 비우기
+    _sharesReceived = [];
+    _sharesSent = [];
+    _shareGroups = [];
+    _messagesReceived = [];
+    _messagesSent = [];
+    // 공유/메시지 로컬 캐시만 삭제(이전 계정 데이터 잔존 방지). 셀프챗(self_chats)은 건드리지 않음.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sharesReceivedKey);
+    await prefs.remove(_sharesSentKey);
+    await prefs.remove(_shareGroupsKey);
+    await prefs.remove(_messagesReceivedKey);
+    await prefs.remove(_messagesSentKey);
+    notifyListeners();
+    // 서버 기준으로 공유 스터디룸만 새로 로드(새 계정이면 빈 상태). 셀프챗은 기존 로컬 데이터 유지.
+    await loadShares();
   }
 
   // 리튼 로드

@@ -52,4 +52,8 @@ public interface SummaryResultRepository extends JpaRepository<SummaryResult, Lo
     @Query("UPDATE SummaryResult r SET r.memberUuid = :memberUuid WHERE r.memberUuid = :deviceUuid")
     int migrateMemberUuid(@Param("deviceUuid") String deviceUuid,
                           @Param("memberUuid") String memberUuid);
+    // 회원 탈퇴 — 회원(memberUuid)의 요약 결과 전체 삭제
+    @Modifying
+    @Transactional
+    void deleteByMemberUuid(String memberUuid);
 }
