@@ -18,6 +18,9 @@ public interface NoteMemberRepository extends JpaRepository<NoteMember,String> {
 
     List<NoteMember> findByUuid(String uuid);
 
+    // 소셜 로그인 — 제공자+제공자 고유ID(sub)로 계정 조회
+    NoteMember findFirstByProviderAndProviderIdAndState(String provider, String providerId, String state);
+
     // 사용자 간 공유 — 수신자 조회(이메일/표시이름). 첫 일치 1건.
     NoteMember findFirstByEmail(String email);
 

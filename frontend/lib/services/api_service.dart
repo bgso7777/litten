@@ -24,6 +24,10 @@ class ApiService {
   static const String _loginWebEndpoint = '/litten/note/v1/members/login/web';
   static const String _loginMobileEndpoint =
       '/litten/note/v1/members/login/mobile';
+  static const String _loginGoogleEndpoint =
+      '/litten/note/v1/members/login/google';
+  static const String _loginAppleEndpoint =
+      '/litten/note/v1/members/login/apple';
   static const String _passwordUrlEndpoint =
       '/litten/note/v1/members/password-url';
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
@@ -508,6 +512,56 @@ class ApiService {
     required String uuid,
   }) async {
     return loginMobile(email: email, password: password, uuid: uuid);
+  }
+
+  /// 소셜 로그인 (구글/애플) — 클라이언트가 받은 idToken을 서버가 검증 후 자체 JWT 발급
+  /// POST /litten/note/v1/members/login/{google|apple}
+  /// {"idToken":"...", "uuid":"device-uuid"}
+  Future<Map<String, dynamic>> loginSocial({
+    required String provider, // 'google' | 'apple'
+    required String idToken,
+    required String uuid,
+  }) async {
+    debugPrint('[ApiService] loginSocial - provider: $provider, uuid: $uuid');
+
+    final endpoint =
+        provider == 'apple' ? _loginAppleEndpoint : _loginGoogleEndpoint;
+    try {
+      final url = Uri.parse('$baseUrl$endpoint');
+      final body = jsonEncode({'idToken': idToken, 'uuid': uuid});
+
+      debugPrint('[ApiService] loginSocial - URL: $url');
+
+      final response = await http.post(url, headers: _getHeaders(), body: body);
+
+      debugPrint(
+        '[ApiService] loginSocial - Response status: ${response.statusCode}',
+      );
+      debugPrint('[ApiService] loginSocial - Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final result = data['result'] as int?;
+        final message = data['message'] as String?;
+
+        if (result == 1) {
+          debugPrint('[ApiService] loginSocial - Success');
+          return data;
+        } else {
+          final errorMsg = message != null
+              ? '소셜 로그인 실패: result=$result, message=$message'
+              : '소셜 로그인 실패: result=$result';
+          debugPrint('[ApiService] loginSocial - Failed: $errorMsg');
+          throw Exception(message ?? errorMsg);
+        }
+      } else {
+        debugPrint('[ApiService] loginSocial - Failed: ${response.statusCode}');
+        throw Exception('소셜 로그인 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] loginSocial - Error: $e');
+      rethrow;
+    }
   }
 
   /// 비밀번호 재발급 URL 전송

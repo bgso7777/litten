@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.litten.Constants;
 import com.litten.common.security.SecurityUtils;
+import com.litten.common.security.AuthoritiesConstants;
 import com.litten.common.config.Config;
 import com.litten.common.dynamic.BeanUtil;
 import com.litten.common.dynamic.ConstantsDynamic;
@@ -209,6 +210,11 @@ public class NoteMemberService extends CustomHttpService {
             result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
             result.put(Constants.TAG_MEMBER_SEQ, null);
             result.put(Constants.TAG_RESULT_MESSAGE, "아이디를 찾을 수 없습니다.");
+        } else if (noteMember.getPassword() == null) {
+            // 소셜 로그인 전용 계정 — 비밀번호가 없으므로 비번 로그인 불가(구글/애플로 로그인 안내)
+            log.info("[NoteMemberService] 비번 로그인 차단(소셜 전용 계정) id={} provider={}", value1, noteMember.getProvider());
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "소셜 로그인으로 가입된 계정입니다. 구글/애플 로그인을 이용해 주세요.");
         } else {
             String encryptPassword = noteMember.getPassword().substring(8);
             if (Crypto.matchesMemberPassword(value2, encryptPassword)) {
@@ -310,6 +316,160 @@ public class NoteMemberService extends CustomHttpService {
                 result.put(Constants.TAG_RESULT_MESSAGE, "비번 불일치 id-->"+value1);
             }
         }
+        return result;
+    }
+
+    // ==================== 소셜 로그인(구글/애플) ====================
+
+    public Map<String, Object> postLoginGoogle(JsonNode requestBody, Boolean isMobile) throws Exception {
+        return loginSocial(requestBody, isMobile, "google");
+    }
+
+    public Map<String, Object> postLoginApple(JsonNode requestBody, Boolean isMobile) throws Exception {
+        return loginSocial(requestBody, isMobile, "apple");
+    }
+
+    /**
+     * 소셜 로그인 공통 처리: ID Token 검증 → find-or-create(providerId 우선, 검증 이메일 병합) → 디바이스 슬롯 → 자체 JWT 발급.
+     * 요청 바디: { "idToken": "...", "uuid": "디바이스 UUID" }
+     */
+    private Map<String, Object> loginSocial(JsonNode requestBody, Boolean isMobile, String provider) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.TAG_RESULT, Constants.RESULT_SUCCESS);
+
+        String idToken = requestBody.has("idToken") && !requestBody.get("idToken").isNull() ? requestBody.get("idToken").asText() : null;
+        String uuid = requestBody.has("uuid") && !requestBody.get("uuid").isNull() ? requestBody.get("uuid").asText() : null;
+        if (idToken == null || idToken.isBlank() || uuid == null || uuid.isBlank()) {
+            result.put(Constants.TAG_RESULT, Constants.RESULT_REQUEST_DATA_ERROR);
+            result.put(Constants.TAG_RESULT_MESSAGE, "idToken과 uuid는 필수입니다.");
+            return result;
+        }
+
+        // 1) ID Token 검증(서명/발급자/aud/만료)
+        SocialLoginVerifier verifier = BeanUtil.getBean2(SocialLoginVerifier.class);
+        SocialLoginVerifier.SocialProfile profile;
+        try {
+            profile = provider.equals("google") ? verifier.verifyGoogle(idToken) : verifier.verifyApple(idToken);
+        } catch (Exception e) {
+            log.warn("[NoteMemberService] 소셜 토큰 검증 실패 provider={} err={}", provider, e.getMessage());
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, "소셜 로그인 인증에 실패했습니다.");
+            return result;
+        }
+
+        NoteMemberRepository noteMemberRepository = BeanUtil.getBean2(NoteMemberRepository.class);
+
+        // 2) find-or-create
+        //   (a) provider + providerId(sub) 로 기존 소셜 계정 조회
+        NoteMember noteMember = noteMemberRepository.findFirstByProviderAndProviderIdAndState(provider, profile.providerId, "signup");
+        //   (b) 검증된 이메일이 있으면 동일 이메일 계정에 소셜 연결(이메일↔소셜 병합)
+        if (noteMember == null && profile.email != null) {
+            NoteMember byEmail = noteMemberRepository.findByIdAndState(profile.email, "signup");
+            if (byEmail != null) {
+                byEmail.setProvider(provider);
+                byEmail.setProviderId(profile.providerId);
+                noteMemberRepository.save(byEmail);
+                noteMember = byEmail;
+                log.info("[NoteMemberService] 소셜-이메일 계정 병합 id={} provider={}", byEmail.getId(), provider);
+            }
+        }
+        //   (c) 신규 계정 생성
+        if (noteMember == null) {
+            String newId = profile.email != null ? profile.email : (provider + ":" + profile.providerId);
+            NoteMember created = new NoteMember();
+            created.setId(newId);
+            created.setEmail(profile.email);
+            created.setUuid(java.util.UUID.randomUUID().toString());
+            created.setState("signup");
+            created.setProvider(provider);
+            created.setProviderId(profile.providerId);
+            created.setSubscriptionPlan("free");
+            created.setIdInsertDateTime(LocalDateTime.now());
+            // 소셜 계정: 사용자가 알 수 없는 임의 비번 해시(비번 로그인 경로 NPE 방지 및 무단 로그인 차단)
+            created.setPassword(Crypto.getMemberPassword(java.util.UUID.randomUUID().toString()));
+            // 표시 이름(닉네임) — 값이 있고 중복이 아니면 설정
+            if (profile.name != null && !profile.name.isBlank()
+                    && noteMemberRepository.findFirstByName(profile.name.trim()) == null) {
+                created.setName(profile.name.trim());
+            }
+            noteMemberRepository.save(created);
+            noteMember = created;
+            log.info("[NoteMemberService] 소셜 신규 계정 생성 id={} provider={} sub={}", newId, provider, profile.providerId);
+        }
+
+        // 3) 디바이스 슬롯 정책(비번 로그인과 동일: 무료/스탠다드=1대, 프리미엄=3대)
+        String plan = noteMember.getSubscriptionPlan();
+        boolean isPremium = plan != null && plan.equalsIgnoreCase("premium");
+        String uuid1 = noteMember.getUuid1();
+        String uuid2 = noteMember.getUuid2();
+        String uuid3 = noteMember.getUuid3();
+        boolean slot1Empty = uuid1 == null || uuid1.isBlank();
+        boolean slot2Empty = uuid2 == null || uuid2.isBlank();
+        boolean slot3Empty = uuid3 == null || uuid3.isBlank();
+
+        boolean matched;
+        boolean canRegister;
+        if (isPremium) {
+            matched = (uuid1 != null && uuid1.equals(uuid)) || (uuid2 != null && uuid2.equals(uuid)) || (uuid3 != null && uuid3.equals(uuid));
+            canRegister = !matched && (slot1Empty || slot2Empty || slot3Empty);
+        } else {
+            matched = uuid1 != null && uuid1.equals(uuid);
+            canRegister = !matched && slot1Empty;
+        }
+        log.info("[NoteMemberService] 소셜 로그인 uuid 매칭 - id: {}, provider: {}, plan: {}, matched: {}, canRegister: {}",
+                noteMember.getId(), provider, plan, matched, canRegister);
+
+        if (!(matched || canRegister)) {
+            log.warn("[NoteMemberService] 소셜 로그인 거부(기기 한도) id={} plan={}", noteMember.getId(), plan);
+            result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);
+            result.put(Constants.TAG_RESULT_MESSAGE, isPremium
+                    ? "이미 3대의 디바이스에서 로그인되어 있습니다. 기존 디바이스에서 로그아웃 후 다시 시도해 주세요."
+                    : "무료 플랜은 1대에서만 로그인할 수 있습니다. 기존 기기에서 로그아웃 후 다시 시도해 주세요.");
+            return result;
+        }
+        if (!matched) {
+            if (!isPremium) {
+                noteMember.setUuid1(uuid);
+                noteMember.setUuid2(null);
+                noteMember.setUuid3(null);
+            } else if (slot1Empty) {
+                noteMember.setUuid1(uuid);
+            } else if (slot2Empty) {
+                noteMember.setUuid2(uuid);
+            } else {
+                noteMember.setUuid3(uuid);
+            }
+            noteMemberRepository.save(noteMember);
+        }
+
+        // 4) 자체 JWT 발급 — 비번 없이 인증 객체 직접 구성(권한은 일반 로그인과 동일: ROLE_MEMBER_INDIVIDUAL)
+        org.springframework.security.core.Authentication authentication = new UsernamePasswordAuthenticationToken(
+                noteMember.getId(), null, List.of(AuthoritiesConstants.ROLE_MEMBER_INDIVIDUAL));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Long tokenValidityInMilliseconds = isMobile
+                ? Config.getInstance().getMobileTokenValidityInMilliseconds()
+                : Config.getInstance().getTokenValidityInMilliseconds();
+        TokenProvider tokenProvider = BeanUtil.getBean2(TokenProvider.class);
+        String jwt = tokenProvider.createToken(authentication, tokenValidityInMilliseconds, isMobile);
+        Integer tokenExpiredDate = (Integer) tokenProvider.getValue(jwt, Constants.TAG_JWT_EXPIRED_DATE);
+
+        result.put(Constants.TAG_SEQUENCE, noteMember.getSequence());
+        result.put(Constants.TAG_UUID, noteMember.getUuid());
+        result.put(Constants.TAG_AUTH_TOKEN, jwt);
+        result.put(Constants.TAG_TOKEN_EXPIRED_DATE, tokenExpiredDate);
+        result.put(Constants.TAG_MEMBER_ID, noteMember.getId());
+        result.put("name", noteMember.getName());
+        result.put(Constants.TAG_SUBSCRIPTION_PLAN, noteMember.getSubscriptionPlan());
+        result.put(Constants.TAG_PLAN_EXPIRED_AT, noteMember.getPlanExpiredAt());
+
+        // 응답 헤더 토큰(기존 로그인과 동일 — 클라이언트 재발급 저장 로직과 호환)
+        HttpServletResponse httpServletResponse = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
+        if (httpServletResponse != null) {
+            httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_AUTH_TOKEN, jwt);
+            httpServletResponse.setHeader(Constants.TAG_HTTP_HEADER_TOKEN_EXPIRED_DATE, tokenExpiredDate.toString());
+        }
+
         return result;
     }
 

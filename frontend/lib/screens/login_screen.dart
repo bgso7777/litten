@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,18 +94,36 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleSocialLogin(String provider) async {
     setState(() => _isLoading = true);
 
-    // TODO: 2차 개발 시 소셜 로그인 구현
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context)?.loginComingSoon ?? '로그인 기능은 곧 출시됩니다',
+      if (provider == 'apple') {
+        await appState.authService.signInWithApple();
+      } else {
+        await appState.authService.signInWithGoogle();
+      }
+
+      if (mounted) {
+        // 로그인 성공 시 이전 화면으로 돌아가기 (별도 안내 메시지 없음)
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        // 사용자가 취소한 경우는 조용히 무시
+        final msg = e.toString();
+        if (msg.contains('취소') || msg.contains('canceled') || msg.contains('cancelled')) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.loginFailed(msg) ?? '로그인 실패: $e',
+            ),
+            backgroundColor: Colors.red,
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -275,14 +294,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 _buildSocialLoginButton(
                   icon: Icons.g_mobiledata,
                   label: l10n?.loginWithGoogle ?? 'Google로 로그인',
-                  onPressed: null, // 비활성화
+                  onPressed: _isLoading
+                      ? null
+                      : () => _handleSocialLogin('google'),
                   color: Colors.red,
                 ),
                 const SizedBox(height: 12),
+                // Apple 로그인은 iOS에서만 동작 — 안드로이드에선 비활성(향후 활성화 작업 인지용)
                 _buildSocialLoginButton(
                   icon: Icons.apple,
                   label: l10n?.loginWithApple ?? 'Apple로 로그인',
-                  onPressed: null, // 비활성화
+                  onPressed: Platform.isIOS
+                      ? (_isLoading ? null : () => _handleSocialLogin('apple'))
+                      : null,
                   color: Colors.black,
                 ),
 

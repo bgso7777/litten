@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -226,43 +227,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  /// 소셜 로그인 처리 (Google)
-  /// TODO: 2차 개발 시 AuthService의 signInWithGoogle() 호출
-  Future<void> _handleGoogleSignUp() async {
+  /// 소셜 가입/로그인 처리 (Google) — 소셜은 가입=로그인(계정 없으면 자동 생성)
+  Future<void> _handleGoogleSignUp() => _handleSocialSignUp('google');
+
+  /// 소셜 가입/로그인 처리 (Apple)
+  Future<void> _handleAppleSignUp() => _handleSocialSignUp('apple');
+
+  /// 소셜 가입/로그인 공통 처리 — 성공 시 로그인 완료 상태로 홈 이동
+  Future<void> _handleSocialSignUp(String provider) async {
     setState(() => _isLoading = true);
 
-    // TODO: 2차 개발 시 백엔드 연동
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context)?.signUpComingSoon ?? '회원가입 기능은 곧 출시됩니다',
+      if (provider == 'apple') {
+        await appState.authService.signInWithApple();
+      } else {
+        await appState.authService.signInWithGoogle();
+      }
+
+      if (mounted) {
+        // 소셜 가입/로그인 성공 → 로그인 완료 상태이므로 홈으로 이동(스택 정리)
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final msg = e.toString();
+        // 사용자가 취소한 경우는 조용히 무시
+        if (msg.contains('취소') ||
+            msg.contains('canceled') ||
+            msg.contains('cancelled')) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.loginFailed(msg) ?? '로그인 실패: $e',
+            ),
+            backgroundColor: Colors.red,
           ),
-        ),
-      );
-    }
-  }
-
-  /// 소셜 로그인 처리 (Apple)
-  /// TODO: 2차 개발 시 AuthService의 signInWithApple() 호출
-  Future<void> _handleAppleSignUp() async {
-    setState(() => _isLoading = true);
-
-    // TODO: 2차 개발 시 백엔드 연동
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context)?.signUpComingSoon ?? '회원가입 기능은 곧 출시됩니다',
-          ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -539,35 +545,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Google 회원가입 버튼 (2차 개발 예정)
-                      Opacity(
-                        opacity: 0.4, // 비활성화 시 투명도 40%
-                        child: OutlinedButton.icon(
-                          onPressed: null, // 비활성화
-                          icon: const Icon(Icons.g_mobiledata, size: 24),
-                          label: Text(
-                            AppLocalizations.of(context)?.signUpWithGoogle ?? 'Google로 가입',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor: Colors.grey[100], // 비활성화 시 배경색 회색
-                          ),
+                      // Google 회원가입 버튼
+                      OutlinedButton.icon(
+                        onPressed: _isLoading
+                            ? null
+                            : _handleGoogleSignUp,
+                        icon: const Icon(Icons.g_mobiledata, size: 24),
+                        label: Text(
+                          AppLocalizations.of(context)?.signUpWithGoogle ?? 'Google로 가입',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
-                      const SizedBox(height: 12),
 
-                      // Apple 회원가입 버튼 (2차 개발 예정)
+                      const SizedBox(height: 12),
+                      // Apple 가입은 iOS에서만 동작 — 안드로이드에선 비활성(향후 활성화 작업 인지용)
                       Opacity(
-                        opacity: 0.4, // 비활성화 시 투명도 40%
+                        opacity: Platform.isIOS ? 1.0 : 0.4,
                         child: OutlinedButton.icon(
-                          onPressed: null, // 비활성화
+                          onPressed: Platform.isIOS
+                              ? (_isLoading ? null : _handleAppleSignUp)
+                              : null,
                           icon: const Icon(Icons.apple, size: 24),
                           label: Text(
                             AppLocalizations.of(context)?.signUpWithApple ?? 'Apple로 가입',
                           ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor: Colors.grey[100], // 비활성화 시 배경색 회색
+                            backgroundColor: Platform.isIOS ? null : Colors.grey[100],
                           ),
                         ),
                       ),

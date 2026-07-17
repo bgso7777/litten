@@ -241,6 +241,32 @@ public class NoteMemberController {
     }
 
     @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/login/google")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> postLoginGoogle(@RequestBody JsonNode requestBody) {
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "post";
+        String serviceMethodName = "postLoginGoogle";
+        Boolean isMobile = true;
+        Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, requestBody, isMobile);
+        return ResponseEntity.ok(result);
+    }
+
+    @CrossOrigin(origins="*", allowedHeaders="*")
+    @PostMapping("/note/v1/members/login/apple")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> postLoginApple(@RequestBody JsonNode requestBody) {
+        String servicePackage = "com.litten.note.";
+        String serviceClassName = "NoteMemberService";
+        String method = "post";
+        String serviceMethodName = "postLoginApple";
+        Boolean isMobile = true;
+        Map<String, Object> result = controllerDynamicServiceBridge.processCustomDynamicServiceMethod(servicePackage, serviceClassName, method, serviceMethodName, requestBody, isMobile);
+        return ResponseEntity.ok(result);
+    }
+
+    @CrossOrigin(origins="*", allowedHeaders="*")
     @PutMapping("/note/v1/members/password")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> postChangePassword(@RequestBody JsonNode requestBody) {

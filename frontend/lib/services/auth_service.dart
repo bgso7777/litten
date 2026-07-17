@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'api_service.dart';
 
 /// 인증 상태를 나타내는 열거형
@@ -164,6 +166,12 @@ class AuthServiceImpl extends AuthService {
   String? _deviceUuid;
   final ApiService _apiService = ApiService();
   final Uuid _uuid = const Uuid();
+
+  // 구글 로그인 서버 클라이언트 ID(웹 애플리케이션 OAuth 클라이언트) —
+  // idToken의 aud가 이 값이 되도록 하여 서버(SOCIAL_GOOGLE_CLIENT_IDS)와 검증 기준을 일치시킴.
+  // Android는 이 serverClientId가 있어야 idToken을 발급받음.
+  static const String _googleServerClientId =
+      '193100413025-piut8r6uuvpi9acpfknkce688veq7e8b.apps.googleusercontent.com';
 
   // SharedPreferences 키
   static const String _keyToken = 'auth_token';
@@ -501,16 +509,142 @@ class AuthServiceImpl extends AuthService {
   Future<User> signInWithGoogle() async {
     debugPrint('🔐 AuthService: Google 로그인 시도');
 
-    // TODO: 2차 개발 시 Google Sign-In 연동
-    throw UnimplementedError('Google 로그인 기능은 2차 개발에서 구현됩니다.');
+    try {
+      _authStatus = AuthStatus.loading;
+      notifyListeners();
+
+      // 1) 구글 계정 선택 → idToken 획득
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email'],
+        serverClientId: _googleServerClientId,
+      );
+      // 이전 세션 캐시 제거로 계정 선택 화면 보장(계정 전환 대응)
+      await googleSignIn.signOut();
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        _authStatus = AuthStatus.unauthenticated;
+        notifyListeners();
+        throw Exception('Google 로그인이 취소되었습니다.');
+      }
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Google idToken을 가져오지 못했습니다.');
+      }
+
+      return await _completeSocialLogin(
+        provider: 'google',
+        idToken: idToken,
+        email: account.email,
+        displayName: account.displayName,
+      );
+    } catch (e) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      debugPrint('🔐 AuthService: Google 로그인 실패 - $e');
+      rethrow;
+    }
   }
 
   @override
   Future<User> signInWithApple() async {
     debugPrint('🔐 AuthService: Apple 로그인 시도');
 
-    // TODO: 2차 개발 시 Apple Sign-In 연동
-    throw UnimplementedError('Apple 로그인 기능은 2차 개발에서 구현됩니다.');
+    try {
+      _authStatus = AuthStatus.loading;
+      notifyListeners();
+
+      // 1) 애플 로그인 → identityToken(idToken) 획득
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final idToken = credential.identityToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Apple identityToken을 가져오지 못했습니다.');
+      }
+
+      // 이름/이메일은 애플이 최초 1회만 제공(이후 로그인 시 null) — 서버 계정 생성 시에만 사용됨
+      String? displayName;
+      final given = credential.givenName;
+      final family = credential.familyName;
+      if ((given != null && given.isNotEmpty) ||
+          (family != null && family.isNotEmpty)) {
+        displayName = [given, family]
+            .where((e) => e != null && e.isNotEmpty)
+            .join(' ')
+            .trim();
+        if (displayName.isEmpty) displayName = null;
+      }
+
+      return await _completeSocialLogin(
+        provider: 'apple',
+        idToken: idToken,
+        email: credential.email,
+        displayName: displayName,
+      );
+    } catch (e) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      debugPrint('🔐 AuthService: Apple 로그인 실패 - $e');
+      rethrow;
+    }
+  }
+
+  /// 소셜 로그인 공통 마무리 — 서버에 idToken 검증 요청 후 자체 JWT 저장(이메일 로그인과 동일 흐름).
+  Future<User> _completeSocialLogin({
+    required String provider,
+    required String idToken,
+    String? email,
+    String? displayName,
+  }) async {
+    final uuid = await getDeviceUuid();
+    debugPrint('🔐 AuthService: 소셜 로그인 UUID - $uuid');
+
+    final response = await _apiService.loginSocial(
+      provider: provider,
+      idToken: idToken,
+      uuid: uuid,
+    );
+
+    final token = response['authToken'] as String?;
+    final memberId =
+        response['memberId'] as String? ?? email ?? '$provider-user';
+    final tokenExpiredDate = response['tokenExpiredDate'] as int?;
+    final serverName = response['name'] as String?;
+
+    if (token == null) {
+      throw Exception('소셜 로그인 응답에 authToken이 없습니다');
+    }
+
+    final user = User(
+      id: memberId,
+      email: email ?? memberId,
+      displayName: serverName ?? displayName,
+      createdAt: DateTime.now(),
+    );
+
+    _token = token;
+    _currentUser = user;
+    _authStatus = AuthStatus.authenticated;
+
+    await _saveAuthData(
+      token: token,
+      email: user.email,
+      userId: memberId,
+      tokenExpiredDate: tokenExpiredDate,
+    );
+
+    // 서버에서 구독 플랜 조회 후 저장
+    await _fetchAndSaveSubscriptionPlan(token: token);
+    // 게스트(device-uuid) 데이터를 회원으로 이관 (최초 로그인 시 1회)
+    await _migrateGuestDataOnce(token);
+
+    notifyListeners();
+    debugPrint('🔐 AuthService: 소셜 로그인 성공 - $provider / $memberId');
+    return _currentUser!;
   }
 
   @override

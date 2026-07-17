@@ -58,4 +58,10 @@ public class NoteMemberCommon extends BaseEntity implements Serializable {
     @Column(name="plan_expired_at", columnDefinition="TIMESTAMP NULL DEFAULT NULL COMMENT '플랜 만료일시'")
     private LocalDateTime planExpiredAt;
 
+    @Column(name="provider", columnDefinition="VARCHAR(20) NULL DEFAULT NULL COMMENT '소셜 로그인 제공자 (google/apple), 이메일/비번 가입은 NULL'")
+    private String provider;
+
+    @Column(name="provider_id", columnDefinition="VARCHAR(255) NULL DEFAULT NULL COMMENT '소셜 제공자 고유 사용자 ID (google/apple sub)'")
+    private String providerId;
+
 }

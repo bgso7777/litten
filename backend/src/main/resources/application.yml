@@ -160,6 +160,17 @@ jwt:
   mobile-token-validity-in-milliseconds: 2592000000 # 모바일용 30일
   secret: aiceaccountjwtsecretparsetargettobase64
 
+# 소셜 로그인(구글/애플) 허용 클라이언트 ID(aud) 화이트리스트 — 콤마 구분.
+# 비어 있으면 해당 소셜 로그인은 전부 거부(안전 실패). 반드시 실제 값으로 채워야 로그인 동작함.
+#  - google.client-ids: iOS OAuth 클라이언트 ID, (서버 발급 idToken을 쓸 경우 서버/웹 클라이언트 ID도 함께)
+#  - apple.client-ids: iOS 앱 번들 ID(com.sobyungkyu.litten) 및/또는 Service ID
+social:
+  google:
+    # 웹 애플리케이션 OAuth 클라이언트 ID(모바일 idToken aud 공통). env로 덮어쓰기 가능.
+    client-ids: ${SOCIAL_GOOGLE_CLIENT_IDS:193100413025-piut8r6uuvpi9acpfknkce688veq7e8b.apps.googleusercontent.com}
+  apple:
+    client-ids: ${SOCIAL_APPLE_CLIENT_IDS:com.sobyungkyu.litten}
+
 cs-center-company-seq: 651
 
 ai:
