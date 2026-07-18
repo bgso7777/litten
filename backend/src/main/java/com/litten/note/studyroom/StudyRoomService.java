@@ -67,9 +67,13 @@ public class StudyRoomService {
         return m;
     }
 
-    /** 룸 생성 — 이름 + (선택)비밀번호 + 초기 멤버(이메일/닉네임 목록) 일괄 추가. */
+    /**
+     * 룸 생성 — 이름 + (선택)비밀번호 + 초기 멤버(이메일/닉네임 목록) 일괄 추가.
+     * allowMemberChat/allowMemberFile 은 null 이면 기본값(대화 허용, 파일 차단)을 쓴다.
+     */
     @Transactional
-    public Map<String, Object> createGroup(String ownerId, String name, String password, List<String> memberKeys) {
+    public Map<String, Object> createGroup(String ownerId, String name, String password, List<String> memberKeys,
+                                           Boolean allowMemberChat, Boolean allowMemberFile) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("룸 이름을 입력하세요.");
         }
@@ -77,6 +81,8 @@ public class StudyRoomService {
         g.setOwnerMemberId(ownerId);
         g.setName(name.trim());
         g.setPassword(password != null && !password.isBlank() ? password.trim() : null);
+        g.setAllowMemberChat(allowMemberChat == null || allowMemberChat);
+        g.setAllowMemberFile(Boolean.TRUE.equals(allowMemberFile));
         g.setIsDeleted(false);
         g.setInsertDateTime(LocalDateTime.now());
         g.setUpdateDateTime(LocalDateTime.now());
@@ -90,6 +96,11 @@ public class StudyRoomService {
                 NoteMember member = resolveMember(key);
                 if (member == null) {
                     notFound.add(key.trim());
+                    continue;
+                }
+                // 방장은 이미 룸의 주인이라 멤버로 중복 등록하지 않는다.
+                if (member.getId().equals(ownerId)) {
+                    log.info("[StudyRoomService] 룸 생성 - 방장 본인 멤버 추가는 건너뜀: {}", ownerId);
                     continue;
                 }
                 StudyRoomMember gm = memberRepository
@@ -122,6 +133,26 @@ public class StudyRoomService {
         return list;
     }
 
+    /** 멤버 권한 옵션 변경 — 방장만. null 인 항목은 기존 값을 유지한다. */
+    @Transactional
+    public Map<String, Object> updateGroupOptions(String ownerId, Long roomId,
+                                                  Boolean allowMemberChat, Boolean allowMemberFile) {
+        Optional<StudyRoom> opt = roomRepository.findById(roomId);
+        if (opt.isEmpty() || !opt.get().getOwnerMemberId().equals(ownerId)
+                || Boolean.TRUE.equals(opt.get().getIsDeleted())) {
+            return null; // 룸 없음/권한 없음
+        }
+        StudyRoom g = opt.get();
+        if (allowMemberChat != null) g.setAllowMemberChat(allowMemberChat);
+        if (allowMemberFile != null) g.setAllowMemberFile(allowMemberFile);
+        g.setUpdateDateTime(LocalDateTime.now());
+        roomRepository.save(g);
+        log.info("[StudyRoomService] 룸 옵션 변경 - owner: {}, roomId: {}, chat: {}, file: {}",
+                ownerId, roomId, g.getAllowMemberChat(), g.getAllowMemberFile());
+        int count = memberRepository.findByRoomIdAndIsDeletedFalseOrderByIdAsc(roomId).size();
+        return toGroupMap(g, count);
+    }
+
     @Transactional
     public boolean deleteGroup(String ownerId, Long roomId) {
         Optional<StudyRoom> opt = roomRepository.findById(roomId);
@@ -150,6 +181,10 @@ public class StudyRoomService {
         }
         NoteMember member = resolveMember(key);
         if (member == null) return null; // 회원 없음
+        // 방장은 이미 룸의 주인 — 멤버로 중복 등록하면 대화/공유 수신자가 꼬인다.
+        if (member.getId().equals(ownerId)) {
+            throw new IllegalArgumentException("본인은 멤버로 추가할 수 없습니다.");
+        }
 
         Optional<StudyRoomMember> existing = memberRepository.findByRoomIdAndMemberId(roomId, member.getId());
         StudyRoomMember gm = existing.orElseGet(StudyRoomMember::new);
@@ -196,6 +231,9 @@ public class StudyRoomService {
         m.put("hasPassword", hasPassword);
         // 소유자 본인 룸 목록(listGroups는 ownerId로 필터)이므로 잠금 해제 비교용 비밀번호를 함께 반환
         m.put("password", hasPassword ? g.getPassword() : null);
+        // 멤버 권한 옵션 — 구 데이터(NULL) 방어: 대화는 허용, 파일은 차단이 기본.
+        m.put("allowMemberChat", !Boolean.FALSE.equals(g.getAllowMemberChat()));
+        m.put("allowMemberFile", Boolean.TRUE.equals(g.getAllowMemberFile()));
         return m;
     }
 

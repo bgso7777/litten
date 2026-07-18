@@ -98,6 +98,30 @@ public class SelfStudyRoomService {
         return true;
     }
 
+    /** 항목 1건 삭제(본인 것만). 저장된 파일도 함께 지운다. */
+    @Transactional
+    public boolean deleteItem(String memberId, Long itemId) {
+        Optional<SelfStudyRoomItem> opt = itemRepository.findById(itemId);
+        if (opt.isEmpty() || !opt.get().getMemberId().equals(memberId)
+                || Boolean.TRUE.equals(opt.get().getIsDeleted())) {
+            return false;
+        }
+        SelfStudyRoomItem it = opt.get();
+        it.setIsDeleted(true);
+        it.setUpdateDateTime(LocalDateTime.now());
+        itemRepository.save(it);
+        if (it.getStoredPath() != null) {
+            try {
+                localStorageService.delete(it.getStoredPath());
+            } catch (Exception e) {
+                log.warn("[SelfStudyRoomService] 항목 파일 삭제 실패(DB 삭제는 완료) - itemId: {}, error: {}",
+                        itemId, e.getMessage());
+            }
+        }
+        log.info("[SelfStudyRoomService] 항목 삭제 - memberId: {}, itemId: {}", memberId, itemId);
+        return true;
+    }
+
     /** 텍스트 항목 추가. */
     @Transactional
     public Map<String, Object> addText(String memberId, Long chatId, String content) {

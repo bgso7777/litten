@@ -37,6 +37,10 @@ class ApiService {
       '/litten/note/v1/members/login/google';
   static const String _loginAppleEndpoint =
       '/litten/note/v1/members/login/apple';
+  static const String _loginKakaoEndpoint =
+      '/litten/note/v1/members/login/kakao';
+  static const String _loginNaverEndpoint =
+      '/litten/note/v1/members/login/naver';
   static const String _passwordUrlEndpoint =
       '/litten/note/v1/members/password-url';
   static const String _passwordEndpoint = '/litten/note/v1/members/password';
@@ -534,8 +538,20 @@ class ApiService {
   }) async {
     debugPrint('[ApiService] loginSocial - provider: $provider, uuid: $uuid, allowSignup: $allowSignup');
 
-    final endpoint =
-        provider == 'apple' ? _loginAppleEndpoint : _loginGoogleEndpoint;
+    final String endpoint;
+    switch (provider) {
+      case 'apple':
+        endpoint = _loginAppleEndpoint;
+        break;
+      case 'kakao':
+        endpoint = _loginKakaoEndpoint;
+        break;
+      case 'naver':
+        endpoint = _loginNaverEndpoint;
+        break;
+      default:
+        endpoint = _loginGoogleEndpoint;
+    }
     try {
       final url = Uri.parse('$baseUrl$endpoint');
       final body = jsonEncode({
@@ -1417,6 +1433,20 @@ class ApiService {
     }
   }
 
+  /// 셀프챗 항목(자료) 1건 삭제. 서버 저장 파일도 함께 정리된다.
+  Future<bool> deleteSelfChatItem({required String token, required int itemId}) async {
+    try {
+      final res = await http.delete(
+              Uri.parse('$baseUrl$_selfChatEndpoint/items/$itemId'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] deleteSelfChatItem - 오류: $e');
+      return false;
+    }
+  }
+
   /// 셀프챗 텍스트 추가. 반환: {itemId, ...} or null.
   Future<Map<String, dynamic>?> addSelfChatMessage(
       {required String token, required int serverId, required String content}) async {
@@ -1558,11 +1588,16 @@ class ApiService {
     required String name,
     String? password,
     List<String>? members,
+    bool? allowMemberChat,
+    bool? allowMemberFile,
   }) async {
     try {
       final body = <String, dynamic>{'name': name};
       if (password != null && password.isNotEmpty) body['password'] = password;
       if (members != null && members.isNotEmpty) body['members'] = members;
+      // 멤버 권한 옵션 — 생략 시 서버 기본값(대화 허용, 파일 차단)
+      if (allowMemberChat != null) body['allowMemberChat'] = allowMemberChat;
+      if (allowMemberFile != null) body['allowMemberFile'] = allowMemberFile;
       final response = await http.post(Uri.parse('$baseUrl$_shareGroupsEndpoint'),
           headers: _getHeaders(token: token), body: jsonEncode(body))
           .timeout(const Duration(seconds: 20));
@@ -1617,6 +1652,30 @@ class ApiService {
           (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
     } catch (e) {
       debugPrint('[ApiService] renameGroup - 오류: $e');
+      return false;
+    }
+  }
+
+  /// 멤버 권한 옵션 변경(방장). null 인 항목은 서버에서 기존 값을 유지한다.
+  Future<bool> updateGroupOptions({
+    required String token,
+    required int groupId,
+    bool? allowMemberChat,
+    bool? allowMemberFile,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (allowMemberChat != null) body['allowMemberChat'] = allowMemberChat;
+      if (allowMemberFile != null) body['allowMemberFile'] = allowMemberFile;
+      final response = await http.patch(
+              Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/options'),
+              headers: _getHeaders(token: token),
+              body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
+      return response.statusCode == 200 &&
+          (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+    } catch (e) {
+      debugPrint('[ApiService] updateGroupOptions - 오류: $e');
       return false;
     }
   }

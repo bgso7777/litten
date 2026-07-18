@@ -71,5 +71,38 @@
 	<!-- Google Mobile Ads SDK 필수 키 (없으면 앱 시작 시 SIGABRT 크래시) -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- 카카오 로그인 URL 스킴 (kakao{네이티브앱키}) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao55e15f9a2d19524e49115d1035e4ef89</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>littennaver</string>
+			</array>
+		</dict>
+	</array>
+	<!-- 카카오톡/네이버앱 감지용 쿼리 스킴 -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>naversearchapp</string>
+		<string>naversearchthirdlogin</string>
+	</array>
+	<!-- 네이버 로그인 (flutter_naver_login) -->
+	<key>naverConsumerKey</key>
+	<string>yDQd0W6KVkAYZFPqdEdI</string>
+	<key>naverConsumerSecret</key>
+	<string>3xslYh9JDw</string>
+	<key>naverServiceAppName</key>
+	<string>리튼</string>
+	<key>naverServiceAppUrlScheme</key>
+	<string>littennaver</string>
 </dict>
 </plist>

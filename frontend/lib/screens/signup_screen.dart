@@ -241,10 +241,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-      if (provider == 'apple') {
-        await appState.authService.signInWithApple(allowSignup: true);
-      } else {
-        await appState.authService.signInWithGoogle(allowSignup: true);
+      switch (provider) {
+        case 'apple':
+          await appState.authService.signInWithApple(allowSignup: true);
+          break;
+        case 'kakao':
+          await appState.authService.signInWithKakao(allowSignup: true);
+          break;
+        case 'naver':
+          await appState.authService.signInWithNaver(allowSignup: true);
+          break;
+        default:
+          await appState.authService.signInWithGoogle(allowSignup: true);
       }
 
       if (mounted) {
@@ -572,6 +580,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                       ),
+                      // 카카오·네이버는 한국어 앱에서만 노출
+                      if (Localizations.localeOf(context).languageCode == 'ko') ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : () => _handleSocialSignUp('kakao'),
+                          icon: const Icon(Icons.chat_bubble, size: 22, color: Color(0xFF3C1E1E)),
+                          label: const Text('카카오로 가입'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: const Color(0xFFFEE500),
+                            foregroundColor: const Color(0xFF3C1E1E),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : () => _handleSocialSignUp('naver'),
+                          icon: const Icon(Icons.circle, size: 22, color: Colors.white),
+                          label: const Text('네이버로 가입'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: const Color(0xFF03C75A),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 32),
 
                       // 로그인 링크

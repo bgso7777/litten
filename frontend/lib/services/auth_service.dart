@@ -6,6 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:flutter_naver_login/flutter_naver_login.dart';
+// 2.x 부터 타입들이 메인 엔트리에서 export 되지 않아 개별 import 가 필요하다.
+import 'package:flutter_naver_login/interface/types/naver_login_result.dart';
+import 'package:flutter_naver_login/interface/types/naver_login_status.dart';
+import 'package:flutter_naver_login/interface/types/naver_token.dart';
 import 'api_service.dart';
 
 /// 인증 상태를 나타내는 열거형
@@ -120,6 +126,12 @@ abstract class AuthService extends ChangeNotifier {
   /// [allowSignup] 미가입 계정이면 새로 생성할지 여부(회원가입 버튼=true, 로그인 버튼=false).
   /// Returns: 성공 시 User 객체, 미가입+allowSignup=false면 SignupRequiredException, 그 외 실패 시 예외.
   Future<User> signInWithApple({bool allowSignup = false});
+
+  /// 카카오 로그인 (한국어 앱 전용)
+  Future<User> signInWithKakao({bool allowSignup = false});
+
+  /// 네이버 로그인 (한국어 앱 전용)
+  Future<User> signInWithNaver({bool allowSignup = false});
 
   /// 로그아웃
   Future<void> signOut();
@@ -621,6 +633,73 @@ class AuthServiceImpl extends AuthService {
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
       debugPrint('🔐 AuthService: Apple 로그인 실패 - $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User> signInWithKakao({bool allowSignup = false}) async {
+    debugPrint('🔐 AuthService: 카카오 로그인 시도 (allowSignup: $allowSignup)');
+    try {
+      _authStatus = AuthStatus.loading;
+      notifyListeners();
+
+      // 카카오톡 설치 시 앱 로그인, 아니면 카카오계정(웹) 로그인. 실패 시 계정 로그인으로 폴백.
+      OAuthToken token;
+      try {
+        if (await isKakaoTalkInstalled()) {
+          token = await UserApi.instance.loginWithKakaoTalk();
+        } else {
+          token = await UserApi.instance.loginWithKakaoAccount();
+        }
+      } catch (_) {
+        token = await UserApi.instance.loginWithKakaoAccount();
+      }
+      final accessToken = token.accessToken;
+      if (accessToken.isEmpty) {
+        throw Exception('카카오 accessToken을 가져오지 못했습니다.');
+      }
+      // 서버가 accessToken으로 사용자 정보를 조회하므로 idToken 자리에 accessToken 전달
+      return await _completeSocialLogin(
+        provider: 'kakao',
+        idToken: accessToken,
+        allowSignup: allowSignup,
+      );
+    } catch (e) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      debugPrint('🔐 AuthService: 카카오 로그인 실패 - $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User> signInWithNaver({bool allowSignup = false}) async {
+    debugPrint('🔐 AuthService: 네이버 로그인 시도 (allowSignup: $allowSignup)');
+    try {
+      _authStatus = AuthStatus.loading;
+      notifyListeners();
+
+      final NaverLoginResult res = await FlutterNaverLogin.logIn();
+      if (res.status != NaverLoginStatus.loggedIn) {
+        _authStatus = AuthStatus.unauthenticated;
+        notifyListeners();
+        throw Exception('네이버 로그인이 취소되었습니다.');
+      }
+      final NaverToken token = await FlutterNaverLogin.getCurrentAccessToken();
+      final accessToken = token.accessToken;
+      if (accessToken.isEmpty) {
+        throw Exception('네이버 accessToken을 가져오지 못했습니다.');
+      }
+      return await _completeSocialLogin(
+        provider: 'naver',
+        idToken: accessToken,
+        allowSignup: allowSignup,
+      );
+    } catch (e) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      debugPrint('🔐 AuthService: 네이버 로그인 실패 - $e');
       rethrow;
     }
   }

@@ -747,7 +747,23 @@ class _ShareSectionState extends State<_ShareSection>
       }
     }
     final fileCount = deliveryIds.length + shareIds.length;
-    final ok = await showDialog<bool>(
+    // 내가 만든 그룹룸인지 — 방장에게만 '그룹 삭제'(서버에서 방 자체 제거)를 노출한다.
+    // '나가기'는 내 목록에서만 숨기므로 서버 그룹이 남아 [새 스터디룸 > 그룹 룸]에 계속 보인다.
+    final origName =
+        (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
+    Map<String, dynamic>? ownedGroup;
+    if (origName != null) {
+      for (final g in appState.shareGroups) {
+        if ((g['name']?.toString() ?? '').trim() == origName) {
+          ownedGroup = g;
+          break;
+        }
+      }
+    }
+    final ownedGroupId = (ownedGroup?['groupId'] as num?)?.toInt();
+
+    // 결과: 'leave'(숨김) / 'delete'(셀프 삭제 or 그룹 서버 삭제) / null(취소)
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isSelf ? '대화 삭제' : '방 나가기', style: const TextStyle(fontSize: 16)),
@@ -755,17 +771,23 @@ class _ShareSectionState extends State<_ShareSection>
             ? '"${c.label}"을(를) 삭제할까요? 이 안의 내용도 함께 삭제됩니다.'
             : '"${c.label}" 대화에서 나갈까요?'
                 '${fileCount > 0 ? '\n이 대화에 공유된 파일 $fileCount개도 목록에서 삭제됩니다.' : ''}'
-                '\n(새 메시지·공유가 오면 다시 표시됩니다.)'),
+                '\n(새 메시지·공유가 오면 다시 표시됩니다.)'
+                '${ownedGroupId != null ? '\n\n내가 만든 룸입니다. 완전히 없애려면 [그룹 삭제]를 누르세요.\n(모든 멤버에게서 방이 사라지며 되돌릴 수 없습니다.)' : ''}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
           TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              onPressed: () => Navigator.pop(ctx, true),
+              onPressed: () => Navigator.pop(ctx, isSelf ? 'delete' : 'leave'),
               child: Text(isSelf ? '삭제' : '나가기')),
+          if (ownedGroupId != null)
+            TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, 'delete'),
+                child: const Text('그룹 삭제')),
         ],
       ),
     );
-    if (ok != true || !mounted) return;
+    if (action == null || !mounted) return;
     // 1) 보관된 스냅샷(공유 시점 복사본) 삭제
     final snapKeys = [
       ...deliveryIds.map((d) => 'recv:$d'),
@@ -782,6 +804,16 @@ class _ShareSectionState extends State<_ShareSection>
     // 3) 방 자체 처리
     if (isSelf) {
       await appState.deleteSelfChat(c.key.substring(5));
+    } else if (action == 'delete' && ownedGroupId != null) {
+      // 방장의 그룹 삭제 — 서버에서 룸/멤버를 삭제 처리한 뒤 내 목록에서도 숨긴다.
+      // (숨김까지 해야 이번 세션의 대화 목록에서 즉시 사라짐)
+      final ok = await appState.deleteShareGroup(ownedGroupId);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('그룹 삭제에 실패했습니다.')));
+        return;
+      }
+      await appState.hideConversation(c.key);
     } else {
       await appState.hideConversation(c.key); // 로컬 즉시 + 서버 동기화
     }
@@ -1589,8 +1621,6 @@ class _ShareSectionState extends State<_ShareSection>
     // (c.label은 로컬 별칭으로 바뀔 수 있어 ownedByName 조회 키로 쓰면 안 됨)
     final origName = (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
     final owned = origName != null ? ownedByName[origName] : null;
-    final isOwned = owned != null;
-    final myEmail = appState.currentUser?.id ?? '';
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
@@ -1629,12 +1659,10 @@ class _ShareSectionState extends State<_ShareSection>
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             const SizedBox(width: 6),
-            // 우측 아이콘은 스터디룸 목록의 앞쪽 아바타와 동일하게 표시.
-            _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
-                mine: isOwned || c.isSelf),
+            // 우측은 멤버 관리 버튼 하나만 — 장식용 아바타는 중복이라 제거했다.
             if (c.isGroup && owned != null)
               IconButton(
-                icon: const Icon(Icons.group_add), color: color, tooltip: '멤버 추가',
+                icon: const Icon(Icons.group_add), color: color, tooltip: '멤버 추가/삭제',
                 onPressed: () async {
                   await showGroupMembersDialog(context, groupId!, c.label);
                   if (mounted) context.read<AppStateProvider>().reloadShareGroups();
@@ -1851,6 +1879,25 @@ class _ShareSectionState extends State<_ShareSection>
                 subtitle: Text(
                     '${it.received ? '받음' : '보냄'} · ${_shareWhen(it.data['sharedAt'] ?? it.data['sentAt'])}',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                // 내가 올린 자료만 삭제 가능 — 받은 자료는 대상이 아니다.
+                //  · 공유 자료: 서버에서 취소 → 다른 멤버 목록에서도 사라짐
+                //  · 셀프룸 파일: 나만의 룸이라 로컬+서버 항목만 정리
+                trailing: it.received
+                    ? null
+                    : (isSelfFile
+                        ? IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            tooltip: '삭제',
+                            onPressed: () => _deleteSelfFile(it, appState),
+                          )
+                        : (it.data['shareId'] != null
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    size: 20, color: Colors.red),
+                                tooltip: '삭제 (모든 멤버에게서)',
+                                onPressed: () => _deleteSentShare(it, appState),
+                              )
+                            : null)),
                 onTap: () =>
                     isSelfFile ? _openSelfChatFile(it) : _openSharedSnapshot(it),
               );
@@ -2609,11 +2656,13 @@ class _ShareSectionState extends State<_ShareSection>
       final shareId = (it.data['shareId'] as num?)?.toInt();
       if (shareId != null) {
         actions.add(ListTile(
-          leading: const Icon(Icons.undo, color: Colors.red),
-          title: const Text('공유 취소', style: TextStyle(color: Colors.red)),
+          leading: const Icon(Icons.delete_outline, color: Colors.red),
+          title: const Text('삭제', style: TextStyle(color: Colors.red)),
+          subtitle: const Text('다른 멤버에게서도 함께 삭제됩니다.',
+              style: TextStyle(fontSize: 11)),
           onTap: () async {
             Navigator.pop(context);
-            await appState.cancelSentShare(shareId);
+            await _deleteSentShare(it, appState);
           },
         ));
       }
@@ -2637,6 +2686,64 @@ class _ShareSectionState extends State<_ShareSection>
       context: context,
       builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: actions)),
     );
+  }
+
+  /// 나만의 룸(셀프룸) 자료 삭제 — 나만 쓰는 방이라 다른 사용자에겐 영향이 없다.
+  Future<void> _deleteSelfFile(_ShareItem it, AppStateProvider appState) async {
+    final chatId = it.data['__chatId']?.toString();
+    final item = it.data['__item'];
+    if (chatId == null || item is! Map<String, dynamic>) return;
+    final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('자료 삭제', style: TextStyle(fontSize: 16)),
+        content: Text('"$fname"을(를) 삭제할까요?\n되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final done = await appState.deleteSelfChatItem(chatId, item);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(done ? '삭제했습니다.' : '삭제에 실패했습니다.')));
+  }
+
+  /// 내가 올린 공유 파일 삭제 — 서버에서 공유와 모든 수신자의 항목을 함께 지운다.
+  /// 되돌릴 수 없고 다른 멤버 쪽에서도 사라지므로 반드시 확인을 받는다.
+  Future<void> _deleteSentShare(_ShareItem it, AppStateProvider appState) async {
+    final shareId = (it.data['shareId'] as num?)?.toInt();
+    if (shareId == null) return;
+    final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('자료 삭제', style: TextStyle(fontSize: 16)),
+        content: Text('"$fname"을(를) 삭제할까요?\n'
+            '이 룸의 다른 멤버에게서도 함께 삭제되며 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final done = await appState.cancelSentShare(shareId);
+    if (!mounted) return;
+    // 내 기기에 보관 중인 공유 시점 스냅샷도 함께 정리.
+    if (done) await SharedSnapshotService.instance.deleteByKeys(['sent:$shareId']);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(done ? '삭제했습니다.' : '삭제에 실패했습니다.')));
   }
 
   /// 말풍선의 공유 파일을 보관된 로컬 스냅샷으로 미리보기.

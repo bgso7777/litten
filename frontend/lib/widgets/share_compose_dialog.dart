@@ -350,8 +350,13 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
   final _nameCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
   final _memberCtrl = TextEditingController();
-  final List<String> _members = [];
+  // 조회로 검증된 멤버만 담는다. {id: 이메일, name: 닉네임}
+  final List<Map<String, String>> _members = [];
   bool _saving = false;
+  bool _searching = false;
+  // 멤버 권한 기본값 — 대화는 열어두고, 자료 추가는 방장만.
+  bool _allowMemberChat = true;
+  bool _allowMemberFile = false;
 
   @override
   void dispose() {
@@ -361,10 +366,42 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
     super.dispose();
   }
 
-  void _addMember() {
+  /// 입력값(이메일/닉네임)을 서버에서 조회해 실제 가입 회원인지 확인한 뒤 추가한다.
+  /// 조회에 성공하면 서버가 돌려준 이메일(id)을 키로 담아 오타·표기 차이를 흡수한다.
+  Future<void> _addMember() async {
     final k = _memberCtrl.text.trim();
-    if (k.isEmpty) return;
-    if (!_members.contains(k)) setState(() => _members.add(k));
+    if (k.isEmpty || _searching) return;
+    setState(() => _searching = true);
+    final r = await context.read<AppStateProvider>().authService.searchMember(k);
+    if (!mounted) return;
+    setState(() => _searching = false);
+
+    if (r['error'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('조회에 실패했습니다. 네트워크를 확인해 주세요.')));
+      return;
+    }
+    if (r['found'] != true) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('"$k" 가입된 사용자를 찾을 수 없습니다.')));
+      return;
+    }
+    final id = r['id']?.toString() ?? k;
+    final name = r['name']?.toString() ?? id;
+    // 방장은 룸의 주인이라 멤버로 넣을 필요가 없다(서버에서도 거부).
+    if (id == context.read<AppStateProvider>().currentUser?.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('본인은 멤버로 추가할 수 없습니다.')));
+      _memberCtrl.clear();
+      return;
+    }
+    if (_members.any((m) => m['id'] == id)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('이미 추가된 멤버입니다: $name')));
+      _memberCtrl.clear();
+      return;
+    }
+    setState(() => _members.add({'id': id, 'name': name}));
     _memberCtrl.clear();
   }
 
@@ -375,7 +412,9 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
       title: const Text('새 그룹', style: TextStyle(fontSize: 16)),
       content: SizedBox(
         width: double.maxFinite,
-        child: Column(
+        // 권한 옵션이 붙으면서 세로가 길어져 작은 화면에서 넘칠 수 있어 스크롤 처리.
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -402,7 +441,16 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
                   onSubmitted: (_) => _addMember(),
                 ),
               ),
-              IconButton(icon: Icon(Icons.add_circle, color: color), onPressed: _addMember),
+              // 조회 중에는 스피너 — 검증 없이 중복 추가되는 것을 막는다.
+              _searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                          width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : IconButton(
+                      icon: Icon(Icons.person_search, color: color),
+                      tooltip: '조회 후 추가',
+                      onPressed: _addMember),
             ]),
             if (_members.isNotEmpty)
               Padding(
@@ -412,14 +460,47 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
                   runSpacing: 4,
                   children: _members
                       .map((m) => Chip(
-                            label: Text(m, style: const TextStyle(fontSize: 12)),
+                            avatar: const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                            // 닉네임과 이메일을 함께 보여 다른 사람을 잘못 넣는 실수를 막는다.
+                            label: Text(
+                                m['name'] == m['id']
+                                    ? '${m['id']}'
+                                    : '${m['name']} (${m['id']})',
+                                style: const TextStyle(fontSize: 12)),
                             onDeleted: () => setState(() => _members.remove(m)),
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ))
                       .toList(),
                 ),
               ),
+            const SizedBox(height: 4),
+            const Divider(),
+            Text('멤버 권한',
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+            // 방장은 항상 대화·자료 추가가 가능하고, 아래 설정은 멤버에게만 적용된다.
+            CheckboxListTile(
+              value: _allowMemberChat,
+              onChanged: (v) => setState(() => _allowMemberChat = v ?? true),
+              title: const Text('멤버도 대화할 수 있음', style: TextStyle(fontSize: 13)),
+              subtitle: const Text('끄면 방장만 메시지를 보낼 수 있어요.',
+                  style: TextStyle(fontSize: 11)),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            CheckboxListTile(
+              value: _allowMemberFile,
+              onChanged: (v) => setState(() => _allowMemberFile = v ?? false),
+              title: const Text('멤버도 자료를 추가할 수 있음', style: TextStyle(fontSize: 13)),
+              subtitle: const Text('끄면 방장만 파일을 올릴 수 있어요.',
+                  style: TextStyle(fontSize: 11)),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
           ],
+        ),
         ),
       ),
       actions: [
@@ -434,16 +515,23 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
                         const SnackBar(content: Text('그룹 이름을 입력하세요.')));
                     return;
                   }
-                  final pending = _memberCtrl.text.trim();
-                  final members = [
-                    ..._members,
-                    if (pending.isNotEmpty && !_members.contains(pending)) pending
-                  ];
+                  // 칩으로 담지 않고 입력창에 남아 있는 값도 조회를 거쳐 추가한다.
+                  // (검증을 건너뛰고 그대로 보내면 서버에서 조용히 누락된다)
+                  if (_memberCtrl.text.trim().isNotEmpty) {
+                    await _addMember();
+                    if (!mounted) return;
+                    if (_memberCtrl.text.trim().isNotEmpty) return; // 조회 실패 → 생성 중단
+                  }
+                  final members = _members.map((m) => m['id']!).toList();
                   setState(() => _saving = true);
                   final pw = _pwCtrl.text.trim();
                   final g = await context
                       .read<AppStateProvider>()
-                      .createShareGroup(name, password: pw.isEmpty ? null : pw, members: members);
+                      .createShareGroup(name,
+                          password: pw.isEmpty ? null : pw,
+                          members: members,
+                          allowMemberChat: _allowMemberChat,
+                          allowMemberFile: _allowMemberFile);
                   if (!mounted) return;
                   Navigator.pop(context);
                   final nf = (g?['notFound'] as List?)?.length ?? 0;
@@ -472,16 +560,84 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
   final _keyCtrl = TextEditingController();
   List<Map<String, dynamic>> _members = [];
   bool _loading = true;
+  bool _adding = false; // 조회+추가 진행 중(중복 클릭 방지)
+  // 현재 룸의 멤버 권한 — shareGroups(방장 소유 룸 목록)에서 읽어온다.
+  bool _allowMemberChat = true;
+  bool _allowMemberFile = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _syncOptions();
+  }
+
+  /// provider 의 그룹 목록에서 이 룸의 권한 옵션을 읽어 로컬 상태에 반영.
+  void _syncOptions() {
+    for (final g in context.read<AppStateProvider>().shareGroups) {
+      if ((g['groupId'] as num?)?.toInt() == widget.groupId) {
+        _allowMemberChat = g['allowMemberChat'] != false;
+        _allowMemberFile = g['allowMemberFile'] == true;
+        break;
+      }
+    }
   }
 
   Future<void> _load() async {
     final m = await context.read<AppStateProvider>().getShareGroupMembers(widget.groupId);
     if (mounted) setState(() { _members = m; _loading = false; });
+  }
+
+  /// 입력값을 먼저 조회해 가입 회원인지 확인한 뒤 멤버로 추가한다.
+  /// 조회 결과의 이메일(id)을 키로 넘겨 닉네임 입력이나 표기 차이를 흡수한다.
+  Future<void> _addMember() async {
+    final key = _keyCtrl.text.trim();
+    if (key.isEmpty || _adding) return;
+    final appState = context.read<AppStateProvider>();
+    setState(() => _adding = true);
+
+    final s = await appState.authService.searchMember(key);
+    if (!mounted) return;
+    if (s['error'] == true) {
+      setState(() => _adding = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('조회에 실패했습니다. 네트워크를 확인해 주세요.')));
+      return;
+    }
+    if (s['found'] != true) {
+      setState(() => _adding = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('"$key" 가입된 사용자를 찾을 수 없습니다.')));
+      return;
+    }
+    final id = s['id']?.toString() ?? key;
+    final name = s['name']?.toString() ?? id;
+    // 방장은 룸의 주인이라 멤버로 넣을 필요가 없다(서버에서도 거부).
+    if (id == appState.currentUser?.id) {
+      setState(() => _adding = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('본인은 멤버로 추가할 수 없습니다.')));
+      return;
+    }
+    if (_members.any((m) => m['memberId']?.toString() == id)) {
+      setState(() => _adding = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('이미 추가된 멤버입니다: $name')));
+      return;
+    }
+
+    final r = await appState.addShareGroupMember(widget.groupId, id);
+    if (!mounted) return;
+    setState(() => _adding = false);
+    if (r['success'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(r['message']?.toString() ?? '추가 실패')));
+      return;
+    }
+    _keyCtrl.clear();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$name 님을 추가했습니다.')));
+    _load();
   }
 
   @override
@@ -510,22 +666,16 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
                 ),
               ),
               const SizedBox(width: 6),
-              IconButton(
-                icon: Icon(Icons.person_add, color: color),
-                onPressed: () async {
-                  final key = _keyCtrl.text.trim();
-                  if (key.isEmpty) return;
-                  final r = await appState.addShareGroupMember(widget.groupId, key);
-                  if (!mounted) return;
-                  if (r['success'] != true) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(r['message']?.toString() ?? '추가 실패')));
-                  } else {
-                    _keyCtrl.clear();
-                    _load();
-                  }
-                },
-              ),
+              _adding
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                          width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : IconButton(
+                      icon: Icon(Icons.person_search, color: color),
+                      tooltip: '조회 후 추가',
+                      onPressed: _addMember,
+                    ),
             ]),
             const Divider(),
             if (_loading)
@@ -553,6 +703,24 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
                   }).toList(),
                 ),
               ),
+            const Divider(),
+            Text('멤버 권한',
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+            SwitchListTile(
+              value: _allowMemberChat,
+              onChanged: (v) => _setOptions(allowMemberChat: v),
+              title: const Text('멤버도 대화할 수 있음', style: TextStyle(fontSize: 13)),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            SwitchListTile(
+              value: _allowMemberFile,
+              onChanged: (v) => _setOptions(allowMemberFile: v),
+              title: const Text('멤버도 자료를 추가할 수 있음', style: TextStyle(fontSize: 13)),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
           ],
         ),
       ),
@@ -560,5 +728,25 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기')),
       ],
     );
+  }
+
+  /// 권한 토글 — 낙관적으로 먼저 반영하고, 서버 실패 시 되돌린다.
+  Future<void> _setOptions({bool? allowMemberChat, bool? allowMemberFile}) async {
+    final prevChat = _allowMemberChat;
+    final prevFile = _allowMemberFile;
+    setState(() {
+      if (allowMemberChat != null) _allowMemberChat = allowMemberChat;
+      if (allowMemberFile != null) _allowMemberFile = allowMemberFile;
+    });
+    final ok = await context.read<AppStateProvider>().updateShareGroupOptions(
+        widget.groupId,
+        allowMemberChat: allowMemberChat,
+        allowMemberFile: allowMemberFile);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() { _allowMemberChat = prevChat; _allowMemberFile = prevFile; });
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('권한 변경에 실패했습니다.')));
+    }
   }
 }

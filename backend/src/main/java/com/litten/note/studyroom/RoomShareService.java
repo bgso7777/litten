@@ -121,6 +121,13 @@ public class RoomShareService {
                 result.put("message", "룸 멤버만 공유할 수 있습니다.");
                 return result;
             }
+            // 방장이 '멤버 파일 추가'를 허용한 룸에서만 멤버가 자료를 올릴 수 있다.
+            // (기본 차단 — 기존 룸은 마이그레이션에서 1 로 백필해 종전 동작 유지)
+            if (!isOwner && !Boolean.TRUE.equals(g.getAllowMemberFile())) {
+                result.put("success", false);
+                result.put("message", "이 룸은 방장만 자료를 추가할 수 있습니다.");
+                return result;
+            }
             groupName = g.getName();
             for (StudyRoomMember gm : roomMemberRepository.findByRoomIdAndIsDeletedFalseOrderByIdAsc(groupId)) {
                 recipientIds.add(gm.getMemberId());

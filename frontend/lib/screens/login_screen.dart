@@ -98,10 +98,18 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-      if (provider == 'apple') {
-        await appState.authService.signInWithApple();
-      } else {
-        await appState.authService.signInWithGoogle();
+      switch (provider) {
+        case 'apple':
+          await appState.authService.signInWithApple();
+          break;
+        case 'kakao':
+          await appState.authService.signInWithKakao();
+          break;
+        case 'naver':
+          await appState.authService.signInWithNaver();
+          break;
+        default:
+          await appState.authService.signInWithGoogle();
       }
 
       if (mounted) {
@@ -350,6 +358,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       : null,
                   color: Colors.black,
                 ),
+                // 카카오·네이버는 한국어 앱에서만 노출
+                if (Localizations.localeOf(context).languageCode == 'ko') ...[
+                  const SizedBox(height: 12),
+                  _buildSocialLoginButton(
+                    icon: Icons.chat_bubble,
+                    label: '카카오로 로그인',
+                    onPressed: _isLoading ? null : () => _handleSocialLogin('kakao'),
+                    color: const Color(0xFFFEE500),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSocialLoginButton(
+                    icon: Icons.circle,
+                    label: '네이버로 로그인',
+                    onPressed: _isLoading ? null : () => _handleSocialLogin('naver'),
+                    color: const Color(0xFF03C75A),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 

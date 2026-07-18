@@ -31,6 +31,12 @@ public class StudyRoom extends BaseEntity implements Serializable {
     @Column(name = "password", columnDefinition = "VARCHAR(128) NULL DEFAULT NULL COMMENT '룸 비밀번호'")
     private String password;
 
+    @Column(name = "allow_member_chat", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 1 COMMENT '멤버 대화 허용 여부'")
+    private Boolean allowMemberChat = true;
+
+    @Column(name = "allow_member_file", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '멤버 파일 추가 허용 여부'")
+    private Boolean allowMemberFile = false;
+
     @Column(name = "is_deleted", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '삭제 여부'")
     private Boolean isDeleted = false;
 

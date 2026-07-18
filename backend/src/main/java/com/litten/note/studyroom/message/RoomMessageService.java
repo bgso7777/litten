@@ -78,6 +78,13 @@ public class RoomMessageService {
                 result.put("message", "룸 멤버만 메시지를 보낼 수 있습니다.");
                 return result;
             }
+            // 방장이 '멤버 대화'를 잠근 룸에서는 방장만 메시지를 보낼 수 있다.
+            // (구 데이터 NULL 은 허용으로 간주)
+            if (!isOwner && Boolean.FALSE.equals(g.getAllowMemberChat())) {
+                result.put("success", false);
+                result.put("message", "이 룸은 방장만 대화할 수 있습니다.");
+                return result;
+            }
             groupName = g.getName();
             for (StudyRoomMember gm : roomMemberRepository.findByRoomIdAndIsDeletedFalseOrderByIdAsc(groupId)) {
                 recipientIds.add(gm.getMemberId());

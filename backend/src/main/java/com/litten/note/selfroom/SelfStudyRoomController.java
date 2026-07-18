@@ -62,6 +62,16 @@ public class SelfStudyRoomController {
         return ok(Map.of("message", "삭제 완료"));
     }
 
+    /** 항목(자료) 1건 삭제 — 나만의 룸이라 본인 것만 지운다. */
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @DeleteMapping({"/note/v1/my-study-rooms/items/{itemId}", "/note/v1/self-chats/items/{itemId}"})
+    public ResponseEntity<Map<String, Object>> deleteItem(@PathVariable Long itemId) {
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        if (!service.deleteItem(memberId, itemId)) return badRequest("항목을 찾을 수 없습니다.");
+        return ok(Map.of("message", "삭제 완료"));
+    }
+
     @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping({"/note/v1/my-study-rooms/{id}/messages", "/note/v1/self-chats/{id}/messages"})
     public ResponseEntity<Map<String, Object>> addText(@PathVariable Long id,

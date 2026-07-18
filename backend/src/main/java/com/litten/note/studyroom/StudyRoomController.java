@@ -12,8 +12,9 @@ import java.util.Map;
 
 /**
  * 스터디룸 API. 로그인 회원(소유자) 전용.
- *  POST   /note/v1/study-rooms                       룸 생성 {name}
+ *  POST   /note/v1/study-rooms                       룸 생성 {name, allowMemberChat, allowMemberFile}
  *  GET    /note/v1/study-rooms                       내 룸 목록
+ *  PATCH  /note/v1/study-rooms/{groupId}/options     멤버 권한 변경 {allowMemberChat, allowMemberFile}
  *  DELETE /note/v1/study-rooms/{groupId}             룸 삭제
  *  GET    /note/v1/study-rooms/{groupId}/members     멤버 목록
  *  POST   /note/v1/study-rooms/{groupId}/members     멤버 추가 {key=이메일/이름}
@@ -39,11 +40,31 @@ public class StudyRoomController {
             if (body.get("members") instanceof List<?> raw) {
                 members = raw.stream().map(Object::toString).toList();
             }
-            Map<String, Object> g = groupService.createGroup(memberId, name, password, members);
+            Map<String, Object> g = groupService.createGroup(memberId, name, password, members,
+                    asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")));
             return ok(Map.of("group", g));
         } catch (IllegalArgumentException e) {
             return badRequest(e.getMessage());
         }
+    }
+
+    /** 값이 없으면 null(=기본값/기존값 유지). "true"/true 모두 허용. */
+    private Boolean asBool(Object v) {
+        if (v == null) return null;
+        if (v instanceof Boolean b) return b;
+        return Boolean.parseBoolean(v.toString());
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PatchMapping({"/note/v1/study-rooms/{groupId}/options", "/note/v1/share-groups/{groupId}/options"})
+    public ResponseEntity<Map<String, Object>> updateGroupOptions(@PathVariable Long groupId,
+                                                                  @RequestBody Map<String, Object> body) {
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        Map<String, Object> g = groupService.updateGroupOptions(memberId, groupId,
+                asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")));
+        if (g == null) return badRequest("룸을 찾을 수 없거나 권한이 없습니다.");
+        return ok(Map.of("group", g));
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -95,9 +116,13 @@ public class StudyRoomController {
                                                          @RequestBody Map<String, Object> body) {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
-        Map<String, Object> added = groupService.addMember(memberId, groupId, (String) body.get("key"));
-        if (added == null) return badRequest("회원을 찾을 수 없거나 룸 권한이 없습니다.");
-        return ok(Map.of("member", added));
+        try {
+            Map<String, Object> added = groupService.addMember(memberId, groupId, (String) body.get("key"));
+            if (added == null) return badRequest("회원을 찾을 수 없거나 룸 권한이 없습니다.");
+            return ok(Map.of("member", added));
+        } catch (IllegalArgumentException e) {
+            return badRequest(e.getMessage()); // 예: 본인 추가 시도
+        }
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")

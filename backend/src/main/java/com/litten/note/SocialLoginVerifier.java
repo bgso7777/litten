@@ -204,4 +204,67 @@ public class SocialLoginVerifier {
         }
         throw new IllegalArgumentException("apple public key not found for kid=" + kid);
     }
+
+    // ==================== 카카오 ====================
+
+    /**
+     * 카카오 accessToken 검증 — kapi.kakao.com/v2/user/me 호출로 사용자 확인.
+     * 토큰이 유효하고 우리 앱에 발급된 것이면 200 + 사용자 정보 반환.
+     */
+    public SocialProfile verifyKakao(String accessToken) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://kapi.kakao.com/v2/user/me"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            log.warn("[SocialLoginVerifier] 카카오 user/me 실패 status={} body={}", response.statusCode(), response.body());
+            throw new IllegalArgumentException("invalid kakao access token");
+        }
+        JsonNode node = mapper.readTree(response.body());
+        String id = node.path("id").asText(null); // 카카오 고유 회원번호
+        JsonNode account = node.path("kakao_account");
+        String email = account.path("email").asText(null);
+        boolean emailVerified = account.path("is_email_verified").asBoolean(false);
+        String nickname = account.path("profile").path("nickname").asText(null);
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("kakao id missing");
+        // 검증된 이메일만 계정 병합에 신뢰
+        String trustedEmail = (email != null && emailVerified) ? email.toLowerCase() : null;
+        log.info("[SocialLoginVerifier] 카카오 검증 성공 id={} email={} verified={}", id, email, emailVerified);
+        return new SocialProfile("kakao", id, trustedEmail, nickname);
+    }
+
+    // ==================== 네이버 ====================
+
+    /**
+     * 네이버 accessToken 검증 — openapi.naver.com/v1/nid/me 호출로 사용자 확인.
+     */
+    public SocialProfile verifyNaver(String accessToken) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://openapi.naver.com/v1/nid/me"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            log.warn("[SocialLoginVerifier] 네이버 nid/me 실패 status={} body={}", response.statusCode(), response.body());
+            throw new IllegalArgumentException("invalid naver access token");
+        }
+        JsonNode root = mapper.readTree(response.body());
+        if (!"00".equals(root.path("resultcode").asText(null))) {
+            log.warn("[SocialLoginVerifier] 네이버 API 오류 body={}", response.body());
+            throw new IllegalArgumentException("naver api error");
+        }
+        JsonNode res = root.path("response");
+        String id = res.path("id").asText(null); // 네이버 고유 식별값(비가역 암호화된 값)
+        String email = res.path("email").asText(null);
+        String name = res.path("nickname").asText(null);
+        if (name == null || name.isBlank()) name = res.path("name").asText(null);
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("naver id missing");
+        // 네이버 이메일은 사용자 동의 시 제공(검증된 이메일)
+        String trustedEmail = (email != null && !email.isBlank()) ? email.toLowerCase() : null;
+        log.info("[SocialLoginVerifier] 네이버 검증 성공 id={} email={}", id, email);
+        return new SocialProfile("naver", id, trustedEmail, name);
+    }
 }

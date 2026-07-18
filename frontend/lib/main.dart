@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:kakao_flutter_sdk_common/kakao_flutter_sdk_common.dart';
 import 'l10n/app_localizations.dart';
+import 'config/social_login_config.dart';
 
 import 'services/app_state_provider.dart';
 import 'services/background_notification_service.dart';
@@ -12,6 +14,14 @@ import 'config/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 카카오 SDK 초기화 (한국어 앱 소셜 로그인용). 키 미설정이어도 앱 실행엔 지장 없음.
+  try {
+    KakaoSdk.init(nativeAppKey: SocialLoginConfig.kakaoNativeAppKey);
+    debugPrint('✅ 카카오 SDK 초기화 완료');
+  } catch (e) {
+    debugPrint('⚠️ 카카오 SDK 초기화 실패: $e');
+  }
 
   // AdMob 초기화
   try {

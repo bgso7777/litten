@@ -329,6 +329,14 @@ public class NoteMemberService extends CustomHttpService {
         return loginSocial(requestBody, isMobile, "apple");
     }
 
+    public Map<String, Object> postLoginKakao(JsonNode requestBody, Boolean isMobile) throws Exception {
+        return loginSocial(requestBody, isMobile, "kakao");
+    }
+
+    public Map<String, Object> postLoginNaver(JsonNode requestBody, Boolean isMobile) throws Exception {
+        return loginSocial(requestBody, isMobile, "naver");
+    }
+
     /**
      * 소셜 로그인 공통 처리: ID Token 검증 → find-or-create(providerId 우선, 검증 이메일 병합) → 디바이스 슬롯 → 자체 JWT 발급.
      * 요청 바디: { "idToken": "...", "uuid": "디바이스 UUID" }
@@ -352,7 +360,14 @@ public class NoteMemberService extends CustomHttpService {
         SocialLoginVerifier verifier = BeanUtil.getBean2(SocialLoginVerifier.class);
         SocialLoginVerifier.SocialProfile profile;
         try {
-            profile = provider.equals("google") ? verifier.verifyGoogle(idToken) : verifier.verifyApple(idToken);
+            // 구글/애플=ID Token, 카카오/네이버=accessToken (요청 idToken 필드로 공통 전달)
+            switch (provider) {
+                case "google": profile = verifier.verifyGoogle(idToken); break;
+                case "apple":  profile = verifier.verifyApple(idToken); break;
+                case "kakao":  profile = verifier.verifyKakao(idToken); break;
+                case "naver":  profile = verifier.verifyNaver(idToken); break;
+                default: throw new IllegalArgumentException("unknown provider: " + provider);
+            }
         } catch (Exception e) {
             log.warn("[NoteMemberService] 소셜 토큰 검증 실패 provider={} err={}", provider, e.getMessage());
             result.put(Constants.TAG_RESULT, Constants.RESULT_NOT_FOUND);

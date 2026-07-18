@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 네이버 로그인 (flutter_naver_login) — developers.naver.com 애플리케이션 정보 -->
+    <string name="client_id">yDQd0W6KVkAYZFPqdEdI</string>
+    <string name="client_secret">3xslYh9JDw</string>
+    <string name="client_name">리튼</string>
+</resources>

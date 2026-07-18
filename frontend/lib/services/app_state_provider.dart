@@ -2148,6 +2148,42 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// 셀프챗(나만의 룸) 항목 1건 삭제 — 로컬 목록·복사본 파일 + 서버 항목을 함께 정리.
+  /// 나만의 룸이라 다른 사용자에게 영향이 없다.
+  Future<bool> deleteSelfChatItem(String chatId, Map<String, dynamic> item) async {
+    final items = _selfChatMsgs[chatId];
+    if (items == null) return false;
+    // localId 우선(같은 시각 항목 구분), 없으면 객체 동일성으로 제거.
+    final localId = item['localId']?.toString();
+    _selfChatMsgs[chatId] = items
+        .where((e) => localId != null
+            ? e['localId']?.toString() != localId
+            : !identical(e, item))
+        .toList();
+    await _persistSelfChatMsgs(chatId);
+    notifyListeners();
+
+    // 로컬에 복사해 둔 실제 파일 삭제(있을 때만).
+    final path = item['path']?.toString() ?? '';
+    if (path.isNotEmpty) {
+      try {
+        final f = File(await _resolveStoredPath(path));
+        if (await f.exists()) await f.delete();
+      } catch (e) {
+        debugPrint('[AppStateProvider] 셀프챗 파일 삭제 실패(무시): $e');
+      }
+    }
+    // 서버 항목도 정리(업로드된 적 있을 때만).
+    final serverItemId = (item['serverItemId'] as num?)?.toInt();
+    if (serverItemId != null) {
+      final token = await _shareToken();
+      if (token != null) {
+        await _shareApi.deleteSelfChatItem(token: token, itemId: serverItemId);
+      }
+    }
+    return true;
+  }
+
   /// 셀프챗에 파일 추가 — 원본을 로컬로 복사 후 항목 추가, 서버에도 best-effort 업로드.
   Future<void> addSelfChatFile(String id,
       {required String sourcePath,
@@ -2687,13 +2723,35 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ── 그룹 관리 ──
   Future<Map<String, dynamic>?> createShareGroup(String name,
-      {String? password, List<String>? members}) async {
+      {String? password,
+      List<String>? members,
+      bool? allowMemberChat,
+      bool? allowMemberFile}) async {
     final token = await _shareToken();
     if (token == null) return null;
     final g = await _shareApi.createGroup(
-        token: token, name: name, password: password, members: members);
+        token: token,
+        name: name,
+        password: password,
+        members: members,
+        allowMemberChat: allowMemberChat,
+        allowMemberFile: allowMemberFile);
     await reloadShareGroups();
     return g;
+  }
+
+  /// 멤버 권한 옵션 변경(방장) — 대화/파일 추가 허용 여부.
+  Future<bool> updateShareGroupOptions(int groupId,
+      {bool? allowMemberChat, bool? allowMemberFile}) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.updateGroupOptions(
+        token: token,
+        groupId: groupId,
+        allowMemberChat: allowMemberChat,
+        allowMemberFile: allowMemberFile);
+    if (ok) await reloadShareGroups();
+    return ok;
   }
 
   Future<bool> deleteShareGroup(int groupId) async {
