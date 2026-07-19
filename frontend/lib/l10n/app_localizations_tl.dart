@@ -719,7 +719,7 @@ class AppLocalizationsTl extends AppLocalizations {
 
   @override
   String get deleteAccountWarning5 =>
-      '• Study rooms you created are deleted, and shares you sent are marked as \'withdrawn\' to others';
+      '• Cells you created are deleted, and shares you sent are marked as \'withdrawn\' to others';
 
   @override
   String get deleteAccountWarning6 =>
@@ -1255,4 +1255,54 @@ class AppLocalizationsTl extends AppLocalizations {
   String summarySaveFailed(String error) {
     return 'Failed to save summary: $error';
   }
+
+  @override
+  String get cell => 'Cell';
+
+  @override
+  String get cellName => 'Cell name';
+
+  @override
+  String get newCell => 'New Cell';
+
+  @override
+  String get noCellsYet =>
+      'No Cells yet.\nTap the + button below to create a Cell or share a file.';
+
+  @override
+  String get startCell => 'Start a Cell';
+
+  @override
+  String get cellLoginRequired =>
+      'Signing up and logging in is required to use Cells.';
+
+  @override
+  String myCell(String name) {
+    return 'My Cell: $name';
+  }
+
+  @override
+  String get createMyCell => 'Create my Cell';
+
+  @override
+  String get myCellDescription =>
+      'A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)';
+
+  @override
+  String get oneToOneCell => '1:1 Cell';
+
+  @override
+  String get groupCell => 'Group Cell';
+
+  @override
+  String get myOwnCell => 'My own Cell';
+
+  @override
+  String get createCell => 'Create Cell';
+
+  @override
+  String get createNewCell => 'Create new Cell';
+
+  @override
+  String get cellGroupManagement => 'Cell group management';
 }

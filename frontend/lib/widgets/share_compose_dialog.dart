@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 
 /// 공유 작성 결과 — 대상(개인/그룹) + 메시지.
@@ -150,7 +151,8 @@ class _ShareComposeDialogState extends State<_ShareComposeDialog> {
                   ),
                 ),
                 IconButton(
-                  tooltip: '그룹 관리',
+                  tooltip: AppLocalizations.of(context)?.cellGroupManagement ??
+                      '셀 그룹 관리',
                   icon: Icon(Icons.settings, color: color),
                   onPressed: () async {
                     await showShareGroupManageDialog(context);
@@ -274,7 +276,9 @@ class _ShareGroupManageDialogState extends State<_ShareGroupManageDialog> {
     final groups = appState.shareGroups;
 
     return AlertDialog(
-      title: const Text('그룹 관리', style: TextStyle(fontSize: 16)),
+      title: Text(
+          AppLocalizations.of(context)?.cellGroupManagement ?? '셀 그룹 관리',
+          style: const TextStyle(fontSize: 16)),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -290,7 +294,8 @@ class _ShareGroupManageDialogState extends State<_ShareGroupManageDialog> {
                   if (mounted) context.read<AppStateProvider>().reloadShareGroups();
                 },
                 icon: Icon(Icons.group_add, color: color),
-                label: const Text('새 그룹 만들기'),
+                label: Text(AppLocalizations.of(context)?.createNewCell ??
+                    '새 셀 만들기'),
               ),
             ),
             const Divider(),
@@ -409,7 +414,8 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
   Widget build(BuildContext context) {
     final color = Theme.of(context).primaryColor;
     return AlertDialog(
-      title: const Text('새 그룹', style: TextStyle(fontSize: 16)),
+      title: Text(AppLocalizations.of(context)?.newCell ?? '새 셀',
+          style: const TextStyle(fontSize: 16)),
       content: SizedBox(
         width: double.maxFinite,
         // 권한 옵션이 붙으면서 세로가 길어져 작은 화면에서 넘칠 수 있어 스크롤 처리.
@@ -420,8 +426,10 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
           children: [
             TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                  labelText: '그룹 이름', isDense: true, border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)?.cellName ?? '셀 이름',
+                  isDense: true,
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 10),
             TextField(

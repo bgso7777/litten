@@ -1172,9 +1172,9 @@
     "description": "Delete account warning 4"
   },
 
-  "deleteAccountWarning5": "• Study rooms you created are deleted, and shares you sent are marked as 'withdrawn' to others",
+  "deleteAccountWarning5": "• Cells you created are deleted, and shares you sent are marked as 'withdrawn' to others",
   "@deleteAccountWarning5": {
-    "description": "Delete account warning 5 - study room deletion"
+    "description": "Delete account warning 5 - Cell deletion"
   },
 
   "deleteAccountWarning6": "• Schedules synced to the server are deleted (local schedules are kept)",
@@ -1865,5 +1865,81 @@
   "@summarySaveFailed": {
     "description": "Snackbar when saving summary to file fails",
     "placeholders": { "error": { "type": "String" } }
+  },
+
+  "cell": "Cell",
+  "@cell": {
+    "description": "Cell - the shared space for conversation and materials. Kept untranslated across locales as a product term."
+  },
+
+  "cellName": "Cell name",
+  "@cellName": {
+    "description": "Label of the text field for entering a Cell name"
+  },
+
+  "newCell": "New Cell",
+  "@newCell": {
+    "description": "Title of the new Cell dialog, and tooltip of the new Cell FAB"
+  },
+
+  "noCellsYet": "No Cells yet.\nTap the + button below to create a Cell or share a file.",
+  "@noCellsYet": {
+    "description": "Empty state shown when the user has no Cells"
+  },
+
+  "startCell": "Start a Cell",
+  "@startCell": {
+    "description": "Placeholder shown when a Cell has no conversation yet"
+  },
+
+  "cellLoginRequired": "Signing up and logging in is required to use Cells.",
+  "@cellLoginRequired": {
+    "description": "Dialog body shown when a logged-out user taps a Cell feature"
+  },
+
+  "myCell": "My Cell: {name}",
+  "@myCell": {
+    "description": "Subtitle of a file that belongs to the user's own (self-chat) Cell",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "createMyCell": "Create my Cell",
+  "@createMyCell": {
+    "description": "Button that creates a Cell used only by the current user"
+  },
+
+  "myCellDescription": "A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)",
+  "@myCellDescription": {
+    "description": "Explanation of the self-chat Cell shown in the new Cell dialog"
+  },
+
+  "oneToOneCell": "1:1 Cell",
+  "@oneToOneCell": {
+    "description": "Tab for creating a Cell with a single other person"
+  },
+
+  "groupCell": "Group Cell",
+  "@groupCell": {
+    "description": "Tab for creating a Cell shared by a group"
+  },
+
+  "myOwnCell": "My own Cell",
+  "@myOwnCell": {
+    "description": "Tab for creating a Cell only the current user belongs to"
+  },
+
+  "createCell": "Create Cell",
+  "@createCell": {
+    "description": "Button that creates the Cell configured in the dialog"
+  },
+
+  "createNewCell": "Create new Cell",
+  "@createNewCell": {
+    "description": "Button that opens the dialog for creating a new group Cell"
+  },
+
+  "cellGroupManagement": "Cell group management",
+  "@cellGroupManagement": {
+    "description": "Title and tooltip of the dialog for managing Cell groups and their members"
   }
 }

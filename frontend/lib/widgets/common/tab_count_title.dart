@@ -86,7 +86,7 @@ class TabCountTitle extends StatelessWidget {
             style: TextStyle(
                 fontSize: countFontSize,
                 color: countColor,
-                // countColor를 지정한 커스텀 탭제목(스터디룸)은 일반 굵기로.
+                // countColor를 지정한 커스텀 탭제목(셀)은 일반 굵기로.
                 fontWeight: countColor != null ? FontWeight.normal : null)),
       ],
     );

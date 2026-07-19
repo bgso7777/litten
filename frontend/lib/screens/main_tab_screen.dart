@@ -171,12 +171,12 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
               type: BottomNavigationBarType.fixed,
               items: [
                 BottomNavigationBarItem(
-                  // 홈 탭 = 스터디룸(여럿이 대화 + 자료 공유) 화면. 겹친 말풍선(forum) 아이콘 사용.
+                  // 홈 탭 = 셀(여럿이 대화 + 자료 공유) 화면. 육각형(hexagon) 아이콘 사용.
                   //   비활성: 외곽선 / 활성: 채움. 활성 시 아이콘 하단 언더라인 표시.
                   icon: _withUnderline(
-                      context, const Icon(Icons.forum_outlined), false),
+                      context, const Icon(Icons.hexagon_outlined), false),
                   activeIcon:
-                      _withUnderline(context, const Icon(Icons.forum), true),
+                      _withUnderline(context, const Icon(Icons.hexagon), true),
                   label: '',
                 ),
                 BottomNavigationBarItem(
@@ -231,7 +231,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
     String tooltip;
     switch (tab) {
       case _homeTab:
-        // 새 스터디룸 FAB는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시(칩 바와 동일 규칙).
+        // 새 셀 FAB는 '채팅' 모드이고 대화방이 안 열렸을 때만 표시(칩 바와 동일 규칙).
         // 대화방 안 / 공유받음 / 공유한 모드에서는 숨긴다.
         if (appState.homeChatOpen || appState.homeChatView != 'chat') return null;
         onPressed = () {
@@ -239,7 +239,7 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
           _homeDashKey.currentState?.startNewChat();
         };
         icon = Icons.add;
-        tooltip = '새 스터디룸';
+        tooltip = l10n?.newCell ?? '새 셀';
         break;
       case _calendarTab:
         onPressed = () {
@@ -539,5 +539,5 @@ class _MainTabScreenState extends State<MainTabScreen> with WidgetsBindingObserv
   }
 }
 
-// 하단 네비 스터디룸 탭은 Icons.forum(겹친 말풍선)을 사용한다.
+// 하단 네비 셀 탭은 Icons.hexagon(육각형)을 사용한다.
 // (원형 말풍선 RoundChatBubbleIcon은 home_dashboard의 목록 제목에서 계속 사용)

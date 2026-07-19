@@ -688,7 +688,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
     final isFree = appState.subscriptionType == SubscriptionType.free;
 
-    // 스터디룸(홈) — 전체(계정) 기준
+    // 셀(홈) — 전체(계정) 기준
     final chatN = appState.homeConversationCount;
     final inN = appState.sharesReceived.length;
     final outN = appState.sharesSent.length + appState.selfChatFileCount;
@@ -744,8 +744,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   '',
                 ),
 
-                // 💬 스터디룸 (탭 제목과 동일: 대화·공유받음·공유함)
-                _buildStatHeader(context, Icons.forum, '스터디룸'),
+                // 💬 셀 (탭 제목과 동일: 대화·공유받음·공유함)
+                _buildStatHeader(
+                    context, Icons.hexagon, l10n?.cell ?? '셀'),
                 _buildCountStrip([
                   TabCount(Icons.chat_bubble_outline, chatN,
                       iconWidget: const RoundChatBubbleIcon(filled: true, size: 20)),
@@ -1862,7 +1863,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildWarningItem(l10n?.deleteAccountWarning2 ?? '• 서버에 저장된 파일이 모두 삭제됩니다'),
             _buildWarningItem(l10n?.deleteAccountWarning3 ?? '• 계정 복구가 불가능합니다'),
             _buildWarningItem(l10n?.deleteAccountWarning4 ?? '• 구독이 자동으로 취소됩니다'),
-            _buildWarningItem(l10n?.deleteAccountWarning5 ?? '• 내가 만든 스터디룸은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다'),
+            _buildWarningItem(l10n?.deleteAccountWarning5 ?? '• 내가 만든 셀은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다'),
             _buildWarningItem(l10n?.deleteAccountWarning6 ?? '• 서버에 동기화된 일정이 삭제됩니다 (기기 일정은 유지)'),
           ],
         ),

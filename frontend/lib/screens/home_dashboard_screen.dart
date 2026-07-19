@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/app_localizations.dart';
 import '../models/litten.dart';
 import 'login_screen.dart';
 import '../services/app_state_provider.dart';
@@ -517,10 +518,10 @@ class ShareTabTitle extends StatelessWidget {
               )
             : TabCountTitle([
                 [
-                  // 메인 하단 네비 '스터디룸' 아이콘 계열(Icons.forum_outlined) 사용.
+                  // 메인 하단 네비 '셀' 아이콘 계열(Icons.hexagon_outlined) 사용.
                   // 옆의 공유받음(download)·공유한(upload)과 동일하게 '선택 안 된'(외곽선)
                   // 아이콘으로 통일 — 선택 여부는 밝기(active opacity)로만 표시. 크기도 자동 일치.
-                  TabCount(Icons.forum_outlined, chatN,
+                  TabCount(Icons.hexagon_outlined, chatN,
                       active: mode == 'chat',
                       onTap: () => app.setHomeChatView('chat')),
                   TabCount(Icons.download, inN,
@@ -679,8 +680,10 @@ class _ShareSectionState extends State<_ShareSection>
             TextField(
               controller: ctrl,
               autofocus: true,
-              decoration: const InputDecoration(
-                  labelText: '스터디룸 이름', isDense: true, border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)?.cellName ?? '셀 이름',
+                  isDense: true,
+                  border: const OutlineInputBorder()),
               onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
             ),
             if (!isRealRename)
@@ -748,7 +751,7 @@ class _ShareSectionState extends State<_ShareSection>
     }
     final fileCount = deliveryIds.length + shareIds.length;
     // 내가 만든 그룹룸인지 — 방장에게만 '그룹 삭제'(서버에서 방 자체 제거)를 노출한다.
-    // '나가기'는 내 목록에서만 숨기므로 서버 그룹이 남아 [새 스터디룸 > 그룹 룸]에 계속 보인다.
+    // '나가기'는 내 목록에서만 숨기므로 서버 그룹이 남아 [새 셀 > 그룹 룸]에 계속 보인다.
     final origName =
         (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
     Map<String, dynamic>? ownedGroup;
@@ -1092,7 +1095,9 @@ class _ShareSectionState extends State<_ShareSection>
               children: [
                 const SizedBox(height: 80),
                 Center(
-                    child: Text('아직 스터디룸이 없습니다.\n아래 + 버튼으로 새 스터디룸을 만들거나 파일을 공유해 보세요.',
+                    child: Text(
+                        AppLocalizations.of(context)?.noCellsYet ??
+                            '아직 셀이 없습니다.\n아래 + 버튼으로 새 셀을 만들거나 파일을 공유해 보세요.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
               ],
@@ -1211,7 +1216,8 @@ class _ShareSectionState extends State<_ShareSection>
           'fileName': item['fileName'],
           'contentType': item['contentType'],
           'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
-          'subtitle': '나만의 스터디룸: ${f['chatName']}',
+          'subtitle': AppLocalizations.of(context)?.myCell('${f['chatName']}') ??
+              '나만의 셀: ${f['chatName']}',
           'dateIso': item['sentAt']?.toString() ?? '',
           'onTap': () => _openSelfChatFile(selfIt),
         });
@@ -1267,7 +1273,8 @@ class _ShareSectionState extends State<_ShareSection>
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('로그인 필요', style: TextStyle(fontSize: 16)),
-          content: const Text('스터디룸 기능은 회원가입 후 로그인이 필요합니다.'),
+          content: Text(AppLocalizations.of(context)?.cellLoginRequired ??
+              '셀 기능은 회원가입 후 로그인이 필요합니다.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
@@ -1292,7 +1299,8 @@ class _ShareSectionState extends State<_ShareSection>
         length: 3,
         child: AlertDialog(
           contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          title: const Text('새 스터디룸', style: TextStyle(fontSize: 16)),
+          title: Text(AppLocalizations.of(context)?.newCell ?? '새 셀',
+              style: const TextStyle(fontSize: 16)),
           content: SizedBox(
             width: double.maxFinite,
             height: 270,
@@ -1302,7 +1310,11 @@ class _ShareSectionState extends State<_ShareSection>
                   labelColor: color,
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: color,
-                  tabs: const [Tab(text: '1:1 룸'), Tab(text: '그룹 룸'), Tab(text: '나만의 룸')],
+                  tabs: [
+                    Tab(text: AppLocalizations.of(context)?.oneToOneCell ?? '1:1 셀'),
+                    Tab(text: AppLocalizations.of(context)?.groupCell ?? '그룹 셀'),
+                    Tab(text: AppLocalizations.of(context)?.myOwnCell ?? '나만의 셀'),
+                  ],
                 ),
                 Expanded(
                   child: TabBarView(
@@ -1322,7 +1334,9 @@ class _ShareSectionState extends State<_ShareSection>
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(ctx, '__newgroup__'),
                               icon: Icon(Icons.group_add, color: color, size: 18),
-                              label: const Text('새 그룹 룸 만들기'),
+                              label: Text(
+                                  AppLocalizations.of(context)?.createNewCell ??
+                                      '새 셀 만들기'),
                             ),
                             const SizedBox(height: 8),
                             Expanded(
@@ -1356,7 +1370,9 @@ class _ShareSectionState extends State<_ShareSection>
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('나 혼자 쓰는 스터디룸이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)',
+                            Text(
+                                AppLocalizations.of(context)?.myCellDescription ??
+                                    '나 혼자 쓰는 셀이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)',
                                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
@@ -1364,7 +1380,9 @@ class _ShareSectionState extends State<_ShareSection>
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: color, foregroundColor: Colors.white),
                               icon: const Icon(Icons.person, size: 18),
-                              label: const Text('나만의 스터디룸 만들기'),
+                              label: Text(
+                                  AppLocalizations.of(context)?.createMyCell ??
+                                      '나만의 셀 만들기'),
                             ),
                           ],
                         ),
@@ -1523,7 +1541,7 @@ class _ShareSectionState extends State<_ShareSection>
 
     String subtitle;
     if (last == null) {
-      subtitle = '스터디룸을 시작해 보세요';
+      subtitle = AppLocalizations.of(context)?.startCell ?? '셀을 시작해 보세요';
     } else if (last.isMessage) {
       subtitle = '${last.received ? '' : '나: '}${last.data['content']?.toString() ?? ''}';
     } else {
@@ -1680,7 +1698,8 @@ class _ShareSectionState extends State<_ShareSection>
               // [대화] 탭 — 기존 말풍선 리스트.
               : (items.isEmpty
                   ? Center(
-                      child: Text('스터디룸을 시작해 보세요.',
+                      child: Text(
+                          AppLocalizations.of(context)?.startCell ?? '셀을 시작해 보세요',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
                   : RefreshIndicator(
                       onRefresh: () async {
@@ -2302,7 +2321,8 @@ class _ShareSectionState extends State<_ShareSection>
       rows.add({
         'fileType': item['fileType'], 'fileName': item['fileName'], 'contentType': item['contentType'],
         'fname': _stripShareExt(item['fileName']?.toString() ?? ''),
-        'subtitle': '나만의 스터디룸: ${f['chatName']}',
+        'subtitle': AppLocalizations.of(context)?.myCell('${f['chatName']}') ??
+            '나만의 셀: ${f['chatName']}',
         'dateIso': item['sentAt']?.toString() ?? '',
         'onTap': () => _openSelfChatFile(selfIt),
       });
@@ -3433,7 +3453,8 @@ class _NewChatOneToOneTabState extends State<_NewChatOneToOneTab> {
                 disabledBackgroundColor: Colors.grey.shade300,
                 disabledForegroundColor: Colors.white70),
             icon: const Icon(Icons.chat_bubble_outline, size: 18),
-            label: const Text('룸 만들기'),
+            label: Text(
+                AppLocalizations.of(context)?.createCell ?? '셀 만들기'),
           ),
         ],
       ),

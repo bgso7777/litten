@@ -240,7 +240,7 @@
   "deleteAccountWarning2": "• 서버에 저장된 파일이 모두 삭제됩니다",
   "deleteAccountWarning3": "• 계정 복구가 불가능합니다",
   "deleteAccountWarning4": "• 구독이 자동으로 취소됩니다",
-  "deleteAccountWarning5": "• 내가 만든 스터디룸은 삭제되고, 보낸 공유는 상대에게 '탈퇴'로 표시됩니다",
+  "deleteAccountWarning5": "• 내가 만든 셀은 삭제되고, 보낸 공유는 상대에게 '탈퇴'로 표시됩니다",
   "deleteAccountWarning6": "• 서버에 동기화된 일정이 삭제됩니다 (기기 일정은 유지)",
   "deleteAccountButton": "탈퇴하기",
   "deleteAccountFinalConfirmTitle": "최종 확인",
@@ -438,5 +438,21 @@
   "@summarySaveFailed": {
     "description": "Snackbar when saving summary to file fails",
     "placeholders": { "error": { "type": "String" } }
-  }
+  },
+
+  "cell": "셀",
+  "cellName": "셀 이름",
+  "newCell": "새 셀",
+  "noCellsYet": "아직 셀이 없습니다.\n아래 + 버튼으로 새 셀을 만들거나 파일을 공유해 보세요.",
+  "startCell": "셀을 시작해 보세요",
+  "cellLoginRequired": "셀 기능은 회원가입 후 로그인이 필요합니다.",
+  "myCell": "나만의 셀: {name}",
+  "createMyCell": "나만의 셀 만들기",
+  "myCellDescription": "나 혼자 쓰는 셀이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)",
+  "oneToOneCell": "1:1 셀",
+  "groupCell": "그룹 셀",
+  "myOwnCell": "나만의 셀",
+  "createCell": "셀 만들기",
+  "createNewCell": "새 셀 만들기",
+  "cellGroupManagement": "셀 그룹 관리"
 }

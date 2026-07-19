@@ -701,7 +701,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get deleteAccountWarning5 =>
-      '• 내가 만든 스터디룸은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다';
+      '• 내가 만든 셀은 삭제되고, 보낸 공유는 상대에게 \'탈퇴\'로 표시됩니다';
 
   @override
   String get deleteAccountWarning6 => '• 서버에 동기화된 일정이 삭제됩니다 (기기 일정은 유지)';
@@ -1234,4 +1234,52 @@ class AppLocalizationsKo extends AppLocalizations {
   String summarySaveFailed(String error) {
     return '요약 저장 실패: $error';
   }
+
+  @override
+  String get cell => '셀';
+
+  @override
+  String get cellName => '셀 이름';
+
+  @override
+  String get newCell => '새 셀';
+
+  @override
+  String get noCellsYet => '아직 셀이 없습니다.\n아래 + 버튼으로 새 셀을 만들거나 파일을 공유해 보세요.';
+
+  @override
+  String get startCell => '셀을 시작해 보세요';
+
+  @override
+  String get cellLoginRequired => '셀 기능은 회원가입 후 로그인이 필요합니다.';
+
+  @override
+  String myCell(String name) {
+    return '나만의 셀: $name';
+  }
+
+  @override
+  String get createMyCell => '나만의 셀 만들기';
+
+  @override
+  String get myCellDescription =>
+      '나 혼자 쓰는 셀이에요.\n메모처럼 자유롭게 기록할 수 있어요. (여러 개 가능)';
+
+  @override
+  String get oneToOneCell => '1:1 셀';
+
+  @override
+  String get groupCell => '그룹 셀';
+
+  @override
+  String get myOwnCell => '나만의 셀';
+
+  @override
+  String get createCell => '셀 만들기';
+
+  @override
+  String get createNewCell => '새 셀 만들기';
+
+  @override
+  String get cellGroupManagement => '셀 그룹 관리';
 }

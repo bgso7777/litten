@@ -939,10 +939,10 @@ class AuthServiceImpl extends AuthService {
             key.contains('handwriting_files_') ||
             key.contains('audio_files_') ||
             key.contains('littens') ||
-            key.contains('shares_') ||         // 스터디룸 공유(받은/보낸) 캐시
-            key.contains('share_groups') ||    // 스터디룸 그룹 캐시
-            key.contains('messages_') ||       // 스터디룸 메시지 캐시
-            key.contains('self_chats')) {      // 나만의 스터디룸(셀프챗)
+            key.contains('shares_') ||         // 셀 공유(받은/보낸) 캐시
+            key.contains('share_groups') ||    // 셀 그룹 캐시
+            key.contains('messages_') ||       // 셀 메시지 캐시
+            key.contains('self_chats')) {      // 나만의 셀(셀프챗)
           await prefs.remove(key);
           debugPrint('🗑️ SharedPreferences 키 삭제: $key');
         }

@@ -1498,10 +1498,10 @@ abstract class AppLocalizations {
   /// **'• Subscription will be automatically cancelled'**
   String get deleteAccountWarning4;
 
-  /// Delete account warning 5 - study room deletion
+  /// Delete account warning 5 - Cell deletion
   ///
   /// In en, this message translates to:
-  /// **'• Study rooms you created are deleted, and shares you sent are marked as \'withdrawn\' to others'**
+  /// **'• Cells you created are deleted, and shares you sent are marked as \'withdrawn\' to others'**
   String get deleteAccountWarning5;
 
   /// Delete account warning 6 - schedule deletion
@@ -2451,6 +2451,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to save summary: {error}'**
   String summarySaveFailed(String error);
+
+  /// Cell - the shared space for conversation and materials. Kept untranslated across locales as a product term.
+  ///
+  /// In en, this message translates to:
+  /// **'Cell'**
+  String get cell;
+
+  /// Label of the text field for entering a Cell name
+  ///
+  /// In en, this message translates to:
+  /// **'Cell name'**
+  String get cellName;
+
+  /// Title of the new Cell dialog, and tooltip of the new Cell FAB
+  ///
+  /// In en, this message translates to:
+  /// **'New Cell'**
+  String get newCell;
+
+  /// Empty state shown when the user has no Cells
+  ///
+  /// In en, this message translates to:
+  /// **'No Cells yet.\nTap the + button below to create a Cell or share a file.'**
+  String get noCellsYet;
+
+  /// Placeholder shown when a Cell has no conversation yet
+  ///
+  /// In en, this message translates to:
+  /// **'Start a Cell'**
+  String get startCell;
+
+  /// Dialog body shown when a logged-out user taps a Cell feature
+  ///
+  /// In en, this message translates to:
+  /// **'Signing up and logging in is required to use Cells.'**
+  String get cellLoginRequired;
+
+  /// Subtitle of a file that belongs to the user's own (self-chat) Cell
+  ///
+  /// In en, this message translates to:
+  /// **'My Cell: {name}'**
+  String myCell(String name);
+
+  /// Button that creates a Cell used only by the current user
+  ///
+  /// In en, this message translates to:
+  /// **'Create my Cell'**
+  String get createMyCell;
+
+  /// Explanation of the self-chat Cell shown in the new Cell dialog
+  ///
+  /// In en, this message translates to:
+  /// **'A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)'**
+  String get myCellDescription;
+
+  /// Tab for creating a Cell with a single other person
+  ///
+  /// In en, this message translates to:
+  /// **'1:1 Cell'**
+  String get oneToOneCell;
+
+  /// Tab for creating a Cell shared by a group
+  ///
+  /// In en, this message translates to:
+  /// **'Group Cell'**
+  String get groupCell;
+
+  /// Tab for creating a Cell only the current user belongs to
+  ///
+  /// In en, this message translates to:
+  /// **'My own Cell'**
+  String get myOwnCell;
+
+  /// Button that creates the Cell configured in the dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Create Cell'**
+  String get createCell;
+
+  /// Button that opens the dialog for creating a new group Cell
+  ///
+  /// In en, this message translates to:
+  /// **'Create new Cell'**
+  String get createNewCell;
+
+  /// Title and tooltip of the dialog for managing Cell groups and their members
+  ///
+  /// In en, this message translates to:
+  /// **'Cell group management'**
+  String get cellGroupManagement;
 }
 
 class _AppLocalizationsDelegate

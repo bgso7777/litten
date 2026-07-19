@@ -3,7 +3,7 @@ import '../../l10n/app_localizations.dart';
 
 /// 탭 제목란용 compact 검색 필드.
 /// 전체탭 제목 검색바(_AllTabTitleSearch)와 동일한 크기·스타일을 공유해
-/// 스터디룸·리마인드 등 다른 탭제목에서도 재사용한다.
+/// 셀·리마인드 등 다른 탭제목에서도 재사용한다.
 ///
 /// 상태(검색어)는 상위(Provider 등)가 소유하고, 이 위젯은 [initialValue]로 초기값을
 /// 받아 [onChanged]로만 통지한다(단일 출처 유지).
