@@ -68,6 +68,10 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                     autofocus: true,
                     decoration: InputDecoration(
                       labelText: l10n?.scheduleTitle ?? '일정 제목',
+                      // 라벨은 항상 검은색 — 포커스 시 테마색으로 바뀌지 않게
+                      // labelStyle(기본)과 floatingLabelStyle(포커스/입력 중)을 모두 지정한다.
+                      labelStyle: const TextStyle(color: Colors.black),
+                      floatingLabelStyle: const TextStyle(color: Colors.black),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.title),
                     ),
@@ -184,10 +188,14 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
         children: [
           for (final c in AppColors.scheduleColors)
             Center(
+              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
               child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                width: 34,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: c,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
         ],

@@ -33,7 +33,7 @@ import java.util.Optional;
  *   group : 방장은 항상 가능, 멤버는 allowMemberSchedule 이 켜진 셀에서만
  *   self  : 본인만
  *   user  : 양쪽 다 가능(1:1에는 권한 옵션이 없다)
- *   수정/삭제는 어느 종류든 작성자 본인 또는 (group 한정) 방장.
+ *   수정/삭제는 어느 종류든 일정을 만든 사람만.
  */
 @Slf4j
 @Service
@@ -235,13 +235,9 @@ public class RoomScheduleService {
         return true;
     }
 
-    /** 작성자 본인이면 항상 가능. 그룹 셀은 방장도 가능. */
+    /** 수정/삭제는 일정을 만든 사람만 가능하다(방장도 남의 일정은 건드리지 못한다). */
     private boolean canModify(String memberId, RoomSchedule s) {
         if (memberId.equals(s.getCreatorMemberId())) return true;
-        if (TARGET_GROUP.equals(s.getTargetType()) && s.getRoomId() != null) {
-            StudyRoom room = roomRepository.findById(s.getRoomId()).orElse(null);
-            if (room != null && room.getOwnerMemberId().equals(memberId)) return true;
-        }
         log.info("[RoomScheduleService] 셀 일정 변경 권한 없음 - scheduleId: {}, by: {}", s.getId(), memberId);
         return false;
     }

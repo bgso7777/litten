@@ -155,10 +155,14 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
         children: [
           for (final c in AppColors.scheduleColors)
             Center(
+              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
               child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                width: 34,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: c,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
         ],

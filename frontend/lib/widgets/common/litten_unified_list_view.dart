@@ -458,6 +458,39 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
           });
         }
 
+        // 셀(공유) 일정도 같은 정렬 규칙에 태운다.
+        // 리튼과 함께 '다음 발생 시각' 순으로 섞이도록 정렬 직전에 합류시킨다.
+        // (미분류 리튼은 아래에서 맨 위로 고정되므로 셀 일정은 자연히 그 아래에 온다)
+        final listVisibleNow = widget.listVisible ?? _littenListVisible;
+        final nowForRoom = nowForLanguage(appState.locale.languageCode);
+        if (listVisibleNow && littenId == null) {
+          for (final rs in _roomScheduleRows(appState, hasSelectedDate)) {
+            final d = DateTime.tryParse(rs['date']?.toString() ?? '');
+            if (d == null) continue;
+            final st = (rs['startTime']?.toString() ?? '00:00').split(':');
+            // 반복 일정은 다음 발생 시각으로 정렬·표시한다(알약과 같은 규칙).
+            final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
+            final next = sc != null
+                ? schedule_utils.nextScheduleOccurrence(sc, nowForRoom)
+                : null;
+            final when = next ??
+                DateTime(
+                    d.year,
+                    d.month,
+                    d.day,
+                    int.tryParse(st.isNotEmpty ? st[0] : '0') ?? 0,
+                    int.tryParse(st.length > 1 ? st[1] : '0') ?? 0);
+            littenGroups.add({
+              'type': 'room-schedule',
+              'room': rs,
+              'when': when,
+              // 아직 안 지난 일정은 리튼의 예정 일정과 같은 1순위로 시간순 배치
+              'sortPriority': when.isAfter(nowForRoom) ? 1 : 2,
+              'sortTime': when,
+            });
+          }
+        }
+
         // 우선순위 오름차순, 상단(1)은 빠른 시간 상위(오름차순), 중단·하단은 최신 상위(내림차순)
         littenGroups.sort((a, b) {
           int priorityCompare = (a['sortPriority'] as int).compareTo(b['sortPriority'] as int);
@@ -469,7 +502,9 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         });
 
         // undefined 일정을 항상 최상위로
-        final undefinedIdx = littenGroups.indexWhere((g) => (g['litten'] as Litten).title == 'undefined');
+        final undefinedIdx = littenGroups.indexWhere((g) =>
+            g['type'] != 'room-schedule' &&
+            (g['litten'] as Litten).title == 'undefined');
         if (undefinedIdx > 0) {
           final undefinedGroup = littenGroups.removeAt(undefinedIdx);
           littenGroups.insert(0, undefinedGroup);
@@ -497,8 +532,19 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                 return _buildNotificationSection(appState, selectedDateNotifications);
               }
               final itemIndex = showNotificationSection ? index - 1 : index;
-              if (itemIndex < 0 || itemIndex >= effectiveLittenGroups.length) return const SizedBox.shrink();
+              if (itemIndex < 0 || itemIndex >= effectiveLittenGroups.length) {
+                return const SizedBox.shrink();
+              }
               final group = effectiveLittenGroups[itemIndex];
+
+              // 셀(공유) 일정 행 — 리튼과 같은 목록에 시간순으로 섞여 있다.
+              if (group['type'] == 'room-schedule') {
+                return _buildRoomScheduleTile(
+                    context,
+                    group['room'] as Map<String, dynamic>,
+                    group['when'] as DateTime);
+              }
+
               return _buildLittenGroup(
                 context,
                 appState,
@@ -512,6 +558,35 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
         );
       },
     );
+  }
+
+  /// 목록에 끼워 넣을 셀 일정 행.
+  /// 날짜 선택 상태면 그 날짜에 걸린 일정만, 아니면 아직 지나지 않은 일정을 시간순으로.
+  List<Map<String, dynamic>> _roomScheduleRows(
+      AppStateProvider appState, bool hasSelectedDate) {
+    final rows = <Map<String, dynamic>>[];
+    final now = DateTime.now();
+    final sel = appState.selectedDate;
+    final target = DateTime(sel.year, sel.month, sel.day);
+
+    for (final rs in appState.roomSchedules) {
+      final start = DateTime.tryParse(rs['date']?.toString() ?? '');
+      if (start == null) continue;
+      final startDay = DateTime(start.year, start.month, start.day);
+      final endStr = rs['endDate']?.toString();
+      final end = (endStr != null && endStr.isNotEmpty) ? DateTime.tryParse(endStr) : null;
+      final endDay = end != null ? DateTime(end.year, end.month, end.day) : startDay;
+
+      if (hasSelectedDate) {
+        if (target.isBefore(startDay) || target.isAfter(endDay)) continue;
+      } else {
+        if (endDay.isBefore(DateTime(now.year, now.month, now.day))) continue;
+      }
+      rows.add(rs);
+    }
+    rows.sort((a, b) => '${a['date']}${a['startTime']}'
+        .compareTo('${b['date']}${b['startTime']}'));
+    return rows;
   }
 
   /// 일정의 다음 발생 시각(주간 반복 반영). 공용 유틸에 위임.

@@ -638,7 +638,10 @@ class _ShareSectionState extends State<_ShareSection>
     _scrollChatToBottom = true; // 진입 시 최신(맨 아래)이 보이도록
     // 대화방 상태는 provider 단일 소스 — 진입 시 열린 대화방 key를 설정하면
     // build(watch)가 대화방을 표시하고 하단 칩 바·새 채팅 FAB가 숨겨진다.
-    context.read<AppStateProvider>().setHomeOpenConvKey(key);
+    final app = context.read<AppStateProvider>();
+    app.setHomeOpenConvKey(key);
+    // 셀 일정 카드 갱신 — 다른 멤버가 추가한 일정도 진입 즉시 보이게 한다.
+    app.loadRoomSchedules();
   }
 
   @override
@@ -654,6 +657,9 @@ class _ShareSectionState extends State<_ShareSection>
       app.loadShares();
       app.loadSelfChats();
       app.loadHiddenConvs();
+      // 대화방에 표시할 셀 일정 카드용 — 이걸 안 부르면 캘린더 탭에 들어갔다
+      // 나오기 전까지 roomSchedules 가 비어 있어 카드가 안 보인다.
+      app.loadRoomSchedules();
     });
   }
 
@@ -1602,10 +1608,77 @@ class _ShareSectionState extends State<_ShareSection>
   }
 
   /// 이 셀에 등록된 일정 목록 — 탭하면 수정 창이 열린다(캘린더 목록과 동일 동선).
-  void _showRoomScheduleListSheet(_Conv c, int? groupId, int? selfRoomId,
-      String? peerKey, Color color, AppStateProvider appState) {
+  /// 대화창에 끼워 넣는 셀 일정 카드.
+  /// 탭하면 수정 창이 열리고, 저장하면 멤버 전원의 캘린더·대화창에 함께 반영된다.
+  Widget _roomScheduleCard(Map<String, dynamic> rs, Color color) {
+    final scheduleColor =
+        AppColors.scheduleColor((rs['colorIndex'] as num?)?.toInt());
+    final title = rs['title']?.toString() ?? '';
+    final date = rs['date']?.toString() ?? '';
+    final endDate = rs['endDate']?.toString() ?? '';
+    final start = rs['startTime']?.toString() ?? '';
+    final end = rs['endTime']?.toString() ?? '';
+    String hm(String t) => t.length >= 5 ? t.substring(0, 5) : t;
+    final period = endDate.isEmpty || endDate == date ? date : '$date ~ $endDate';
+    final time = start.isEmpty ? '' : '${hm(start)} ~ ${hm(end)}';
+    final creator = rs['creatorName']?.toString() ?? '';
+    final notes = rs['notes']?.toString() ?? '';
+
+    return Center(
+      child: GestureDetector(
+        onTap: () => showEditRoomScheduleDialog(context, roomSchedule: rs),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: scheduleColor.withValues(alpha: 0.12),
+            border: Border.all(color: scheduleColor.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                Icon(Icons.event, size: 15, color: scheduleColor),
+                const SizedBox(width: 5),
+                Text('일정',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: scheduleColor)),
+                const Spacer(),
+                if (creator.isNotEmpty)
+                  Text(creator,
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              ]),
+              const SizedBox(height: 5),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Text(time.isEmpty ? period : '$period · $time',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              if (notes.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(notes,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 이 셀(_Conv)에 속한 공유 일정만 골라낸다. 대화창 카드와 일정 목록 시트가 함께 쓴다.
+  List<Map<String, dynamic>> _roomSchedulesOfConv(
+      _Conv c, int? groupId, int? selfRoomId, AppStateProvider appState) {
     final targetType = _cellTargetType(c);
-    final mine = appState.roomSchedules.where((rs) {
+    return appState.roomSchedules.where((rs) {
       if (rs['targetType']?.toString() != targetType) return false;
       switch (targetType) {
         case 'group':
@@ -1617,7 +1690,12 @@ class _ShareSectionState extends State<_ShareSection>
           return true;
       }
     }).toList();
-    debugPrint('🎯 [셀] 일정 목록 시트 - type: $targetType, 건수: ${mine.length}');
+  }
+
+  void _showRoomScheduleListSheet(_Conv c, int? groupId, int? selfRoomId,
+      String? peerKey, Color color, AppStateProvider appState) {
+    final mine = _roomSchedulesOfConv(c, groupId, selfRoomId, appState);
+    debugPrint('🎯 [셀] 일정 목록 시트 - 건수: ${mine.length}');
 
     showModalBottomSheet(
       context: context,
@@ -1897,7 +1975,22 @@ class _ShareSectionState extends State<_ShareSection>
     final owned = origName != null ? ownedByName[origName] : null;
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
-    final items = [...c.items]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
+    // 대화 항목 + 이 셀의 공유 일정을 함께 시간순으로 보여준다.
+    // 일정은 메시지로 저장되는 게 아니라 화면에서만 합쳐지므로,
+    // 수정/삭제하면 이 카드도 즉시 따라 바뀐다(별도 정리 불필요).
+    final selfRoomIdForItems = _selfRoomServerId(c, appState);
+    final items = [
+      ...c.items,
+      for (final rs in _roomSchedulesOfConv(c, groupId, selfRoomIdForItems, appState))
+        _ShareItem(
+          received: false,
+          data: {...rs, '__roomSchedule': true},
+          at: DateTime.tryParse(rs['updatedAt']?.toString() ?? '') ??
+              DateTime.tryParse(rs['date']?.toString() ?? '') ??
+              DateTime.now(),
+          group: '',
+        ),
+    ]..sort((a, b) => a.at.compareTo(b.at)); // 오래된→최신(아래로)
     // 진입/전송 직후 맨 아래(최신)로 스크롤 — 렌더 완료 후 1회.
     // [대화] 탭에서만 자동 하단 스크롤 — [자료] 탭엔 _chatScrollCtrl가 붙지 않으므로 가드.
     if (_roomTab == 'chat' && _scrollChatToBottom && items.isNotEmpty) {
@@ -1967,8 +2060,9 @@ class _ShareSectionState extends State<_ShareSection>
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade500)))
                   : RefreshIndicator(
                       onRefresh: () async {
-                        // 위로 당기면 대화 내용(공유+메시지) 새로고침 + 읽음 처리.
+                        // 위로 당기면 대화 내용(공유+메시지+셀 일정) 새로고침 + 읽음 처리.
                         await appState.loadShares();
+                        await appState.loadRoomSchedules();
                         _markConvRead(c.key, c.lastAt);
                       },
                       child: ListView.builder(
@@ -2769,6 +2863,11 @@ class _ShareSectionState extends State<_ShareSection>
     final String? senderLabel = senderLabelBase;
     final bool senderLabelWithdrawn =
         senderLabelBase != null && it.data['senderWithdrawn'] == true;
+    // 셀 공유 일정 카드 — 좌우 말풍선이 아니라 가운데 카드로 구분되게 표시한다.
+    if (it.data['__roomSchedule'] == true) {
+      return _roomScheduleCard(it.data, color);
+    }
+
     // 채팅 메시지 말풍선
     if (it.isMessage) {
       final received = it.received;
@@ -3923,10 +4022,14 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
         children: [
           for (final c in AppColors.scheduleColors)
             Center(
+              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
               child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                width: 34,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: c,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
         ],
@@ -3965,6 +4068,10 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
                         labelText: widget.convLabel.isEmpty
                             ? '일정 제목'
                             : '${widget.convLabel} 일정 제목',
+                        // 라벨은 항상 검은색 — 포커스 시 테마색으로 바뀌지 않게
+                        // labelStyle(기본)과 floatingLabelStyle(포커스/입력 중)을 모두 지정한다.
+                        labelStyle: const TextStyle(color: Colors.black),
+                        floatingLabelStyle: const TextStyle(color: Colors.black),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.title),
                       ),
@@ -4086,6 +4193,20 @@ Future<void> showEditRoomScheduleDialog(
   final scheduleId = (roomSchedule['scheduleId'] as num?)?.toInt();
   if (scheduleId == null) {
     debugPrint('⚠️ [셀] 수정 불가 - scheduleId 없음');
+    return;
+  }
+
+  // 수정·삭제는 일정을 만든 사람만. 서버도 같은 규칙으로 막지만,
+  // 남의 일정을 열어 고치다가 저장에서야 실패하는 헛수고를 막기 위해 먼저 안내한다.
+  final myId = appState.currentUser?.id;
+  final creatorId = roomSchedule['creatorMemberId']?.toString();
+  if (myId == null || creatorId == null || myId != creatorId) {
+    debugPrint('⚠️ [셀] 일정 수정 권한 없음 - my: $myId, creator: $creatorId');
+    final creatorName = roomSchedule['creatorName']?.toString() ?? '';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(creatorName.isEmpty
+            ? '일정을 만든 사람만 수정할 수 있어요.'
+            : '$creatorName 님이 만든 일정이라 수정할 수 없어요.')));
     return;
   }
 

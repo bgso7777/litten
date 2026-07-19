@@ -448,15 +448,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
       // 셀(스터디룸) 공유 일정 — 내가 방장이거나 멤버인 셀의 일정을 같은 목록에 합친다.
       // 개인 일정과 달리 리튼에 종속되지 않으므로 'roomSchedule' 키로 구분한다.
-      for (final rs in appState.roomSchedules) {
-        final dateStr = rs['date']?.toString();
-        if (dateStr == null || dateStr.isEmpty) continue;
-        final d = DateTime.tryParse(dateStr);
+      // 캘린더 점 표시와 같은 판정(_roomSchedulesOn)을 써서 시작~종료일 구간 일정도 포함한다.
+      for (final rs in _roomSchedulesOn(appState, targetDate)) {
+        final d = DateTime.tryParse(rs['date']?.toString() ?? '');
         if (d == null) continue;
-        if (!DateTime(d.year, d.month, d.day).isAtSameMomentAs(targetDate)) continue;
-
         final st = _parseHm(rs['startTime']?.toString());
-        final startDateTime = DateTime(d.year, d.month, d.day, st.$1, st.$2);
+        // 여러 날 일정은 선택한 날짜의 시작 시각으로 정렬되게 한다.
+        final startDateTime = DateTime(
+            targetDate.year, targetDate.month, targetDate.day, st.$1, st.$2);
         schedulesWithLitten.add({
           'roomSchedule': rs,
           'startDateTime': startDateTime,
@@ -554,6 +553,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     });
   }
 
+  /// 마지막으로 목록을 계산한 시점의 셀 일정 서명(id:updatedAt 목록).
+  /// 이 값이 달라지면 목록을 다시 계산한다.
+  String _lastRoomScheduleSig = '';
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin 필수 호출
@@ -562,6 +565,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
     // ⭐ appState는 구독 상태 확인을 위해 listen: true로 변경
     final appState = Provider.of<AppStateProvider>(context);
+
+    // 셀(공유) 일정이 바뀌면 선택 날짜의 일정 목록을 다시 계산한다.
+    // 캘린더의 점/바는 roomSchedules 를 매 프레임 직접 읽어 바로 반영되지만,
+    // 목록·개수는 날짜 선택 시점에 한 번 계산해 저장한 값이라 그대로 두면 셀에서
+    // 일정을 만들어도 목록에 안 나타난다.
+    final roomSig = appState.roomSchedules
+        .map((rs) => '${rs['scheduleId']}:${rs['updatedAt']}')
+        .join(',');
+    if (roomSig != _lastRoomScheduleSig) {
+      _lastRoomScheduleSig = roomSig;
+      debugPrint('🔄 [HomeScreen] 셀 일정 변경 감지 → 선택 날짜 일정 재계산');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _loadNotificationsForSelectedDate(appState.selectedDate, appState);
+        _loadNotificationDates();
+      });
+    }
 
     // ⭐ build가 호출될 때마다 스크롤 위치 복원 시도
     if (_globalScrollOffset != null && _globalScrollOffset! > 0) {
@@ -2294,22 +2314,44 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   /// 다가오는 일정(미래)들을 시작 시각 오름차순으로 수집한다.
   /// 펼친 일정 목록(litten_unified_list_view)과 **동일한** schedule_utils.nextScheduleOccurrence
   /// 로직을 써서, 칩 바와 펼친 목록의 일정 집합이 일치하도록 한다.
+  /// 다가오는 일정 목록 — 개인 일정(리튼)과 셀(공유) 일정을 합쳐서 반환한다.
+  ///
+  /// 반복 일정은 [until] 까지의 **회차를 각각** 담는다(알약 하나 = 발생 1회).
+  /// 하단 알약과 일정 목록이 같은 소스를 쓴다.
   List<({String title, DateTime when, int colorIndex})> _getUpcomingSchedules(
     List<Litten> littens,
     String languageCode, {
+    AppStateProvider? appState,
+    DateTime? until,
     int limit = 50,
   }) {
     final now = nowForLanguage(languageCode);
+    final end = until ?? now.add(const Duration(days: 366));
     final result = <({String title, DateTime when, int colorIndex})>[];
 
     for (final litten in littens) {
       if (litten.schedule == null || litten.title == 'undefined') continue;
-      final next = schedule_utils.nextScheduleOccurrence(litten.schedule!, now);
-      if (next != null && next.isAfter(now)) {
+      for (final when in schedule_utils.scheduleOccurrencesBetween(
+          litten.schedule!, now, end)) {
         result.add((
           title: litten.title,
-          when: next,
+          when: when,
           colorIndex: litten.colorIndex,
+        ));
+      }
+    }
+
+    // 셀(공유) 일정 — 개인 일정과 같은 규칙으로 회차를 펼친다.
+    for (final rs in appState?.roomSchedules ?? const <Map<String, dynamic>>[]) {
+      final title = rs['title']?.toString() ?? '';
+      if (title.isEmpty) continue;
+      final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
+      if (sc == null) continue;
+      for (final when in schedule_utils.scheduleOccurrencesBetween(sc, now, end)) {
+        result.add((
+          title: title,
+          when: when,
+          colorIndex: (rs['colorIndex'] as num?)?.toInt() ?? 0,
         ));
       }
     }
@@ -2395,7 +2437,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final l10n = AppLocalizations.of(context);
     final languageCode = appState.locale.languageCode;
     final now = nowForLanguage(languageCode);
-    final upcoming = _getUpcomingSchedules(appState.littens, languageCode);
+    // 알약은 앞으로 1달 이내의 발생 회차를 각각 보여준다(매주 반복이면 4~5개).
+    // 1달 뒤에도 일정이 남아 있으면 맨 끝에 '…' 알약으로 알린다.
+    final cutoff = now.add(const Duration(days: 31));
+    final upcoming = _getUpcomingSchedules(appState.littens, languageCode,
+        appState: appState, until: cutoff);
+    // 1달 뒤에도 발생이 남았는지 — 회차를 다 펼치지 않고 '첫 발생'만 찾아 확인한다.
+    // (nextScheduleOccurrence 는 첫 일치에서 바로 반환하므로 매 프레임 돌아도 가볍다)
+    bool hasAfterCutoff(LittenSchedule sc) =>
+        schedule_utils.nextScheduleOccurrence(sc, cutoff) != null;
+    final hasMoreBeyondMonth = appState.littens.any((l) =>
+            l.schedule != null &&
+            l.title != 'undefined' &&
+            hasAfterCutoff(l.schedule!)) ||
+        appState.roomSchedules.any((rs) {
+          final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
+          return sc != null && hasAfterCutoff(sc);
+        });
     final color = Theme.of(context).primaryColor;
 
     // 캘린더 탭을 (재)진입하면 토큰이 증가 → 칩 가로 스크롤을 처음으로 되돌린다.
@@ -2439,6 +2497,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             color: AppColors.scheduleColor(s.colorIndex),
             onTap: toggleList,
           ),
+        // 1달 뒤에도 일정이 더 있다는 표시 — 탭하면 전체 목록이 펼쳐진다.
+        if (hasMoreBeyondMonth)
+          _scheduleChip(label: '…', color: color, onTap: toggleList),
       ];
     }
 

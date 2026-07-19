@@ -1479,6 +1479,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.remove(_sharesSentKey);
     await prefs.remove(_shareGroupsKey);
     await prefs.remove(_messagesReceivedKey);
+    await prefs.remove(_roomSchedulesKey);
     await prefs.remove(_messagesSentKey);
     notifyListeners();
     // 서버 기준으로 공유 스터디룸만 새로 로드(새 계정이면 빈 상태). 셀프챗은 기존 로컬 데이터 유지.
@@ -1763,6 +1764,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const String _shareGroupsKey = 'share_groups_cache';
   static const String _messagesReceivedKey = 'messages_received_cache';
   static const String _messagesSentKey = 'messages_sent_cache';
+  static const String _roomSchedulesKey = 'room_schedules_cache';
 
   // 홈 공유 목록 표시 토글: 받은 것/한 것 각각 독립 on/off (제목의 받음/보냄 카운트 아이콘으로 토글)
   // 기본값은 둘 다 켜짐(보임). 한쪽을 끄면 해당 목록만 숨겨진다.
@@ -2452,6 +2454,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       await prefs.setString(_shareGroupsKey, jsonEncode(_shareGroups));
       await prefs.setString(_messagesReceivedKey, jsonEncode(_messagesReceived));
       await prefs.setString(_messagesSentKey, jsonEncode(_messagesSent));
+      await prefs.setString(_roomSchedulesKey, jsonEncode(_roomSchedules));
     } catch (e) {
       debugPrint('[AppStateProvider] _saveSharesCache 실패: $e');
     }
@@ -2475,6 +2478,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     _shareGroups = dec(prefs.getString(_shareGroupsKey));
     _messagesReceived = dec(prefs.getString(_messagesReceivedKey));
     _messagesSent = dec(prefs.getString(_messagesSentKey));
+    _roomSchedules = dec(prefs.getString(_roomSchedulesKey));
   }
 
   /// 받은/보낸 공유 + 그룹 로드 (로그인 시/홈 진입 시).
@@ -2634,7 +2638,26 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get roomSchedules => _roomSchedules;
 
   /// 셀 일정 목록 새로고침. 비로그인이면 빈 목록으로 두고 조용히 넘어간다.
+  /// 셀 일정 로드 — 로컬 캐시를 먼저 보여주고 서버 최신분으로 갱신한다.
+  /// (대화방/캘린더에 들어가자마자 카드가 보이도록. 서버 응답이 같으면 화면을 흔들지 않는다.)
   Future<void> loadRoomSchedules() async {
+    // 1) in-memory가 비었으면 캐시에서 먼저 채워 즉시 표시
+    if (_roomSchedules.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString(_roomSchedulesKey);
+        if (raw != null && raw.isNotEmpty) {
+          _roomSchedules = (jsonDecode(raw) as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          debugPrint('[AppStateProvider] 셀 일정 캐시 표시 - ${_roomSchedules.length}건');
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('[AppStateProvider] 셀 일정 캐시 복원 실패: $e');
+      }
+    }
+
     final token = await _shareToken();
     if (token == null) {
       if (_roomSchedules.isNotEmpty) {
@@ -2643,8 +2666,23 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
       return;
     }
-    _roomSchedules = await _shareApi.getRoomSchedules(token: token);
-    debugPrint('[AppStateProvider] 셀 일정 로드 - ${_roomSchedules.length}건');
+
+    // 2) 서버 최신분 — 내용이 달라졌을 때만 반영/저장
+    final fresh = await _shareApi.getRoomSchedules(token: token);
+    final before = jsonEncode(_roomSchedules);
+    final after = jsonEncode(fresh);
+    if (before == after) {
+      debugPrint('[AppStateProvider] 셀 일정 변경 없음 - ${fresh.length}건');
+      return;
+    }
+    _roomSchedules = fresh;
+    debugPrint('[AppStateProvider] 셀 일정 갱신 - ${fresh.length}건');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_roomSchedulesKey, after);
+    } catch (e) {
+      debugPrint('[AppStateProvider] 셀 일정 캐시 저장 실패: $e');
+    }
     notifyListeners();
   }
 
