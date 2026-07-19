@@ -397,6 +397,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   /// 선택된 날짜의 일정 목록 로드 (알림 설정 여부와 관계없이 모든 일정)
+  /// "HH:mm" / "HH:mm:ss" → (시, 분). 파싱 실패 시 0시 0분.
+  (int, int) _parseHm(String? hm) {
+    if (hm == null || hm.isEmpty) return (0, 0);
+    final parts = hm.split(':');
+    if (parts.length < 2) return (0, 0);
+    return (int.tryParse(parts[0]) ?? 0, int.tryParse(parts[1]) ?? 0);
+  }
+
   Future<void> _loadNotificationsForSelectedDate(DateTime date, AppStateProvider appState) async {
     try {
       debugPrint('📅 _loadNotificationsForSelectedDate 시작: ${DateFormat('yyyy-MM-dd').format(date)}');
@@ -436,6 +444,24 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
           debugPrint('   ✅ 일정 발견: "${litten.title}" - ${DateFormat('HH:mm').format(scheduleStartDateTime)}');
         }
+      }
+
+      // 셀(스터디룸) 공유 일정 — 내가 방장이거나 멤버인 셀의 일정을 같은 목록에 합친다.
+      // 개인 일정과 달리 리튼에 종속되지 않으므로 'roomSchedule' 키로 구분한다.
+      for (final rs in appState.roomSchedules) {
+        final dateStr = rs['date']?.toString();
+        if (dateStr == null || dateStr.isEmpty) continue;
+        final d = DateTime.tryParse(dateStr);
+        if (d == null) continue;
+        if (!DateTime(d.year, d.month, d.day).isAtSameMomentAs(targetDate)) continue;
+
+        final st = _parseHm(rs['startTime']?.toString());
+        final startDateTime = DateTime(d.year, d.month, d.day, st.$1, st.$2);
+        schedulesWithLitten.add({
+          'roomSchedule': rs,
+          'startDateTime': startDateTime,
+        });
+        debugPrint('   ✅ 셀 일정 발견: "${rs['title']}" (${rs['roomName']}) - ${rs['startTime']}');
       }
 
       // 시작 시간순으로 정렬
@@ -861,7 +887,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         defaultDate: currentLitten.createdAt,
         initialSchedule: selectedSchedule,
         onScheduleChanged: onScheduleChanged,
-        showNotificationSettings: false, // 알림 설정은 별도 탭에서
       ),
     );
   }
@@ -1037,7 +1062,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         defaultDate: appState.selectedDate,
         initialSchedule: selectedSchedule,
         onScheduleChanged: onScheduleChanged,
-        showNotificationSettings: false, // 알림 설정은 별도 탭에서
         isCreatingNew: true, // 새로 생성하는 리튼임을 표시
       ),
     );
@@ -1422,35 +1446,66 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   /// - 전체 화면: 등록일(원본 날짜)은 일정 바(_buildScheduleBars)로 표시되므로 점 생략하고,
   ///   미래 반복 발생일에만 점 표시.
   /// - 축소(일정 리스트) 모드: 바가 숨겨지므로 모든 발생일에 점 표시.
-  Widget _chipForDay(List<Litten> littens, DateTime day) {
+  Widget _chipForDay(List<Litten> littens, DateTime day, AppStateProvider appState) {
     final occurring = _littensOccurringOn(littens, day);
-    if (occurring.isEmpty) return const SizedBox.shrink();
+    final roomOccurring = _roomSchedulesOn(appState, day);
+    if (occurring.isEmpty && roomOccurring.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     // 전체 화면: 등록일과 반복 발생일 모두 일정 바(_buildScheduleBars)로 표시되므로 점 미표시.
     // 축소 모드: 바가 숨겨지므로 모든 발생 일정을 점으로.
     if (!_scheduleListVisible) return const SizedBox.shrink();
-    final dotted = occurring;
-    if (dotted.isEmpty) return const SizedBox.shrink();
 
-    // 그날 발생하는 일정(반복 일정 포함) 1개당 점 1개
-    final dotCount = dotted.length;
-    final color = Theme.of(context).primaryColor;
+    final themeColor = Theme.of(context).primaryColor;
+    // 개인 일정은 테마색, 셀 일정은 각자 고른 색으로 점을 찍는다.
+    final dotColors = <Color>[
+      ...List.filled(occurring.length, themeColor),
+      ...roomOccurring.map(
+          (rs) => AppColors.scheduleColor((rs['colorIndex'] as num?)?.toInt())),
+    ];
+    if (dotColors.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.only(top: 2.0, left: 1.0, right: 1.0),
       child: Wrap(
         alignment: WrapAlignment.center,
         spacing: 2,
         runSpacing: 2,
-        children: List.generate(
-          dotCount,
-          (i) => Container(
-            width: 4,
-            height: 4,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-        ),
+        children: [
+          for (final c in dotColors)
+            Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+            ),
+        ],
       ),
     );
+  }
+
+  /// 해당 날짜에 걸린 셀(공유) 일정 — 시작일~종료일 사이면 그날 발생으로 본다.
+  /// 셀 일정은 서버에서 통째로 내려오므로 로컬 반복 계산(_littensOccurringOn)과 별도로 처리한다.
+  List<Map<String, dynamic>> _roomSchedulesOn(AppStateProvider appState, DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    final result = <Map<String, dynamic>>[];
+    for (final rs in appState.roomSchedules) {
+      final startStr = rs['date']?.toString();
+      if (startStr == null || startStr.isEmpty) continue;
+      final start = DateTime.tryParse(startStr);
+      if (start == null) continue;
+      final startDay = DateTime(start.year, start.month, start.day);
+
+      final endStr = rs['endDate']?.toString();
+      final end = (endStr != null && endStr.isNotEmpty) ? DateTime.tryParse(endStr) : null;
+      if (end == null) {
+        if (startDay.isAtSameMomentAs(target)) result.add(rs);
+        continue;
+      }
+      final endDay = DateTime(end.year, end.month, end.day);
+      if (!target.isBefore(startDay) && !target.isAfter(endDay)) result.add(rs);
+    }
+    return result;
   }
 
   /// 칩에 표시할 제목 선택.
@@ -1486,6 +1541,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final schedules = <Map<String, dynamic>>[];
 
     // 제목 → 일정 색 인덱스 맵(일정 바 색 조회용). 같은 제목이면 같은 색.
+    // 제목 → 일정 색 인덱스. 개인 일정과 셀 일정이 함께 들어간다.
     final titleColorIndex = <String, int>{
       for (final l in appState.littens)
         if (l.title != 'undefined' && l.schedule != null)
@@ -1522,6 +1578,39 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       });
 
       debugPrint('📅 일정 추가: ${litten.title}, $startDate ~ $endDate');
+    }
+
+    // 셀(공유) 일정도 같은 규칙으로 바를 그린다.
+    // 개인 일정과 달리 반복 규칙을 로컬에서 계산하지 않고, 서버가 준 시작~종료일 구간만 사용한다.
+    final firstDayOfMonthForRoom = DateTime(focusedYear, focusedMonth, 1);
+    final lastDayOfMonthForRoom = DateTime(focusedYear, focusedMonth + 1, 0);
+    for (final rs in appState.roomSchedules) {
+      final title = rs['title']?.toString() ?? '';
+      if (title.isEmpty) continue;
+      final startStr = rs['date']?.toString();
+      if (startStr == null || startStr.isEmpty) continue;
+      final start = DateTime.tryParse(startStr);
+      if (start == null) continue;
+      final startDate = DateTime(start.year, start.month, start.day);
+
+      final endStr = rs['endDate']?.toString();
+      final endParsed = (endStr != null && endStr.isNotEmpty) ? DateTime.tryParse(endStr) : null;
+      final endDate = endParsed != null
+          ? DateTime(endParsed.year, endParsed.month, endParsed.day)
+          : startDate;
+
+      if (endDate.isBefore(firstDayOfMonthForRoom) || startDate.isAfter(lastDayOfMonthForRoom)) {
+        continue;
+      }
+
+      // 바 색은 제목으로 조회하므로, 셀 일정이 고른 색을 같은 맵에 등록한다.
+      titleColorIndex[title] = (rs['colorIndex'] as num?)?.toInt() ?? 0;
+      schedules.add({
+        'title': title,
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+      debugPrint('📅 셀 일정 바 추가: $title, $startDate ~ $endDate');
     }
 
     // 매주 반복(요일 지정) 일정의 발생일도 등록일과 동일하게 단일일 바로 추가
@@ -2032,7 +2121,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                               ),
                                             ),
                                           ),
-                                          _chipForDay(appState.littens, day),
+                                          _chipForDay(appState.littens, day, appState),
                                         ],
                                       ),
                                     );
@@ -2065,7 +2154,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
-                                      _chipForDay(appState.littens, day),
+                                      _chipForDay(appState.littens, day, appState),
                                     ],
                                   ),
                                 );
@@ -2096,7 +2185,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           ),
                                         ),
                                       ),
-                                      _chipForDay(appState.littens, day),
+                                      _chipForDay(appState.littens, day, appState),
                                     ],
                                   ),
                                 );

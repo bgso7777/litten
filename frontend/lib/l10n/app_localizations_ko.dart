@@ -1282,4 +1282,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get cellGroupManagement => '셀 그룹 관리';
+
+  @override
+  String get allowMemberSchedule => '멤버도 일정을 만들 수 있음';
+
+  @override
+  String get allowMemberScheduleHint => '끄면 방장만 일정을 만들 수 있어요.';
 }

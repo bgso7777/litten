@@ -41,7 +41,8 @@ public class StudyRoomController {
                 members = raw.stream().map(Object::toString).toList();
             }
             Map<String, Object> g = groupService.createGroup(memberId, name, password, members,
-                    asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")));
+                    asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")),
+                    asBool(body.get("allowMemberSchedule")));
             return ok(Map.of("group", g));
         } catch (IllegalArgumentException e) {
             return badRequest(e.getMessage());
@@ -62,7 +63,8 @@ public class StudyRoomController {
         String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
         if (memberId == null) return unauthorized();
         Map<String, Object> g = groupService.updateGroupOptions(memberId, groupId,
-                asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")));
+                asBool(body.get("allowMemberChat")), asBool(body.get("allowMemberFile")),
+                asBool(body.get("allowMemberSchedule")));
         if (g == null) return badRequest("룸을 찾을 수 없거나 권한이 없습니다.");
         return ok(Map.of("group", g));
     }

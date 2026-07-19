@@ -1305,4 +1305,11 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get cellGroupManagement => 'Cell group management';
+
+  @override
+  String get allowMemberSchedule => 'Members can create schedules';
+
+  @override
+  String get allowMemberScheduleHint =>
+      'When off, only the owner can create schedules.';
 }

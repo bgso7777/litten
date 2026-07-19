@@ -459,26 +459,9 @@ class NotificationService extends ChangeNotifier {
         if (timeDiff.inMinutes > 1 || timeDiff.isNegative) continue;
       }
 
-      // 알림 발생 시간 범위 검증 (notificationStartTime ~ notificationEndTime)
-      if (litten.schedule != null) {
-        final schedule = litten.schedule!;
-        if (schedule.notificationStartTime != null || schedule.notificationEndTime != null) {
-          final triggerTimeOfDay = TimeOfDay.fromDateTime(stored.triggerTime);
-          final triggerMinutes = triggerTimeOfDay.hour * 60 + triggerTimeOfDay.minute;
-
-          // 시작 시간 체크
-          if (schedule.notificationStartTime != null) {
-            final startMinutes = schedule.notificationStartTime!.hour * 60 + schedule.notificationStartTime!.minute;
-            if (triggerMinutes < startMinutes) continue;
-          }
-
-          // 종료 시간 체크
-          if (schedule.notificationEndTime != null) {
-            final endMinutes = schedule.notificationEndTime!.hour * 60 + schedule.notificationEndTime!.minute;
-            if (triggerMinutes > endMinutes) continue;
-          }
-        }
-      }
+      // '알림 발생 시간 범위' 기능은 제거됨.
+      // 예전 데이터에 남아 있는 notificationStartTime/EndTime 으로 알림을 걸러내지 않는다
+      // (설정 화면이 없어진 뒤에도 알림이 조용히 막히는 일을 방지).
 
       // StoredNotification을 NotificationEvent로 변환
       final event = NotificationEvent(

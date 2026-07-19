@@ -37,6 +37,9 @@ public class StudyRoom extends BaseEntity implements Serializable {
     @Column(name = "allow_member_file", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '멤버 파일 추가 허용 여부'")
     private Boolean allowMemberFile = false;
 
+    @Column(name = "allow_member_schedule", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '멤버 일정 생성 허용 여부'")
+    private Boolean allowMemberSchedule = false;
+
     @Column(name = "is_deleted", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0 COMMENT '삭제 여부'")
     private Boolean isDeleted = false;
 

@@ -1941,5 +1941,15 @@
   "cellGroupManagement": "Cell group management",
   "@cellGroupManagement": {
     "description": "Title and tooltip of the dialog for managing Cell groups and their members"
+  },
+
+  "allowMemberSchedule": "Members can create schedules",
+  "@allowMemberSchedule": {
+    "description": "Permission toggle letting members add schedules to the Cell"
+  },
+
+  "allowMemberScheduleHint": "When off, only the owner can create schedules.",
+  "@allowMemberScheduleHint": {
+    "description": "Subtitle explaining the member schedule permission"
   }
 }

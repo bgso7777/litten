@@ -10,6 +10,9 @@ public interface StudyRoomMemberRepository extends JpaRepository<StudyRoomMember
     List<StudyRoomMember> findByRoomIdAndIsDeletedFalseOrderByIdAsc(Long roomId);
 
     Optional<StudyRoomMember> findByRoomIdAndMemberId(Long roomId, String memberId);
+
+    // 내가 멤버로 속한 룸 목록 — 셀 일정을 캘린더에 합쳐 보여줄 때 사용
+    List<StudyRoomMember> findByMemberIdAndIsDeletedFalse(String memberId);
     // 회원 탈퇴 — 회원의 룸 멤버십 전체 삭제
     @org.springframework.transaction.annotation.Transactional
     void deleteByMemberId(String memberId);

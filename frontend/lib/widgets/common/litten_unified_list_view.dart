@@ -10,6 +10,7 @@ import '../../models/audio_file.dart';
 import '../../models/handwriting_file.dart';
 import '../../models/litten.dart';
 import '../../models/text_file.dart';
+import '../../screens/home_dashboard_screen.dart' show showEditRoomScheduleDialog;
 import '../../services/app_state_provider.dart';
 import '../../services/notification_storage_service.dart';
 import '../../utils/schedule_utils.dart' as schedule_utils;
@@ -522,6 +523,52 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
   String? _remainingLabel(DateTime start, DateTime now) =>
       schedule_utils.remainingLabel(start, now);
 
+  /// 셀 공유 일정 타일 — 개인 일정과 구분되도록 육각형 아이콘과 셀 이름을 함께 보여준다.
+  /// 리튼에 연결되지 않으므로 탭해도 리튼을 선택하지 않는다.
+  Widget _buildRoomScheduleTile(
+      BuildContext context, Map<String, dynamic> rs, DateTime startDateTime) {
+    final isPast = startDateTime.isBefore(DateTime.now());
+    final fg = isPast ? Colors.grey.shade600 : Colors.black87;
+    final sub = isPast ? Colors.grey.shade500 : Colors.grey.shade700;
+    // 일정을 만들 때 고른 색 — 멤버 전원이 같은 색으로 본다.
+    final scheduleColor =
+        AppColors.scheduleColor((rs['colorIndex'] as num?)?.toInt());
+
+    final start = DateFormat('HH:mm').format(startDateTime);
+    final end = (rs['endTime']?.toString() ?? '');
+    final timeRange = end.isEmpty ? start : '$start - ${end.substring(0, end.length >= 5 ? 5 : end.length)}';
+    final roomName = rs['roomName']?.toString() ?? '';
+    final creator = rs['creatorName']?.toString() ?? '';
+    final notes = rs['notes']?.toString() ?? '';
+
+    return ListTile(
+      // 탭하면 수정 창(캘린더 일정 등록 창과 같은 SchedulePicker)이 열린다.
+      // 권한(작성자/방장)은 서버가 검증하고, 저장하면 멤버 전원에게 반영된다.
+      onTap: () => showEditRoomScheduleDialog(context, roomSchedule: rs),
+      leading: Icon(Icons.hexagon, color: scheduleColor, size: 24),
+      title: Text(rs['title']?.toString() ?? '',
+          style: TextStyle(fontWeight: FontWeight.w600, color: fg)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            roomName.isEmpty ? timeRange : '$roomName · $timeRange',
+            style: TextStyle(fontSize: 12, color: sub),
+          ),
+          if (notes.isNotEmpty)
+            Text(notes,
+                style: TextStyle(fontSize: 12, color: sub),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+      trailing: creator.isEmpty
+          ? null
+          : Text(creator,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+      dense: true,
+    );
+  }
+
   Widget _buildNotificationSection(AppStateProvider appState, List<dynamic> selectedDateNotifications) {
     final selectedDate = appState.selectedDate;
     return Container(
@@ -570,6 +617,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
             separatorBuilder: (context, index) => Divider(height: 1, color: Colors.blue.shade100),
             itemBuilder: (context, index) {
               final item = selectedDateNotifications[index];
+              // 셀(스터디룸) 공유 일정 — 리튼에 종속되지 않아 별도 타일로 그린다.
+              if (item['roomSchedule'] != null) {
+                return _buildRoomScheduleTile(
+                    context,
+                    Map<String, dynamic>.from(item['roomSchedule'] as Map),
+                    item['startDateTime'] as DateTime);
+              }
               final litten = item['litten'] as Litten;
               final schedule = item['schedule'] as LittenSchedule;
               final startDateTime = item['startDateTime'] as DateTime;

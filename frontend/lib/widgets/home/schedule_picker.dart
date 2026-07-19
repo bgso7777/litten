@@ -9,7 +9,6 @@ class SchedulePicker extends StatefulWidget {
   final LittenSchedule? initialSchedule;
   final Function(LittenSchedule?) onScheduleChanged;
   final DateTime? defaultDate;
-  final bool showNotificationSettings;
   final bool isCreatingNew; // 새로 생성하는 리튼인지 구분
 
   const SchedulePicker({
@@ -17,7 +16,6 @@ class SchedulePicker extends StatefulWidget {
     this.initialSchedule,
     required this.onScheduleChanged,
     this.defaultDate,
-    this.showNotificationSettings = true,
     this.isCreatingNew = false,
   });
 
@@ -33,8 +31,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
   TimeOfDay _endTime = const TimeOfDay(hour: 10, minute: 0);
   final TextEditingController _notesController = TextEditingController();
   List<NotificationRule> _notificationRules = [];
-  TimeOfDay? _notificationStartTime; // 알림 시작 시간 (from)
-  TimeOfDay? _notificationEndTime;   // 알림 종료 시간 (to), null이면 제한 없음
 
   @override
   void initState() {
@@ -49,8 +45,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
       _endTime = widget.initialSchedule!.endTime;
       _notesController.text = widget.initialSchedule!.notes ?? '';
       _notificationRules = List.from(widget.initialSchedule!.notificationRules);
-      _notificationStartTime = widget.initialSchedule!.notificationStartTime;
-      _notificationEndTime = widget.initialSchedule!.notificationEndTime;
     } else {
       _selectedDate = widget.defaultDate ?? DateTime.now();
     }
@@ -97,8 +91,10 @@ class _SchedulePickerState extends State<SchedulePicker> {
         endTime: _endTime,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
         notificationRules: _notificationRules,
-        notificationStartTime: _notificationStartTime,
-        notificationEndTime: _notificationEndTime,
+        // '알림 발생 시간 범위' 기능은 제거됨. 저장할 때마다 비워
+        // 예전에 설정해 둔 값이 남아 알림을 막는 일이 없게 한다.
+        notificationStartTime: null,
+        notificationEndTime: null,
       );
 
       widget.onScheduleChanged(schedule);
@@ -344,125 +340,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
             maxLines: 1,
             onChanged: (_) => _updateSchedule(),
           ),
-          if (widget.showNotificationSettings) ...[
-            const SizedBox(height: 16),
-            // 알림 시간 범위 설정
-            Text(
-              '알림 발생 시간 범위',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TimePickerScroll(
-                    key: const ValueKey('notification_start_time'),
-                    initialTime: _notificationStartTime ?? const TimeOfDay(hour: 0, minute: 0),
-                    label: '시작 (From)',
-                    onTimeChanged: (time) {
-                      setState(() {
-                        _notificationStartTime = time;
-                      });
-                      _updateSchedule();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TimePickerScroll(
-                    key: const ValueKey('notification_end_time'),
-                    initialTime: _notificationEndTime ?? const TimeOfDay(hour: 23, minute: 55),
-                    label: '종료 (To)',
-                    onTimeChanged: (time) {
-                      setState(() {
-                        _notificationEndTime = time;
-                      });
-                      _updateSchedule();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _notificationStartTime = null;
-                      });
-                      _updateSchedule();
-                    },
-                    icon: const Icon(Icons.clear, size: 16),
-                    label: const Text('시작 제한 없음', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _notificationEndTime = null;
-                      });
-                      _updateSchedule();
-                    },
-                    icon: const Icon(Icons.clear, size: 16),
-                    label: const Text('종료 제한 없음', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _notificationStartTime == null && _notificationEndTime == null
-                          ? '알림이 하루 종일 발생합니다'
-                          : _notificationStartTime != null && _notificationEndTime == null
-                              ? '${_notificationStartTime!.format(context)}부터 알림 발생'
-                              : _notificationStartTime == null && _notificationEndTime != null
-                                  ? '${_notificationEndTime!.format(context)}까지 알림 발생'
-                                  : '${_notificationStartTime!.format(context)} ~ ${_notificationEndTime!.format(context)} 사이 알림 발생',
-                      style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 알림 설정
-            NotificationSettings(
-              initialRules: _notificationRules,
-              scheduleDate: _selectedDate, // 일정 시작일자 전달
-              onRulesChanged: (rules) {
-                setState(() {
-                  _notificationRules = rules;
-                });
-                _updateSchedule();
-              },
-            ),
-          ],
       ],
     );
   }

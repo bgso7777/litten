@@ -17,6 +17,11 @@ import '../widgets/shared_snapshot_viewer.dart';
 import '../widgets/common/tab_count_title.dart';
 import '../widgets/common/tab_title_search.dart';
 import '../widgets/common/record_memo_icon.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import '../config/themes.dart';
+import '../widgets/home/notification_settings.dart';
+import '../widgets/home/schedule_picker.dart';
 
 /// 홈 탭 — 대시보드.
 /// 최근/최신 일정, 미완료 퀴즈 갯수, 공유한 것/공유 받은 것(이번엔 UI 자리만).
@@ -1459,24 +1464,274 @@ class _ShareSectionState extends State<_ShareSection>
     return result > 0 ? result : 2;
   }
 
+  /// 말풍선 하나를 클립보드로 복사(길게 누르기).
+  void _copyMessage(String content) {
+    if (content.trim().isEmpty) return;
+    debugPrint('🎯 [셀] 메시지 복사 - ${content.length}자');
+    Clipboard.setData(ClipboardData(text: content));
+    _cellSnack('메시지를 복사했습니다.');
+  }
+
+  /// 대화 내용 전체를 텍스트로 복사.
+  ///
+  /// 형식: "[MM/dd HH:mm] 보낸사람: 내용" 한 줄씩, 시간순.
+  /// 파일 공유 항목은 파일명을 대괄호로 표기해 대화 흐름이 끊기지 않게 한다.
+  void _copyConversation(_Conv c, List<_ShareItem> items) {
+    final buf = StringBuffer();
+    buf.writeln(c.label);
+    buf.writeln('─' * 20);
+
+    String two(int v) => v.toString().padLeft(2, '0');
+    for (final it in items) {
+      final t = '${two(it.at.month)}/${two(it.at.day)} ${two(it.at.hour)}:${two(it.at.minute)}';
+      // 보낸 사람 — 내가 보낸 것은 '나', 받은 것은 발신자 이름(없으면 상대 표시명).
+      final sender = it.received
+          ? ((it.data['senderName']?.toString().trim().isNotEmpty ?? false)
+              ? it.data['senderName'].toString()
+              : (it.data['senderMemberId']?.toString() ?? c.label))
+          : '나';
+      if (it.isMessage) {
+        final content = it.data['content']?.toString() ?? '';
+        buf.writeln('[$t] $sender: $content');
+      } else {
+        final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
+        buf.writeln('[$t] $sender: [파일] $fname');
+      }
+    }
+
+    final text = buf.toString();
+    debugPrint('🎯 [셀] 대화 전체 복사 - ${items.length}건, ${text.length}자');
+    Clipboard.setData(ClipboardData(text: text));
+    _cellSnack('대화 내용 ${items.length}건을 복사했습니다.');
+  }
+
+  /// 바텀시트/다이얼로그를 막 닫은 직후에도 안전한 스낵바.
+  ///
+  /// 닫히는 중인 라우트의 context 로 ScaffoldMessenger.of(context) 를 부르면
+  /// 해제 중인 InheritedElement 에 의존성이 등록돼
+  /// 'framework.dart: _dependents.isEmpty is not true' 어서션이 터진다.
+  /// 다음 프레임까지 미뤄 트리 정리가 끝난 뒤에 조회한다.
+  void _cellSnack(String message) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    });
+  }
+
+  /// 셀 종류 판별 — 서버 targetType 과 같은 값('group'/'self'/'user').
+  String _cellTargetType(_Conv c) {
+    if (c.isSelf) return 'self';
+    if (c.isGroup) return 'group';
+    return 'user';
+  }
+
+  /// 나만의 셀의 서버 ID(note_self_study_room.id). 아직 서버에 올라가지 않았으면 null.
+  int? _selfRoomServerId(_Conv c, AppStateProvider appState) {
+    if (!c.isSelf) return null;
+    final localId = c.key.substring(5); // 'self:' 제거
+    for (final room in appState.selfChats) {
+      if (room['id']?.toString() == localId) {
+        return (room['serverId'] as num?)?.toInt();
+      }
+    }
+    return null;
+  }
+
+  /// 셀의 "+" — 파일을 추가할지 일정을 만들지 고른다.
+  /// 일정은 셀 종류에 따라 공유 범위가 다르다:
+  ///   그룹 셀 → 방장·멤버 전원 / 1:1 셀 → 나와 상대 / 나만의 셀 → 나만
+  void _showAddSheet(_Conv c, int? groupId, Color color, AppStateProvider appState) {
+    debugPrint('🎯 [셀] + 버튼 클릭 - 추가 항목 선택 시트 (type: ${_cellTargetType(c)})');
+    final selfRoomId = _selfRoomServerId(c, appState);
+    final peerKey = c.isSelf || c.isGroup ? null : (c.email ?? c.key.substring(2));
+    final shareLabel = c.isSelf
+        ? '나만의 캘린더에 등록돼요.'
+        : (c.isGroup
+            ? '나와 셀 멤버의 캘린더에 함께 등록돼요.'
+            : '나와 상대의 캘린더에 함께 등록돼요.');
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.insert_drive_file_outlined, color: color),
+              title: const Text('파일 추가'),
+              subtitle: const Text('내 리튼의 파일을 이 셀에 공유해요.',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showFileShareSheet(c, groupId, appState);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.event_outlined, color: color),
+              title: const Text('일정 추가'),
+              subtitle: Text(shareLabel, style: const TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                // 시트가 완전히 닫힌 다음 프레임에 연다.
+                // 같은 프레임에서 열면 해제 중인 라우트의 InheritedElement 를 건드려
+                // '_dependents.isEmpty' 어서션이 날 수 있다.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _showCreateRoomScheduleDialog(c, groupId, color, appState);
+                });
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.event_note_outlined, color: color),
+              title: const Text('일정 보기·수정'),
+              subtitle: const Text('이 셀에 등록된 일정을 확인하고 고쳐요.',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _showRoomScheduleListSheet(c, groupId, selfRoomId, peerKey, color, appState);
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 이 셀에 등록된 일정 목록 — 탭하면 수정 창이 열린다(캘린더 목록과 동일 동선).
+  void _showRoomScheduleListSheet(_Conv c, int? groupId, int? selfRoomId,
+      String? peerKey, Color color, AppStateProvider appState) {
+    final targetType = _cellTargetType(c);
+    final mine = appState.roomSchedules.where((rs) {
+      if (rs['targetType']?.toString() != targetType) return false;
+      switch (targetType) {
+        case 'group':
+          return (rs['roomId'] as num?)?.toInt() == groupId;
+        case 'self':
+          return (rs['selfRoomId'] as num?)?.toInt() == selfRoomId;
+        default:
+          // 1:1 — 내가 만든 것과 상대가 만든 것 모두 이 대화방의 일정이다.
+          return true;
+      }
+    }).toList();
+    debugPrint('🎯 [셀] 일정 목록 시트 - type: $targetType, 건수: ${mine.length}');
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: mine.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('등록된 일정이 없습니다.', textAlign: TextAlign.center),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: mine.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final rs = mine[i];
+                  final start = rs['startTime']?.toString() ?? '';
+                  return ListTile(
+                    leading: Icon(Icons.hexagon_outlined, color: color),
+                    title: Text(rs['title']?.toString() ?? ''),
+                    subtitle: Text(
+                        '${rs['date'] ?? ''} $start',
+                        style: const TextStyle(fontSize: 12)),
+                    trailing: Text(rs['creatorName']?.toString() ?? '',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        showEditRoomScheduleDialog(context, roomSchedule: rs);
+                      });
+                    },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  /// 셀 일정 만들기 — 제목·날짜·시작/종료 시각·메모.
+  /// 권한(멤버 일정 생성 허용)은 서버가 검증하므로, 실패 시 사유를 그대로 보여준다.
+  Future<void> _showCreateRoomScheduleDialog(
+      _Conv c, int? groupId, Color color, AppStateProvider appState) async {
+    final targetType = _cellTargetType(c);
+    final selfRoomId = _selfRoomServerId(c, appState);
+    // 1:1은 전용 룸이 없어 상대 식별자(이메일/닉네임)로 지정한다.
+    final peerKey = c.isSelf || c.isGroup ? null : (c.email ?? c.key.substring(2));
+    debugPrint('🎯 [셀] 일정 추가 다이얼로그 진입 - type: $targetType, '
+        'groupId: $groupId, selfRoomId: $selfRoomId, peerKey: $peerKey');
+
+    // 서버에 아직 올라가지 않은 나만의 셀은 일정을 붙일 대상이 없다.
+    if (targetType == 'self' && selfRoomId == null) {
+      debugPrint('⚠️ [셀] 나만의 셀 serverId 없음 — 일정 생성 불가');
+      _cellSnack('이 셀이 서버에 동기화된 뒤에 일정을 만들 수 있어요.');
+      return;
+    }
+    if (targetType == 'group' && groupId == null) {
+      debugPrint('⚠️ [셀] groupId 없음 — 일정 생성 불가');
+      _cellSnack('셀 정보를 찾지 못했습니다.');
+      return;
+    }
+    final resultMessage = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _RoomScheduleDialog(
+        convLabel: c.label,
+        color: color,
+        onSubmit: (title, sc, colorIndex) => appState.createRoomSchedule(
+          colorIndex: colorIndex,
+          targetType: targetType,
+          roomId: groupId,
+          selfRoomId: selfRoomId,
+          peerKey: peerKey,
+          title: title,
+          date: _fmtDate(sc.date),
+          endDate: sc.endDate != null ? _fmtDate(sc.endDate!) : null,
+          startTime: _fmtTime(sc.startTime),
+          endTime: _fmtTime(sc.endTime),
+          notes: sc.notes,
+          notificationRules:
+              jsonEncode(sc.notificationRules.map((r) => r.toJson()).toList()),
+          notificationStartTime: sc.notificationStartTime != null
+              ? _fmtTime(sc.notificationStartTime!)
+              : null,
+          notificationEndTime: sc.notificationEndTime != null
+              ? _fmtTime(sc.notificationEndTime!)
+              : null,
+        ),
+      ),
+    );
+    if (resultMessage != null) _cellSnack(resultMessage);
+  }
+
+  /// 서버 전송용 포맷 — LittenSchedule.toJson 과 동일 규칙(타임존 비의존).
+  static String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  static String _fmtTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
   /// 참여자 아바타 — 인원수만큼(1~5명, 5명 이상은 5명) 사람 아이콘을 가로로 겹쳐 보여준다.
   /// 1명은 단독으로 크게 표시한다.
+  /// 배경은 셀을 상징하는 육각형(Icons.hexagon과 같은 모양).
   Widget _peopleAvatar(int count, Color color, bool owned, {bool mine = false}) {
     final n = count.clamp(1, 5);
     final Widget avatar;
     if (n == 1) {
-      avatar = CircleAvatar(
-        radius: 20,
-        backgroundColor: color.withValues(alpha: mine ? 0.2 : 0.12),
+      avatar = _HexAvatar(
+        background: color.withValues(alpha: mine ? 0.2 : 0.12),
         child: Icon(Icons.person, color: color, size: 22),
       );
     } else {
       const s = 15.0;    // 개별 사람 아이콘 크기
       const step = 8.0;  // 겹침 간격
       final w = s + (n - 1) * step;
-      avatar = CircleAvatar(
-        radius: 20,
-        backgroundColor: color.withValues(alpha: (owned || mine) ? 0.2 : 0.12),
+      avatar = _HexAvatar(
+        background: color.withValues(alpha: (owned || mine) ? 0.2 : 0.12),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: SizedBox(
@@ -1678,6 +1933,14 @@ class _ShareSectionState extends State<_ShareSection>
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             const SizedBox(width: 6),
+            // 대화 내용을 텍스트로 복사 — 메시지가 있을 때만 노출.
+            if (items.any((it) => it.isMessage))
+              IconButton(
+                icon: const Icon(Icons.copy_all_outlined),
+                color: color,
+                tooltip: '대화 내용 복사',
+                onPressed: () => _copyConversation(c, items),
+              ),
             // 우측은 멤버 관리 버튼 하나만 — 장식용 아바타는 중복이라 제거했다.
             if (c.isGroup && owned != null)
               IconButton(
@@ -1938,11 +2201,13 @@ class _ShareSectionState extends State<_ShareSection>
           border: Border(top: BorderSide(color: color.withValues(alpha: 0.15))),
         ),
         child: Row(children: [
-          // 파일 추가/공유 — 전체 파일 목록에서 골라 이 대화에 추가(나와의 대화는 로컬 첨부).
+          // 파일 추가/공유 또는 일정 만들기.
+          // 그룹 셀에서는 무엇을 추가할지 먼저 고르게 하고,
+          // 1:1·나와의 대화는 일정 개념이 없으므로 종전대로 곧바로 파일 시트를 연다.
           IconButton(
             icon: Icon(Icons.add_circle_outline, color: color),
             tooltip: c.isSelf ? '파일 추가' : '파일 공유',
-            onPressed: () => _showFileShareSheet(c, groupId, appState),
+            onPressed: () => _showAddSheet(c, groupId, color, appState),
           ),
           Expanded(
             // Enter → 줄바꿈(다음 줄). 전송은 오른쪽 전송 버튼으로.
@@ -2511,7 +2776,10 @@ class _ShareSectionState extends State<_ShareSection>
       final url = _firstUrl(content); // URL 포함 시 하단에 미리보기 카드
       return Align(
         alignment: received ? Alignment.centerLeft : Alignment.centerRight,
-        child: Container(
+        // 길게 누르면 이 메시지 하나만 클립보드로 복사.
+        child: GestureDetector(
+          onLongPress: () => _copyMessage(content),
+          child: Container(
           constraints: const BoxConstraints(maxWidth: 280),
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2550,6 +2818,7 @@ class _ShareSectionState extends State<_ShareSection>
               Text(_shareWhen(it.data['sentAt']),
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
             ],
+          ),
           ),
         ),
       );
@@ -3461,4 +3730,435 @@ class _NewChatOneToOneTabState extends State<_NewChatOneToOneTab> {
       ),
     );
   }
+}
+
+/// 셀 아바타 배경 — Icons.hexagon 과 같은 육각형 모양으로 잘라낸다.
+/// 대화 목록의 참여자 아바타가 셀(육각형)임을 시각적으로 드러내기 위해 사용.
+class _HexAvatar extends StatelessWidget {
+  const _HexAvatar({required this.background, required this.child, this.size = 40});
+
+  final Color background;
+  final Widget child;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: _HexagonClipper(),
+      child: Container(
+        width: size,
+        height: size,
+        color: background,
+        alignment: Alignment.center,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// 정육각형 클리퍼 — 좌우가 뾰족하고 위아래가 평평한 형태(Icons.hexagon 과 동일).
+class _HexagonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = math.min(size.width, size.height) / 2;
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = math.pi / 3 * i;
+      final x = cx + r * math.cos(angle);
+      final y = cy + r * math.sin(angle);
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// 셀 일정 입력 다이얼로그 — 캘린더의 일정 등록 창과 같은 SchedulePicker 를 그대로 쓴다.
+///
+/// 생성/수정 겸용. 수정 시 initialSchedule 로 기존 값을 채우고 삭제 버튼을 노출한다.
+/// 컨트롤러는 이 위젯이 소유하고 State.dispose 에서 정리한다 — 호출부에서 만들어
+/// showDialog 반환 직후 dispose 하면 닫히는 애니메이션 중인 TextField 가
+/// 죽은 컨트롤러를 참조해 '_dependents.isEmpty' 어서션이 난다.
+class _RoomScheduleDialog extends StatefulWidget {
+  const _RoomScheduleDialog({
+    required this.convLabel,
+    required this.color,
+    required this.onSubmit,
+    this.initialTitle,
+    this.initialSchedule,
+    this.initialColorIndex,
+    this.onDelete,
+  });
+
+  final String convLabel;
+  final Color color;
+  final String? initialTitle;
+  final LittenSchedule? initialSchedule;
+  final int? initialColorIndex;
+
+  /// (제목, 일정, 색상 인덱스) → 실패 사유 or null(성공)
+  final Future<String?> Function(String, LittenSchedule, int) onSubmit;
+
+  /// 수정 모드에서만 제공. → 실패 사유 or null(성공)
+  final Future<String?> Function()? onDelete;
+
+  bool get isEdit => initialSchedule != null;
+
+  @override
+  State<_RoomScheduleDialog> createState() => _RoomScheduleDialogState();
+}
+
+class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
+  late final TextEditingController _titleCtrl =
+      TextEditingController(text: widget.initialTitle ?? '');
+  late LittenSchedule? _schedule = widget.initialSchedule;
+  late int _colorIndex = widget.initialColorIndex ?? AppColors.defaultScheduleColorIndex;
+  int _tabIndex = 0;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('일정 제목을 입력하세요.')));
+      return;
+    }
+    final schedule = _schedule;
+    if (schedule == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('일정 날짜와 시간을 설정하세요.')));
+      return;
+    }
+    setState(() => _saving = true);
+    debugPrint('🎯 [셀] 일정 저장 요청 - edit: ${widget.isEdit}, title: $title, color: $_colorIndex');
+    final err = await widget.onSubmit(title, schedule, _colorIndex);
+    if (!mounted) return;
+    Navigator.pop(context,
+        err ?? (widget.isEdit ? '일정이 수정되었습니다.' : '일정이 등록되었습니다.'));
+  }
+
+  Future<void> _delete() async {
+    final onDelete = widget.onDelete;
+    if (onDelete == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('일정 삭제', style: TextStyle(fontSize: 16)),
+        content: const Text('이 일정을 삭제할까요?\n셀 멤버 모두의 캘린더에서 사라집니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    final err = await onDelete();
+    if (!mounted) return;
+    Navigator.pop(context, err ?? '일정이 삭제되었습니다.');
+  }
+
+  /// 탭 한 칸 — 캘린더 일정 등록 창과 같은 형태.
+  /// 체크박스로 해당 탭의 입력이 채워졌는지 알려주고, 활성 탭은 배경 박스로 표시한다.
+  Widget _buildTab({
+    required bool isActive,
+    required bool checked,
+    required IconData icon,
+    required String label,
+  }) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Tab(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+          border: Border.all(
+            color: isActive ? primaryColor.withValues(alpha: 0.3) : Colors.transparent,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(checked ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 16,
+                color: checked ? primaryColor : Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Icon(icon, size: 16),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 일정 색 선택기 — 캘린더의 리튼 생성 창과 같은 세로 롤링 방식.
+  Widget _buildColorPicker() {
+    return SizedBox(
+      width: 40,
+      height: 78, // itemExtent 26 × 3칸
+      child: CupertinoPicker(
+        itemExtent: 26,
+        looping: true,
+        scrollController: FixedExtentScrollController(initialItem: _colorIndex),
+        onSelectedItemChanged: (i) {
+          final n = AppColors.scheduleColors.length;
+          setState(() => _colorIndex = ((i % n) + n) % n);
+        },
+        children: [
+          for (final c in AppColors.scheduleColors)
+            Center(
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSchedule = _schedule != null;
+    return AlertDialog(
+      // 제목 줄은 두지 않는다 — 캘린더의 일정 등록 창과 같은 형태로 맞춤
+      // (제목 대신 입력란 라벨에 셀 이름이 들어간다).
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        // 캘린더 일정 등록 창과 동일한 높이
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: DefaultTabController(
+          length: 2,
+          initialIndex: _tabIndex,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 제목 + 색 선택 — 캘린더 창과 같은 구성.
+              // 라벨에 셀 이름을 붙여 어느 셀의 일정인지 바로 알 수 있게 한다.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _titleCtrl,
+                      autofocus: !widget.isEdit,
+                      // 캘린더 일정 등록 창과 동일한 입력란 구성(제목 아이콘 + 굵은 글씨).
+                      decoration: InputDecoration(
+                        labelText: widget.convLabel.isEmpty
+                            ? '일정 제목'
+                            : '${widget.convLabel} 일정 제목',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.title),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildColorPicker(),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 일정추가 / 알림설정 — 캘린더 일정 등록 창과 동일한 2탭 구성.
+              TabBar(
+                indicator: const BoxDecoration(), // 기본 밑줄 제거(활성 표시는 배경 박스로)
+                labelPadding: EdgeInsets.zero,
+                onTap: (i) => setState(() => _tabIndex = i),
+                tabs: [
+                  _buildTab(
+                    isActive: _tabIndex == 0,
+                    checked: hasSchedule,
+                    icon: Icons.schedule,
+                    label: '일정추가',
+                  ),
+                  _buildTab(
+                    isActive: _tabIndex == 1,
+                    checked: _schedule?.notificationRules.isNotEmpty == true,
+                    icon: Icons.notifications,
+                    label: '알림설정',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: TabBarView(
+                  physics: hasSchedule ? null : const NeverScrollableScrollPhysics(),
+                  children: [
+                    SingleChildScrollView(
+                      child: SchedulePicker(
+                        initialSchedule: widget.initialSchedule,
+                        isCreatingNew: !widget.isEdit,
+                        onScheduleChanged: (sc) => setState(() => _schedule = sc),
+                      ),
+                    ),
+                    hasSchedule
+                        ? SingleChildScrollView(
+                            child: NotificationSettings(
+                              initialRules: _schedule!.notificationRules,
+                              scheduleDate: _schedule!.date,
+                              onRulesChanged: (rules) {
+                                setState(() {
+                                  _schedule = LittenSchedule(
+                                    date: _schedule!.date,
+                                    endDate: _schedule!.endDate,
+                                    startTime: _schedule!.startTime,
+                                    endTime: _schedule!.endTime,
+                                    notes: _schedule!.notes,
+                                    notificationRules: rules,
+                                  );
+                                });
+                              },
+                            ),
+                          )
+                        : const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text('먼저 [일정추가] 탭에서 날짜와 시간을 정해 주세요.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        if (widget.onDelete != null)
+          TextButton(
+            onPressed: _saving ? null : _delete,
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        TextButton(
+            onPressed: _saving ? null : () => Navigator.pop(context),
+            child: const Text('취소')),
+        ElevatedButton(
+          onPressed: _saving ? null : _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(widget.isEdit ? '저장' : '추가'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 셀 일정 수정/삭제 다이얼로그 — 캘린더 목록과 셀 대화방 양쪽에서 공용으로 쓴다.
+///
+/// 셀 일정은 셀당 1행이라 저장하는 순간 멤버 전원의 캘린더에 그대로 반영된다
+/// (멤버별 복제본이 없어 별도 전파가 필요 없다).
+/// 서버가 작성자/방장 권한을 검증하므로 실패 시 사유를 그대로 보여준다.
+Future<void> showEditRoomScheduleDialog(
+  BuildContext context, {
+  required Map<String, dynamic> roomSchedule,
+}) async {
+  final appState = Provider.of<AppStateProvider>(context, listen: false);
+  final scheduleId = (roomSchedule['scheduleId'] as num?)?.toInt();
+  if (scheduleId == null) {
+    debugPrint('⚠️ [셀] 수정 불가 - scheduleId 없음');
+    return;
+  }
+
+  // 서버 페이로드 → LittenSchedule (SchedulePicker 가 쓰는 모델)
+  LittenSchedule? initial;
+  try {
+    final rulesRaw = roomSchedule['notificationRules'];
+    final rules = (rulesRaw is String && rulesRaw.isNotEmpty)
+        ? jsonDecode(rulesRaw) as List<dynamic>
+        : const <dynamic>[];
+    initial = LittenSchedule.fromJson({
+      'date': roomSchedule['date'],
+      'endDate': roomSchedule['endDate'],
+      'startTime': roomSchedule['startTime'],
+      'endTime': roomSchedule['endTime'],
+      'notes': roomSchedule['notes'],
+      'notificationRules': rules,
+      'notificationStartTime': roomSchedule['notificationStartTime'],
+      'notificationEndTime': roomSchedule['notificationEndTime'],
+    });
+  } catch (e) {
+    debugPrint('⚠️ [셀] 일정 파싱 실패: $e');
+    return;
+  }
+
+  final color = Theme.of(context).primaryColor;
+  final resultMessage = await showDialog<String>(
+    context: context,
+    builder: (ctx) => _RoomScheduleDialog(
+      convLabel: roomSchedule['roomName']?.toString() ?? '',
+      color: color,
+      initialTitle: roomSchedule['title']?.toString(),
+      initialSchedule: initial,
+      initialColorIndex: (roomSchedule['colorIndex'] as num?)?.toInt(),
+      onSubmit: (title, sc, colorIndex) => appState.updateRoomSchedule(
+        colorIndex: colorIndex,
+        scheduleId: scheduleId,
+        title: title,
+        date: _ScheduleFmt.date(sc.date),
+        endDate: sc.endDate != null ? _ScheduleFmt.date(sc.endDate!) : null,
+        startTime: _ScheduleFmt.time(sc.startTime),
+        endTime: _ScheduleFmt.time(sc.endTime),
+        notes: sc.notes,
+        notificationRules:
+            jsonEncode(sc.notificationRules.map((r) => r.toJson()).toList()),
+        notificationStartTime: sc.notificationStartTime != null
+            ? _ScheduleFmt.time(sc.notificationStartTime!)
+            : null,
+        notificationEndTime: sc.notificationEndTime != null
+            ? _ScheduleFmt.time(sc.notificationEndTime!)
+            : null,
+      ),
+      onDelete: () async {
+        final ok = await appState.deleteRoomSchedule(scheduleId);
+        return ok ? null : '일정을 삭제하지 못했습니다.';
+      },
+    ),
+  );
+
+  if (resultMessage != null && context.mounted) {
+    // 다이얼로그가 완전히 닫힌 다음 프레임에 띄운다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(resultMessage)));
+    });
+  }
+}
+
+/// 서버 전송용 날짜/시각 포맷 — LittenSchedule.toJson 과 동일 규칙.
+class _ScheduleFmt {
+  static String date(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  static String time(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 }

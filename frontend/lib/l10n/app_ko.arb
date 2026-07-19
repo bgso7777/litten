@@ -454,5 +454,7 @@
   "myOwnCell": "나만의 셀",
   "createCell": "셀 만들기",
   "createNewCell": "새 셀 만들기",
-  "cellGroupManagement": "셀 그룹 관리"
+  "cellGroupManagement": "셀 그룹 관리",
+  "allowMemberSchedule": "멤버도 일정을 만들 수 있음",
+  "allowMemberScheduleHint": "끄면 방장만 일정을 만들 수 있어요."
 }

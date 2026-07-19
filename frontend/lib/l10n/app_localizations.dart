@@ -2541,6 +2541,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cell group management'**
   String get cellGroupManagement;
+
+  /// Permission toggle letting members add schedules to the Cell
+  ///
+  /// In en, this message translates to:
+  /// **'Members can create schedules'**
+  String get allowMemberSchedule;
+
+  /// Subtitle explaining the member schedule permission
+  ///
+  /// In en, this message translates to:
+  /// **'When off, only the owner can create schedules.'**
+  String get allowMemberScheduleHint;
 }
 
 class _AppLocalizationsDelegate

@@ -261,7 +261,6 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                         _selectedSchedule = schedule;
                       });
                     },
-                    showNotificationSettings: false,
                   ),
                 ),
                 // 알림설정 탭

@@ -359,9 +359,10 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
   final List<Map<String, String>> _members = [];
   bool _saving = false;
   bool _searching = false;
-  // 멤버 권한 기본값 — 대화는 열어두고, 자료 추가는 방장만.
+  // 멤버 권한 기본값 — 대화는 열어두고, 자료 추가·일정 생성은 방장만.
   bool _allowMemberChat = true;
   bool _allowMemberFile = false;
+  bool _allowMemberSchedule = false;
 
   @override
   void dispose() {
@@ -507,6 +508,21 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
               contentPadding: EdgeInsets.zero,
               dense: true,
             ),
+            CheckboxListTile(
+              value: _allowMemberSchedule,
+              onChanged: (v) => setState(() => _allowMemberSchedule = v ?? false),
+              title: Text(
+                  AppLocalizations.of(context)?.allowMemberSchedule ??
+                      '멤버도 일정을 만들 수 있음',
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                  AppLocalizations.of(context)?.allowMemberScheduleHint ??
+                      '끄면 방장만 일정을 만들 수 있어요.',
+                  style: const TextStyle(fontSize: 11)),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
           ],
         ),
         ),
@@ -539,7 +555,8 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
                           password: pw.isEmpty ? null : pw,
                           members: members,
                           allowMemberChat: _allowMemberChat,
-                          allowMemberFile: _allowMemberFile);
+                          allowMemberFile: _allowMemberFile,
+                          allowMemberSchedule: _allowMemberSchedule);
                   if (!mounted) return;
                   Navigator.pop(context);
                   final nf = (g?['notFound'] as List?)?.length ?? 0;
@@ -569,9 +586,10 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
   List<Map<String, dynamic>> _members = [];
   bool _loading = true;
   bool _adding = false; // 조회+추가 진행 중(중복 클릭 방지)
-  // 현재 룸의 멤버 권한 — shareGroups(방장 소유 룸 목록)에서 읽어온다.
+  // 현재 셀의 멤버 권한 — shareGroups(방장 소유 셀 목록)에서 읽어온다.
   bool _allowMemberChat = true;
   bool _allowMemberFile = false;
+  bool _allowMemberSchedule = false;
 
   @override
   void initState() {
@@ -586,6 +604,7 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
       if ((g['groupId'] as num?)?.toInt() == widget.groupId) {
         _allowMemberChat = g['allowMemberChat'] != false;
         _allowMemberFile = g['allowMemberFile'] == true;
+        _allowMemberSchedule = g['allowMemberSchedule'] == true;
         break;
       }
     }
@@ -729,6 +748,16 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
               contentPadding: EdgeInsets.zero,
               dense: true,
             ),
+            SwitchListTile(
+              value: _allowMemberSchedule,
+              onChanged: (v) => _setOptions(allowMemberSchedule: v),
+              title: Text(
+                  AppLocalizations.of(context)?.allowMemberSchedule ??
+                      '멤버도 일정을 만들 수 있음',
+                  style: const TextStyle(fontSize: 13)),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
           ],
         ),
       ),
@@ -739,20 +768,32 @@ class _GroupMembersDialogState extends State<_GroupMembersDialog> {
   }
 
   /// 권한 토글 — 낙관적으로 먼저 반영하고, 서버 실패 시 되돌린다.
-  Future<void> _setOptions({bool? allowMemberChat, bool? allowMemberFile}) async {
+  Future<void> _setOptions(
+      {bool? allowMemberChat,
+      bool? allowMemberFile,
+      bool? allowMemberSchedule}) async {
     final prevChat = _allowMemberChat;
     final prevFile = _allowMemberFile;
+    final prevSchedule = _allowMemberSchedule;
     setState(() {
       if (allowMemberChat != null) _allowMemberChat = allowMemberChat;
       if (allowMemberFile != null) _allowMemberFile = allowMemberFile;
+      if (allowMemberSchedule != null) {
+        _allowMemberSchedule = allowMemberSchedule;
+      }
     });
     final ok = await context.read<AppStateProvider>().updateShareGroupOptions(
         widget.groupId,
         allowMemberChat: allowMemberChat,
-        allowMemberFile: allowMemberFile);
+        allowMemberFile: allowMemberFile,
+        allowMemberSchedule: allowMemberSchedule);
     if (!mounted) return;
     if (!ok) {
-      setState(() { _allowMemberChat = prevChat; _allowMemberFile = prevFile; });
+      setState(() {
+        _allowMemberChat = prevChat;
+        _allowMemberFile = prevFile;
+        _allowMemberSchedule = prevSchedule;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('권한 변경에 실패했습니다.')));
     }

@@ -2626,6 +2626,120 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return _shareGroups;
   }
 
+  // ───────────────────────── 셀(스터디룸) 공유 일정 ─────────────────────────
+
+  /// 내가 방장이거나 멤버인 셀들의 일정. 캘린더에서 개인 일정과 함께 표시된다.
+  /// 개인 일정(리튼에 종속)과 달리 서버에만 존재하며 로컬 캐시는 이 필드뿐이다.
+  List<Map<String, dynamic>> _roomSchedules = [];
+  List<Map<String, dynamic>> get roomSchedules => _roomSchedules;
+
+  /// 셀 일정 목록 새로고침. 비로그인이면 빈 목록으로 두고 조용히 넘어간다.
+  Future<void> loadRoomSchedules() async {
+    final token = await _shareToken();
+    if (token == null) {
+      if (_roomSchedules.isNotEmpty) {
+        _roomSchedules = [];
+        notifyListeners();
+      }
+      return;
+    }
+    _roomSchedules = await _shareApi.getRoomSchedules(token: token);
+    debugPrint('[AppStateProvider] 셀 일정 로드 - ${_roomSchedules.length}건');
+    notifyListeners();
+  }
+
+  /// 셀 일정 생성. 실패 시 서버가 준 사유 메시지를 그대로 돌려준다
+  /// (예: "이 셀은 방장만 일정을 만들 수 있습니다.").
+  /// 반환: 성공이면 null, 실패면 사용자에게 보여줄 메시지.
+  Future<String?> createRoomSchedule({
+    required String targetType, // 'group' | 'self' | 'user'
+    int? roomId,
+    int? selfRoomId,
+    String? peerKey,
+    required String title,
+    required String date,
+    String? endDate,
+    required String startTime,
+    required String endTime,
+    String? notes,
+    String? notificationRules,
+    String? notificationStartTime,
+    String? notificationEndTime,
+    int? colorIndex,
+  }) async {
+    final token = await _shareToken();
+    if (token == null) return '로그인이 필요합니다.';
+    final r = await _shareApi.createRoomSchedule(
+      token: token,
+      targetType: targetType,
+      roomId: roomId,
+      selfRoomId: selfRoomId,
+      peerKey: peerKey,
+      title: title,
+      date: date,
+      endDate: endDate,
+      startTime: startTime,
+      endTime: endTime,
+      notes: notes,
+      notificationRules: notificationRules,
+      notificationStartTime: notificationStartTime,
+      notificationEndTime: notificationEndTime,
+      colorIndex: colorIndex,
+    );
+    if (r['success'] == true) {
+      await loadRoomSchedules();
+      return null;
+    }
+    return r['message']?.toString() ?? '일정을 만들지 못했습니다.';
+  }
+
+  /// 셀 일정 수정 — 셀당 1행이므로 저장하면 멤버 전원에게 그대로 반영된다.
+  /// 반환: 성공이면 null, 실패면 사용자에게 보여줄 메시지.
+  Future<String?> updateRoomSchedule({
+    required int scheduleId,
+    required String title,
+    required String date,
+    String? endDate,
+    required String startTime,
+    required String endTime,
+    String? notes,
+    String? notificationRules,
+    String? notificationStartTime,
+    String? notificationEndTime,
+    int? colorIndex,
+  }) async {
+    final token = await _shareToken();
+    if (token == null) return '로그인이 필요합니다.';
+    final r = await _shareApi.updateRoomSchedule(
+      token: token,
+      scheduleId: scheduleId,
+      title: title,
+      date: date,
+      endDate: endDate,
+      startTime: startTime,
+      endTime: endTime,
+      notes: notes,
+      notificationRules: notificationRules,
+      notificationStartTime: notificationStartTime,
+      notificationEndTime: notificationEndTime,
+      colorIndex: colorIndex,
+    );
+    if (r['success'] == true) {
+      await loadRoomSchedules();
+      return null;
+    }
+    return r['message']?.toString() ?? '일정을 수정하지 못했습니다.';
+  }
+
+  /// 셀 일정 삭제 — 작성자 본인 또는 방장만 가능(서버 검증).
+  Future<bool> deleteRoomSchedule(int scheduleId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.deleteRoomSchedule(token: token, scheduleId: scheduleId);
+    if (ok) await loadRoomSchedules();
+    return ok;
+  }
+
   /// 받은 공유의 스냅샷이 없으면 서버에서 다시 내려받아 보관(백필). 반환: 스냅샷 or null.
   /// 스냅샷 기능 이전에 수락한 공유도 이 경로로 미리보기를 복구할 수 있다(수락·서버 유지 상태일 때).
   Future<SharedSnapshot?> ensureReceivedSnapshot(Map<String, dynamic> share) async {
@@ -2726,7 +2840,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       {String? password,
       List<String>? members,
       bool? allowMemberChat,
-      bool? allowMemberFile}) async {
+      bool? allowMemberFile,
+      bool? allowMemberSchedule}) async {
     final token = await _shareToken();
     if (token == null) return null;
     final g = await _shareApi.createGroup(
@@ -2735,21 +2850,25 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
         password: password,
         members: members,
         allowMemberChat: allowMemberChat,
-        allowMemberFile: allowMemberFile);
+        allowMemberFile: allowMemberFile,
+        allowMemberSchedule: allowMemberSchedule);
     await reloadShareGroups();
     return g;
   }
 
-  /// 멤버 권한 옵션 변경(방장) — 대화/파일 추가 허용 여부.
+  /// 멤버 권한 옵션 변경(방장) — 대화/파일 추가/일정 생성 허용 여부.
   Future<bool> updateShareGroupOptions(int groupId,
-      {bool? allowMemberChat, bool? allowMemberFile}) async {
+      {bool? allowMemberChat,
+      bool? allowMemberFile,
+      bool? allowMemberSchedule}) async {
     final token = await _shareToken();
     if (token == null) return false;
     final ok = await _shareApi.updateGroupOptions(
         token: token,
         groupId: groupId,
         allowMemberChat: allowMemberChat,
-        allowMemberFile: allowMemberFile);
+        allowMemberFile: allowMemberFile,
+        allowMemberSchedule: allowMemberSchedule);
     if (ok) await reloadShareGroups();
     return ok;
   }
@@ -3409,6 +3528,8 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshSchedulesFromServer() async {
     debugPrint('🔄 refreshSchedulesFromServer 시작');
     await ScheduleSyncService.instance.pullSchedules();
+    // 셀 공유 일정도 함께 갱신 — 캘린더는 개인 일정과 셀 일정을 합쳐 보여준다.
+    await loadRoomSchedules();
   }
 
   // 리튼 목록 새로고침

@@ -73,7 +73,8 @@ public class StudyRoomService {
      */
     @Transactional
     public Map<String, Object> createGroup(String ownerId, String name, String password, List<String> memberKeys,
-                                           Boolean allowMemberChat, Boolean allowMemberFile) {
+                                           Boolean allowMemberChat, Boolean allowMemberFile,
+                                           Boolean allowMemberSchedule) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("룸 이름을 입력하세요.");
         }
@@ -83,6 +84,7 @@ public class StudyRoomService {
         g.setPassword(password != null && !password.isBlank() ? password.trim() : null);
         g.setAllowMemberChat(allowMemberChat == null || allowMemberChat);
         g.setAllowMemberFile(Boolean.TRUE.equals(allowMemberFile));
+        g.setAllowMemberSchedule(Boolean.TRUE.equals(allowMemberSchedule));
         g.setIsDeleted(false);
         g.setInsertDateTime(LocalDateTime.now());
         g.setUpdateDateTime(LocalDateTime.now());
@@ -136,7 +138,8 @@ public class StudyRoomService {
     /** 멤버 권한 옵션 변경 — 방장만. null 인 항목은 기존 값을 유지한다. */
     @Transactional
     public Map<String, Object> updateGroupOptions(String ownerId, Long roomId,
-                                                  Boolean allowMemberChat, Boolean allowMemberFile) {
+                                                  Boolean allowMemberChat, Boolean allowMemberFile,
+                                                  Boolean allowMemberSchedule) {
         Optional<StudyRoom> opt = roomRepository.findById(roomId);
         if (opt.isEmpty() || !opt.get().getOwnerMemberId().equals(ownerId)
                 || Boolean.TRUE.equals(opt.get().getIsDeleted())) {
@@ -145,10 +148,11 @@ public class StudyRoomService {
         StudyRoom g = opt.get();
         if (allowMemberChat != null) g.setAllowMemberChat(allowMemberChat);
         if (allowMemberFile != null) g.setAllowMemberFile(allowMemberFile);
+        if (allowMemberSchedule != null) g.setAllowMemberSchedule(allowMemberSchedule);
         g.setUpdateDateTime(LocalDateTime.now());
         roomRepository.save(g);
-        log.info("[StudyRoomService] 룸 옵션 변경 - owner: {}, roomId: {}, chat: {}, file: {}",
-                ownerId, roomId, g.getAllowMemberChat(), g.getAllowMemberFile());
+        log.info("[StudyRoomService] 룸 옵션 변경 - owner: {}, roomId: {}, chat: {}, file: {}, schedule: {}",
+                ownerId, roomId, g.getAllowMemberChat(), g.getAllowMemberFile(), g.getAllowMemberSchedule());
         int count = memberRepository.findByRoomIdAndIsDeletedFalseOrderByIdAsc(roomId).size();
         return toGroupMap(g, count);
     }
@@ -231,9 +235,10 @@ public class StudyRoomService {
         m.put("hasPassword", hasPassword);
         // 소유자 본인 룸 목록(listGroups는 ownerId로 필터)이므로 잠금 해제 비교용 비밀번호를 함께 반환
         m.put("password", hasPassword ? g.getPassword() : null);
-        // 멤버 권한 옵션 — 구 데이터(NULL) 방어: 대화는 허용, 파일은 차단이 기본.
+        // 멤버 권한 옵션 — 구 데이터(NULL) 방어: 대화는 허용, 파일·일정은 차단이 기본.
         m.put("allowMemberChat", !Boolean.FALSE.equals(g.getAllowMemberChat()));
         m.put("allowMemberFile", Boolean.TRUE.equals(g.getAllowMemberFile()));
+        m.put("allowMemberSchedule", Boolean.TRUE.equals(g.getAllowMemberSchedule()));
         return m;
     }
 

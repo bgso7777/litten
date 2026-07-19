@@ -257,7 +257,6 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                         _userInteractedWithSchedule = schedule != null;
                       });
                     },
-                    showNotificationSettings: false,
                     isCreatingNew: true,
                   ),
                 ),

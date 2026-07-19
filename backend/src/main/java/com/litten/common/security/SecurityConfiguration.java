@@ -236,6 +236,11 @@ public class SecurityConfiguration {
                 AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
                 AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
                 AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
+        // 셀(스터디룸) 공유 일정 API (개인 일정과 동일하게 로그인 회원 전용)
+        .requestMatchers("/note/v1/room-schedules", "/note/v1/room-schedules/**").hasAnyAuthority(
+                AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+                AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+                AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
         // 회원 인증 필요 API (로그인 전용 — 게스트 차단)
         .requestMatchers("/note/v1/members/me", "/note/v1/members/plan", "/note/v1/members/migrate",
                 "/note/v1/members/logout", "/note/v1/members/devices", "/note/v1/members/nickname")

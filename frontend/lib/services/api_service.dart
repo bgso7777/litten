@@ -52,6 +52,8 @@ class ApiService {
   static const String _youtubeChannelsEndpoint = '/litten/note/v1/youtube/channels';
   static const String _littensEndpoint = '/litten/note/v1/littens';
   static const String _schedulesEndpoint = '/litten/note/v1/schedules';
+  // 셀(스터디룸) 공유 일정 — 개인 일정(_schedulesEndpoint)과 별개 테이블/API
+  static const String _roomSchedulesEndpoint = '/litten/note/v1/room-schedules';
   static const String _sharesEndpoint = '/litten/note/v1/room-shares';
   static const String _shareGroupsEndpoint = '/litten/note/v1/study-rooms';
   static const String _messagesEndpoint = '/litten/note/v1/room-messages';
@@ -1225,6 +1227,145 @@ class ApiService {
     }
   }
 
+  // ───────────────────────── 셀(스터디룸) 공유 일정 ─────────────────────────
+
+  /// 내가 방장이거나 멤버인 모든 셀의 일정 목록.
+  /// 개인 일정과 달리 멤버별로 복제되지 않고, 셀 자격으로 조회한다.
+  Future<List<Map<String, dynamic>>> getRoomSchedules({required String token}) async {
+    debugPrint('[ApiService] getRoomSchedules 진입');
+    try {
+      final url = Uri.parse('$baseUrl$_roomSchedulesEndpoint');
+      final response = await http
+          .get(url, headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] getRoomSchedules - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['schedules'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[ApiService] getRoomSchedules - 오류: $e');
+      return [];
+    }
+  }
+
+  /// 셀 일정 생성. 권한이 없으면 서버가 400 + message 를 준다.
+  /// 반환: {success, schedule?} 또는 {success:false, message}
+  /// targetType: 'group'(roomId) | 'self'(selfRoomId) | 'user'(peerKey)
+  Future<Map<String, dynamic>> createRoomSchedule({
+    required String token,
+    required String targetType,
+    int? roomId,
+    int? selfRoomId,
+    String? peerKey,
+    required String title,
+    required String date, // yyyy-MM-dd
+    String? endDate,
+    required String startTime, // HH:mm
+    required String endTime,
+    String? notes,
+    String? notificationRules,
+    String? notificationStartTime,
+    String? notificationEndTime,
+    int? colorIndex,
+  }) async {
+    debugPrint('[ApiService] createRoomSchedule 진입 - type: $targetType, '
+        'roomId: $roomId, selfRoomId: $selfRoomId, peerKey: $peerKey, title: $title');
+    try {
+      final body = <String, dynamic>{
+        'targetType': targetType,
+        'title': title,
+        'date': date,
+        'startTime': startTime,
+        'endTime': endTime,
+      };
+      if (roomId != null) body['roomId'] = roomId;
+      if (selfRoomId != null) body['selfRoomId'] = selfRoomId;
+      if (peerKey != null && peerKey.isNotEmpty) body['peerKey'] = peerKey;
+      if (endDate != null && endDate.isNotEmpty) body['endDate'] = endDate;
+      if (notes != null && notes.isNotEmpty) body['notes'] = notes;
+      if (notificationRules != null) body['notificationRules'] = notificationRules;
+      if (notificationStartTime != null) body['notificationStartTime'] = notificationStartTime;
+      if (notificationEndTime != null) body['notificationEndTime'] = notificationEndTime;
+      if (colorIndex != null) body['colorIndex'] = colorIndex;
+      final response = await http
+          .post(Uri.parse('$baseUrl$_roomSchedulesEndpoint'),
+              headers: _getHeaders(token: token), body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] createRoomSchedule - status: ${response.statusCode}');
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      debugPrint('[ApiService] createRoomSchedule - 오류: $e');
+      return {'success': false, 'message': '일정을 만들지 못했습니다.'};
+    }
+  }
+
+  /// 셀 일정 수정 — 작성자 본인 또는 방장만 가능(서버에서 검증).
+  Future<Map<String, dynamic>> updateRoomSchedule({
+    required String token,
+    required int scheduleId,
+    String? title,
+    String? date,
+    String? endDate,
+    String? startTime,
+    String? endTime,
+    String? notes,
+    String? notificationRules,
+    String? notificationStartTime,
+    String? notificationEndTime,
+    int? colorIndex,
+  }) async {
+    debugPrint('[ApiService] updateRoomSchedule 진입 - scheduleId: $scheduleId');
+    try {
+      final body = <String, dynamic>{};
+      if (title != null) body['title'] = title;
+      if (date != null) body['date'] = date;
+      if (endDate != null) body['endDate'] = endDate;
+      if (startTime != null) body['startTime'] = startTime;
+      if (endTime != null) body['endTime'] = endTime;
+      if (notes != null) body['notes'] = notes;
+      if (notificationRules != null) body['notificationRules'] = notificationRules;
+      if (notificationStartTime != null) body['notificationStartTime'] = notificationStartTime;
+      if (notificationEndTime != null) body['notificationEndTime'] = notificationEndTime;
+      if (colorIndex != null) body['colorIndex'] = colorIndex;
+      final response = await http
+          .patch(Uri.parse('$baseUrl$_roomSchedulesEndpoint/$scheduleId'),
+              headers: _getHeaders(token: token), body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] updateRoomSchedule - status: ${response.statusCode}');
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[ApiService] updateRoomSchedule - 오류: $e');
+      return {'success': false, 'message': '일정을 수정하지 못했습니다.'};
+    }
+  }
+
+  /// 셀 일정 삭제(soft) — 작성자 본인 또는 방장만 가능.
+  Future<bool> deleteRoomSchedule({
+    required String token,
+    required int scheduleId,
+  }) async {
+    debugPrint('[ApiService] deleteRoomSchedule 진입 - scheduleId: $scheduleId');
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl$_roomSchedulesEndpoint/$scheduleId'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] deleteRoomSchedule - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] deleteRoomSchedule - 오류: $e');
+      return false;
+    }
+  }
+
   // ───────────────────────── 사용자 간 공유 / 그룹 ─────────────────────────
 
   /// 파일을 사용자(개인) 또는 그룹에 공유. 본문을 multipart로 업로드.
@@ -1590,14 +1731,18 @@ class ApiService {
     List<String>? members,
     bool? allowMemberChat,
     bool? allowMemberFile,
+    bool? allowMemberSchedule,
   }) async {
     try {
       final body = <String, dynamic>{'name': name};
       if (password != null && password.isNotEmpty) body['password'] = password;
       if (members != null && members.isNotEmpty) body['members'] = members;
-      // 멤버 권한 옵션 — 생략 시 서버 기본값(대화 허용, 파일 차단)
+      // 멤버 권한 옵션 — 생략 시 서버 기본값(대화 허용, 파일·일정 차단)
       if (allowMemberChat != null) body['allowMemberChat'] = allowMemberChat;
       if (allowMemberFile != null) body['allowMemberFile'] = allowMemberFile;
+      if (allowMemberSchedule != null) {
+        body['allowMemberSchedule'] = allowMemberSchedule;
+      }
       final response = await http.post(Uri.parse('$baseUrl$_shareGroupsEndpoint'),
           headers: _getHeaders(token: token), body: jsonEncode(body))
           .timeout(const Duration(seconds: 20));
@@ -1662,11 +1807,15 @@ class ApiService {
     required int groupId,
     bool? allowMemberChat,
     bool? allowMemberFile,
+    bool? allowMemberSchedule,
   }) async {
     try {
       final body = <String, dynamic>{};
       if (allowMemberChat != null) body['allowMemberChat'] = allowMemberChat;
       if (allowMemberFile != null) body['allowMemberFile'] = allowMemberFile;
+      if (allowMemberSchedule != null) {
+        body['allowMemberSchedule'] = allowMemberSchedule;
+      }
       final response = await http.patch(
               Uri.parse('$baseUrl$_shareGroupsEndpoint/$groupId/options'),
               headers: _getHeaders(token: token),
