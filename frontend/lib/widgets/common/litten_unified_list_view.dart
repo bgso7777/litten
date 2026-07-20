@@ -570,6 +570,8 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
     final target = DateTime(sel.year, sel.month, sel.day);
 
     for (final rs in appState.roomSchedules) {
+      // 내가 공유한 내 일정은 리튼 행이 이미 있으므로 중복 제외
+      if (schedule_utils.roomScheduleDuplicatesMine(rs, appState.littens)) continue;
       final start = DateTime.tryParse(rs['date']?.toString() ?? '');
       if (start == null) continue;
       final startDay = DateTime(start.year, start.month, start.day);

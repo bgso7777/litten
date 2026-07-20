@@ -40,6 +40,20 @@ public class RoomMessageController {
         return ResponseEntity.ok(messageService.send(memberId, targetType, recipientKey, groupId, content));
     }
 
+    /** 메시지 삭제 — 보낸 사람만. 삭제하면 수신자 화면에서도 사라진다. */
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @DeleteMapping({"/note/v1/room-messages/{messageId}", "/note/v1/messages/{messageId}"})
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable Long messageId) {
+        String memberId = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (memberId == null) return unauthorized();
+        boolean done = messageService.delete(memberId, messageId);
+        if (!done) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", "메시지를 찾을 수 없거나 보낸 사람만 삭제할 수 있습니다."));
+        }
+        return ok(Map.of("message", "삭제되었습니다."));
+    }
+
     @CrossOrigin(origins = "*", allowedHeaders = "*")
     @GetMapping({"/note/v1/room-messages/received", "/note/v1/messages/received"})
     public ResponseEntity<Map<String, Object>> received() {

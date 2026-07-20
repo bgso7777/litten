@@ -2630,6 +2630,15 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return _shareGroups;
   }
 
+  /// 메시지 삭제 — 보낸 사람만 가능(서버 검증). 성공 시 대화 목록을 다시 불러온다.
+  Future<bool> deleteChatMessage(int messageId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.deleteMessage(token: token, messageId: messageId);
+    if (ok) await loadShares();
+    return ok;
+  }
+
   // ───────────────────────── 셀(스터디룸) 공유 일정 ─────────────────────────
 
   /// 내가 방장이거나 멤버인 셀들의 일정. 캘린더에서 개인 일정과 함께 표시된다.

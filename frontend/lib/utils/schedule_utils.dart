@@ -185,3 +185,30 @@ List<DateTime> scheduleOccurrencesBetween(
   }
   return result;
 }
+
+/// 이 셀 일정이 내 개인 일정과 같은 내용인지.
+///
+/// 내 일정을 셀에 공유하면 서버에는 별도 셀 일정이 만들어진다.
+/// 공유한 본인에게는 원본과 셀 일정이 둘 다 보여 중복이 되므로,
+/// 캘린더·알약·목록에서는 이 경우를 걸러낸다(셀 대화창 카드에는 그대로 보인다).
+///
+/// 제목 + 시작일 + 시작시각이 모두 같으면 같은 일정으로 본다.
+bool roomScheduleDuplicatesMine(Map<String, dynamic> rs, List<Litten> littens) {
+  final title = rs['title']?.toString() ?? '';
+  final date = rs['date']?.toString() ?? '';
+  final start = (rs['startTime']?.toString() ?? '');
+  if (title.isEmpty || date.isEmpty) return false;
+  final startHm = start.length >= 5 ? start.substring(0, 5) : start;
+
+  String two(int v) => v.toString().padLeft(2, '0');
+  for (final l in littens) {
+    final s = l.schedule;
+    if (s == null || l.title != title) continue;
+    final lDate = '${s.date.year.toString().padLeft(4, '0')}-'
+        '${two(s.date.month)}-${two(s.date.day)}';
+    if (lDate != date) continue;
+    final lStart = '${two(s.startTime.hour)}:${two(s.startTime.minute)}';
+    if (lStart == startHm) return true;
+  }
+  return false;
+}

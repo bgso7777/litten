@@ -1227,6 +1227,25 @@ class ApiService {
     }
   }
 
+  /// 메시지 삭제(soft) — 보낸 사람만 가능. 삭제하면 수신자 화면에서도 사라진다.
+  Future<bool> deleteMessage({required String token, required int messageId}) async {
+    debugPrint('[ApiService] deleteMessage 진입 - messageId: $messageId');
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl$_messagesEndpoint/$messageId'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ApiService] deleteMessage - status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return (jsonDecode(response.body) as Map<String, dynamic>)['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ApiService] deleteMessage - 오류: $e');
+      return false;
+    }
+  }
+
   // ───────────────────────── 셀(스터디룸) 공유 일정 ─────────────────────────
 
   /// 내가 방장이거나 멤버인 모든 셀의 일정 목록.

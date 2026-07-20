@@ -144,6 +144,26 @@ public class RoomMessageService {
     }
 
     /** 내가 받은 메시지 목록 (전달 기준). */
+    /** 메시지 삭제(soft) — 보낸 사람만 가능. 삭제하면 모든 수신자 화면에서도 사라진다.
+     *  성공 true / 없음·권한없음 false. */
+    @Transactional
+    public boolean delete(String memberId, Long messageId) {
+        RoomMessage m = messageRepository.findById(messageId).orElse(null);
+        if (m == null || Boolean.TRUE.equals(m.getIsDeleted())) {
+            log.info("[RoomMessageService] 메시지 삭제 - 대상 없음: {}", messageId);
+            return false;
+        }
+        if (!memberId.equals(m.getSenderMemberId())) {
+            log.info("[RoomMessageService] 메시지 삭제 권한 없음 - messageId: {}, by: {}", messageId, memberId);
+            return false;
+        }
+        m.setIsDeleted(true);
+        m.setUpdateDateTime(LocalDateTime.now());
+        messageRepository.save(m);
+        log.info("[RoomMessageService] 메시지 삭제 - messageId: {}, by: {}", messageId, memberId);
+        return true;
+    }
+
     public List<Map<String, Object>> received(String memberId) {
         List<Map<String, Object>> list = new ArrayList<>();
         // 발신자 현재 닉네임 캐시 — 닉네임을 나중에 바꿔도 대화 이름이 최신으로 보이도록

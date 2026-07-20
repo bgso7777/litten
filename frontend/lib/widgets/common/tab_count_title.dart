@@ -35,6 +35,13 @@ class TabCount {
 ///   - 퀴즈: groups = [[신규, 확인], [전체]]                              (… / 전체)
 ///   - 캘린더:   groups = [[도래할], [전체]]                                  (도래할 / 전체)
 class TabCountTitle extends StatelessWidget {
+  /// 아이콘 크기(미지정 시 부모 IconTheme 상속).
+  final double? iconSize;
+
+  /// 카운트 숫자를 굵게 표시할지. Material 아이콘은 굵기 지정이 불가능해
+  /// 아이콘은 채움(filled) 버전을 쓰는 것으로 대신한다.
+  final bool boldCount;
+
   final List<List<TabCount>> groups;
   final String separator;
 
@@ -42,7 +49,11 @@ class TabCountTitle extends StatelessWidget {
   final Color? countColor;
 
   const TabCountTitle(this.groups,
-      {super.key, this.separator = '/', this.countColor});
+      {super.key,
+      this.separator = '/',
+      this.countColor,
+      this.iconSize,
+      this.boldCount = false});
 
   @override
   Widget build(BuildContext context) {
@@ -80,14 +91,17 @@ class TabCountTitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        c.iconWidget ?? Icon(c.icon, color: c.color),
+        c.iconWidget ?? Icon(c.icon, color: c.color, size: iconSize),
         const SizedBox(width: 2),
         Text('${c.count}',
             style: TextStyle(
                 fontSize: countFontSize,
                 color: countColor,
-                // countColor를 지정한 커스텀 탭제목(셀)은 일반 굵기로.
-                fontWeight: countColor != null ? FontWeight.normal : null)),
+                // boldCount를 켜면 굵게. 그 외에는 종전대로
+                // (countColor를 지정한 커스텀 탭제목은 일반 굵기).
+                fontWeight: boldCount
+                    ? FontWeight.bold
+                    : (countColor != null ? FontWeight.normal : null))),
       ],
     );
     // 비활성(필터 꺼짐)이면 흐리게.

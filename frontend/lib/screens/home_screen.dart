@@ -1510,6 +1510,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     final target = DateTime(day.year, day.month, day.day);
     final result = <Map<String, dynamic>>[];
     for (final rs in appState.roomSchedules) {
+      // 내가 공유한 내 일정은 원본이 이미 표시되므로 중복 제외
+      if (schedule_utils.roomScheduleDuplicatesMine(rs, appState.littens)) continue;
       final startStr = rs['date']?.toString();
       if (startStr == null || startStr.isEmpty) continue;
       final start = DateTime.tryParse(startStr);
@@ -1607,6 +1609,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     for (final rs in appState.roomSchedules) {
       final title = rs['title']?.toString() ?? '';
       if (title.isEmpty) continue;
+      // 내가 공유한 내 일정은 개인 일정 바가 이미 그려지므로 중복 제외
+      if (schedule_utils.roomScheduleDuplicatesMine(rs, appState.littens)) continue;
       final startStr = rs['date']?.toString();
       if (startStr == null || startStr.isEmpty) continue;
       final start = DateTime.tryParse(startStr);
@@ -2345,6 +2349,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     for (final rs in appState?.roomSchedules ?? const <Map<String, dynamic>>[]) {
       final title = rs['title']?.toString() ?? '';
       if (title.isEmpty) continue;
+      // 내가 공유한 내 일정은 위 리튼 순회에서 이미 담겼으므로 중복 제외
+      if (schedule_utils.roomScheduleDuplicatesMine(rs, littens)) continue;
       final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
       if (sc == null) continue;
       for (final when in schedule_utils.scheduleOccurrencesBetween(sc, now, end)) {

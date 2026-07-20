@@ -21,6 +21,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import '../config/themes.dart';
 import '../widgets/home/notification_settings.dart';
+import '../utils/schedule_utils.dart' as schedule_utils;
 import '../widgets/home/schedule_picker.dart';
 
 /// 홈 탭 — 대시보드.
@@ -524,20 +525,20 @@ class ShareTabTitle extends StatelessWidget {
               )
             : TabCountTitle([
                 [
-                  // 메인 하단 네비 '셀' 아이콘 계열(Icons.hexagon_outlined) 사용.
-                  // 옆의 공유받음(download)·공유한(upload)과 동일하게 '선택 안 된'(외곽선)
-                  // 아이콘으로 통일 — 선택 여부는 밝기(active opacity)로만 표시. 크기도 자동 일치.
+                  // 세 아이콘 모두 '선택 안 된'(외곽선) 모양으로 고정하고,
+                  // 선택 여부는 밝기(active opacity)로만 표시한다 — 모양이 바뀌지 않아
+                  // 카운트 줄이 흔들리지 않는다.
                   TabCount(Icons.hexagon_outlined, chatN,
                       active: mode == 'chat',
                       onTap: () => app.setHomeChatView('chat')),
-                  TabCount(Icons.download, inN,
+                  TabCount(Icons.download_outlined, inN,
                       active: mode == 'received',
                       onTap: () => app.setHomeChatView('received')),
-                  TabCount(Icons.upload, outN,
+                  TabCount(Icons.upload_outlined, outN,
                       active: mode == 'sent',
                       onTap: () => app.setHomeChatView('sent')),
                 ],
-              ], countColor: Colors.black);
+              ], countColor: Colors.black, iconSize: 18, boldCount: true);
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1470,45 +1471,100 @@ class _ShareSectionState extends State<_ShareSection>
     return result > 0 ? result : 2;
   }
 
+  /// 아바타 탭 → 멤버 관리(추가/삭제).
+  ///
+  /// 1:1 셀과 나만의 셀에는 그룹 실체(note_study_room)가 없어 멤버를 붙일 수 없다.
+  /// 그룹 셀이라도 멤버 추가·삭제는 서버에서 방장만 허용하므로, 방장이 아니면 안내만 한다.
+  Future<void> _openMemberManage(_Conv c, int? groupId, bool isOwner) async {
+    debugPrint('🎯 [셀] 아바타 탭 - 멤버 관리 (isGroup: ${c.isGroup}, '
+        'isSelf: ${c.isSelf}, groupId: $groupId, isOwner: $isOwner)');
+
+    if (c.isSelf) {
+      _cellSnack('나만의 셀은 혼자 쓰는 셀이라 멤버를 추가할 수 없어요.');
+      return;
+    }
+    if (!c.isGroup || groupId == null) {
+      _cellSnack('1:1 셀에는 멤버를 추가할 수 없어요. 그룹 셀을 새로 만들어 주세요.');
+      return;
+    }
+    if (!isOwner) {
+      _cellSnack('멤버 추가·삭제는 셀을 만든 사람만 할 수 있어요.');
+      return;
+    }
+
+    await showGroupMembersDialog(context, groupId, c.label);
+    if (mounted) context.read<AppStateProvider>().reloadShareGroups();
+  }
+
+  /// 메시지 말풍선 길게 누르기 — 복사 / 삭제.
+  /// 삭제는 서버에서 보낸 사람만 가능하므로, 내가 보낸 메시지에만 노출한다.
+  void _showMessageActions(
+      _ShareItem it, String content, AppStateProvider appState) {
+    final messageId = (it.data['messageId'] as num?)?.toInt();
+    final canDelete = !it.received && messageId != null;
+    debugPrint('🎯 [셀] 메시지 액션 시트 - messageId: $messageId, 삭제가능: $canDelete');
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('복사'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _copyMessage(content);
+              },
+            ),
+            if (canDelete)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('삭제', style: TextStyle(color: Colors.red)),
+                subtitle: const Text('받은 사람 화면에서도 함께 사라집니다.',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _confirmDeleteMessage(messageId, appState);
+                  });
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 메시지 삭제 확인 후 실행.
+  Future<void> _confirmDeleteMessage(
+      int messageId, AppStateProvider appState) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('메시지 삭제', style: TextStyle(fontSize: 16)),
+        content: const Text('이 메시지를 삭제할까요?\n받은 사람 화면에서도 사라지며 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final done = await appState.deleteChatMessage(messageId);
+    if (!mounted) return;
+    _cellSnack(done ? '메시지를 삭제했습니다.' : '메시지를 삭제하지 못했습니다.');
+  }
+
   /// 말풍선 하나를 클립보드로 복사(길게 누르기).
   void _copyMessage(String content) {
     if (content.trim().isEmpty) return;
     debugPrint('🎯 [셀] 메시지 복사 - ${content.length}자');
     Clipboard.setData(ClipboardData(text: content));
     _cellSnack('메시지를 복사했습니다.');
-  }
-
-  /// 대화 내용 전체를 텍스트로 복사.
-  ///
-  /// 형식: "[MM/dd HH:mm] 보낸사람: 내용" 한 줄씩, 시간순.
-  /// 파일 공유 항목은 파일명을 대괄호로 표기해 대화 흐름이 끊기지 않게 한다.
-  void _copyConversation(_Conv c, List<_ShareItem> items) {
-    final buf = StringBuffer();
-    buf.writeln(c.label);
-    buf.writeln('─' * 20);
-
-    String two(int v) => v.toString().padLeft(2, '0');
-    for (final it in items) {
-      final t = '${two(it.at.month)}/${two(it.at.day)} ${two(it.at.hour)}:${two(it.at.minute)}';
-      // 보낸 사람 — 내가 보낸 것은 '나', 받은 것은 발신자 이름(없으면 상대 표시명).
-      final sender = it.received
-          ? ((it.data['senderName']?.toString().trim().isNotEmpty ?? false)
-              ? it.data['senderName'].toString()
-              : (it.data['senderMemberId']?.toString() ?? c.label))
-          : '나';
-      if (it.isMessage) {
-        final content = it.data['content']?.toString() ?? '';
-        buf.writeln('[$t] $sender: $content');
-      } else {
-        final fname = _stripShareExt(it.data['fileName']?.toString() ?? '');
-        buf.writeln('[$t] $sender: [파일] $fname');
-      }
-    }
-
-    final text = buf.toString();
-    debugPrint('🎯 [셀] 대화 전체 복사 - ${items.length}건, ${text.length}자');
-    Clipboard.setData(ClipboardData(text: text));
-    _cellSnack('대화 내용 ${items.length}건을 복사했습니다.');
   }
 
   /// 바텀시트/다이얼로그를 막 닫은 직후에도 안전한 스낵바.
@@ -1588,6 +1644,20 @@ class _ShareSectionState extends State<_ShareSection>
               },
             ),
             ListTile(
+              leading: Icon(Icons.event_repeat_outlined, color: color),
+              title: const Text('일정 선택'),
+              subtitle: const Text('내 캘린더에 있는 일정을 이 셀에 공유해요.',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _showPickMyScheduleSheet(
+                      c, groupId, selfRoomId, peerKey, color, appState);
+                });
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.event_note_outlined, color: color),
               title: const Text('일정 보기·수정'),
               subtitle: const Text('이 셀에 등록된 일정을 확인하고 고쳐요.',
@@ -1605,6 +1675,96 @@ class _ShareSectionState extends State<_ShareSection>
         ),
       ),
     );
+  }
+
+  /// 내 캘린더에 등록된 일정(리튼 일정)을 골라 이 셀에 공유한다.
+  ///
+  /// 고른 일정의 내용을 복사해 **셀 일정으로 새로 만든다**(원본과 연결되지 않는다).
+  /// 원본을 나중에 고쳐도 셀에 공유된 일정은 그대로 유지된다.
+  void _showPickMyScheduleSheet(_Conv c, int? groupId, int? selfRoomId,
+      String? peerKey, Color color, AppStateProvider appState) {
+    final now = DateTime.now();
+    final mine = appState.littens
+        .where((l) => l.schedule != null && l.title != 'undefined')
+        .toList()
+      ..sort((a, b) {
+        final an = schedule_utils.nextScheduleOccurrence(a.schedule!, now);
+        final bn = schedule_utils.nextScheduleOccurrence(b.schedule!, now);
+        if (an == null && bn == null) return b.updatedAt.compareTo(a.updatedAt);
+        if (an == null) return 1; // 지난 일정은 뒤로
+        if (bn == null) return -1;
+        return an.compareTo(bn);
+      });
+    debugPrint('🎯 [셀] 내 일정 선택 시트 - ${mine.length}건');
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: mine.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('공유할 일정이 없습니다.\n캘린더에서 일정을 먼저 만들어 주세요.',
+                    textAlign: TextAlign.center),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: mine.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final l = mine[i];
+                  final sc = l.schedule!;
+                  final next = schedule_utils.nextScheduleOccurrence(sc, now);
+                  final remain = next != null
+                      ? schedule_utils.remainingLabel(next, now)
+                      : null;
+                  return ListTile(
+                    leading: Icon(Icons.event,
+                        color: AppColors.scheduleColor(l.colorIndex)),
+                    title: Text(l.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                        '${_fmtDate(sc.date)} · ${_fmtTime(sc.startTime)} ~ ${_fmtTime(sc.endTime)}',
+                        style: const TextStyle(fontSize: 12)),
+                    trailing: remain == null
+                        ? null
+                        : Text(remain,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _shareMySchedule(
+                            l, c, groupId, selfRoomId, peerKey, appState);
+                      });
+                    },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  /// 고른 내 일정을 셀 일정으로 등록한다(내용 복사).
+  Future<void> _shareMySchedule(Litten l, _Conv c, int? groupId, int? selfRoomId,
+      String? peerKey, AppStateProvider appState) async {
+    final sc = l.schedule!;
+    debugPrint('🎯 [셀] 내 일정 공유 - "${l.title}" → ${_cellTargetType(c)}');
+    final err = await appState.createRoomSchedule(
+      targetType: _cellTargetType(c),
+      roomId: groupId,
+      selfRoomId: selfRoomId,
+      peerKey: peerKey,
+      title: l.title,
+      date: _fmtDate(sc.date),
+      endDate: sc.endDate != null ? _fmtDate(sc.endDate!) : null,
+      startTime: _fmtTime(sc.startTime),
+      endTime: _fmtTime(sc.endTime),
+      notes: sc.notes,
+      notificationRules:
+          jsonEncode(sc.notificationRules.map((r) => r.toJson()).toList()),
+      colorIndex: l.colorIndex,
+    );
+    if (!mounted) return;
+    _cellSnack(err ?? '일정을 공유했습니다.');
   }
 
   /// 이 셀에 등록된 일정 목록 — 탭하면 수정 창이 열린다(캘린더 목록과 동일 동선).
@@ -1973,6 +2133,8 @@ class _ShareSectionState extends State<_ShareSection>
     // (c.label은 로컬 별칭으로 바뀔 수 있어 ownedByName 조회 키로 쓰면 안 됨)
     final origName = (c.isGroup && c.key.startsWith('g:')) ? c.key.substring(2) : null;
     final owned = origName != null ? ownedByName[origName] : null;
+    final isOwned = owned != null;
+    final myEmail = appState.currentUser?.id ?? '';
     // 소유 그룹이면 owned의 groupId, 아니면 수신 그룹의 id(멤버도 그룹 대화·공유 가능)
     final groupId = (owned?['groupId'] as num?)?.toInt() ?? c.recvGroupId;
     // 대화 항목 + 이 셀의 공유 일정을 함께 시간순으로 보여준다.
@@ -2026,15 +2188,13 @@ class _ShareSectionState extends State<_ShareSection>
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             const SizedBox(width: 6),
-            // 대화 내용을 텍스트로 복사 — 메시지가 있을 때만 노출.
-            if (items.any((it) => it.isMessage))
-              IconButton(
-                icon: const Icon(Icons.copy_all_outlined),
-                color: color,
-                tooltip: '대화 내용 복사',
-                onPressed: () => _copyConversation(c, items),
-              ),
-            // 우측은 멤버 관리 버튼 하나만 — 장식용 아바타는 중복이라 제거했다.
+            // 우측 아이콘은 셀 목록의 앞쪽 아바타와 동일하게 표시.
+            // 탭하면 멤버 관리(추가/삭제) — 그룹 셀에서만 가능하다.
+            GestureDetector(
+              onTap: () => _openMemberManage(c, groupId, owned != null),
+              child: _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
+                  mine: isOwned || c.isSelf),
+            ),
             if (c.isGroup && owned != null)
               IconButton(
                 icon: const Icon(Icons.group_add), color: color, tooltip: '멤버 추가/삭제',
@@ -2877,7 +3037,7 @@ class _ShareSectionState extends State<_ShareSection>
         alignment: received ? Alignment.centerLeft : Alignment.centerRight,
         // 길게 누르면 이 메시지 하나만 클립보드로 복사.
         child: GestureDetector(
-          onLongPress: () => _copyMessage(content),
+          onLongPress: () => _showMessageActions(it, content, appState),
           child: Container(
           constraints: const BoxConstraints(maxWidth: 280),
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
