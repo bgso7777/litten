@@ -4,12 +4,17 @@
   리튼(Litten) 원가표  ·  파일명 고정: Cost.html
   버전은 파일명이 아니라 이 파일 내부에서 관리합니다.
   ------------------------------------------------------------
-  현재 버전: v2.1  (최종 수정 2026-07-14)
+  현재 버전: v3.0  (최종 수정 2026-07-19)
   변경 이력:
-    v1   : 최초 6시트 원가표(0_요약~5_CDN효과)
-    v2   : v1의 6개 오류 수정 + 시트 6~11 추가(순수익·경쟁사·광고·유료전환·변경사항)
-    v2.1 : 논리 보정 8건(CDN 절감오류·광고 노출450→40 통일·무료원가 재배분·
-           최대원가=AI 정정·AI원가 미검증 경고·프리미엄 연간 보정·기준 일관성 주석)
+    v1   : 최초 6시트 원가표
+    v2   : 시트 6~11 추가 + 6개 오류 수정
+    v2.1 : 논리 보정 8건
+    v3.0 : [4단계 개편] 무료 / 광고제거 / 스탠다드 / 프리미엄
+           · 사용량 기반(라이트/미디엄/헤비) → 플랜 한도 기반으로 원가 모델 전환
+           · AI 입력을 텍스트로 확정 → STT 제외(구버전 최대 원가였던 STT 삭제)
+           · AI 모델 Haiku 4.5 확정(요약 ~24원 · 퀴즈 ~20원) → 원가 대폭 하락
+           · AI 월 한도(3·20·50)로 원가 상한 확정 → 헤비 유저 원가 폭주 리스크 해소
+           · 가격을 확정 KRW로 고정(₩0 / ₩500 / ₩6,990 / ₩13,990)
   ※ 상세 변경 이력은 문서 하단 "11_변경사항" 시트 참조.
   ============================================================
 -->
@@ -17,7 +22,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>리튼(Litten) 원가표 v2.1</title>
+<title>리튼(Litten) 원가표 v3.0</title>
 <style>
 :root {
   --bg:#f5f7fa; --card:#ffffff; --ink:#1a2233; --muted:#5b6879;
@@ -72,12 +77,14 @@ td.sub2 { font-size:.8rem; color:var(--muted); }
 .chip { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:5px; font-weight:700; color:#fff; }
 .chip.ok { background:#16a34a; } .chip.mid { background:#d97706; } .chip.no { background:#9ca3af; }
 .lt-chip { color:#1e3a8a; font-weight:600; }
-.badge-fix { display:inline-block; padding:2px 8px; background:#fef3c7; color:#92400e; border-radius:4px; font-size:.75rem; font-weight:600; margin-left:6px; }
+.badge-fix { display:inline-block; padding:2px 8px; background:#dcfce7; color:#166534; border-radius:4px; font-size:.75rem; font-weight:600; margin-left:6px; }
 tbody tr:hover td { background:#f1f5f9; }
 .legend { margin:14px 0 0; font-size:.8rem; color:var(--muted); display:flex; gap:18px; flex-wrap:wrap; }
 .legend b { color:var(--inp); }
-.callout { background:#fef3c7; border-left:4px solid #d97706; padding:12px 16px; margin:14px 0; border-radius:4px; font-size:.85rem; }
-.callout b { color:#92400e; }
+.callout { background:#dcfce7; border-left:4px solid #16a34a; padding:12px 16px; margin:14px 0; border-radius:4px; font-size:.85rem; }
+.callout b { color:#166534; }
+.callout.warn { background:#fef3c7; border-left-color:#d97706; }
+.callout.warn b { color:#92400e; }
 @media (max-width:640px) {
   header h1 { font-size:1.25rem; }
   table { font-size:.8rem; }
@@ -87,14 +94,14 @@ tbody tr:hover td { background:#f1f5f9; }
 </head>
 <body>
 <header>
-  <h1>리튼(Litten) 원가표 v2.1</h1>
-  <p>작성일: 2026년 7월 · v2(6개 오류) + v2.1(논리 보정 8건) 반영 · AWS S3/CloudFront 기반 인프라 원가 분석</p>
+  <h1>리튼(Litten) 원가표 v3.0</h1>
+  <p>작성일: 2026년 7월 · 4단계 요금제(무료/광고제거/스탠다드/프리미엄) · 텍스트 입력·Claude Haiku·플랜 한도 기반 원가</p>
 </header>
 <nav>
   <a href="#sheet-0">0_요약</a>
   <a href="#sheet-1">1_단가정보</a>
-  <a href="#sheet-2">2_사용자유형</a>
-  <a href="#sheet-3">3_사용자당원가</a>
+  <a href="#sheet-2">2_플랜한도</a>
+  <a href="#sheet-3">3_플랜당원가</a>
   <a href="#sheet-4">4_규모별원가</a>
   <a href="#sheet-5">5_CDN효과</a>
   <a href="#sheet-6">6_순수익</a>
@@ -107,7 +114,7 @@ tbody tr:hover td { background:#f1f5f9; }
 <main>
 
 <div class="callout">
-<b>v2 주요 변경 사항:</b> 이전 원가표(v1)의 6가지 문제를 수정했습니다. 자세한 내용은 <a href="#sheet-11">11_변경사항</a> 시트를 참조하세요. 특히 학생 요금 재설계와 8번·9번 시트 관계 명확화가 핵심입니다.
+<b>v3.0 개편:</b> 요금제가 4단계(무료·광고제거·스탠다드·프리미엄)로 확정되고, AI가 <b>텍스트 입력·Claude Haiku·월 한도</b> 기준으로 정해지면서 원가 모델을 전면 재작성했습니다. 구버전 최대 원가였던 <b>STT가 제외</b>되고 AI 원가가 크게 낮아져, 전 플랜이 안정적 흑자 구조가 되었습니다. 상세는 <a href="#sheet-11">11_변경사항</a> 참조.
 </div>
 
 <div class="legend">
@@ -120,270 +127,208 @@ tbody tr:hover td { background:#f1f5f9; }
 <!-- ============ 0_요약 ============ -->
 <section id="sheet-0"><h2>0_요약</h2>
 <div class="twrap"><table>
-<tr class="title"><td colspan="5">리튼(Litten) 원가표 요약 v2</td></tr>
-<tr><td>작성일: 2026년 7월 · v2 (오류 수정 반영)</td><td></td><td></td><td></td><td></td></tr>
+<tr class="title"><td colspan="5">리튼(Litten) 원가표 요약 v3.0 — 4단계 요금제</td></tr>
+<tr><td>작성일: 2026년 7월 · 텍스트 입력·Haiku·월 한도 기준</td><td></td><td></td><td></td><td></td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="section"><td colspan="5">▶ 핵심 원가 지표 (1,000명 규모 기준)</td></tr>
-<tr><th>구분</th><th>라이트</th><th>미디엄</th><th>헤비</th><th>설명</th></tr>
-<tr><td>월 원가 (₩, CDN 미적용)</td><td class="num">838</td><td class="num">2,993</td><td class="num">8,723</td><td>소수점 반올림</td></tr>
+<tr class="section"><td colspan="5">▶ 확정 요금 & 월 원가(상한) · 순수익</td></tr>
+<tr><th>플랜</th><th>월 가격(₩)</th><th>월 원가 상한(₩)</th><th>순수익(수수료 30%)</th><th>순수익(15%·연구독)</th></tr>
+<tr><td>무료</td><td class="num">0</td><td class="num">132</td><td class="num">광고로 상쇄</td><td class="num">—</td></tr>
+<tr><td>광고제거</td><td class="num">500</td><td class="num">132</td><td class="num pos">+218</td><td class="num pos">+293</td></tr>
+<tr class="cur"><td>스탠다드 <b>(핵심)</b></td><td class="num">6,990</td><td class="num">880</td><td class="num pos">+4,013</td><td class="num pos">+5,062</td></tr>
+<tr><td>프리미엄</td><td class="num">13,990</td><td class="num">2,355</td><td class="num pos">+7,438</td><td class="num pos">+9,537</td></tr>
+<tr class="note"><td colspan="5">순수익 = 가격 × (1−수수료) − 월 원가 상한. 원가 상한 = AI 한도 100% 소진 가정(실제 평균은 더 낮음). 프리미엄 원가 = AI 2,200 + 클라우드 저장 155.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="section"><td colspan="5">▶ 규모별 사용자당 평균 원가</td></tr>
-<tr><th>사용자 수</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td>사용자당 원가 (₩)</td><td class="num">2,321</td><td class="num">2,101</td><td class="num">2,077</td><td class="num">2,061</td></tr>
-<tr class="note"><td colspan="5">10,000명 시나리오 서버비 현실화(₩480,000 → ₩560,000, t3.xlarge 여러 대 기준) 반영</td></tr>
+<tr class="section"><td colspan="5">▶ AI 원가 (Claude Haiku 4.5 · 텍스트 입력)</td></tr>
+<tr><th>항목</th><th>1회 원가(₩)</th><th>무료·광고제거(월 각 3)</th><th>스탠다드(월 각 20)</th><th>프리미엄(월 각 50)</th></tr>
+<tr><td>요약</td><td class="num">24</td><td class="num">72</td><td class="num">480</td><td class="num">1,200</td></tr>
+<tr><td>퀴즈</td><td class="num">20</td><td class="num">60</td><td class="num">400</td><td class="num">1,000</td></tr>
+<tr class="section"><td>월 AI 원가 상한</td><td class="num">—</td><td class="num"><b>132</b></td><td class="num"><b>880</b></td><td class="num"><b>2,200</b></td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="section"><td colspan="5">▶ 요금제별 순수익 (v2 학생 요금 재설계 반영)</td></tr>
-<tr><th>플랜</th><th>월 매출</th><th>수수료 30%</th><th>인프라 원가</th><th>순수익</th></tr>
-<tr><td>스탠다드 월간 ($4.99)</td><td class="num">6,986</td><td class="num">2,096</td><td class="num">2,993</td><td class="num pos">+1,898</td></tr>
-<tr><td>스탠다드 학생 ($2.49)</td><td class="num">3,486</td><td class="num">1,046</td><td class="num">838</td><td class="num pos">+1,602</td></tr>
-<tr><td>프리미엄 월간 ($9.99)</td><td class="num">13,986</td><td class="num">4,196</td><td class="num">8,723</td><td class="num pos">+1,067</td></tr>
-<tr><td>프리미엄 학생 ($4.99)</td><td class="num">6,986</td><td class="num">2,096</td><td class="num">2,993</td><td class="num pos">+1,898</td></tr>
-<tr class="note"><td colspan="5">v2: 학생 유저는 라이트(스탠다드학생)/미디엄(프리미엄학생) 원가로 재계산. 이전 v1은 모든 학생을 미디엄/헤비로 잘못 계산해 큰 적자로 보였음</td></tr>
-<tr class="spacer"><td colspan="5"></td></tr>
-
-<tr class="section"><td colspan="5">▶ 광고 시나리오 (선진국 vs 글로벌 - 상충 해소)</td></tr>
-<tr><th>시나리오</th><th>대상</th><th>1인당 순익</th><th>100만명 연간</th><th>사용 시점</th></tr>
-<tr><td>선진국 한정 (시트 8)</td><td>한국·일본·미국·유럽만</td><td class="num pos">+34원</td><td class="num pos">+4.08억</td><td>초기 진출</td></tr>
-<tr><td>글로벌 가중 (시트 9)</td><td>선·신흥·개도국 혼합</td><td class="num neg">-23원</td><td class="num neg">-2.74억</td><td>글로벌 확장</td></tr>
-<tr class="note"><td colspan="5">v2.1 수정: 두 시트의 노출(월 40회)·eCPM 가정을 통일. 이제 8·9번은 지역 구성만 다름. 이전 +31.8억은 앱 전체 광고(450노출) 가정이라 채택 전략(스터디룸+일정 40노출)에서 성립하지 않아 +4.08억으로 정정</td></tr>
+<tr class="section"><td colspan="5">▶ 광고 시나리오 (무료 유저 원가 상쇄)</td></tr>
+<tr><th>시나리오</th><th>대상</th><th>1인당 순익</th><th>원가 커버</th><th>사용 시점</th></tr>
+<tr><td>선진국 한정 (시트 8)</td><td>한국·일본·미국·유럽</td><td class="num pos">+34원</td><td class="num pos">흑자</td><td>초기 진출</td></tr>
+<tr><td>글로벌 가중 (시트 9)</td><td>선·신흥·개도국 혼합</td><td class="num neg">-23원</td><td class="num">평균 ~54%</td><td>글로벌 확장</td></tr>
+<tr class="note"><td colspan="5">광고 커버는 무료 <b>평균</b> 실원가 ₩50 기준(상한 ₩132이나 대다수는 AI 미사용 → 평균 낮음). 노출 월 40회(셀+일정 한정) 가정.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="section"><td colspan="5">▶ 핵심 인사이트</td></tr>
-<tr><td class="inp">1</td><td>가장 큰 원가는 AI API <span class="badge-fix">v2.1 정정</span></td><td colspan="3">1,000명 기준 AI가 총원가의 약 75%, 데이터 전송은 17%. (기존 "전송이 최대"는 오류)</td></tr>
-<tr><td class="inp">2</td><td>규모 경제 효과는 제한적 <span class="badge-fix">v2.1 정정</span></td><td colspan="3">변동비(AI+전송)가 원가의 96%라 사용자당 원가는 100명→5만명에 11%만 감소</td></tr>
-<tr><td class="inp">3</td><td>CDN은 원가 절감 수단이 아님 <span class="badge-fix">v2.1 정정</span></td><td colspan="3">리스트 가격 기준 전송비 +33%(CloudFront $0.12 &gt; S3 $0.09). 성능·안정성·약정할인 목적</td></tr>
-<tr><td class="inp">4</td><td>프리미엄 무제한 = 위험</td><td colspan="3">헤비 유저 원가가 프리미엄 매출 상당 부분 차지, 공정 사용 정책 필수</td></tr>
-<tr><td class="inp">5</td><td>학생 요금 흑자 조건</td><td colspan="3">학생은 라이트/미디엄 유저 원가로 설정 시 흑자, 미디엄/헤비 원가면 적자</td></tr>
-<tr><td class="inp">6</td><td>광고 시나리오는 지역 기반으로</td><td colspan="3">글로벌 확장 시 광고는 원가의 54%만 커버, 선진국만 흑자</td></tr>
+<tr><td class="inp">1</td><td>STT 제외로 원가 급락 <span class="badge-fix">v3.0</span></td><td colspan="3">구버전 최대 원가였던 STT($/분)를 텍스트 입력 확정으로 제거. AI는 이제 요약·퀴즈 LLM 호출뿐.</td></tr>
+<tr><td class="inp">2</td><td>Haiku로 회당 원가 최소화</td><td colspan="3">요약 24원·퀴즈 20원. Sonnet/Opus였다면 3~5배 → 프리미엄 적자 위험. Haiku가 전 플랜 흑자의 핵심.</td></tr>
+<tr><td class="inp">3</td><td>월 한도 = 원가 상한 확정</td><td colspan="3">AI 요약·퀴즈 한도(3/20/50)가 하한 아닌 상한 → 헤비 유저 원가 폭주 불가. 원가가 예측 가능.</td></tr>
+<tr><td class="inp">4</td><td>전 플랜 흑자</td><td colspan="3">광고제거 +218, 스탠다드 +4,013, 프리미엄 +7,438(수수료 30% 후). 프리미엄도 저장원가 얹을 여유 충분.</td></tr>
+<tr><td class="inp">5</td><td>광고제거 ₩500 = 전환 깔때기</td><td colspan="3">원가 132원뿐이라 거의 순이익. 첫 결제 장벽을 낮춰 스탠다드 업셀 발판.</td></tr>
+<tr><td class="inp">6</td><td>남은 검증 = 무료 원가·광고 ARPU</td><td colspan="3">무료 평균 원가와 광고 ARPU는 베타 실측 필요(₩500 순익 ₩218~ 과 비교).</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="section"><td colspan="5">▶ 시트 구성</td></tr>
-<tr><td class="inp">1_단가정보</td><td colspan="4">AWS S3/CloudFront/서버 단가 (수정하면 전체 원가 재계산)</td></tr>
-<tr><td class="inp">2_사용자유형</td><td colspan="4">라이트/미디엄/헤비/학생 유저의 사용량 가정</td></tr>
-<tr><td class="inp">3_사용자당원가</td><td colspan="4">사용자 1명당 월 원가 계산 (유저 유형별)</td></tr>
-<tr><td class="inp">4_규모별원가</td><td colspan="4">100명~50,000명 사용자 규모별 총 원가</td></tr>
-<tr><td class="inp">5_CDN효과</td><td colspan="4">CloudFront 도입 시 절감 효과</td></tr>
-<tr><td class="inp">6_순수익</td><td colspan="4">구독플랜별 순수익 분석 (v2 학생 원가 재계산)</td></tr>
+<tr><td class="inp">1_단가정보</td><td colspan="4">AWS S3/서버 + Claude Haiku AI 단가</td></tr>
+<tr><td class="inp">2_플랜한도</td><td colspan="4">4단계 플랜별 기능 한도(셀·캘린더·노트·AI·동기화)</td></tr>
+<tr><td class="inp">3_플랜당원가</td><td colspan="4">플랜 1명당 월 원가(AI 한도 + 저장)</td></tr>
+<tr><td class="inp">4_규모별원가</td><td colspan="4">유저 규모·구성별 총 원가</td></tr>
+<tr><td class="inp">5_CDN효과</td><td colspan="4">CloudFront 도입 효과</td></tr>
+<tr><td class="inp">6_순수익</td><td colspan="4">4단계 플랜별 순수익</td></tr>
 <tr><td class="inp">7_경쟁사</td><td colspan="4">한국 노트앱 기능·가격 비교</td></tr>
-<tr><td class="inp">8_광고선진국</td><td colspan="4">선진국 한정 광고 시나리오 (진출 초기)</td></tr>
-<tr><td class="inp">9_광고글로벌</td><td colspan="4">글로벌 지역 차등 광고 시나리오 (확장기)</td></tr>
+<tr><td class="inp">8_광고선진국</td><td colspan="4">선진국 한정 광고 시나리오</td></tr>
+<tr><td class="inp">9_광고글로벌</td><td colspan="4">글로벌 지역 차등 광고 시나리오</td></tr>
 <tr><td class="inp">10_유료전환</td><td colspan="4">유료 목표별 필요 가입자</td></tr>
-<tr><td class="inp">11_변경사항</td><td colspan="4">v1 대비 v2 수정 사항 (신규)</td></tr>
+<tr><td class="inp">11_변경사항</td><td colspan="4">v2.1 → v3.0 개편 내역</td></tr>
 </table></div></section>
 
 <!-- ============ 1_단가정보 ============ -->
 <section id="sheet-1"><h2>1_단가정보</h2><div class="twrap"><table>
 <tr class="title"><td colspan="5">리튼(Litten) 원가 단가 정보</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
-<tr><td>환율 (₩/USD)</td><td class="inp num">1,400</td><td>가정값 (수시 조정)</td><td></td><td></td></tr>
+<tr><td>환율 (₩/USD)</td><td class="inp num">1,350</td><td>가정값 (수시 조정)</td><td></td><td></td></tr>
+<tr><td>앱스토어 수수료</td><td class="inp num">30% / 15%</td><td>월간 30% · 연구독 1년 후 15%</td><td></td><td></td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="note"><td colspan="5">1. AWS S3 요금 (Standard)</td></tr>
+<tr class="note"><td colspan="5">1. Claude AI 단가 (Haiku 4.5, 텍스트 입력) <span class="badge-fix">v3.0 신규</span></td></tr>
 <tr><th>항목</th><th>단가 (USD)</th><th>단위</th><th>단가 (₩)</th><th>출처</th></tr>
-<tr><td>저장 (S3 Standard)</td><td class="inp num">0.025</td><td>GB/월</td><td class="num">35</td><td>AWS 공식</td></tr>
-<tr><td>PUT/COPY/POST/LIST 요청</td><td class="inp num">0.0045</td><td>1,000요청</td><td class="num">6.30</td><td>AWS 공식</td></tr>
-<tr><td>GET/SELECT 요청</td><td class="inp num">0.00035</td><td>1,000요청</td><td class="num">0.49</td><td>AWS 공식</td></tr>
-<tr><td>데이터 전송 (인터넷, 첫 10TB)</td><td class="inp num">0.09</td><td>GB</td><td class="num">126</td><td>AWS 공식</td></tr>
-<tr><td>데이터 전송 (인터넷, 10~50TB)</td><td class="inp num">0.085</td><td>GB</td><td class="num">119</td><td>AWS 공식</td></tr>
+<tr><td>입력 토큰 (Haiku 4.5)</td><td class="inp num">1.00</td><td>1M tokens</td><td class="num">1,350</td><td>Anthropic 공식</td></tr>
+<tr><td>출력 토큰 (Haiku 4.5)</td><td class="inp num">5.00</td><td>1M tokens</td><td class="num">6,750</td><td>Anthropic 공식</td></tr>
+<tr><td>요약 1회 (입력 10K + 출력 1.5K)</td><td class="num">0.0175</td><td>회</td><td class="num">24</td><td>계산</td></tr>
+<tr><td>퀴즈 1회 (입력 10K + 출력 1K)</td><td class="num">0.0150</td><td>회</td><td class="num">20</td><td>계산</td></tr>
+<tr class="note"><td colspan="5">입력 10K토큰 ≈ 약 7,500단어(긴 노트) 가정 — 실제 노트는 더 짧아 보통 이보다 낮음. <b>STT는 사용 안 함(텍스트 입력 확정).</b></td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+
+<tr class="note"><td colspan="5">2. AWS S3 요금 (Standard) — 클라우드 저장·동기화(프리미엄)</td></tr>
+<tr><th>항목</th><th>단가 (USD)</th><th>단위</th><th>단가 (₩)</th><th>출처</th></tr>
+<tr><td>저장 (S3 Standard)</td><td class="inp num">0.025</td><td>GB/월</td><td class="num">34</td><td>AWS 공식</td></tr>
+<tr><td>PUT/COPY/POST/LIST 요청</td><td class="inp num">0.0045</td><td>1,000요청</td><td class="num">6.1</td><td>AWS 공식</td></tr>
+<tr><td>GET/SELECT 요청</td><td class="inp num">0.00035</td><td>1,000요청</td><td class="num">0.47</td><td>AWS 공식</td></tr>
+<tr><td>데이터 전송 (인터넷, 첫 10TB)</td><td class="inp num">0.09</td><td>GB</td><td class="num">122</td><td>AWS 공식</td></tr>
 <tr><td>S3 Standard-IA 저장</td><td class="inp num">0.0138</td><td>GB/월</td><td class="num">19</td><td>AWS 공식</td></tr>
-<tr><td>S3 Glacier Instant 저장</td><td class="inp num">0.005</td><td>GB/월</td><td class="num">7</td><td>AWS 공식</td></tr>
+<tr class="note"><td colspan="5">무료·광고제거·스탠다드의 개인 노트는 <b>로컬 저장</b>(S3 원가 ≈0). 클라우드 저장·동기화는 <b>프리미엄 전용</b> → 프리미엄만 유의미한 S3 원가 발생.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="note"><td colspan="5">2. AWS CloudFront (CDN) 요금</td></tr>
+<tr class="note"><td colspan="5">3. AWS CloudFront (CDN) 요금</td></tr>
 <tr><th>항목</th><th>단가 (USD)</th><th>단위</th><th>단가 (₩)</th><th>출처</th></tr>
-<tr><td>CDN 데이터 전송 (아시아, 첫 10TB)</td><td class="inp num">0.12</td><td>GB</td><td class="num">168</td><td>AWS 공식</td></tr>
-<tr><td>CDN HTTP/HTTPS 요청 (아시아)</td><td class="inp num">0.012</td><td>10,000요청</td><td class="num">17</td><td>AWS 공식</td></tr>
+<tr><td>CDN 데이터 전송 (아시아, 첫 10TB)</td><td class="inp num">0.12</td><td>GB</td><td class="num">162</td><td>AWS 공식</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="note"><td colspan="5">3. 서버 컴퓨팅 요금</td></tr>
+<tr class="note"><td colspan="5">4. 서버 컴퓨팅 요금</td></tr>
 <tr><th>항목</th><th>월 요금 (₩)</th><th>사양</th><th>지원 사용자</th><th>출처</th></tr>
 <tr><td>초기 서버 (Cafe24 가상)</td><td class="inp num">30,000</td><td>1vCPU/1GB</td><td>약 300명</td><td>Cafe24 참조</td></tr>
 <tr><td>성장 서버 (AWS EC2 t3.medium)</td><td class="inp num">55,000</td><td>2vCPU/4GB</td><td>약 2,000명</td><td>AWS 참조</td></tr>
-<tr><td>확대 서버 (AWS EC2 t3.xlarge)</td><td class="inp num">210,000</td><td>4vCPU/16GB</td><td>약 5,000명 <span class="badge-fix">v2 수정</span></td><td>AWS 참조</td></tr>
-<tr><td>DB (AWS RDS db.t3.micro)</td><td class="inp num">25,000</td><td>MySQL 기본</td><td>약 1,000명</td><td>AWS 참조</td></tr>
-<tr class="note"><td colspan="5">v2 수정: t3.xlarge 지원 사용자를 10,000명 → 5,000명으로 하향 조정 (t3.xlarge 1대로 10,000명은 무리)</td></tr>
+<tr><td>확대 서버 (AWS EC2 t3.xlarge)</td><td class="inp num">210,000</td><td>4vCPU/16GB</td><td>약 5,000명</td><td>AWS 참조</td></tr>
+<tr><td>DB (AWS RDS db.t3.micro)</td><td class="inp num">25,000</td><td>MariaDB 기본</td><td>약 1,000명</td><td>AWS 참조</td></tr>
+<tr class="note"><td colspan="5">무료·광고제거·스탠다드는 로컬 우선이라 서버 부하가 작다. 서버·DB는 주로 로그인·셀 공유·프리미엄 동기화에 사용.</td></tr>
 </table></div></section>
 
-<!-- ============ 2_사용자유형 ============ -->
-<section id="sheet-2"><h2>2_사용자유형</h2><div class="twrap"><table>
-<tr class="title"><td colspan="5">사용자 유형별 월 사용량 가정</td></tr>
+<!-- ============ 2_플랜한도 ============ -->
+<section id="sheet-2"><h2>2_플랜한도 <span class="badge-fix">v3.0 재작성</span></h2><div class="twrap"><table>
+<tr class="title"><td colspan="5">4단계 플랜별 기능 한도 (원가 산정 기준)</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
-<tr class="note"><td colspan="5">리튼 4단계 사이클 기반 사용 패턴 (헤비 유저 실측: 필기66, 녹음6, 음성35, 문서3, 영상20, 사진3)</td></tr>
-<tr class="spacer"><td colspan="5"></td></tr>
-
-<tr><th>구분</th><th>라이트</th><th>미디엄</th><th>헤비</th><th>설명</th></tr>
-<tr><td>월 콘텐츠 생성 개수 (건)</td><td class="inp num">20</td><td class="inp num">60</td><td class="inp num">140</td><td>메모+녹음+필기+파일 합계</td></tr>
-<tr><td>파일 크기 평균 (MB)</td><td class="inp num">5</td><td class="inp num">15</td><td class="inp num">20</td><td>녹음·영상 포함 가중평균</td></tr>
-<tr><td>월 저장 증가량 (GB)</td><td class="num">0.10</td><td class="num">0.88</td><td class="num">2.73</td><td>개수 × 크기 / 1024</td></tr>
-<tr><td>누적 저장량 (GB)</td><td class="inp num">0.5</td><td class="inp num">3</td><td class="inp num">10</td><td>3~6개월 누적 가정</td></tr>
-<tr><td>월 PUT 요청 수</td><td class="inp num">60</td><td class="inp num">200</td><td class="inp num">500</td><td>업로드+동기화</td></tr>
-<tr><td>월 GET 요청 수</td><td class="inp num">300</td><td class="inp num">900</td><td class="inp num">2,500</td><td>열람+동기화</td></tr>
-<tr><td>월 LIST 요청 수</td><td class="inp num">100</td><td class="inp num">300</td><td class="inp num">600</td><td>앱 실행·목록 조회</td></tr>
-<tr><td>월 다운로드량 (GB)</td><td class="inp num">1.5</td><td class="inp num">4</td><td class="inp num">7.5</td><td>재생·미리보기·재동기화</td></tr>
-<tr><td>월 AI API 사용 (USD)</td><td class="inp num">0.30</td><td class="inp num">1.50</td><td class="inp num">5.00</td><td>STT+요약+번역</td></tr>
-<tr class="spacer"><td colspan="5"></td></tr>
-
-<tr class="warn"><td colspan="5">v2 신규: 학생 유저 유형 (원가 계산용)</td></tr>
-<tr><td colspan="5" class="sub2">학생은 방학·학기 사이클로 사용 패턴이 다름. 라이트~미디엄 중간 정도로 가정.</td></tr>
-<tr><td>스탠다드 학생 원가 기준</td><td class="num inp">라이트</td><td colspan="3">방학 시 사용 저조, 학기 중 일반 사용</td></tr>
-<tr><td>프리미엄 학생 원가 기준</td><td class="num inp">미디엄</td><td colspan="3">시험 기간 집중 사용, 그 외 보통 사용</td></tr>
+<tr><th>기능</th><th>무료</th><th>광고제거</th><th>스탠다드</th><th>프리미엄</th></tr>
+<tr><td>광고</td><td>표시</td><td>제거</td><td>제거</td><td>제거</td></tr>
+<tr><td>셀 생성</td><td class="neg">불가</td><td class="neg">불가</td><td class="pos">가능</td><td class="pos">가능</td></tr>
+<tr><td>셀 파일 다운</td><td class="num">5개</td><td>무제한</td><td>무제한</td><td>무제한</td></tr>
+<tr><td>캘린더 일정</td><td class="num">5개</td><td>무제한</td><td>무제한</td><td>무제한</td></tr>
+<tr><td>노트 파일 (파일별)</td><td class="num">3개</td><td class="num">3개</td><td>무제한</td><td>무제한</td></tr>
+<tr><td>AI 요약 (월)</td><td class="num">3회</td><td class="num">3회</td><td class="num">20회</td><td class="num">50회</td></tr>
+<tr><td>AI 퀴즈 (월)</td><td class="num">3회</td><td class="num">3회</td><td class="num">20회</td><td class="num">50회</td></tr>
+<tr><td>기기간 동기화</td><td class="neg">미지원</td><td class="neg">미지원</td><td class="neg">미지원</td><td class="pos">3대</td></tr>
+<tr><td>클라우드 저장</td><td class="neg">로컬</td><td class="neg">로컬</td><td class="neg">로컬</td><td class="pos">서버 보관</td></tr>
+<tr class="note"><td colspan="5">AI 한도는 <b>상한</b>(하한 아님). 원가는 이 한도를 100% 소진했을 때가 최댓값이며, 실제 평균은 그보다 낮다. 프리미엄만 클라우드 저장·동기화로 S3 원가가 발생한다.</td></tr>
 </table></div></section>
 
-<!-- ============ 3_사용자당원가 ============ -->
-<section id="sheet-3"><h2>3_사용자당원가</h2><div class="twrap"><table>
-<tr class="title"><td colspan="7">사용자 1명당 월 원가 계산</td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
-<tr><th>원가 항목</th><th>라이트 (USD)</th><th>미디엄 (USD)</th><th>헤비 (USD)</th><th>라이트 (₩)</th><th>미디엄 (₩)</th><th>헤비 (₩)</th></tr>
-<tr><td>S3 저장 (Standard)</td><td class="num">0.0125</td><td class="num">0.0750</td><td class="num">0.2500</td><td class="num">18</td><td class="num">105</td><td class="num">350</td></tr>
-<tr><td>S3 요청 (PUT/GET/LIST)</td><td class="num">0.0008</td><td class="num">0.0026</td><td class="num">0.0058</td><td class="num">1</td><td class="num">4</td><td class="num">8</td></tr>
-<tr><td>S3 데이터 전송</td><td class="num">0.1350</td><td class="num">0.3600</td><td class="num">0.6750</td><td class="num">189</td><td class="num">504</td><td class="num">945</td></tr>
-<tr><td>AI API (STT/요약/번역)</td><td class="num">0.3000</td><td class="num">1.5000</td><td class="num">5.0000</td><td class="num">420</td><td class="num">2,100</td><td class="num">7,000</td></tr>
-<tr><td>서버 컴퓨팅 분담</td><td class="inp num">0.1500</td><td class="inp num">0.2000</td><td class="inp num">0.3000</td><td class="num">210</td><td class="num">280</td><td class="num">420</td></tr>
-<tr class="section"><td><b>직접 변동비 소계</b></td><td class="num">0.5983</td><td class="num">2.1376</td><td class="num">6.2308</td><td class="num"><b>838</b></td><td class="num"><b>2,993</b></td><td class="num"><b>8,723</b></td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
+<!-- ============ 3_플랜당원가 ============ -->
+<section id="sheet-3"><h2>3_플랜당원가 <span class="badge-fix">v3.0 재작성</span></h2><div class="twrap"><table>
+<tr class="title"><td colspan="5">플랜 1명당 월 원가 (상한 = AI 한도 100% 소진)</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr><th>원가 항목</th><th>무료</th><th>광고제거</th><th>스탠다드</th><th>프리미엄</th></tr>
+<tr><td>AI 요약 (24원 × 한도)</td><td class="num">72</td><td class="num">72</td><td class="num">480</td><td class="num">1,200</td></tr>
+<tr><td>AI 퀴즈 (20원 × 한도)</td><td class="num">60</td><td class="num">60</td><td class="num">400</td><td class="num">1,000</td></tr>
+<tr><td>클라우드 저장 (S3)</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">155</td></tr>
+<tr><td>서버·전송 분담</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">소액</td><td class="num">소액</td></tr>
+<tr class="section"><td><b>월 원가 상한 (₩)</b></td><td class="num"><b>132</b></td><td class="num"><b>132</b></td><td class="num"><b>880</b></td><td class="num"><b>2,355</b></td></tr>
+<tr class="note"><td colspan="5">프리미엄 저장 155원 = 5GB × S3 Standard(34원/GB) 가정. 무료·광고제거·스탠다드는 개인 노트가 로컬이라 저장 원가 ≈0(셀 다운로드 트래픽만 소액).</td></tr>
 </table></div>
-<div class="callout" style="border-left-color:#dc2626;background:#fef2f2">
-<b style="color:#dc2626">⚠ v2.1 최대 리스크 — AI API 원가는 미검증 가정입니다.</b> AI API가 사용자당 원가의 <b>50~80%</b>(라이트 50%·미디엄 70%·헤비 80%)를 차지하는데, 이 $0.30~5.00/유저 값은 <b>실측이 아니라 가정</b>입니다. 실제 AWS AI 비용(원가표.txt)은 2026-06 <b>서비스 전체 합계 ≈ $0.23/월</b>로, 미디엄 1명 가정치($1.5)의 1/6 수준. 즉 현재는 실사용이 거의 없는 상태이며, 원가·순익·손익분기 결론 전부가 이 한 숫자에 의존합니다. <b>베타 100명 실측 전까지 모든 흑자 결론은 잠정</b>으로 보십시오.
+<div class="callout warn">
+<b>⚠ 무료 유저 평균 원가:</b> 위 무료 ₩132는 <b>AI 요약·퀴즈를 매월 3회씩 모두 소진한 상한</b>입니다. 실제 무료 유저 다수는 AI를 거의 쓰지 않아 <b>평균 실원가는 ₩50 안팎</b>으로 봅니다(광고 원가 상쇄 계산은 이 평균을 사용 — 시트 8·9). 베타 실측으로 검증 필요.
 </div>
 <ul class="memo">
-  <li><b>참고:</b> 위 원가는 CloudFront 미적용(S3 직접 전송) 기준. CDN은 원가 절감 수단이 아님(시트5 참조).</li>
-  <li><b>참고:</b> 서버 컴퓨팅 분담은 사용자 1,000명 기준 추정 (사용자 증가 시 감소). 시트4 서버 고정비와 산정 기준이 다름 → 시트4 주석 참조.</li>
-  <li><b>참고:</b> 결제 수수료(15~30%)와 고정비(개발·마케팅·CS)는 별도</li>
-  <li><b>참고(v2.1 정정):</b> AI API 원가는 <b>실측이 아닌 가정값</b>. 사용 패턴·모델 단가에 따라 크게 변동하며, 베타 실측으로 검증 필요(상단 경고 참조).</li>
-  <li><b>v2 수정:</b> 소수점 4자리 → 정수(반올림)로 표시 정리</li>
+  <li><b>구버전 대비:</b> 라이트/미디엄/헤비(838/2,993/8,723) 사용량 모델을 폐기하고 <b>플랜 한도 기반</b>으로 전환. STT 제외 + Haiku로 스탠다드 2,993→880, 프리미엄 8,723→2,355로 하락.</li>
+  <li><b>원가 예측성:</b> AI가 월 한도로 상한이 걸려 있어, 구버전의 "헤비 유저 원가 폭주" 리스크가 구조적으로 사라졌다.</li>
 </ul>
 </section>
 
 <!-- ============ 4_규모별원가 ============ -->
-<section id="sheet-4"><h2>4_규모별원가</h2><div class="twrap"><table>
-<tr class="title"><td colspan="7">사용자 규모별 월 총 원가</td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
-<tr class="note"><td colspan="7">규모 확장 시 원가 구조 변화 및 인프라 단계 확인용</td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
+<section id="sheet-4"><h2>4_규모별원가 <span class="badge-fix">v3.0 재작성</span></h2><div class="twrap"><table>
+<tr class="title"><td colspan="5">유저 규모별 월 총 원가 (구성 가정 반영)</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
+<tr class="note"><td colspan="5">구성 가정: 유료 전환율 5% · 유료 구성 광고제거 50 : 스탠다드 35 : 프리미엄 15 · 무료는 평균 원가 ₩50 적용(상한 아님)</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
 
-<tr><th>구분</th><th>100명</th><th>500명</th><th>1,000명</th><th>5,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td>라이트 유저 (60%)</td><td class="inp num">60</td><td class="inp num">300</td><td class="inp num">600</td><td class="inp num">3,000</td><td class="inp num">6,000</td><td class="inp num">30,000</td></tr>
-<tr><td>미디엄 유저 (30%)</td><td class="inp num">30</td><td class="inp num">150</td><td class="inp num">300</td><td class="inp num">1,500</td><td class="inp num">3,000</td><td class="inp num">15,000</td></tr>
-<tr><td>헤비 유저 (10%)</td><td class="inp num">10</td><td class="inp num">50</td><td class="inp num">100</td><td class="inp num">500</td><td class="inp num">1,000</td><td class="inp num">5,000</td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
+<tr><th>구분</th><th>1,000명</th><th>10,000명</th><th>100,000명</th></tr>
+<tr><td>무료 (95%) · ₩50</td><td class="num">47,500</td><td class="num">475,000</td><td class="num">4,750,000</td></tr>
+<tr><td>광고제거 (2.5%) · ₩132</td><td class="num">3,300</td><td class="num">33,000</td><td class="num">330,000</td></tr>
+<tr><td>스탠다드 (1.75%) · ₩880</td><td class="num">15,400</td><td class="num">154,000</td><td class="num">1,540,000</td></tr>
+<tr><td>프리미엄 (0.75%) · ₩2,355</td><td class="num">17,663</td><td class="num">176,625</td><td class="num">1,766,250</td></tr>
+<tr><td>서버·DB 고정비</td><td class="inp num">80,000</td><td class="inp num">560,000</td><td class="inp num">2,800,000</td></tr>
+<tr class="section"><td><b>월 총 원가 (₩)</b></td><td class="num"><b>163,863</b></td><td class="num"><b>1,398,625</b></td><td class="num"><b>11,186,250</b></td></tr>
+<tr class="section"><td><b>가입자당 평균 (₩)</b></td><td class="num"><b>164</b></td><td class="num"><b>140</b></td><td class="num"><b>112</b></td></tr>
+<tr class="note"><td colspan="5">무료 원가에 <b>상한 ₩132</b>를 적용하면 총원가는 크게 오른다(1,000명 시 무료분 47,500→125,400). 실무에선 무료 AI 한도(3회)가 상한을 눌러줘 평균이 낮게 유지된다.</td></tr>
+<tr class="spacer"><td colspan="5"></td></tr>
 
-<tr><td>S3 저장 (₩)</td><td class="num">7,700</td><td class="num">38,500</td><td class="num">77,000</td><td class="num">385,000</td><td class="num">770,000</td><td class="num">3,850,000</td></tr>
-<tr><td>S3 요청 (₩)</td><td class="num">259</td><td class="num">1,293</td><td class="num">2,586</td><td class="num">12,929</td><td class="num">25,858</td><td class="num">129,290</td></tr>
-<tr><td>S3 데이터 전송 (₩)</td><td class="num">35,910</td><td class="num">179,550</td><td class="num">359,100</td><td class="num">1,795,500</td><td class="num">3,591,000</td><td class="num">17,955,000</td></tr>
-<tr><td>AI API (₩)</td><td class="num">158,200</td><td class="num">791,000</td><td class="num">1,582,000</td><td class="num">7,910,000</td><td class="num">15,820,000</td><td class="num">79,100,000</td></tr>
-<tr><td>서버·DB 고정비 (₩) <span class="badge-fix">v2 수정</span></td><td class="inp num">30,000</td><td class="inp num">55,000</td><td class="inp num">80,000</td><td class="inp num">240,000</td><td class="inp num">560,000</td><td class="inp num">2,100,000</td></tr>
-<tr class="section"><td><b>월 총 원가 (₩)</b></td><td class="num"><b>232,069</b></td><td class="num"><b>1,065,343</b></td><td class="num"><b>2,100,686</b></td><td class="num"><b>10,343,429</b></td><td class="num"><b>20,766,858</b></td><td class="num"><b>103,134,290</b></td></tr>
-<tr class="section"><td><b>사용자당 평균 (₩)</b> <span class="badge-fix">v2 수정</span></td><td class="num"><b>2,321</b></td><td class="num"><b>2,131</b></td><td class="num"><b>2,101</b></td><td class="num"><b>2,069</b></td><td class="num"><b>2,077</b></td><td class="num"><b>2,063</b></td></tr>
-<tr class="note"><td colspan="7">v2 수정: 10,000명 서버비 480,000→560,000원 조정(t3.xlarge 2대 필요). 이제 5,000명과 10,000명 사용자당 원가가 다르게 나옴</td></tr>
-<tr class="note"><td colspan="7"><b>v2.1 서버원가 기준 안내(B-1):</b> 본 시트는 실제 인프라 사양 기준 <b>서버·DB 고정비(1,000명 8만원)</b>를 사용합니다. 반면 시트3의 "서버 컴퓨팅 분담"(유저당 210~420원)을 1,000명에 환산하면 약 25만원으로 <b>약 3배 큼</b>. 시트3은 유저당 보수적 배분, 본 시트는 실제 고정비 배분이라는 <b>두 관점</b>이며, 시트6 순수익은 시트3(보수) 기준을 사용해 순익을 다소 과소평가(안전측). 정밀화 시 한 기준으로 통일 예정.</td></tr>
-<tr class="spacer"><td colspan="7"></td></tr>
-
-<tr><td colspan="7">▶ 권장 인프라 단계</td></tr>
-<tr class="note"><td colspan="7">• 100명: Cafe24 초기 서버, S3 Standard, CDN 없음</td></tr>
-<tr class="note"><td colspan="7">• 500명: 동일 + DB 별도 검토</td></tr>
-<tr class="note"><td colspan="7">• 1,000명: AWS EC2 t3.medium 전환, RDS 도입, CloudFront 검토</td></tr>
-<tr class="note"><td colspan="7">• 5,000명: CloudFront 필수, S3 계층형 스토리지 시작, t3.xlarge 1대</td></tr>
-<tr class="note"><td colspan="7">• 10,000명: t3.xlarge 2대 또는 t3.2xlarge, 오래된 데이터 Standard-IA 이동</td></tr>
-<tr class="note"><td colspan="7">• 50,000명: Auto Scaling, ELB, Multi-AZ, Enterprise 계약 협상</td></tr>
+<tr><td colspan="5">▶ 권장 인프라 단계</td></tr>
+<tr class="note"><td colspan="5">• ~1,000명: Cafe24/EC2 t3.medium + RDS. CDN 불필요</td></tr>
+<tr class="note"><td colspan="5">• ~10,000명: t3.xlarge + CloudFront 검토, 프리미엄 저장 계층화 시작</td></tr>
+<tr class="note"><td colspan="5">• ~100,000명: Auto Scaling·Multi-AZ, S3 계층형(Standard-IA), Enterprise 협상</td></tr>
 </table></div></section>
 
-<!-- ============ 5_CDN효과 (v2.1 로직 보정) ============ -->
-<section id="sheet-5"><h2>5_CDN효과 <span class="badge-fix">v2.1 로직 보정</span></h2><div class="twrap"><table>
+<!-- ============ 5_CDN효과 ============ -->
+<section id="sheet-5"><h2>5_CDN효과</h2><div class="twrap"><table>
 <tr class="title"><td colspan="5">CloudFront CDN 적용 시 전송 원가 (리스트 가격 기준)</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
-<tr class="warn"><td colspan="5">v2.1 정정: 기존 "전송 원가 40% 절감"은 오류였습니다. 시트1 단가표대로 CloudFront 아시아 전송(₩168/GB=$0.12)은 S3 직접 전송(₩126/GB=$0.09)보다 33% 비쌉니다. CDN은 사용자에게 나가는 전송량을 줄이지 않으므로, 리스트 가격에선 전송비가 오히려 증가합니다.</td></tr>
+<tr class="warn"><td colspan="5">CloudFront 아시아 전송(₩162/GB=$0.12)은 S3 직접 전송(₩122/GB=$0.09)보다 33% 비쌉니다. CDN은 사용자에게 나가는 전송량 자체를 줄이지 않으므로, 리스트 가격에선 전송비가 오히려 증가합니다.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
-
-<tr><th>구분</th><th>1,000명</th><th>5,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr class="section"><td colspan="5">▶ CDN 미적용 (S3 직접 전송, $0.09/GB)</td></tr>
-<tr><td>전송 원가 (₩)</td><td class="num">359,100</td><td class="num">1,795,500</td><td class="num">3,591,000</td><td class="num">17,955,000</td></tr>
-<tr class="spacer"><td colspan="5"></td></tr>
-
-<tr class="section"><td colspan="5">▶ CDN 적용 (CloudFront 아시아, $0.12/GB, 리스트 가격)</td></tr>
-<tr><td>전송 원가 (₩)</td><td class="num">478,800</td><td class="num">2,394,000</td><td class="num">4,788,000</td><td class="num">23,940,000</td></tr>
-<tr class="spacer"><td colspan="5"></td></tr>
-
-<tr><td>차액 (증가, ₩)</td><td class="num neg">+119,700</td><td class="num neg">+598,500</td><td class="num neg">+1,197,000</td><td class="num neg">+5,985,000</td></tr>
+<tr class="note"><td colspan="5">단, 4단계 모델에선 전송량 자체가 작다(개인 노트 로컬·프리미엄만 클라우드). CDN 판단 우선순위는 낮음.</td></tr>
 </table></div>
 <ul class="memo">
-  <li><b>정정 배경:</b> CloudFront는 origin(S3)→edge 재요청을 캐시로 줄일 뿐, 사용자에게 나가는 egress 총량은 동일. S3→CloudFront 전송은 원래 무료라 "캐시로 전송량 40% 절감"은 성립하지 않습니다.</li>
-  <li><b>CDN의 실제 이점:</b> (1) 지연시간 단축·안정성 향상(UX), (2) S3 GET 요청·origin 부하 감소, (3) 대량 트래픽 시 <b>약정 할인</b>(CloudFront Security Savings Bundle / committed-use)으로 실단가 인하 협상 가능.</li>
-  <li><b>결론:</b> CDN은 "원가 절감 수단"이 아니라 <b>성능·안정성 투자</b>로 보는 것이 정확. 순수 원가 관점에선 리스트 가격 기준 전송비가 +33% 증가하므로, 도입 시 약정 할인 협상을 전제로 판단.</li>
-  <li><b>참고:</b> CloudFront 첫 1TB/월 무료 티어, 지역·약정에 따라 실단가는 달라질 수 있음. 실제 도입 전 AWS 견적 확인 필요.</li>
+  <li><b>CDN의 실제 이점:</b> (1) 지연시간 단축·안정성(UX), (2) origin(S3) GET 부하 감소, (3) 대량 트래픽 시 <b>약정 할인</b> 협상.</li>
+  <li><b>결론:</b> CDN은 "원가 절감 수단"이 아니라 <b>성능·안정성 투자</b>. 리튼은 전송량이 작아 초기엔 불필요, 프리미엄 저장·동기화가 커지면 재검토.</li>
 </ul>
 </section>
 
-<!-- ============ 6_순수익 (v2 학생 요금 재설계) ============ -->
-<section id="sheet-6"><h2>6_순수익분석 <span class="badge-fix">v2 학생 요금 재설계</span></h2>
+<!-- ============ 6_순수익 ============ -->
+<section id="sheet-6"><h2>6_순수익분석 <span class="badge-fix">v3.0 재작성</span></h2>
 <div class="callout">
-<b>v2 수정 핵심:</b> 이전에는 학생 요금 사용자의 원가를 미디엄/헤비 유저 기준으로 계산해 큰 적자로 보였습니다. 실제로는 학생은 방학·학기 사이클이 있고 사용 강도가 낮아 <b>라이트/미디엄 유저 원가로 계산</b>하는 것이 정확합니다. 이 재설계로 학생 요금도 흑자 확보 가능.
+<b>핵심:</b> 텍스트 입력·Haiku·월 한도 확정으로 <b>전 플랜이 안정적 흑자</b>입니다. 프리미엄도 서버 저장원가를 얹은 뒤 순수익 +7,438원(수수료 30%)로 여유가 큽니다.
 </div>
-
 <div class="twrap"><table>
-<tr class="title"><td colspan="7">▶ 표 A · 사용자 1명당 월 순수익 (요금제별 상세)</td></tr>
-<tr><th>플랜</th><th>요금제</th><th>월 매출(₩)</th><th>수수료 30%(₩)</th><th>인프라 원가(₩)</th><th>사용자당 순수익(₩)</th><th>순수익률</th></tr>
-<tr><td rowspan="3"><b>스탠다드</b></td><td>월간 ($4.99)</td><td class="num inp">6,986</td><td class="num">2,096</td><td class="num inp">2,993</td><td class="num pos">+1,898</td><td class="num pos">+27.2%</td></tr>
-<tr><td>연간(월 환산, $3.33)</td><td class="num inp">4,666</td><td class="num">1,400</td><td class="num inp">2,993</td><td class="num pos">+273</td><td class="num pos">+5.9%</td></tr>
-<tr><td>학생($2.49) <span class="badge-fix">v2</span></td><td class="num inp">3,486</td><td class="num">1,046</td><td class="num inp">838</td><td class="num pos">+1,602</td><td class="num pos">+46.0%</td></tr>
-<tr><td rowspan="3"><b>프리미엄</b></td><td>월간 ($9.99)</td><td class="num inp">13,986</td><td class="num">4,196</td><td class="num inp">8,723</td><td class="num pos">+1,067</td><td class="num pos">+7.6%</td></tr>
-<tr><td>연간(월 환산, $6.67)</td><td class="num inp">9,332</td><td class="num">2,800</td><td class="num inp">8,723</td><td class="num neg">-2,191</td><td class="num neg">-23.5%</td></tr>
-<tr><td>학생($4.99) <span class="badge-fix">v2</span></td><td class="num inp">6,986</td><td class="num">2,096</td><td class="num inp">2,993</td><td class="num pos">+1,898</td><td class="num pos">+27.2%</td></tr>
+<tr class="title"><td colspan="6">▶ 표 A · 플랜 1명당 월 순수익</td></tr>
+<tr><th>플랜</th><th>월 가격(₩)</th><th>수수료(₩)</th><th>월 원가 상한(₩)</th><th>순수익(₩)</th><th>순수익률</th></tr>
+<tr><td>광고제거</td><td class="num inp">500</td><td class="num">150</td><td class="num inp">132</td><td class="num pos">+218</td><td class="num pos">+43.6%</td></tr>
+<tr class="cur"><td>스탠다드 <b>(핵심)</b></td><td class="num inp">6,990</td><td class="num">2,097</td><td class="num inp">880</td><td class="num pos">+4,013</td><td class="num pos">+57.4%</td></tr>
+<tr><td>프리미엄</td><td class="num inp">13,990</td><td class="num">4,197</td><td class="num inp">2,355</td><td class="num pos">+7,438</td><td class="num pos">+53.2%</td></tr>
+<tr class="note"><td colspan="6">수수료 30%(월간). 연구독은 1년 후 15% → 순수익 광고제거 +293 · 스탠다드 +5,062 · 프리미엄 +9,537.</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 스탠다드 요금제 × 유저수 월 순수익 (v2 원가 기준)</td></tr>
-<tr><th>요금제</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td>월간 ($4.99)</td><td class="num pos">189,761</td><td class="num pos">1,897,609</td><td class="num pos">18,976,090</td><td class="num pos">94,880,450</td></tr>
-<tr><td>연간(월 환산, $3.33)</td><td class="num pos">27,326</td><td class="num pos">273,259</td><td class="num pos">2,732,590</td><td class="num pos">13,662,950</td></tr>
-<tr><td>학생($2.49) <span class="badge-fix">v2</span></td><td class="num pos">160,155</td><td class="num pos">1,601,545</td><td class="num pos">16,015,450</td><td class="num pos">80,077,250</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 플랜별 × 유료 유저수 월 순수익 (수수료 30%)</td></tr>
+<tr><th>플랜</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
+<tr><td>광고제거 (+218)</td><td class="num pos">21,800</td><td class="num pos">218,000</td><td class="num pos">2,180,000</td><td class="num pos">10,900,000</td></tr>
+<tr><td>스탠다드 (+4,013)</td><td class="num pos">401,300</td><td class="num pos">4,013,000</td><td class="num pos">40,130,000</td><td class="num pos">200,650,000</td></tr>
+<tr><td>프리미엄 (+7,438)</td><td class="num pos">743,800</td><td class="num pos">7,438,000</td><td class="num pos">74,380,000</td><td class="num pos">371,900,000</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 C · 프리미엄 요금제 × 유저수 월 순수익 (v2 원가 기준)</td></tr>
-<tr><th>요금제</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td>월간 ($9.99)</td><td class="num pos">106,704</td><td class="num pos">1,067,045</td><td class="num pos">10,670,450</td><td class="num pos">53,352,250</td></tr>
-<tr><td>연간(월 환산, $6.67)</td><td class="num neg">-219,064</td><td class="num neg">-2,190,638</td><td class="num neg">-21,906,383</td><td class="num neg">-109,531,917</td></tr>
-<tr><td>학생($4.99) <span class="badge-fix">v2</span></td><td class="num pos">189,761</td><td class="num pos">1,897,609</td><td class="num pos">18,976,090</td><td class="num pos">94,880,450</td></tr>
-</table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="6">▶ 표 D · 스탠다드 금액 민감도 (월 구독가별 순수익, 미디엄 원가 기준)</td></tr>
-<tr><th>월 구독가</th><th>사용자당 순수익(₩)</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td class="inp">$2.99</td><td class="num neg">-62</td><td class="num neg">-6,239</td><td class="num neg">-62,391</td><td class="num neg">-623,910</td><td class="num neg">-3,119,550</td></tr>
-<tr><td class="inp">$3.99</td><td class="num pos">918</td><td class="num pos">91,761</td><td class="num pos">917,609</td><td class="num pos">9,176,090</td><td class="num pos">45,880,450</td></tr>
-<tr class="cur"><td class="inp">$4.99 <b>(현재)</b></td><td class="num pos">1,898</td><td class="num pos">189,761</td><td class="num pos">1,897,609</td><td class="num pos">18,976,090</td><td class="num pos">94,880,450</td></tr>
-<tr><td class="inp">$5.99</td><td class="num pos">2,878</td><td class="num pos">287,761</td><td class="num pos">2,877,609</td><td class="num pos">28,776,090</td><td class="num pos">143,880,450</td></tr>
-<tr><td class="inp">$6.99</td><td class="num pos">3,858</td><td class="num pos">385,761</td><td class="num pos">3,857,609</td><td class="num pos">38,576,090</td><td class="num pos">192,880,450</td></tr>
-</table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="6">▶ 표 E · 프리미엄 금액 민감도 (월 구독가별 순수익, 헤비 원가 기준)</td></tr>
-<tr><th>월 구독가</th><th>사용자당 순수익(₩)</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td class="inp">$7.99</td><td class="num neg">-893</td><td class="num neg">-89,296</td><td class="num neg">-892,955</td><td class="num neg">-8,929,550</td><td class="num neg">-44,647,750</td></tr>
-<tr><td class="inp">$8.99</td><td class="num pos">87</td><td class="num pos">8,704</td><td class="num pos">87,045</td><td class="num pos">870,450</td><td class="num pos">4,352,250</td></tr>
-<tr class="cur"><td class="inp">$9.99 <b>(현재)</b></td><td class="num pos">1,067</td><td class="num pos">106,704</td><td class="num pos">1,067,045</td><td class="num pos">10,670,450</td><td class="num pos">53,352,250</td></tr>
-<tr><td class="inp">$10.99</td><td class="num pos">2,047</td><td class="num pos">204,704</td><td class="num pos">2,047,045</td><td class="num pos">20,470,450</td><td class="num pos">102,352,250</td></tr>
-<tr><td class="inp">$12.99</td><td class="num pos">4,007</td><td class="num pos">400,704</td><td class="num pos">4,007,045</td><td class="num pos">40,070,450</td><td class="num pos">200,352,250</td></tr>
+<tr class="title"><td colspan="4">▶ 표 C · 스탠다드 가격 민감도 (월 순수익, 원가 ₩880·수수료 30%)</td></tr>
+<tr><th>월 가격(₩)</th><th>순수익(₩/인)</th><th>1,000명</th><th>10,000명</th></tr>
+<tr><td class="inp">4,900</td><td class="num pos">+2,550</td><td class="num pos">2,550,000</td><td class="num pos">25,500,000</td></tr>
+<tr><td class="inp">5,900</td><td class="num pos">+3,250</td><td class="num pos">3,250,000</td><td class="num pos">32,500,000</td></tr>
+<tr class="cur"><td class="inp">6,990 <b>(현재)</b></td><td class="num pos">+4,013</td><td class="num pos">4,013,000</td><td class="num pos">40,130,000</td></tr>
+<tr><td class="inp">7,900</td><td class="num pos">+4,650</td><td class="num pos">4,650,000</td><td class="num pos">46,500,000</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>순수익 정의:</b> 월 매출 − 앱스토어 결제 수수료(30%) − 인프라 원가. 개발·마케팅·CS 등 고정비는 별도.</li>
-  <li><b>v2 인프라 원가 가정:</b>
-    <ul>
-      <li>스탠다드 월간/연간 = 미디엄 원가(₩2,993)</li>
-      <li>스탠다드 학생 = <b>라이트 원가(₩838)</b> - v1의 미디엄 원가에서 수정</li>
-      <li>프리미엄 월간/연간 = 헤비 원가(₩8,723)</li>
-      <li>프리미엄 학생 = <b>미디엄 원가(₩2,993)</b> - v1의 헤비 원가에서 수정</li>
-    </ul>
-  </li>
-  <li><b>환율:</b> 1,400₩/$ · <b>수수료:</b> 월간 요금은 30%(앱스토어 최대) 적용. <b>연간 요금은 구독 1년 경과 후 15%</b>로 하락(Apple/Google 공통) → 연간 순익 계산엔 15% 적용이 현실적. 위 표는 보수적으로 30% 기준이라 연간 요금 적자가 실제보다 과장됨.</li>
-  <li><b>학생 요금 정당성:</b> 학생은 방학(3~4개월/년)과 시험 외 기간 사용 저조. 실제 사용량은 라이트~미디엄 수준. 방학 시 사용 안 함을 자동 감지해 활성 시간만 계산 시 원가 더 낮아짐.</li>
-  <li><b>프리미엄 연간 적자 → v2.1 권장 보정:</b> 기존 -2,191원(할인 33%·수수료 30%)은 두 보수 가정이 겹친 결과. <b>권장 기본값: 연간 할인율 33%→20%(월 환산 $7.99) + 수수료 15%(1년 후) 적용 → 순익 <span style="color:#16a34a">+785원</span>(11,186 − 1,678 − 8,723)</b>로 흑자 전환. 추가로 공정 사용 정책 병행 권장. ※ 실제 요금 변경은 사장님 결정 필요(검토용 기본값).</li>
-  <li><b>가격 사다리 역전(D-2) 주의:</b> 프리미엄 학생($4.99)이 스탠다드 월간($4.99)과 <b>동일 가격인데 서버 동기화까지 더 제공</b> → 상위 등급 학생가가 하위 등급 정가와 같아 카니발라이제이션·혼선 소지. 검토안: 프리미엄 학생 $5.99로 상향(스탠다드 위) 또는 "학생 전용 혜택"으로 명시. ※ 요금 결정 필요.</li>
-  <li><b>핵심 시사점:</b> v2.1 보정 후 <b>모든 요금제 흑자 확보 가능</b>(프리미엄 연간도 할인·수수료 현실화 시 +785원). 남은 것은 D-2 가격 사다리 정리와 실측 검증.</li>
+  <li><b>순수익 정의:</b> 월 가격 − 앱스토어 수수료 − 월 원가 상한. 개발·마케팅·CS 등 고정비는 별도(→ <a href="price.html">price.html</a> 사업 손익 참고).</li>
+  <li><b>원가 상한 기준:</b> AI 한도 100% 소진 가정이라 실제 순수익은 이보다 높을 가능성이 큼(대다수 유저가 한도 미소진).</li>
+  <li><b>구버전 대비:</b> 스탠다드 순익 +1,898→+4,013, 프리미엄 +1,067→+7,438. 프리미엄 연간 적자(-2,191) 문제도 원가 하락으로 해소.</li>
 </ul>
 </section>
 
@@ -393,89 +338,77 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr class="title"><td colspan="6">▶ 표 F · 기능 비교 (리튼 vs 한국 주요 노트·음성기록 앱)</td></tr>
 <tr><th>기능</th><th class="lt">리튼(Litten)</th><th>네이버 클로바노트</th><th>다글로</th><th>삼성 노트</th><th>노션(Notion)</th></tr>
 <tr><td class="rowlab">음성 녹음·재생 (듣기)</td><td class="fc ok lt">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">첨부</td><td class="fc mid">AI메모</td></tr>
-<tr><td class="rowlab">AI 음성→텍스트 (STT)</td><td class="fc ok lt">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc mid">일부</td><td class="fc mid">AI</td></tr>
 <tr><td class="rowlab">텍스트 작성·편집</td><td class="fc ok lt">✓</td><td class="fc mid">메모</td><td class="fc mid">메모</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
 <tr><td class="rowlab">이미지 위 필기 (드로잉)</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
 <tr><td class="rowlab">PDF 주석·필기</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">✓</td><td class="fc mid">첨부</td></tr>
+<tr><td class="rowlab">AI 요약·퀴즈 (복습)</td><td class="fc ok lt">✓</td><td class="fc mid">요약</td><td class="fc mid">요약</td><td class="fc no">✗</td><td class="fc mid">AI</td></tr>
+<tr><td class="rowlab">셀 (그룹 학습·공유)</td><td class="fc ok lt">✓</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc no">✗</td><td class="fc ok">협업</td></tr>
 <tr><td class="rowlab">로컬 저장 (오프라인)</td><td class="fc ok lt">✓</td><td class="fc mid">△</td><td class="fc mid">△</td><td class="fc ok">✓</td><td class="fc no">✗</td></tr>
 <tr><td class="rowlab">클라우드·서버 동기화</td><td class="fc mid lt">프리미엄</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
 <tr><td class="rowlab">다국어 UI (30개)</td><td class="fc ok lt">✓</td><td class="fc mid">일부</td><td class="fc ok">✓</td><td class="fc ok">✓</td><td class="fc ok">✓</td></tr>
-<tr><td class="rowlab">주 플랫폼</td><td class="fc txt lt">AOS·iOS</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">AOS·iOS·웹</td><td class="fc txt">갤럭시·윈도우</td><td class="fc txt">전 플랫폼</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table class="cmp">
-<tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월 조사) <span class="badge-fix">v2: HTML 오류 수정</span></td></tr>
+<tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월) <span class="badge-fix">v3.0 4단계 반영</span></td></tr>
 <tr><th>앱</th><th>무료 플랜</th><th>유료 플랜</th><th>월 가격</th><th>주요 유료 혜택</th></tr>
-<tr><td class="lt"><b>리튼(Litten)</b></td><td>리튼 5·파일 수 제한</td><td>스탠다드 / 프리미엄</td><td class="num">$4.99 / $9.99<br><span class='sub'>(약 6,990 / 13,990원)</span></td><td class="sub2">무제한 저장 / +서버 동기화·보관</td></tr>
-<tr><td><b>네이버 클로바노트</b></td><td>월 300분(동의 시 600분)<br>AI 요약 월 15회</td><td>개인 유료 없음<br>(기업용 Lite)</td><td class="num">개인 0원<br><span class='sub'>기업 20,000원/인</span></td><td class="sub2">기업 Lite: 월 6,000분·AI요약 무제한·관리자</td></tr>
-<tr><td><b>다글로</b></td><td>월 4시간(녹음·파일)<br>1,000 크레딧</td><td>Pro / Premium</td><td class="num">11,900원 / 16,580원<br><span class='sub'>(Premium 연 199,000원)</span></td><td class="sub2">녹음 무제한·무광고 / 전부 무제한·4배 속도·AI채팅</td></tr>
-<tr><td><b>삼성 노트</b></td><td>전 기능 무료<br>(삼성 기기 기본)</td><td>—</td><td class="num">0원</td><td class="sub2">필기·PDF주석·삼성 클라우드 동기화 기본 제공</td></tr>
-<tr><td><b>노션(Notion)</b></td><td>개인 무료</td><td>Plus / Business</td><td class="num">16,800원 / 36,000원<br><span class='sub'>(연 결제 14,000 / 30,000원)</span></td><td class="sub2">협업·용량 확대 / +Notion AI·고급 관리</td></tr>
+<tr><td class="lt"><b>리튼(Litten)</b></td><td>광고·셀 참여·AI 월 3회</td><td>광고제거 / 스탠다드 / 프리미엄</td><td class="num">₩500 / 6,990 / 13,990</td><td class="sub2">광고제거 / +셀 생성·무제한 / +서버 동기화</td></tr>
+<tr><td><b>네이버 클로바노트</b></td><td>월 300분·AI요약 월 15회</td><td>개인 유료 없음(기업 Lite)</td><td class="num">개인 0원<br><span class='sub'>기업 20,000원/인</span></td><td class="sub2">기업 Lite: 월 6,000분·AI요약 무제한</td></tr>
+<tr><td><b>다글로</b></td><td>월 4시간·1,000 크레딧</td><td>Pro / Premium</td><td class="num">11,900 / 16,580원</td><td class="sub2">녹음 무제한·무광고 / 전부 무제한·AI채팅</td></tr>
+<tr><td><b>삼성 노트</b></td><td>전 기능 무료(삼성 기기)</td><td>—</td><td class="num">0원</td><td class="sub2">필기·PDF주석·삼성 클라우드 기본</td></tr>
+<tr><td><b>노션(Notion)</b></td><td>개인 무료</td><td>Plus / Business</td><td class="num">16,800 / 36,000원</td><td class="sub2">협업·용량 / +Notion AI</td></tr>
 </table></div>
 
 <div class="legend" style="margin-top:14px">
   <span><span class="chip ok">✓</span> 지원</span>
-  <span><span class="chip mid">△</span> 부분·제한·로드맵</span>
+  <span><span class="chip mid">△</span> 부분·제한</span>
   <span><span class="chip no">✗</span> 미지원</span>
   <span class="lt-chip">리튼 = 강조 열</span>
 </div>
 <ul class="memo">
-  <li><b>리튼의 차별점:</b> 음성(듣기)·텍스트·<b>이미지 위 필기</b>를 한 앱에서 통합 + <b>30개 다국어</b> + 완전 로컬 우선. 클로바노트·다글로는 음성 STT 특화(필기 없음), 삼성노트는 필기 강점이나 삼성 기기 종속.</li>
-  <li><b>가격 포지셔닝:</b> 리튼 스탠다드 $4.99(≈6,990원)는 다글로 Pro(11,900원)·노션 Plus(16,800원)보다 저렴, 삼성노트(무료)보다는 상위. 음성+필기 통합 대비 가성비 소구 가능.</li>
-  <li><b>결정적 위협:</b> 클로바노트가 개인 무료. 리튼이 유료로 진입하려면 클로바노트가 못 하는 것(외국인 유학생 특화, 통합 워크스페이스, 필기)에 명확히 집중 필요.</li>
+  <li><b>리튼의 차별점:</b> 음성·텍스트·<b>이미지 위 필기</b> 통합 + <b>AI 요약·퀴즈 복습</b> + <b>셀(그룹 학습)</b> + 30개 다국어. 학습 전 과정을 한 앱에.</li>
+  <li><b>가격 포지셔닝:</b> <b>₩500 광고제거</b>는 경쟁사에 없는 초저가 관문(첫 결제 장벽 최소화). 스탠다드 ₩6,990은 다글로·노션보다 저렴, 삼성노트(무료) 상위.</li>
+  <li><b>결정적 위협:</b> 클로바노트 개인 무료. 리튼은 필기·셀·통합 워크스페이스·다국어(유학생)로 차별화 필요.</li>
 </ul>
 </section>
 
-<!-- ============ 8_광고선진국 (v2.1 노출 가정 통일) ============ -->
-<section id="sheet-8"><h2>8_광고선진국 · <span class="badge-fix">v2.1 노출 가정 통일</span></h2>
-<div class="callout">
-<b>v2.1 정정 핵심:</b> 기존 시트8은 월 <b>450노출(앱 전체 배너, 15분/일)</b>을 가정해 "+265원·연 31.8억"을 냈으나, 이는 실제 광고 배치 전략(<b>스터디룸+일정 한정, 월 40노출</b>)과 모순이었습니다. 본 v2.1은 <b>9번 시트·전략문서와 동일하게 월 40노출</b>로 통일합니다. 8번=선진국만 진출 시, 9번=글로벌 믹스 — 두 시트는 이제 <b>노출·eCPM 가정이 일치</b>하고 지역 구성만 다릅니다.
+<!-- ============ 8_광고선진국 ============ -->
+<section id="sheet-8"><h2>8_광고선진국 · 선진국 한정 광고</h2>
+<div class="callout warn">
+<b>전제:</b> 광고는 <b>무료 유저 한정, 셀+일정 두 화면 배너만</b>(월 40노출). 핵심 학습(녹음·필기·메모·AI 복습)은 전 지역 무광고. 원가는 무료 <b>평균</b> 실원가 ₩50 기준(상한 ₩132이나 대다수 AI 미사용 → 평균 낮음, 시트3 참조).
 </div>
 
 <div class="twrap"><table>
-<tr class="title"><td colspan="3">▶ 표 A · 무료 유저 월 실원가 (로컬 우선 반영)</td></tr>
-<tr><th>원가 항목</th><th>월 원가(₩)</th><th>비고</th></tr>
-<tr><td>S3 (스터디룸 공유 자료)</td><td class="num inp">10</td><td class="sub2">개인 노트=로컬(₩0), 스터디룸 공유 자료만 소량 S3 발생</td></tr>
-<tr><td>AI API (요약 2·퀴즈 2 누적분할)</td><td class="num inp">20</td><td class="sub2">누적 4회 1회성을 12개월 분할</td></tr>
-<tr><td>서버 컴퓨팅 분담</td><td class="num inp">20</td><td class="sub2">인증·유튜브 요약 등 소액 공유분</td></tr>
-<tr class="section"><td>월 실원가 합계</td><td class="num">50</td><td class="sub2">유료 라이트(₩838)의 약 1/17 수준</td></tr>
-</table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 광고수익 (스터디룸+일정 배너, 월 40노출, 선진국 eCPM별)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 A · 무료 유저 1명당 월 광고수익 (셀+일정, 월 40노출, 선진국 eCPM별)</td></tr>
 <tr><th>월 노출</th><th>eCPM $0.5</th><th>eCPM $1.0</th><th>eCPM $1.5 (기본)</th><th>eCPM $2.0</th></tr>
-<tr><td>40회 (스터디룸+일정)</td><td class="num">28</td><td class="num">56</td><td class="num">84</td><td class="num">112</td></tr>
+<tr><td>40회 (셀+일정)</td><td class="num">28</td><td class="num">56</td><td class="num">84</td><td class="num">112</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 C · 무료 유저 1명당 월 순익 (광고수익 − 원가 ₩50)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 순익 (광고수익 − 평균원가 ₩50)</td></tr>
 <tr><th>월 노출</th><th>eCPM $0.5</th><th>eCPM $1.0</th><th>eCPM $1.5 (기본)</th><th>eCPM $2.0</th></tr>
 <tr class="cur"><td>40회</td><td class="num neg">-22</td><td class="num pos">+6</td><td class="num pos">+34</td><td class="num pos">+62</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="4">▶ 표 D · 선진국 한정 규모별 무료 tier 총 순익 (월, ₩, 40노출 기준)</td></tr>
+<tr class="title"><td colspan="4">▶ 표 C · 선진국 규모별 무료 tier 총 순익 (월, ₩, 40노출)</td></tr>
 <tr><th>시나리오 (1인당 순익)</th><th>10,000명</th><th>100,000명</th><th>1,000,000명</th></tr>
 <tr><td>보수 (eCPM $1.0, +6)</td><td class="num pos">60,000</td><td class="num pos">600,000</td><td class="num pos">6,000,000</td></tr>
 <tr class="cur"><td>기본 (eCPM $1.5, +34)</td><td class="num pos">340,000</td><td class="num pos">3,400,000</td><td class="num pos">34,000,000</td></tr>
 <tr><td>낙관 (eCPM $2.0, +62)</td><td class="num pos">620,000</td><td class="num pos">6,200,000</td><td class="num pos">62,000,000</td></tr>
-<tr class="section"><td>기본 시나리오 연 환산</td><td class="num pos">4,080,000</td><td class="num pos">40,800,000</td><td class="num pos">408,000,000</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>중요한 전제:</b> 이 시트의 모든 수치는 <b>선진국(한국·일본·미국·유럽) 사용자만</b> 대상. 사용자님 리튼의 초기 타겟(외국인 유학생 - 한국 진출)에 해당.</li>
-  <li><b>v2.1 정정:</b> 노출을 450→<b>40회</b>로 통일(실제 배치=스터디룸+일정 배너만). 이에 따라 기본 순익 +265원→<b>+34원</b>, 100만명 연 31.8억→<b>4.08억</b>으로 정정. 이전 31.8억은 앱 전체 광고 가정이라 채택 전략에서 성립하지 않음.</li>
   <li><b>선진국 광고 흑자 조건:</b> 40노출 기준 eCPM 약 $0.9 이상이면 흑자. 선진국 배너 eCPM(≈$1.5)에서 +34원.</li>
-  <li><b>노출 지렛대:</b> 스터디룸·일정 사용률↑로 노출 40→80회면 순익 약 2배(기본 +118원). 단, 핵심 학습(녹음·필기·복습)은 무광고 유지가 전제.</li>
-  <li><b>주의:</b> eCPM·노출은 추정치. 실제 도입 시 실측 필요. 광고가 <b>브랜드·유료 전환율</b>에 주는 영향은 수치에 미반영.</li>
-  <li><b>글로벌 확장 시:</b> 9번 시트로 이동. 신흥국·개도국 진출 시 eCPM 하락으로 이 흑자가 무너짐.</li>
+  <li><b>노출 지렛대:</b> 셀·일정 사용률↑로 노출 40→80회면 순익 약 2배. 핵심 학습은 무광고 유지가 전제.</li>
+  <li><b>주의:</b> 무료 원가 <b>상한(₩132)</b>을 쓰면 커버율이 낮아진다. 실무에선 AI 한도(3회)가 상한을 눌러 평균 ₩50 안팎을 유지. eCPM·노출·평균원가는 베타 실측 필요.</li>
+  <li><b>₩500 광고제거 티어</b>는 "광고 싫은" 선진국 유저를 흡수하는 추가 수익원(광고 이탈 손실을 결제로 전환).</li>
 </ul>
 </section>
 
 <!-- ============ 9_광고글로벌 ============ -->
-<section id="sheet-9"><h2>9_광고글로벌 · <span class="badge-fix">v2: 지역별 차등 (확장기)</span></h2>
-<div class="callout">
-<b>v2 수정 핵심:</b> 이 시트는 <b>글로벌 확장 후</b> 신흥국·개도국 사용자가 유입된 상황을 다룹니다. 8번(선진국 한정)과 <b>시간축 상 다른 단계</b>이며, 리튼이 성장하며 자연스럽게 8→9로 이동합니다.
+<section id="sheet-9"><h2>9_광고글로벌 · 지역별 차등 (확장기)</h2>
+<div class="callout warn">
+<b>단계 차이:</b> 8번=선진국만 진출(초기), 9번=신흥·개도국 유입 후(확장). 노출·평균원가 가정은 8번과 동일(월 40노출·평균 ₩50).
 </div>
 
 <div class="twrap"><table>
@@ -484,11 +417,10 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td><b>선진국</b></td><td class="sub2">미국·일본·유럽·한국</td><td class="num inp">1.5</td><td class="num inp">20%</td><td class="num inp">5.0%</td></tr>
 <tr><td><b>신흥국</b></td><td class="sub2">동남아·중동·남미</td><td class="num inp">0.4</td><td class="num inp">35%</td><td class="num inp">1.5%</td></tr>
 <tr><td><b>개도국</b></td><td class="sub2">인도·아프리카</td><td class="num inp">0.1</td><td class="num inp">45%</td><td class="num inp">0.5%</td></tr>
-<tr class="note"><td colspan="5">무료 유저 1인당 월 광고 노출(스터디룸+일정 한정) = <b>40회</b> · 무료 유저 월 실원가 = <b>₩50</b> · 환율 1,400₩/$</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 (광고수익 − 원가)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 (광고수익 − 평균원가 ₩50)</td></tr>
 <tr><th>티어</th><th>광고수익(₩)</th><th>원가(₩)</th><th>순익(₩)</th><th>원가 커버율</th></tr>
 <tr><td><b>선진국</b></td><td class="num">84</td><td class="num">50</td><td class="num pos">+34</td><td class="num pos">168% ✅</td></tr>
 <tr><td><b>신흥국</b></td><td class="num">22</td><td class="num">50</td><td class="num neg">-28</td><td class="num">45%</td></tr>
@@ -496,170 +428,68 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr class="section"><td>글로벌 가중평균</td><td class="num">27</td><td class="num">50</td><td class="num neg">-23</td><td class="num">54%</td></tr>
 </table></div>
 
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="4">▶ 표 C · 규모별 글로벌 무료 tier 총액 (월, ₩, 가중평균 기준)</td></tr>
-<tr><th>구분</th><th>100,000명</th><th>1,000,000명</th><th>10,000,000명</th></tr>
-<tr><td>광고 수익</td><td class="num">2,716,000</td><td class="num">27,160,000</td><td class="num">271,600,000</td></tr>
-<tr><td>무료 유저 원가</td><td class="num">5,000,000</td><td class="num">50,000,000</td><td class="num">500,000,000</td></tr>
-<tr class="section"><td>순익(광고−원가)</td><td class="num neg">-2,284,000</td><td class="num neg">-22,840,000</td><td class="num neg">-228,400,000</td></tr>
-<tr class="note"><td colspan="4">연 환산(순익, 가중평균): 100,000명 → -27,408,000 · 1,000,000명 → -274,080,000 · 10,000,000명 → -2,740,800,000</td></tr>
-</table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="4">▶ 표 D · 8번(선진국) vs 9번(글로벌) 비교 <span class="badge-fix">v2.1 노출 통일</span></td></tr>
-<tr><th>시나리오</th><th>1인당 순익</th><th>100만명 월</th><th>사용 시점</th></tr>
-<tr><td>8번 시트: 선진국 한정</td><td class="num pos">+34원</td><td class="num pos">+3,400만</td><td>초기 진출 (한국 유학생)</td></tr>
-<tr><td>9번 시트: 글로벌 가중</td><td class="num neg">-23원</td><td class="num neg">-2,284만</td><td>확장 (신흥국·개도국 유입)</td></tr>
-<tr><td>차이</td><td class="num">57원</td><td class="num">5,684만</td><td>지역 구성 차이의 영향 (노출·eCPM 가정은 동일)</td></tr>
-</table></div>
-
 <ul class="memo">
-  <li><b>선진국은 광고만으로 흑자</b>(원가 커버율 168%). 신흥국 45%·개도국 11%는 원가를 부분만 커버.</li>
-  <li><b>글로벌 가중평균:</b> 광고가 무료 원가의 약 54% 커버 → 전 세계 무료 기반을 "부분 적자"로 확장 가능. 광고는 수익 엔진이 아니라 <b>무료 유저 원가 상쇄 장치</b>.</li>
-  <li><b>커버율 올리는 법:</b> 스터디룸·일정 사용률↑(노출↑), eCPM 높은 지역 비중↑, 또는 무료 원가↓(로컬 우선 강화). 노출을 40→80회로 올리면 글로벌 커버율 약 109%.</li>
-  <li><b>8번 vs 9번 활용:</b> 초기 한국·일본 진출 = 8번 참조. 그 후 동남아·인도 확장 = 9번 참조. 8번은 낙관, 9번은 현실이 아니라 <b>진출 시점에 따른 다른 그림</b>.</li>
-  <li><b>주의:</b> eCPM·노출·비중·전환율은 추정. 실제 배포 후 지역별 실측으로 갱신 필요. 핵심 학습(녹음·필기·복습)은 전 지역 무광고 유지.</li>
+  <li><b>선진국은 광고만으로 흑자</b>(커버율 168%). 글로벌 평균은 무료 평균원가의 약 54% 커버 → "부분 적자"로 전 세계 무료 기반 확장.</li>
+  <li><b>커버율 지렛대:</b> 셀·일정 노출↑, eCPM 높은 지역 비중↑, 무료 원가↓. 노출 40→80이면 글로벌 커버 약 109%.</li>
+  <li>광고는 수익 엔진이 아니라 <b>무료 유저 원가 상쇄 장치</b>. Haiku 저원가 + AI 한도로 무료 원가가 낮게 유지돼 커버 구조가 안정.</li>
 </ul>
 </section>
 
 <!-- ============ 10_유료전환 ============ -->
 <section id="sheet-10"><h2>10_유료전환 · 유료 목표별 필요 가입자</h2>
 <div class="twrap"><table>
-<tr class="title"><td colspan="3">▶ 표 A · 지역별 유료 전환율 가정 (입력값)</td></tr>
-<tr><th>티어</th><th>유료 전환율</th><th>유저 비중</th></tr>
-<tr><td><b>선진국</b></td><td class="num inp">5.0%</td><td class="num inp">20%</td></tr>
-<tr><td><b>신흥국</b></td><td class="num inp">1.5%</td><td class="num inp">35%</td></tr>
-<tr><td><b>개도국</b></td><td class="num inp">0.5%</td><td class="num inp">45%</td></tr>
-<tr class="section"><td>블렌디드(가중평균)</td><td class="num">1.75%</td><td class="num">100%</td></tr>
-<tr class="note"><td colspan="3">유료 = 스탠다드+프리미엄 합산. 전환율은 실제 배포 후 측정 필요(추정치).</td></tr>
-</table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="4">▶ 표 B · 유료 전환율별 필요 전체 가입자</td></tr>
+<tr class="title"><td colspan="4">▶ 표 A · 유료 전환율별 필요 전체 가입자</td></tr>
 <tr><th>유료 전환율</th><th>유료 1,000명</th><th>유료 10,000명</th><th>유료 50,000명</th></tr>
-<tr><td>1%</td><td class="num">100,000</td><td class="num">1,000,000</td><td class="num">5,000,000</td></tr>
-<tr class="cur"><td>1.75% (글로벌 블렌디드)</td><td class="num">57,143</td><td class="num">571,429</td><td class="num">2,857,143</td></tr>
 <tr><td>2%</td><td class="num">50,000</td><td class="num">500,000</td><td class="num">2,500,000</td></tr>
-<tr><td>3%</td><td class="num">33,333</td><td class="num">333,333</td><td class="num">1,666,667</td></tr>
-<tr><td>5% (선진국 위주)</td><td class="num">20,000</td><td class="num">200,000</td><td class="num">1,000,000</td></tr>
-<tr><td>10%</td><td class="num">10,000</td><td class="num">100,000</td><td class="num">500,000</td></tr>
+<tr class="cur"><td>5% (기본, ₩500 티어로 상승)</td><td class="num">20,000</td><td class="num">200,000</td><td class="num">1,000,000</td></tr>
+<tr><td>8%</td><td class="num">12,500</td><td class="num">125,000</td><td class="num">625,000</td></tr>
+<tr><td>12%</td><td class="num">8,333</td><td class="num">83,333</td><td class="num">416,667</td></tr>
+<tr class="note"><td colspan="4">유료 = 광고제거 + 스탠다드 + 프리미엄. ₩500 광고제거가 결제 장벽을 낮춰 전환율이 구버전(3단계, 1.75~3%)보다 높게 잡힐 수 있음 → 기본 5%.</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="3">▶ 표 C · 유료 10,000명 달성에 필요한 가입자</td></tr>
-<tr><th>시나리오</th><th>유료 전환율</th><th>필요 전체 가입자</th></tr>
-<tr><td>선진국 위주</td><td class="num">5%</td><td class="num">200,000</td></tr>
-<tr class="cur"><td>글로벌 블렌디드</td><td class="num">1.75%</td><td class="num">571,429</td></tr>
-<tr><td>보수</td><td class="num">2.5%</td><td class="num">400,000</td></tr>
+<tr class="title"><td colspan="4">▶ 표 B · 유료 10,000명 월 구독 매출 (구성 50:35:15)</td></tr>
+<tr><th>플랜</th><th>인원</th><th>월 가격(₩)</th><th>월 매출(₩)</th></tr>
+<tr><td>광고제거 (50%)</td><td class="num">5,000</td><td class="num">500</td><td class="num">2,500,000</td></tr>
+<tr><td>스탠다드 (35%)</td><td class="num">3,500</td><td class="num">6,990</td><td class="num">24,465,000</td></tr>
+<tr><td>프리미엄 (15%)</td><td class="num">1,500</td><td class="num">13,990</td><td class="num">20,985,000</td></tr>
+<tr class="section"><td><b>합계</b></td><td class="num"><b>10,000</b></td><td class="num">—</td><td class="num"><b>47,950,000</b></td></tr>
+<tr class="note"><td colspan="4">총매출(gross) 기준 — 수수료(15~30%)·인프라 원가 차감 전. 순액은 시트6 순수익 기준으로 별도 산정. 연 환산 약 5.75억.</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>계산식:</b> 필요 가입자 = 유료 목표 ÷ 전환율. 전환율이 답을 <b>2~3배</b> 좌우.</li>
-  <li><b>국내·선진국 위주</b>(전환율 5%)면 유료 1만에 <b>약 20만 명</b>, <b>글로벌 혼합</b>(신흥/개도국 포함, 블렌디드 1.75%)이면 <b>약 571,429명</b> 필요.</li>
-  <li>즉 <b>"어느 시장에서 크느냐"</b>가 필요 규모를 크게 바꿈. 개도국 비중↑ → 전환율↓ → 필요 가입자↑ (대신 광고로 무료 유저 수익화, 9번 시나리오 참고).</li>
-  <li><b>(참고) 유료 10,000명 월 구독 매출</b> ≈ <b>₩90,900,000</b> (스탠다드 70%·₩6,990 + 프리미엄 30%·₩13,990 가정) → 연 약 10.9억. <b>※ 이는 총매출(gross)이며, 수수료(15~30%)·인프라 원가 차감 전 금액</b>입니다. 순액은 시트6 기준으로 별도 산정(다른 시트의 "순수익"과 기준이 다르니 직접 비교 주의).</li>
+  <li><b>계산식:</b> 필요 가입자 = 유료 목표 ÷ 전환율. ₩500 티어가 전환율을 끌어올리면 필요 가입자가 줄어든다.</li>
+  <li><b>구성 주의:</b> ₩500 광고제거 비중이 크면 유료 인원은 많아도 매출 기여는 스탠다드·프리미엄이 주도. 구성비는 <a href="price.html">price.html</a>에서 시나리오별 조정 가능.</li>
 </ul>
 </section>
 
-<!-- ============ 11_변경사항 (신규) ============ -->
-<section id="sheet-11"><h2>11_변경사항 <span class="badge-fix">v2.1 추가</span></h2>
-
-<div class="callout" style="border-left-color:#16a34a;background:#f0fdf4">
-<b style="color:#166534">v2 → v2.1 논리 보정 요약 (신규):</b> v2 검토에서 발견된 논리 모순·오류 8건을 정정했습니다.
+<!-- ============ 11_변경사항 ============ -->
+<section id="sheet-11"><h2>11_변경사항 <span class="badge-fix">v3.0</span></h2>
+<div class="callout">
+<b>v2.1 → v3.0 개편 요약:</b> 요금제 4단계 확정 + AI 조건(텍스트·Haiku·월 한도) 확정에 맞춰 원가 모델을 전면 재작성했습니다.
 </div>
 <div class="twrap"><table>
-<tr class="title"><td colspan="4">▶ v2.1 정정 8건</td></tr>
-<tr><th>번호</th><th>문제</th><th>수정 내용</th><th>영향</th></tr>
-<tr><td class="inp">1</td><td><b>시트5 CDN "40% 절감" 오류</b><br><span class="sub2">단가표상 CloudFront가 오히려 비쌈</span></td><td>CloudFront 아시아 $0.12 &gt; S3 $0.09. CDN은 egress 총량을 안 줄임 → 리스트 가격 전송비 +33%로 정정</td><td>"연 1,724만원 절감" 삭제. CDN=성능·약정할인 목적으로 재정의</td></tr>
-<tr><td class="inp">2</td><td><b>시트8 광고 노출 불일치</b><br><span class="sub2">450노출(앱 전체) vs 전략 40노출</span></td><td>월 40노출(스터디룸+일정)로 통일, eCPM도 9번과 일치</td><td>선진국 +265원→<b>+34원</b>, 100만명 연 31.8억→<b>4.08억</b></td></tr>
-<tr><td class="inp">3</td><td><b>무료원가 S3=₩0 모순</b><br><span class="sub2">스터디룸=서버원가 발생처와 충돌</span></td><td>스터디룸 공유자료 S3 소량(₩10) 반영, 총액 ₩50 유지(AI·서버 재배분)</td><td>무료 원가 전제 일관성 확보(총액 불변)</td></tr>
-<tr><td class="inp">4</td><td><b>인사이트#1 "전송이 최대원가" 오류</b></td><td>1,000명 기준 AI 75% &gt; 전송 17% → "최대는 AI API"로 정정</td><td>원가 구조 인식 정정</td></tr>
-<tr><td class="inp">5</td><td><b>인사이트#2 규모경제 과장</b></td><td>변동비 96%라 사용자당 원가 11%만 감소로 완화 표기</td><td>규모경제 기대치 현실화</td></tr>
-<tr><td class="inp">6</td><td><b>AI 원가 미검증(최대 리스크)</b><br><span class="sub2">가정 $0.3~5 vs 실측 $0.23/월 전체</span></td><td>시트3 상단 경고 추가, "실측 기반"→"가정값"으로 정정</td><td>모든 흑자 결론 "잠정" 명시</td></tr>
-<tr><td class="inp">7</td><td><b>프리미엄 연간 적자</b></td><td>권장 기본값 반영: 할인 33→20% + 수수료 15%(1년 후) → +785원 흑자</td><td>연간 요금 흑자 전환 경로 제시(요금 결정 필요)</td></tr>
-<tr><td class="inp">8</td><td><b>기준 불일치(수수료·서버·매출)</b></td><td>연간 15% 수수료 명시, 시트10 총매출 표기, 서버원가 기준(B-1)·가격사다리(D-2) 주석</td><td>시트 간 기준 일관성·오해 방지</td></tr>
+<tr class="title"><td colspan="4">▶ v3.0 주요 변경</td></tr>
+<tr><th>번호</th><th>변경</th><th>내용</th><th>영향</th></tr>
+<tr><td class="inp">1</td><td><b>4단계 요금제 개편</b></td><td>무료/스탠다드/프리미엄 3단계 → <b>+광고제거(₩500)</b> 4단계. 학생 별도 요금 대신 광고제거로 저가 진입.</td><td>가격 고정(₩0/500/6,990/13,990)</td></tr>
+<tr><td class="inp">2</td><td><b>원가 모델 전환</b></td><td>사용량 기반(라이트/미디엄/헤비) → <b>플랜 한도 기반</b>. AI 요약·퀴즈 월 한도(3/20/50)로 원가 상한 확정.</td><td>헤비 유저 원가 폭주 리스크 해소</td></tr>
+<tr><td class="inp">3</td><td><b>STT 제외</b></td><td>AI 입력을 <b>텍스트로 확정</b> → 구버전 최대 원가였던 STT($/분) 삭제.</td><td>AI 원가 급락</td></tr>
+<tr><td class="inp">4</td><td><b>Haiku 4.5 확정</b></td><td>요약 24원·퀴즈 20원. Sonnet/Opus 대비 3~5배 저렴.</td><td>프리미엄 적자 위험 제거</td></tr>
+<tr><td class="inp">5</td><td><b>원가 하락</b></td><td>스탠다드 2,993→<b>880</b>, 프리미엄 8,723→<b>2,355</b>.</td><td>스탠다드 순익 +1,898→+4,013, 프리미엄 +1,067→+7,438</td></tr>
+<tr><td class="inp">6</td><td><b>환율·구성 갱신</b></td><td>FX 1,400→1,350. 유료 구성 스탠다드 70:프리미엄 30 → 광고제거 50:스탠다드 35:프리미엄 15.</td><td>규모·전환 시트 재계산</td></tr>
 </table></div>
 <div style="height:18px"></div>
-
-<div class="callout">
-<b>v1 → v2 수정 요약:</b> v1에서 발견된 6가지 문제를 수정한 버전입니다. 각 수정의 근거와 영향을 명시했습니다.
-</div>
-
 <div class="twrap"><table>
-<tr class="title"><td colspan="4">▶ 6가지 수정 사항</td></tr>
-<tr><th>번호</th><th>문제</th><th>수정 내용</th><th>영향</th></tr>
-<tr>
-  <td class="inp">1</td>
-  <td><b>8번 vs 9번 시트 결론 정반대</b><br><span class="sub2">같은 광고 시나리오에 흑자·적자 두 결론</span></td>
-  <td>두 시트를 <b>시간축상 다른 단계</b>로 재정의<br>8번: 선진국 한정 (초기 진출)<br>9번: 글로벌 지역 차등 (확장기)</td>
-  <td>이제 두 시트가 서로 보완적. 진출 단계에 따라 참조 시트 다름.</td>
-</tr>
-<tr>
-  <td class="inp">2</td>
-  <td><b>학생 요금 큰 적자</b><br><span class="sub2">스탠다드 학생 -552원, 프리미엄 학생 -3,833원</span></td>
-  <td>학생 원가 기준 재설정:<br>스탠다드 학생 = <b>라이트 원가(₩838)</b><br>프리미엄 학생 = <b>미디엄 원가(₩2,993)</b><br>(v1은 미디엄·헤비로 잘못 계산)</td>
-  <td>스탠다드 학생 +1,602원, 프리미엄 학생 +1,898원으로 흑자 전환</td>
-</tr>
-<tr>
-  <td class="inp">3</td>
-  <td><b>요약 시트 업데이트 안 됨</b><br><span class="sub2">시트 6~10 신규 추가됐으나 요약에 미반영</span></td>
-  <td>0번 요약 시트를 완전히 재작성.<br>모든 시트 반영, 광고 시나리오 요약 추가</td>
-  <td>요약만 봐도 전체 그림 파악 가능</td>
-</tr>
-<tr>
-  <td class="inp">4</td>
-  <td><b>5,000명 = 10,000명 사용자당 원가</b><br><span class="sub2">서버비 선형 가정으로 규모의 효과 미반영</span></td>
-  <td>10,000명 서버비 480,000 → 560,000원 조정<br>t3.xlarge 2대 필요성 반영</td>
-  <td>사용자당 원가가 5,000명(2,069원) ≠ 10,000명(2,077원)으로 정상화</td>
-</tr>
-<tr>
-  <td class="inp">5</td>
-  <td><b>소수점 4자리 노출</b><br><span class="sub2">2,320.6858원 등 회계 문서로 부적절</span></td>
-  <td>모든 숫자를 반올림해 정수 표기<br>(단가는 필요 시 소수점 유지)</td>
-  <td>가독성 향상, 신뢰도 개선</td>
-</tr>
-<tr>
-  <td class="inp">6</td>
-  <td><b>HTML 태그 문자 오류</b><br><span class="sub2">7번 시트 289번 줄 &amp;lt;br&amp;gt; 노출</span></td>
-  <td>HTML 이스케이프 정리<br>모든 br 태그 정상 렌더링</td>
-  <td>표시 오류 해소</td>
-</tr>
+<tr class="title"><td colspan="3">▶ 여전히 남은 검증 이슈</td></tr>
+<tr><th>이슈</th><th>내용</th><th>대응</th></tr>
+<tr><td><b>무료 평균 원가</b></td><td>상한 ₩132 vs 평균 ₩50 가정. 광고 커버 계산이 평균에 의존</td><td>베타 실측으로 무료 AI 사용률 측정</td></tr>
+<tr><td><b>광고 ARPU</b></td><td>eCPM·노출 추정치. ₩500 광고제거 순익(₩218~)과 비교해 광고 이탈 손익 판단</td><td>지역별 실측·A/B</td></tr>
+<tr><td><b>유료 구성비</b></td><td>₩500 비중이 매출 기여를 좌우</td><td><a href="price.html">price.html</a>에서 시나리오 조정</td></tr>
+<tr><td><b>AI 입력 토큰</b></td><td>요약 원가는 입력 길이에 비례(10K 가정)</td><td>실제 노트 길이 분포 측정</td></tr>
 </table></div>
-
-<div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="3">▶ 여전히 남은 이슈 (v3에서 검토 필요)</td></tr>
-<tr><th>이슈</th><th>내용</th><th>대응 방향</th></tr>
-<tr>
-  <td><b>프리미엄 연간 요금 적자</b></td>
-  <td>월 환산 $6.67에 헤비 유저 원가 ₩8,723로 -2,191원/월 적자</td>
-  <td>(1) 연간 할인율 33% → 20%로 축소<br>(2) 프리미엄 연간 폐지<br>(3) 공정 사용 정책으로 헤비 원가 억제</td>
-</tr>
-<tr>
-  <td><b>무료 유저 원가 가정</b></td>
-  <td>₩50 가정은 "완전 로컬 저장" 전제. 실제 서비스에서 이 원칙 유지 어려울 수 있음</td>
-  <td>실측 후 조정. 최악 시나리오로 ₩200~500 가정 병기 필요</td>
-</tr>
-<tr>
-  <td><b>AI API 원가 변동성</b></td>
-  <td>사용자당 $0.30~$5.00 폭이 매우 큼. 실제 사용 패턴에 따라 원가 크게 변동</td>
-  <td>베타 100명 실측으로 정밀화. 사용자당 상한 정책 검토</td>
-</tr>
-<tr>
-  <td><b>결제 수수료 30% 고정</b></td>
-  <td>실제로는 앱스토어 15% 조건(연 매출 $100만 이하)과 웹 결제 3~5% 혼재</td>
-  <td>웹 결제 유도 비율 가정 추가. 수수료 20~25%로 완화 가능</td>
-</tr>
-<tr>
-  <td><b>고정비 미반영</b></td>
-  <td>개발자 인건비·마케팅·CS·법무 등 고정비 없음. 실제 사업 손익 확인 불가</td>
-  <td>수익표와 통합해 사업 손익 시트 추가</td>
-</tr>
-</table></div>
-
 <ul class="memo">
-  <li><b>v2의 한계:</b> 여전히 대부분 추정 기반. 베타 100명 실측 데이터가 원가표의 신뢰도를 결정적으로 높입니다.</li>
-  <li><b>다음 단계:</b> 실제 사용자 5명 인터뷰 → 100명 베타 → 실측 원가 확보 → v3 정밀화</li>
-  <li><b>사업 판단 기준:</b> v2 원가표로 대학 국제처 미팅·정부 지원 신청은 충분. 그러나 투자자 실사 시에는 실측 데이터 첨부 권장.</li>
+  <li><b>결론:</b> 4단계·Haiku·텍스트 조합으로 <b>전 플랜 안정 흑자</b>. 남은 것은 무료 평균원가·광고 ARPU·유료 구성비의 실측 검증.</li>
+  <li><b>다음 단계:</b> 베타 실측 → 무료 AI 사용률·광고 eCPM·유료 구성비 확정 → v3.1 정밀화.</li>
 </ul>
 </section>
 

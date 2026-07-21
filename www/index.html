@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="리튼(Litten) - 예습·노트·복습·공유를 잇는 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께 공부하세요.">
+    <meta name="description" content="리튼(Litten) - 예습·노트·복습·공유를 잇는 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 셀에서 함께 공부하세요.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="http://www.litten7.com">
     <meta property="og:site_name" content="Litten 리튼">
     <meta property="og:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 메이트">
-    <meta property="og:description" content="학습 채널 구독으로 예습하고, 수업을 필기·녹음·PDF 주석으로 담고, AI 요약·퀴즈로 복습하고, 스터디룸에서 함께 — 예습부터 복습까지 잇는 올인원 학습 메이트.">
+    <meta property="og:description" content="학습 채널 구독으로 예습하고, 수업을 필기·녹음·PDF 주석으로 담고, AI 요약·퀴즈로 복습하고, 셀에서 함께 — 예습부터 복습까지 잇는 올인원 학습 메이트.">
     <meta property="og:image" content="http://www.litten7.com/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="리튼 - 배우고 기록하고 복습하는 학습 메이트">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="리튼(Litten) - 배우고 기록하고 복습하는 학습 메이트">
-    <meta name="twitter:description" content="예습·노트·복습·공유를 잇는 올인원 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 스터디룸에서 함께.">
+    <meta name="twitter:description" content="예습·노트·복습·공유를 잇는 올인원 학습 메이트. 채널 구독으로 예습, 필기·녹음으로 수업, AI 요약·퀴즈로 복습, 셀에서 함께.">
     <meta name="twitter:image" content="http://www.litten7.com/og-image.png">
     <title>리튼(Litten) - 예습·노트·복습·공유 올인원 학습 메이트</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='3.5' y='3' width='13' height='18' rx='2.6' fill='%234A90E2'/><rect x='6.3' y='7.2' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='10.6' width='7.4' height='1.5' rx='0.75' fill='white'/><rect x='6.3' y='14' width='4.6' height='1.5' rx='0.75' fill='white'/><path d='M18.5 1 L19.7 4.8 L23.5 6 L19.7 7.2 L18.5 11 L17.3 7.2 L13.5 6 L17.3 4.8 Z' fill='%23FBBF24'/><path d='M21 11 L21.5 12.5 L23 13 L21.5 13.5 L21 15 L20.5 13.5 L19 13 L20.5 12.5 Z' fill='%23FBBF24'/><path d='M22 0.9 L22.38 2 L23.5 2.4 L22.38 2.8 L22 3.9 L21.62 2.8 L20.5 2.4 L21.62 2 Z' fill='%23FBBF24'/></svg>">
@@ -509,14 +509,14 @@
         .pricing { background: white; }
 
         .pricing-grid {
-            max-width: 1100px; margin: 0 auto;
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
+            max-width: 1240px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;
             align-items: stretch;
         }
 
         .pricing-card {
             background: white;
-            padding: 2.8rem 2.2rem;
+            padding: 2.4rem 1.7rem;
             border-radius: 22px;
             border: 2px solid var(--line);
             display: flex; flex-direction: column;
@@ -568,21 +568,6 @@
 
         .pricing-note { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 1.4rem; }
 
-        .token-note {
-            max-width: 780px;
-            margin: 2.5rem auto 0;
-            display: flex;
-            gap: 1.1rem;
-            align-items: center;
-            background: var(--bg-soft);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 1.4rem 1.8rem;
-        }
-        .token-note .tn-emoji { font-size: 2rem; flex-shrink: 0; }
-        .token-note strong { color: var(--ink); font-size: 1.1rem; }
-        .token-note p { color: var(--muted); font-size: 0.97rem; margin-top: 0.2rem; line-height: 1.6; }
-
         /* ── CTA ── */
         .cta-section { background: var(--bg-tint); color: var(--ink); text-align: center; }
         .cta-section h2 { font-size: 2.8rem; margin-bottom: 1.3rem; font-weight: 800; }
@@ -619,9 +604,12 @@
         }
 
         /* ── 반응형 ── */
+        @media (max-width: 1080px) {
+            .pricing-grid { grid-template-columns: repeat(2, 1fr); max-width: 680px; }
+        }
+
         @media (max-width: 900px) {
             .core-grid { grid-template-columns: 1fr; }
-            .pricing-grid { grid-template-columns: 1fr; }
             .anywhere-wrap { grid-template-columns: 1fr; gap: 2.5rem; }
             .footer-container { grid-template-columns: 1fr 1fr; gap: 2rem; }
         }
@@ -654,7 +642,10 @@
             .anywhere-text h2 { font-size: 2rem; }
             .cta-section h2 { font-size: 2.1rem; }
             .cta-section p { font-size: 1.1rem; }
-            .token-note { flex-direction: column; text-align: center; gap: 0.7rem; }
+        }
+
+        @media (max-width: 560px) {
+            .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
         }
 
         @media (max-width: 480px) {
@@ -780,10 +771,10 @@
                 <span><span class="fe">✍️</span> 노트</span>
                 <span><span class="fe">🔁</span> 복습</span>
                 <span><span class="fe">🤖</span> AI 요약·퀴즈</span>
-                <span><span class="fe">💬</span> 스터디룸</span>
+                <span><span class="fe">💬</span> 셀</span>
             </div>
             <h1>배우고 기록하고,<br>복습하고 나누다</h1>
-            <p class="tagline">학습 채널로 <strong>예습</strong>하고, 수업을 노트에 담고, <strong>AI 요약·퀴즈</strong>로 복습하고,<br class="d-br"><strong>스터디룸</strong>에서 함께 — 리튼은 학습의 전 과정을 하나로 잇습니다</p>
+            <p class="tagline">학습 채널로 <strong>예습</strong>하고, 수업을 노트에 담고, <strong>AI 요약·퀴즈</strong>로 복습하고,<br class="d-br"><strong>셀</strong>에서 함께 — 리튼은 학습의 전 과정을 하나로 잇습니다</p>
             <div class="cta-buttons">
                 <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
                 <a href="#core" class="btn btn-secondary">기능 살펴보기</a>
@@ -802,7 +793,7 @@
         <div class="section-head reveal">
             <span class="eyebrow">Learning Cycle</span>
             <h2 class="section-title">예습부터 복습까지, 학습의 한 사이클</h2>
-            <p class="section-subtitle">학습 영상으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 스터디룸에서 함께</p>
+            <p class="section-subtitle">학습 영상으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 셀에서 함께</p>
         </div>
         <div class="core-grid" id="coreGrid"></div>
     </section>
@@ -812,7 +803,7 @@
         <div class="section-head reveal">
             <span class="eyebrow">Features</span>
             <h2 class="section-title">리튼의 모든 기능</h2>
-            <p class="section-subtitle">듣기·쓰기·필기부터 AI 요약·퀴즈, 스터디룸, 동기화까지 한 앱에서</p>
+            <p class="section-subtitle">듣기·쓰기·필기부터 AI 요약·퀴즈, 셀, 동기화까지 한 앱에서</p>
         </div>
         <div id="featGrid"></div>
     </section>
@@ -882,9 +873,9 @@
         </div>
         <div class="screens-track">
             <div class="screen-card reveal">
-                <div class="screen-frame"><img src="screens/01-space.png?v=2" alt="스터디룸 목록 화면" loading="lazy"></div>
-                <div class="screen-label">스터디룸</div>
-                <p class="screen-desc">함께 공부할 방을 만들고 노트·자료를 나눠요</p>
+                <div class="screen-frame"><img src="screens/01-space.png?v=2" alt="셀 목록 화면" loading="lazy"></div>
+                <div class="screen-label">셀</div>
+                <p class="screen-desc">함께 공부할 셀을 만들고 노트·자료를 나눠요</p>
             </div>
             <div class="screen-card reveal">
                 <div class="screen-frame"><img src="screens/02-record.png?v=2" alt="음성 녹음 및 AI 요약 화면" loading="lazy"></div>
@@ -909,7 +900,7 @@
             <div class="screen-card reveal">
                 <div class="screen-frame"><img src="screens/06-review.png?v=2" alt="리마인드 목록 화면" loading="lazy"></div>
                 <div class="screen-label">리마인드</div>
-                <p class="screen-desc">정해진 때 알림으로 챙겨줘 놓치지 않고 다시 확인해요</p>
+                <p class="screen-desc">AI 요약과 퀴즈로 배운 내용을 다시 확인해요</p>
             </div>
         </div>
     </section>
@@ -928,13 +919,29 @@
                 <div class="plan-tag">가볍게 시작하기</div>
                 <div class="plan-price">₩0<span> / 월</span></div>
                 <ul class="plan-features">
-                    <li>메모·녹음·필기·첨부·영상 각 2개</li>
-                    <li>AI 요약 2회 · 퀴즈 2회</li>
-                    <li>파일 변환 4회</li>
-                    <li>30개 언어 · 5가지 테마</li>
-                    <li class="muted">서버 동기화 미지원</li>
+                    <li>셀 참여 · 파일 다운 5개</li>
+                    <li>캘린더 일정 5개</li>
+                    <li>노트 파일 3개 (파일별)</li>
+                    <li>AI 요약·퀴즈 월 각 3회</li>
+                    <li class="muted">광고 표시</li>
+                    <li class="muted">셀 생성 · 기기 동기화 미지원</li>
                 </ul>
                 <a href="#cta" class="plan-btn">무료로 시작</a>
+            </div>
+            <!-- 광고제거 -->
+            <div class="pricing-card reveal">
+                <div class="plan-name">광고제거</div>
+                <div class="plan-tag">광고 없이 깔끔하게</div>
+                <div class="plan-price">₩500<span> / 월</span></div>
+                <ul class="plan-features">
+                    <li>광고 완전 제거</li>
+                    <li>셀 참여 · 파일 다운 무제한</li>
+                    <li>캘린더 일정 무제한</li>
+                    <li>노트 파일 3개 (파일별)</li>
+                    <li>AI 요약·퀴즈 월 각 3회</li>
+                    <li class="muted">셀 생성 · 기기 동기화 미지원</li>
+                </ul>
+                <a href="#cta" class="plan-btn">광고 없이 시작</a>
             </div>
             <!-- 스탠다드 -->
             <div class="pricing-card featured reveal">
@@ -942,11 +949,12 @@
                 <div class="plan-tag">제한 없이 마음껏</div>
                 <div class="plan-price">₩6,990<span> / 월</span></div>
                 <ul class="plan-features">
-                    <li>메모·녹음·필기·첨부·영상 무제한</li>
-                    <li>AI 요약 · 퀴즈 월 10회</li>
-                    <li>파일 변환 무제한</li>
-                    <li>30개 언어 · 5가지 테마</li>
-                    <li>우선 고객 지원</li>
+                    <li>광고 제거</li>
+                    <li>셀 생성 · 파일 다운 무제한</li>
+                    <li>캘린더 일정 무제한</li>
+                    <li>노트 파일 무제한</li>
+                    <li>AI 요약·퀴즈 월 각 20회</li>
+                    <li class="muted">기기 동기화 미지원</li>
                 </ul>
                 <a href="#cta" class="plan-btn solid">지금 시작</a>
             </div>
@@ -957,20 +965,13 @@
                 <div class="plan-price">₩13,990<span> / 월</span></div>
                 <ul class="plan-features">
                     <li>스탠다드의 모든 기능</li>
-                    <li>AI 요약 · 퀴즈 무제한</li>
-                    <li>로그인 & 계정 동기화</li>
-                    <li>클라우드 서버 파일 보관</li>
-                    <li>여러 기기 자동 백업</li>
+                    <li>노트·셀·캘린더 무제한</li>
+                    <li>AI 요약·퀴즈 월 각 50회</li>
+                    <li>여러 기기 동기화 (최대 3대)</li>
+                    <li>클라우드 자동 백업</li>
                     <li>프리미엄 고객 지원</li>
                 </ul>
                 <a href="#cta" class="plan-btn">프리미엄 시작</a>
-            </div>
-        </div>
-        <div class="token-note reveal">
-            <span class="tn-emoji">🪙</span>
-            <div>
-                <strong>추가 토큰으로 더 쓰기</strong>
-                <p>플랜에 포함된 AI 요약·퀴즈 제공량을 모두 사용했다면, 추가 토큰을 구매해 계속 이용할 수 있습니다.</p>
             </div>
         </div>
         <p class="pricing-note">* 정식 가격 정책 확정 전까지 모든 플랜을 무료로 제공합니다. 플랜별 제한 수치는 앱 정책에 따라 변경될 수 있습니다.</p>
@@ -1042,7 +1043,7 @@
             { key:'ai',   label:'🤖 AI 정리·학습', sub:'요약·번역·퀴즈로 복습까지 한 번에',    color:'#7c6bd6', tile:'#ece9fb' },
             { key:'정리', label:'🗂️ 정리',        sub:'리튼 공간·파일을 모으고 검색',          color:'#2aa79b', tile:'#dcf3ef' },
             { key:'일정', label:'📅 일정',        sub:'캘린더와 알림으로 일정 관리',           color:'#d9608f', tile:'#fbe6ef' },
-            { key:'공유', label:'💬 공유·미디어',  sub:'스터디룸에서 함께, 영상·웹까지',        color:'#e0805a', tile:'#fbe9e1' },
+            { key:'공유', label:'💬 공유·미디어',  sub:'셀에서 함께, 영상·웹까지',        color:'#e0805a', tile:'#fbe9e1' },
             { key:'저장', label:'☁️ 저장·동기화',  sub:'어디서나 안전하게 보관하고 동기화',      color:'#5577b3', tile:'#e7edf8' },
             { key:'맞춤', label:'⚙️ 맞춤·글로벌',  sub:'30개 언어·5가지 테마로 내 맘대로',      color:'#d59128', tile:'#fbefd8' },
         ];
@@ -1068,8 +1069,8 @@
             { g:'일정', t:'calendar', name:'캘린더',    desc:'일정을 한눈에 관리' },
             { g:'일정', t:'alarm',    name:'일정 알림', desc:'정시·10분 전 등 맞춤 알림' },
             // 💬 공유·미디어
-            { g:'공유', t:'studyroom',name:'스터디룸',  desc:'1:1·그룹·나만의 룸으로 학습자료 공유' },
-            { g:'공유', t:'studytalk',name:'스터디 대화',desc:'룸 멤버와 대화하며 함께 학습' },
+            { g:'공유', t:'studyroom',name:'셀',      desc:'1:1·그룹·나만의 셀로 학습자료 공유' },
+            { g:'공유', t:'studytalk',name:'셀 대화',  desc:'셀 멤버와 대화하며 함께 학습' },
             { g:'공유', t:'share',    name:'공유',      desc:'리튼·파일을 손쉽게 공유' },
             { g:'공유', t:'channel',  name:'영상채널',  desc:'유튜브 채널 구독·영상 요약' },
             { g:'공유', t:'browser',  name:'인앱 브라우저', desc:'앱에서 바로 웹 검색·자료 열람' },
@@ -1248,8 +1249,8 @@
               li:['리치 텍스트 메모','이미지·PDF 위 필기','PDF 하이라이트·주석','음성 녹음 + STT'] },
             { t:'remind',   color:'#7c6bd6', tile:'#ece9fb', step:'복습', title:'AI로 정리하고 복습', desc:'AI 요약·퀴즈로 정리하고 리마인드로 반복 복습하세요.',
               li:['AI 요약 (1~5단계)','학습 퀴즈 자동 생성','리마인드 모아보기','일정 알림으로 복습'] },
-            { t:'studyroom', color:'#e0805a', tile:'#fbe9e1', step:'공유', title:'스터디룸에서 함께', desc:'자료와 대화를 나누며 친구·스터디원과 함께 공부하세요.',
-              li:['1:1 · 그룹 · 나만의 룸','학습자료 공유','스터디 대화','룸별 자료·대화 관리'] },
+            { t:'studyroom', color:'#e0805a', tile:'#fbe9e1', step:'공유', title:'셀에서 함께', desc:'자료와 대화를 나누며 친구·셀 멤버와 함께 공부하세요.',
+              li:['1:1 · 그룹 · 나만의 셀','학습자료 공유','셀 대화','셀별 자료·대화 관리'] },
         ];
         document.getElementById('coreGrid').innerHTML = CORE.map((c, i) =>
             `<div class="core-card reveal" style="--accent:${c.color}"><span class="core-step">STEP ${i + 1} · ${c.step}</span><div class="core-icon">${tileSoft(sym(c.t, c.color, '#ffffff'), c.tile)}</div><h3>${c.title}</h3><p>${c.desc}</p><ul>${c.li.map(x => `<li>${x}</li>`).join('')}</ul></div>`
