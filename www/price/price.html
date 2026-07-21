@@ -4,24 +4,22 @@
   리튼(Litten) 가격별·유저수별 매출·순이익 그래프  ·  파일명: price.html
   버전은 파일명이 아니라 이 파일 내부에서 관리합니다.
   ------------------------------------------------------------
-  현재 버전: v3.3  (최종 수정 2026-07-21)
-    v2.x : 3단계(무료/스탠다드/프리미엄) · USD 가격 시나리오 기반
-    v3.0 : [4단계 개편] 무료 / 광고제거 / 스탠다드 / 프리미엄
-           · 가격을 확정 KRW로 고정(₩0 / ₩500 / ₩6,990 / ₩13,990) — USD 시나리오 제거
-           · AI 원가를 Haiku 4.5·텍스트·월단위 기준으로 갱신(대폭 하락)
-           · 유료 구성 = 광고제거/스탠다드/프리미엄 3분할(구성비 시나리오 선택)
-    v3.1 : 고정비에 [서버·DB 월 고정비] 입력 추가 → 월 고정비 = 인건비 + 서버비
-           (기존엔 인건비만 반영, 서버비 누락으로 손익분기가 낙관적이었음)
-    v3.2 : 고정비에 [마케팅·광고비(월)] 입력 추가 → 월 고정비 = 인건비 + 서버비 + 마케팅비
-           (앱 홍보 광고 집행비 = 지출. 무료 유저에게 보여주는 '광고 수익'과는 반대 방향)
-    v3.3 : 마케팅비 = 월 ₩500,000 고정 · 서버·DB비 = 전체 가입자 수에 따라 자동 증가
-           (Cost.html 규모 단계: ~300 3만/~2천 8만/~5천 23.5만/~1만 56만/~5만 160만/~10만 280만)
-  데이터 기준: 홈페이지 4단계 요금제 확정본(2026-07-19)
-    · 앱스토어 수수료 30%
-    · AI 1회 원가 Haiku: 요약 ~24원 · 퀴즈 ~20원 (텍스트 입력 10K토큰 가정)
-    · 월 최대 AI 원가 — 광고제거 132원 · 스탠다드 880원 · 프리미엄 2,200원
-    · 프리미엄 클라우드 저장(S3) ~155원 가산 → 프리미엄 원가 2,355원
-    · 무료 유저 월 실원가 ₩132(AI 3+3회) · 광고순익 = 광고수익 − 132
+  현재 버전: v3.5  (최종 수정 2026-07-21)
+    v2.x : 3단계(무료/스탠다드/프리미엄) · USD 가격 시나리오
+    v3.0 : 4단계 고정 KRW · Haiku · 유료 3티어 구성비
+    v3.1 : 고정비에 서버·DB비 추가
+    v3.2 : 고정비에 마케팅·광고비 추가
+    v3.3 : 마케팅비 월 ₩500,000 고정 · 서버비 가입자 수 자동 증가
+    v3.4 : [요금제 개편] 프리 / 라이트 / 크리에이터 / 마스터
+    v3.5 : 라이트 ₩2,900→490 · AI 각 10→5회(원가 440→220) — 체험 관문 저가화
+           · 가격 ₩0 / 490 / 7,900 / 13,900
+           · 원가(월 상한) 프리 132 · 라이트 220 · 크리에이터 1,660 · 마스터 5,420
+  데이터 기준: 홈페이지 4단계 요금제(프리/라이트/크리에이터/마스터) 2026-07-21
+    · 앱스토어 수수료 30% · AI Haiku(요약 24원·퀴즈 20원, 텍스트)
+    · 월 AI 상한 — 프리 132 · 라이트 220 · 크리에이터 1,320 · 마스터 4,400
+    · 저장(S3) — 크리에이터 10GB 340 · 마스터 30GB 1,020 (원가에 포함)
+    · 무료(프리) 월 실원가 상한 ₩132 · 광고순익 = 광고수익 − 132
+    · 마케팅비 월 ₩500,000 고정 · 서버·DB비 = 가입자 수 자동
   ============================================================
 -->
 <html lang="ko">
@@ -112,7 +110,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 <body>
 <header>
   <h1>리튼(Litten) 4단계 가격 · 유저수별 매출·순이익 & 사업 손익분기</h1>
-  <p>상단에서 조건 선택 → ① 유료 구독 경제성 · ② 무료+유료 통합 사업 손익·손익분기에 공통 반영 — 4단계 요금제 확정본(2026-07-19) 기준</p>
+  <p>상단에서 조건 선택 → ① 유료 구독 경제성 · ② 무료+유료 통합 사업 손익·손익분기에 공통 반영 — 프리/라이트/크리에이터/마스터(2026-07-21) 기준</p>
 </header>
 <main>
 
@@ -123,10 +121,10 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   <div class="ctrl" style="margin-bottom:12px">
     <label>확정 가격 (월, 앱스토어 인앱결제)</label>
     <div class="pricegrid">
-      <div class="pc"><div class="n">무료</div><div class="v">₩0</div><div class="c">원가 ₩132</div></div>
-      <div class="pc"><div class="n">광고제거</div><div class="v">₩500</div><div class="c">원가 ₩132</div></div>
-      <div class="pc hl"><div class="n">스탠다드</div><div class="v">₩6,990</div><div class="c">원가 ₩880</div></div>
-      <div class="pc"><div class="n">프리미엄</div><div class="v">₩13,990</div><div class="c">원가 ₩2,355</div></div>
+      <div class="pc"><div class="n">프리</div><div class="v">₩0</div><div class="c">원가 ₩132</div></div>
+      <div class="pc"><div class="n">라이트</div><div class="v">₩490</div><div class="c">원가 ₩220</div></div>
+      <div class="pc hl"><div class="n">크리에이터</div><div class="v">₩7,900</div><div class="c">원가 ₩1,660</div></div>
+      <div class="pc"><div class="n">마스터</div><div class="v">₩13,900</div><div class="c">원가 ₩5,420</div></div>
     </div>
     <p class="selinfo" id="selInfo" style="margin-bottom:0"></p>
   </div>
@@ -134,7 +132,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   <div class="ctrl" style="margin:0 0 14px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px">
     <label>🎚 전체 가입자 (스크롤로 조정) : <span class="val" id="totalVal">1,000명</span>
       <span style="font-weight:400;color:var(--muted);font-size:.78rem">→ 유료 <b id="totalPaid">50명</b> · 무료 <b id="totalFree">950명</b></span>
-      <span style="font-weight:400;color:var(--muted);font-size:.74rem;display:block;margin-top:2px">아래 1·2 차트·표는 이 인원을 무료·광고제거·스탠다드·프리미엄으로 나눠 재계산합니다</span></label>
+      <span style="font-weight:400;color:var(--muted);font-size:.74rem;display:block;margin-top:2px">아래 1·2 차트·표는 이 인원을 프리·라이트·크리에이터·마스터로 나눠 재계산합니다 (서버비도 이 인원에 자동 연동)</span></label>
     <input type="range" id="totalRange" min="0" max="100000" step="500" value="1000">
     <div class="presets" id="totalPresets">
       <button data-v="1000">1천</button><button data-v="5000">5천</button><button data-v="10000">1만</button>
@@ -161,14 +159,14 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
         <button data-v="8">낙관 8%</button>
         <button data-v="12">공격 12%</button>
       </div>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">₩500 광고제거 티어가 결제 장벽을 낮춰 <b>유료 전환율이 기존 3단계보다 높게</b> 잡힐 수 있음 → 기본값 5%</div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">유료 = 라이트+크리에이터+마스터 합산. 실제 배포 후 측정 필요 → 기본값 5%</div>
     </div>
     <div class="ctrl">
-      <label>④ 유료 구성비 (광고제거 : 스탠다드 : 프리미엄)</label>
+      <label>④ 유료 구성비 (라이트 : 크리에이터 : 마스터)</label>
       <div class="tabs" id="mixTabs"></div>
       <div class="ratio-bar" id="mixBar" style="max-width:100%"></div>
       <div class="ratio-lab" id="mixLab"></div>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">유료 결제자 중 세 티어 비중(가정). ₩500이 싸서 광고제거 비중이 클 것으로 봄 → 기본 <b>50:35:15</b></div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">유료 결제자 중 세 티어 비중(가정) → 기본 <b>50:35:15</b></div>
     </div>
     <div class="ctrl">
       <label>② 무료 유저 광고순익 (₩/월·인)</label>
@@ -186,11 +184,11 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
       <div class="presets" id="headsPresets">
         <button data-v="1">1인</button><button data-v="3">3인</button><button data-v="5">5인</button><button data-v="10">10인</button>
       </div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">1인당 월 인건비 → <b id="laborCalc">₩0</b></div>
     </div>
     <div class="ctrl">
       <label>1인당 월 인건비 : <span class="val" id="perPersonVal">₩0</span></label>
       <input type="range" id="perPersonRange" min="0" max="10000000" step="500000" value="0">
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">→ 인건비 = 인원 × 1인당 = <b id="laborCalc">₩0</b></div>
     </div>
     <div class="ctrl">
       <label>서버·DB 월 고정비 : <span class="val" id="serverVal">₩80,000</span> <span style="font-weight:400;color:var(--muted);font-size:.74rem">(전체 가입자 수에 따라 자동 증가)</span></label>
@@ -205,18 +203,18 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 
 <!-- ================= 섹션 1: 유료 구독 매출·순이익 ================= -->
 <section>
-  <h2>1. 유료 구독 매출 · 순이익 (광고제거 + 스탠다드 + 프리미엄)</h2>
+  <h2>1. 유료 구독 매출 · 순이익 (라이트 + 크리에이터 + 마스터)</h2>
 
   <div class="callout">
     📌 <b>유료 결제자 구성 = 위에서 선택한 구성비.</b> 유료로 전환한 사용자를
-    <b>광고제거(₩500) · 스탠다드(₩6,990) · 프리미엄(₩13,990)</b> 세 티어로 나눠 각 티어의 매출·순이익을 계산합니다.
+    <b>라이트(₩490) · 크리에이터(₩7,900) · 마스터(₩13,900)</b> 세 티어로 나눠 각 티어의 매출·순이익을 계산합니다.
     티어별 순이익 = 가격×0.7(수수료 30% 차감) − 월 원가.
     <div class="ratio-bar" id="mixBar1"></div>
     <div class="ratio-lab" id="mixLab1"></div>
   </div>
 
   <div class="callout" style="background:#eff6ff;border-color:#bfdbfe;border-left-color:#2563eb;color:#1e3a5f">
-    📊 <b>유료 : 무료 비율</b> — 상단 전환율 <b id="convEcho">5%</b> 기준. 아래 그래프·표는 선택한 <b>전체 가입자</b>를 <b>무료 + 유료 3티어</b>로 나눠 각 그룹의 매출·순이익을 계산합니다. (전환율·전체 가입자를 바꾸면 즉시 반영)
+    📊 <b>유료 : 무료 비율</b> — 상단 전환율 <b id="convEcho">5%</b> 기준. 아래 그래프·표는 선택한 <b>전체 가입자</b>를 <b>무료(프리) + 유료 3티어</b>로 나눠 각 그룹의 매출·순이익을 계산합니다. (전환율·전체 가입자를 바꾸면 즉시 반영)
     <div class="ratio-bar" style="max-width:100%;margin-top:8px"><div id="rb-paid" style="background:#dc2626;width:5%"></div><div id="rb-free" style="background:#93c5fd;width:95%"></div></div>
     <div class="ratio-lab"><span><i style="background:#dc2626"></i>유료 <b id="rb-paid-lab">5%</b></span><span><i style="background:#93c5fd"></i>무료 <b id="rb-free-lab">95%</b></span></div>
   </div>
@@ -230,7 +228,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   <div class="twrap"><table id="dataTable"></table></div>
 
   <div class="note">
-    <b>계산 기준:</b> 수수료 30% · 원가(월) 광고제거 ₩132 · 스탠다드 ₩880 · 프리미엄 ₩2,355 (Haiku·텍스트·저장 포함).
+    <b>계산 기준:</b> 수수료 30% · 원가(월 상한) 라이트 ₩220 · 크리에이터 ₩1,660 · 마스터 ₩5,420 (Haiku·텍스트·저장 포함).
     선택한 전체 가입자 × 전환율 = 유료, 이를 <b>구성비</b>로 세 티어에 나눠 각 그룹의 <b>매출</b>(가격×인원)과 <b>순이익</b>((가격×0.7)−원가)을 계산합니다. 고정비는 섹션2에서 반영.
   </div>
 </section>
@@ -270,27 +268,21 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 (function(){
   var FEE=0.30;
   /* 확정 가격 (KRW/월) */
-  var PRICE={adfree:500, std:6990, prem:13990};
-  /* 월 원가 (KRW/인) — Haiku·텍스트·월단위, 최악값 */
-  var COST={free:132, adfree:132, std:880, prem:2355};
+  var PRICE={lite:490, creator:7900, master:13900};
+  /* 월 원가 (KRW/인) — Haiku·텍스트·월 상한 (AI + 저장) */
+  var COST={free:132, lite:220, creator:1660, master:5420};
   var FREE_COST=COST.free;
-
-  /* 유료 구성비 시나리오 (광고제거 : 스탠다드 : 프리미엄) */
-  var MIXES=[
-    {label:'50:35:15', adfree:0.50, std:0.35, prem:0.15, current:true},
-    {label:'40:40:20', adfree:0.40, std:0.40, prem:0.20},
-    {label:'30:40:30', adfree:0.30, std:0.40, prem:0.30},
-    {label:'25:45:30', adfree:0.25, std:0.45, prem:0.30}
-  ];
   var MKT=500000; // 마케팅·광고비 월 고정
+
+  /* 유료 구성비 시나리오 (라이트 : 크리에이터 : 마스터) */
+  var MIXES=[
+    {label:'50:35:15', lite:0.50, creator:0.35, master:0.15, current:true},
+    {label:'40:40:20', lite:0.40, creator:0.40, master:0.20},
+    {label:'30:40:30', lite:0.30, creator:0.40, master:0.30},
+    {label:'25:45:30', lite:0.25, creator:0.45, master:0.30}
+  ];
   var state={mix:0, period:'month', conv:5, freeNet:0, heads:1, perPerson:0, total:1000};
 
-  function M(){ return MIXES[state.mix]; }
-  function tierProf(t){ return PRICE[t]*(1-FEE)-COST[t]; } // 티어 1인 월 순이익
-  function revPU(m){ return m.adfree*PRICE.adfree + m.std*PRICE.std + m.prem*PRICE.prem; }
-  function profPU(m){ return m.adfree*tierProf('adfree') + m.std*tierProf('std') + m.prem*tierProf('prem'); }
-  function fac(){ return state.period==='year'?12:1; }
-  function pw(){ return state.period==='year'?'연':'월'; }
   function serverCost(T){
     if(T<=300) return 30000;
     if(T<=2000) return 80000;
@@ -299,6 +291,12 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     if(T<=50000) return 1600000;
     return 2800000;
   }
+  function M(){ return MIXES[state.mix]; }
+  function tierProf(t){ return PRICE[t]*(1-FEE)-COST[t]; } // 티어 1인 월 순이익
+  function revPU(m){ return m.lite*PRICE.lite + m.creator*PRICE.creator + m.master*PRICE.master; }
+  function profPU(m){ return m.lite*tierProf('lite') + m.creator*tierProf('creator') + m.master*tierProf('master'); }
+  function fac(){ return state.period==='year'?12:1; }
+  function pw(){ return state.period==='year'?'연':'월'; }
   function fixedCost(){ return state.heads*state.perPerson + serverCost(state.total) + MKT; }
 
   function won(v){
@@ -321,17 +319,17 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var paid=T*conv;
     return {
       free:T*(1-conv),
-      adfree:paid*m.adfree, std:paid*m.std, prem:paid*m.prem,
+      lite:paid*m.lite, creator:paid*m.creator, master:paid*m.master,
       paid:paid
     };
   }
   function buildChart(){
     var f=fac(), suf=' ('+pw()+')', c=counts();
-    var revA=c.adfree*PRICE.adfree*f, revS=c.std*PRICE.std*f, revP=c.prem*PRICE.prem*f;
-    var pfA=c.adfree*tierProf('adfree')*f, pfS=c.std*tierProf('std')*f, pfP=c.prem*tierProf('prem')*f;
-    var rev=[revA,revS,revP,revA+revS+revP], prof=[pfA,pfS,pfP,pfA+pfS+pfP];
+    var revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
+    var rev=[revL,revC,revM,revL+revC+revM], prof=[pfL,pfC,pfM,pfL+pfC+pfM];
     var profColor=prof.map(function(v){ return v>=0?'#dc2626':'#2563eb'; });
-    var labels=[['광고제거','('+man(c.adfree)+'명)'],['스탠다드','('+man(c.std)+'명)'],['프리미엄','('+man(c.prem)+'명)'],['유료 합계','('+man(c.paid)+'명)']];
+    var labels=[['라이트','('+man(c.lite)+'명)'],['크리에이터','('+man(c.creator)+'명)'],['마스터','('+man(c.master)+'명)'],['유료 합계','('+man(c.paid)+'명)']];
     var ctx=document.getElementById('chart').getContext('2d');
     var data={labels:labels,datasets:[
       {label:'매출액'+suf, data:rev, backgroundColor:'#16a34a', borderRadius:4},
@@ -344,15 +342,15 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   }
   function buildTable(){
     var f=fac(), P=pw(), c=counts();
-    var revA=c.adfree*PRICE.adfree*f, revS=c.std*PRICE.std*f, revP=c.prem*PRICE.prem*f;
-    var pfA=c.adfree*tierProf('adfree')*f, pfS=c.std*tierProf('std')*f, pfP=c.prem*tierProf('prem')*f;
+    var revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
     function row(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
     var m=M();
     var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>순이익(₩/'+P+')</th></tr>';
-    html+=row('광고제거 ('+Math.round(m.adfree*100)+'%) · ₩500', c.adfree, revA, pfA);
-    html+=row('스탠다드 ('+Math.round(m.std*100)+'%) · ₩6,990', c.std, revS, pfS);
-    html+=row('프리미엄 ('+Math.round(m.prem*100)+'%) · ₩13,990', c.prem, revP, pfP);
-    html+='<tr class="peruser"><td><b>유료 합계</b></td><td>'+Math.round(c.paid).toLocaleString()+'명</td><td>'+Math.round(revA+revS+revP).toLocaleString()+'</td><td>'+((pfA+pfS+pfP)>=0?'+':'')+Math.round(pfA+pfS+pfP).toLocaleString()+'</td></tr>';
+    html+=row('라이트 ('+Math.round(m.lite*100)+'%) · ₩490', c.lite, revL, pfL);
+    html+=row('크리에이터 ('+Math.round(m.creator*100)+'%) · ₩7,900', c.creator, revC, pfC);
+    html+=row('마스터 ('+Math.round(m.master*100)+'%) · ₩13,900', c.master, revM, pfM);
+    html+='<tr class="peruser"><td><b>유료 합계</b></td><td>'+Math.round(c.paid).toLocaleString()+'명</td><td>'+Math.round(revL+revC+revM).toLocaleString()+'</td><td>'+((pfL+pfC+pfM)>=0?'+':'')+Math.round(pfL+pfC+pfM).toLocaleString()+'</td></tr>';
     document.getElementById('dataTable').innerHTML=html;
   }
   function buildRatio1(){
@@ -364,12 +362,12 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('rb-free-lab').textContent=(100-c)+'%';
   }
   function mixBarHTML(m){
-    return '<div class="a" style="width:'+(m.adfree*100)+'%"></div><div class="s" style="width:'+(m.std*100)+'%"></div><div class="p" style="width:'+(m.prem*100)+'%"></div>';
+    return '<div class="a" style="width:'+(m.lite*100)+'%"></div><div class="s" style="width:'+(m.creator*100)+'%"></div><div class="p" style="width:'+(m.master*100)+'%"></div>';
   }
   function mixLabHTML(m){
-    return '<span><i style="background:#0ea5e9"></i>광고제거 '+Math.round(m.adfree*100)+'%</span>'
-      +'<span><i style="background:#2563eb"></i>스탠다드 '+Math.round(m.std*100)+'%</span>'
-      +'<span><i style="background:#7c3aed"></i>프리미엄 '+Math.round(m.prem*100)+'%</span>';
+    return '<span><i style="background:#0ea5e9"></i>라이트 '+Math.round(m.lite*100)+'%</span>'
+      +'<span><i style="background:#2563eb"></i>크리에이터 '+Math.round(m.creator*100)+'%</span>'
+      +'<span><i style="background:#7c3aed"></i>마스터 '+Math.round(m.master*100)+'%</span>';
   }
   function buildMix(){
     var m=M();
@@ -408,13 +406,13 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   var bizChart=null;
   function buildBiz(){
     var f=fac(), P=pw(), c=counts();
-    var revFree=c.free*(state.freeNet+FREE_COST)*f, revA=c.adfree*PRICE.adfree*f, revS=c.std*PRICE.std*f, revP=c.prem*PRICE.prem*f;
-    var pfFree=c.free*state.freeNet*f, pfA=c.adfree*tierProf('adfree')*f, pfS=c.std*tierProf('std')*f, pfP=c.prem*tierProf('prem')*f;
-    var fixed=fixedCost()*f, totRev=revFree+revA+revS+revP, totProf=pfFree+pfA+pfS+pfP-fixed;
-    var rev=[revFree,revA,revS,revP,totRev], prof=[pfFree,pfA,pfS,pfP,totProf];
+    var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
+    var fixed=fixedCost()*f, totRev=revFree+revL+revC+revM, totProf=pfFree+pfL+pfC+pfM-fixed;
+    var rev=[revFree,revL,revC,revM,totRev], prof=[pfFree,pfL,pfC,pfM,totProf];
     var profColor=prof.map(function(v){ return v>=0?'#dc2626':'#2563eb'; });
     var ctx=document.getElementById('bizChart').getContext('2d');
-    var data={labels:[['무료','('+man(c.free)+'명)'],['광고제거','('+man(c.adfree)+'명)'],['스탠다드','('+man(c.std)+'명)'],['프리미엄','('+man(c.prem)+'명)'],['합계','(고정비 후)']],datasets:[
+    var data={labels:[['프리','('+man(c.free)+'명)'],['라이트','('+man(c.lite)+'명)'],['크리에이터','('+man(c.creator)+'명)'],['마스터','('+man(c.master)+'명)'],['합계','(고정비 후)']],datasets:[
       {label:'매출액 ('+P+')', data:rev, backgroundColor:'#16a34a', borderRadius:4},
       {label:'순이익 ('+P+')', data:prof, backgroundColor:profColor, borderRadius:4}
     ]};
@@ -425,15 +423,15 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   }
   function buildBizTable(){
     var f=fac(), P=pw(), c=counts(), T=state.total;
-    var revFree=c.free*(state.freeNet+FREE_COST)*f, revA=c.adfree*PRICE.adfree*f, revS=c.std*PRICE.std*f, revP=c.prem*PRICE.prem*f;
-    var pfFree=c.free*state.freeNet*f, pfA=c.adfree*tierProf('adfree')*f, pfS=c.std*tierProf('std')*f, pfP=c.prem*tierProf('prem')*f;
-    var fixed=fixedCost()*f, preRev=revFree+revA+revS+revP, preProf=pfFree+pfA+pfS+pfP, net=preProf-fixed;
+    var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
+    var fixed=fixedCost()*f, preRev=revFree+revL+revC+revM, preProf=pfFree+pfL+pfC+pfM, net=preProf-fixed;
     function rowg(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
     var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>순이익(₩/'+P+')</th></tr>';
-    html+=rowg('무료 (광고)',c.free,revFree,pfFree);
-    html+=rowg('광고제거',c.adfree,revA,pfA);
-    html+=rowg('스탠다드',c.std,revS,pfS);
-    html+=rowg('프리미엄',c.prem,revP,pfP);
+    html+=rowg('프리 (광고)',c.free,revFree,pfFree);
+    html+=rowg('라이트',c.lite,revL,pfL);
+    html+=rowg('크리에이터',c.creator,revC,pfC);
+    html+=rowg('마스터',c.master,revM,pfM);
     html+='<tr class="peruser"><td>합계 (고정비 전)</td><td>'+Math.round(T).toLocaleString()+'명</td><td>'+Math.round(preRev).toLocaleString()+'</td><td>'+(preProf>=0?'+':'')+Math.round(preProf).toLocaleString()+'</td></tr>';
     html+='<tr class="mix"><td>고정비 차감</td><td>—</td><td>—</td><td>-'+Math.round(fixed).toLocaleString()+'</td></tr>';
     html+='<tr class="peruser"><td><b>최종 순이익</b></td><td>—</td><td>—</td><td class="'+(net>=0?'pos':'neg')+'"><b>'+(net>=0?'+':'')+Math.round(net).toLocaleString()+'</b></td></tr>';
@@ -452,6 +450,15 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
       box.innerHTML='⚠ 현재 설정에선 <b>규모를 키워도 흑자 전환 불가</b> — 가입자 1명당 공헌이익이 ₩'+Math.round(pt.contrib).toLocaleString()
         +'/월(≤0)입니다. 무료 유저 광고순익이 음수라 유료 이익을 갉아먹는 구조. <b>전환율↑ 또는 무료 광고순익↑(원가↓)</b>가 필요합니다.';
     }
+  }
+
+  function updateFixedDisplay(){
+    document.getElementById('headsVal').textContent=state.heads+'명';
+    document.getElementById('perPersonVal').textContent='₩'+state.perPerson.toLocaleString();
+    document.getElementById('serverVal').textContent='₩'+serverCost(state.total).toLocaleString();
+    document.getElementById('mktVal').textContent='₩'+MKT.toLocaleString();
+    document.getElementById('laborCalc').textContent='₩'+(state.heads*state.perPerson).toLocaleString();
+    document.getElementById('fixedCalc').textContent='₩'+fixedCost().toLocaleString();
   }
 
   function drawAll(){
@@ -495,14 +502,6 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 
   document.getElementById('freeSel').onchange=function(){ state.freeNet=parseFloat(this.value); drawBiz(); };
 
-  function updateFixedDisplay(){
-    document.getElementById('headsVal').textContent=state.heads+'명';
-    document.getElementById('perPersonVal').textContent='₩'+state.perPerson.toLocaleString();
-    document.getElementById('serverVal').textContent='₩'+serverCost(state.total).toLocaleString();
-    document.getElementById('mktVal').textContent='₩'+MKT.toLocaleString();
-    document.getElementById('laborCalc').textContent='₩'+(state.heads*state.perPerson).toLocaleString();
-    document.getElementById('fixedCalc').textContent='₩'+fixedCost().toLocaleString();
-  }
   function refreshFixed(){ updateFixedDisplay(); drawBiz(); }
   var headsR=document.getElementById('headsRange');
   headsR.oninput=function(){ state.heads=parseInt(headsR.value,10); refreshFixed(); };
