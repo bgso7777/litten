@@ -83,8 +83,8 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                     autofocus: true,
                     decoration: InputDecoration(
                       labelText: l10n?.scheduleTitle ?? '일정 제목',
-                      labelStyle: const TextStyle(color: Colors.black),
-                      floatingLabelStyle: const TextStyle(color: Colors.black),
+                      labelStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      floatingLabelStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.title),
                     ),

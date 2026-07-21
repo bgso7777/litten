@@ -4169,8 +4169,8 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
                             : '${widget.convLabel} 일정 제목',
                         // 라벨은 항상 검은색 — 포커스 시 테마색으로 바뀌지 않게
                         // labelStyle(기본)과 floatingLabelStyle(포커스/입력 중)을 모두 지정한다.
-                        labelStyle: const TextStyle(color: Colors.black),
-                        floatingLabelStyle: const TextStyle(color: Colors.black),
+                        labelStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                        floatingLabelStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.title),
                       ),

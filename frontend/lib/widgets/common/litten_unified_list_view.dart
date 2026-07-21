@@ -746,19 +746,13 @@ class _LittenUnifiedListViewState extends State<LittenUnifiedListView> {
                   );
                 }),
                   trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isSelected ? Colors.white54 : Colors.blue.shade300),
-                  onTap: () async {
-                    try {
-                      if (appState.isSTTActive) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 리튼을 변경할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
-                        return;
-                      }
-                      // 캘린더: 선택을 undefined로 고정 (다른 일정으로 바뀌지 않게)
-                      final undefinedTarget = appState.littens.where((l) => l.title == 'undefined').firstOrNull ?? litten;
-                      await appState.selectLitten(undefinedTarget);
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.orange));
+                  // 탭하면 이 일정의 수정 창을 연다(셀 일정 타일과 동일 동선).
+                  onTap: () {
+                    if (appState.isSTTActive) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('음성 인식 중에는 일정을 수정할 수 없습니다. 먼저 음성 인식을 중지해주세요.'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
+                      return;
                     }
+                    _showEditLittenDialog(litten.id);
                   },
                 ),
               );

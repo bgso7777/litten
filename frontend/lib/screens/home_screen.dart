@@ -26,6 +26,7 @@ import '../models/text_file.dart';
 import '../models/handwriting_file.dart';
 import '../widgets/dialogs/create_litten_dialog.dart';
 import '../widgets/dialogs/edit_litten_dialog.dart';
+import 'home_dashboard_screen.dart' show showEditRoomScheduleDialog;
 import '../widgets/common/litten_unified_list_view.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1245,6 +1246,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   if (!appState.isDateSelected) return false;
                   return isSameDay(appState.selectedDate, day);
                 },
+                onDayLongPressed: (selectedDay, focusedDay) =>
+                    _onDayLongPressed(selectedDay, appState),
                 onDaySelected: (selectedDay, focusedDay) async {
                   appState.selectDate(selectedDay);
                   appState.changeFocusedDate(focusedDay);
@@ -1541,6 +1544,86 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   // 일정 바 오버레이 빌드
+  /// 캘린더 날짜를 길게 눌렀을 때 — 그날 일정을 찾아 수정 창을 연다.
+  /// 일정이 여러 개면 선택 시트를, 하나면 바로 수정 창을, 없으면 무시.
+  void _onDayLongPressed(DateTime day, AppStateProvider appState) {
+    final target = DateTime(day.year, day.month, day.day);
+
+    // 그날 발생하는 개인 일정(리튼)
+    final littens = _littensOccurringOn(appState.littens, target);
+    // 그날 발생하는 셀 일정 (개인 일정과 중복되는 공유분은 제외)
+    final rooms = <Map<String, dynamic>>[];
+    for (final rs in appState.roomSchedules) {
+      if (schedule_utils.roomScheduleDuplicatesMine(rs, appState.littens)) continue;
+      if (_roomScheduleOccursOn(rs, target)) rooms.add(rs);
+    }
+
+    final total = littens.length + rooms.length;
+    debugPrint('📅 [날짜 롱프레스] ${target.toString().substring(0, 10)} - '
+        '개인 ${littens.length}, 셀 ${rooms.length}');
+    if (total == 0) return;
+
+    // 딱 하나면 바로 수정 창
+    if (total == 1) {
+      if (littens.isNotEmpty) {
+        _openScheduleEdit(litten: littens.first);
+      } else {
+        _openScheduleEdit(roomSchedule: rooms.first);
+      }
+      return;
+    }
+
+    // 여러 개면 어느 일정을 수정할지 고르는 시트
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final l in littens)
+              ListTile(
+                leading: Icon(Icons.event,
+                    color: AppColors.scheduleColor(l.colorIndex)),
+                title: Text(l.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _openScheduleEdit(litten: l);
+                  });
+                },
+              ),
+            for (final rs in rooms)
+              ListTile(
+                leading: Icon(Icons.hexagon_outlined,
+                    color: AppColors.scheduleColor(
+                        (rs['colorIndex'] as num?)?.toInt())),
+                title: Text(rs['title']?.toString() ?? '',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(rs['roomName']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _openScheduleEdit(roomSchedule: rs);
+                  });
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 캘린더 일정 바/칩을 길게 눌렀을 때 수정 창을 연다.
+  /// 개인 일정(리튼)이면 EditLittenDialog, 셀 일정이면 셀 수정 창을 띄운다.
+  void _openScheduleEdit({Litten? litten, Map<String, dynamic>? roomSchedule}) {
+    if (roomSchedule != null) {
+      showEditRoomScheduleDialog(context, roomSchedule: roomSchedule);
+    } else if (litten != null) {
+      _showEditLittenDialog(litten.id);
+    }
+  }
+
   Widget _buildScheduleBars(AppStateProvider appState) {
     debugPrint('📅 _buildScheduleBars 호출 - _scheduleListVisible: $_scheduleListVisible');
 
@@ -1588,6 +1671,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       }
 
       schedules.add({
+        'litten': litten,
         'title': litten.title,
         'startDate': startDate,
         'endDate': endDate,
@@ -1623,7 +1707,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       // 1) 시작~종료일 구간이 이 달과 겹치면 그 구간 바를 그린다(여러 날 일정 포함).
       if (!endDate.isBefore(firstDayOfMonthForRoom) &&
           !startDate.isAfter(lastDayOfMonthForRoom)) {
-        schedules.add({'title': title, 'startDate': startDate, 'endDate': endDate});
+        schedules.add({'roomSchedule': rs, 'title': title, 'startDate': startDate, 'endDate': endDate});
         debugPrint('📅 셀 일정 바 추가: $title, $startDate ~ $endDate');
       }
 
@@ -1636,7 +1720,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         // 등록 구간(start~end)은 위에서 이미 그렸으므로 제외
         if (!d.isBefore(startDate) && !d.isAfter(endDate)) continue;
         if (!schedule_utils.scheduleOccursOnDay(sc, d)) continue;
-        schedules.add({'title': title, 'startDate': d, 'endDate': d});
+        schedules.add({'roomSchedule': rs, 'title': title, 'startDate': d, 'endDate': d});
         debugPrint('📅 셀 반복 일정 바 추가: $title, $d');
       }
     }
@@ -1672,6 +1756,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         // 등록 구간(base~regEnd)은 이미 바로 그려졌으므로 건너뜀
         if (!d.isBefore(base) && !d.isAfter(regEnd)) continue;
         schedules.add({
+          'litten': litten,
           'title': litten.title,
           'startDate': d,
           'endDate': d,
@@ -1704,6 +1789,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         if (occ.month == focusedMonth) {
           // 2/29 등 해당 날짜가 없는 해는 건너뜀 (DateTime 롤오버 방지)
           schedules.add({
+            'litten': litten,
             'title': litten.title,
             'startDate': occ,
             'endDate': occ,
@@ -1718,6 +1804,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         if (occ.month == focusedMonth) {
           // 31일 등 해당 날짜가 없는 달은 건너뜀 (DateTime 롤오버 방지)
           schedules.add({
+            'litten': litten,
             'title': litten.title,
             'startDate': occ,
             'endDate': occ,
@@ -1878,6 +1965,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                   colEnd = 6;
                 }
                 scheduleSegments.add({
+                  'litten': schedule['litten'],
+                  'roomSchedule': schedule['roomSchedule'],
                   'title': title,
                   'row': row,
                   'colStart': colStart,
@@ -1887,6 +1976,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
               }
             } else {
               scheduleSegments.add({
+                'litten': schedule['litten'],
+                'roomSchedule': schedule['roomSchedule'],
                 'title': title,
                 'row': startRow,
                 'colStart': startCol,
@@ -1920,24 +2011,30 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 left: left,
                 top: top,
                 width: width,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    // 일정 색: 선택한 색 기준(alpha 0.8, 진한 톤).
-                    color: AppColors.scheduleColor(titleColorIndex[title])
-                        .withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                // 길게 누르면 일정 수정 창을 연다(개인 일정/셀 일정 공용).
+                // 바 자체는 캘린더 위 오버레이라 제스처를 받기 어렵다.
+                // 롱프레스는 TableCalendar.onDayLongPressed 로 처리하므로
+                // 여기서는 터치를 통과(IgnorePointer)시켜 캘린더가 받게 한다.
+                child: IgnorePointer(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      // 일정 색: 선택한 색 기준(alpha 0.8, 진한 톤).
+                      color: AppColors.scheduleColor(titleColorIndex[title])
+                          .withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ),
@@ -1992,6 +2089,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               if (!currentAppState.isDateSelected) return false;
                               return isSameDay(currentAppState.selectedDate, day);
                             },
+                            onDayLongPressed: (selectedDay, focusedDay) =>
+                                _onDayLongPressed(selectedDay, appState),
                             onDaySelected: (selectedDay, focusedDay) async {
                               final currentScrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
                               debugPrint('📅 날짜 선택 전 스크롤 위치: $currentScrollPosition');
@@ -2326,7 +2425,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   ///
   /// 반복 일정은 [until] 까지의 **회차를 각각** 담는다(알약 하나 = 발생 1회).
   /// 하단 알약과 일정 목록이 같은 소스를 쓴다.
-  List<({String title, DateTime when, int colorIndex})> _getUpcomingSchedules(
+  List<({String title, DateTime when, int colorIndex, Litten? litten, Map<String, dynamic>? roomSchedule})> _getUpcomingSchedules(
     List<Litten> littens,
     String languageCode, {
     AppStateProvider? appState,
@@ -2335,7 +2434,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }) {
     final now = nowForLanguage(languageCode);
     final end = until ?? now.add(const Duration(days: 366));
-    final result = <({String title, DateTime when, int colorIndex})>[];
+    final result = <({String title, DateTime when, int colorIndex, Litten? litten, Map<String, dynamic>? roomSchedule})>[];
 
     for (final litten in littens) {
       if (litten.schedule == null || litten.title == 'undefined') continue;
@@ -2345,6 +2444,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           title: litten.title,
           when: when,
           colorIndex: litten.colorIndex,
+          litten: litten,
+          roomSchedule: null,
         ));
       }
     }
@@ -2362,6 +2463,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           title: title,
           when: when,
           colorIndex: (rs['colorIndex'] as num?)?.toInt() ?? 0,
+          litten: null,
+          roomSchedule: rs,
         ));
       }
     }
@@ -2506,6 +2609,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             // 알약 배경/테두리 기준색 = 그 일정의 선택색(alpha 0.15/0.2).
             color: AppColors.scheduleColor(s.colorIndex),
             onTap: toggleList,
+            // 길게 누르면 그 일정의 수정 창을 연다.
+            onLongPress: () => _openScheduleEdit(
+                litten: s.litten, roomSchedule: s.roomSchedule),
           ),
         // 1달 뒤에도 일정이 더 있다는 표시 — 탭하면 전체 목록이 펼쳐진다.
         if (hasMoreBeyondMonth)
@@ -2547,6 +2653,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     required String label,
     required Color color,
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
   }) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -2558,6 +2665,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Container(
             // 개별 칩(알약) 자체 높이를 더 줄여(5→3) 바 안에서 영역 구분이 잘 되게 함
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -2702,6 +2810,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                         if (!currentAppState.isDateSelected) return false;
                         return isSameDay(currentAppState.selectedDate, day);
                       },
+                      onDayLongPressed: (selectedDay, focusedDay) =>
+                          _onDayLongPressed(selectedDay, appState),
                       onDaySelected: (selectedDay, focusedDay) async {
                         // 현재 스크롤 위치 저장
                         final currentScrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
