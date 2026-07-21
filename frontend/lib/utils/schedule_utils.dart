@@ -212,3 +212,49 @@ bool roomScheduleDuplicatesMine(Map<String, dynamic> rs, List<Litten> littens) {
   }
   return false;
 }
+
+/// 이 일정이 특정 날짜(target)에 발생하는지 — 과거·미래 무관하게 판정한다.
+///
+/// nextScheduleOccurrence / scheduleOccurrencesBetween 은 'now 이후'만 보므로
+/// 캘린더 점·바처럼 지난 날짜 표시가 필요한 곳에서는 이 함수를 쓴다.
+///   · 시작~종료일 구간에 들면 발생
+///   · 반복 규칙(매일/매주/매월/매년)에 맞고 시작일 이후면 발생
+bool scheduleOccursOnDay(LittenSchedule s, DateTime target) {
+  final day = DateTime(target.year, target.month, target.day);
+  final base = DateTime(s.date.year, s.date.month, s.date.day);
+  final endDay = s.endDate != null
+      ? DateTime(s.endDate!.year, s.endDate!.month, s.endDate!.day)
+      : base;
+
+  // 1) 시작~종료일 구간
+  if (!day.isBefore(base) && !day.isAfter(endDay)) return true;
+
+  // 2) 반복 규칙 — 시작일 이후만
+  if (day.isBefore(base)) return false;
+  final weekdays = <int>{};
+  bool hasDaily = false, hasMonthly = false, hasYearly = false;
+  for (final r in s.notificationRules) {
+    if (!r.isEnabled) continue;
+    switch (r.frequency) {
+      case NotificationFrequency.daily:
+        hasDaily = true;
+        break;
+      case NotificationFrequency.weekly:
+        if (r.weekdays != null) weekdays.addAll(r.weekdays!);
+        break;
+      case NotificationFrequency.monthly:
+        hasMonthly = true;
+        break;
+      case NotificationFrequency.yearly:
+        hasYearly = true;
+        break;
+      case NotificationFrequency.onDay:
+      case NotificationFrequency.oneDayBefore:
+        break;
+    }
+  }
+  return hasDaily ||
+      (weekdays.isNotEmpty && weekdays.contains(day.weekday)) ||
+      (hasMonthly && day.day == base.day) ||
+      (hasYearly && day.month == base.month && day.day == base.day);
+}

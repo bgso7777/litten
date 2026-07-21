@@ -1,47 +1,1796 @@
 {
   "@@locale": "fr",
   "appTitle": "Litten",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
   "homeTitle": "Accueil",
+  "@homeTitle": {
+    "description": "Home tab title"
+  },
   "recordingTitle": "Écouter",
+  "@recordingTitle": {
+    "description": "Recording tab title"
+  },
   "writingTitle": "Note",
+  "@writingTitle": {
+    "description": "Writing tab title"
+  },
   "settingsTitle": "Paramètres",
+  "@settingsTitle": {
+    "description": "Settings tab title"
+  },
   "createLitten": "Créer Litten",
+  "@createLitten": {
+    "description": "Button to create new litten"
+  },
   "emptyLittenTitle": "Créer ou sélectionner Litten",
+  "@emptyLittenTitle": {
+    "description": "Empty state title when no litten is selected"
+  },
   "emptyLittenDescription": "Utilisez le bouton 'Créer Litten' ci-dessous pour commencer votre première note",
+  "@emptyLittenDescription": {
+    "description": "Empty state description"
+  },
   "startRecording": "Commencer l'Enregistrement",
+  "@startRecording": {
+    "description": "Button to start audio recording"
+  },
   "stopRecording": "Arrêter l'Enregistrement",
+  "@stopRecording": {
+    "description": "Button to stop audio recording"
+  },
   "recording": "Enregistrement...",
+  "@recording": {
+    "description": "Recording status text"
+  },
   "textWriting": "Écriture de Texte",
+  "@textWriting": {
+    "description": "Text writing mode"
+  },
   "handwriting": "Écriture Manuscrite",
+  "@handwriting": {
+    "description": "Handwriting mode"
+  },
   "save": "Enregistrer",
+  "@save": {
+    "description": "Save button"
+  },
   "delete": "Supprimer",
+  "@delete": {
+    "description": "Delete button"
+  },
   "upgrade": "Mettre à Niveau",
+  "@upgrade": {
+    "description": "Upgrade button"
+  },
   "removeAds": "Supprimer les Publicités",
+  "@removeAds": {
+    "description": "Remove ads button"
+  },
   "freeVersion": "Gratuit",
+  "@freeVersion": {
+    "description": "Free version label"
+  },
   "standardVersion": "Standard",
+  "@standardVersion": {
+    "description": "Standard version label"
+  },
   "premiumVersion": "Premium",
+  "@premiumVersion": {
+    "description": "Premium version label"
+  },
   "theme": "Thème",
+  "@theme": {
+    "description": "Theme setting"
+  },
   "language": "Langue",
+  "@language": {
+    "description": "Language setting"
+  },
   "classicBlue": "Bleu Classique",
+  "@classicBlue": {
+    "description": "Classic Blue theme"
+  },
   "darkMode": "Mode Sombre",
+  "@darkMode": {
+    "description": "Dark Mode theme"
+  },
   "natureGreen": "Vert Nature",
+  "@natureGreen": {
+    "description": "Nature Green theme"
+  },
   "sunsetOrange": "Orange Coucher de Soleil",
+  "@sunsetOrange": {
+    "description": "Sunset Orange theme"
+  },
   "monochromeGrey": "Gris Monochrome",
-
-  "welcomeDescription": "Application de notes intelligente qui intègre\nécouter, écrire et dessiner",
-  "listen": "Écouter",
-  "listenDescription": "Enregistrement et lecture vocale",
-  "write": "Écrire",
-  "writeDescription": "Création et édition de texte",
-  "draw": "Dessiner",
-  "drawDescription": "Écriture à la main sur des images",
-
-  "selectLanguage": "Sélectionner la langue",
-  "selectLanguageDescription": "Veuillez sélectionner la langue à utiliser dans l'application",
+  "@monochromeGrey": {
+    "description": "Monochrome Grey theme"
+  },
+  "accountAndSubscription": "Account & Subscription",
+  "@accountAndSubscription": {
+    "description": "Account and subscription section title"
+  },
+  "userStatus": "User Status",
+  "@userStatus": {
+    "description": "User status item title"
+  },
+  "usageStatistics": "Usage Statistics",
+  "@usageStatistics": {
+    "description": "Usage statistics setting"
+  },
+  "appSettings": "App Settings",
+  "@appSettings": {
+    "description": "App settings section title"
+  },
+  "startScreen": "Start Screen",
+  "@startScreen": {
+    "description": "Start screen setting"
+  },
+  "recordingSettings": "Recording Settings",
+  "@recordingSettings": {
+    "description": "Recording settings section title"
+  },
+  "maxRecordingTime": "Max Recording Time",
+  "@maxRecordingTime": {
+    "description": "Maximum recording time setting"
+  },
+  "audioQuality": "Audio Quality",
+  "@audioQuality": {
+    "description": "Audio quality setting"
+  },
+  "writingSettings": "Writing Settings",
+  "@writingSettings": {
+    "description": "Writing settings section title"
+  },
+  "autoSaveInterval": "Auto Save Interval",
+  "@autoSaveInterval": {
+    "description": "Auto save interval setting"
+  },
+  "defaultFont": "Default Font",
+  "@defaultFont": {
+    "description": "Default font setting"
+  },
+  "freeWithAds": "Free (with ads)",
+  "@freeWithAds": {
+    "description": "Free version with ads description"
+  },
+  "standardMonthly": "Standard ($4.99/month)",
+  "@standardMonthly": {
+    "description": "Standard version monthly price"
+  },
+  "premiumMonthly": "Premium ($9.99/month)",
+  "@premiumMonthly": {
+    "description": "Premium version monthly price"
+  },
+  "littensCount": "littens",
+  "@littensCount": {
+    "description": "Count of littens"
+  },
+  "filesCount": "files",
+  "@filesCount": {
+    "description": "Count of files"
+  },
+  "removeAdsAndUnlimited": "Remove ads and unlimited features",
+  "@removeAdsAndUnlimited": {
+    "description": "Premium upgrade benefit description"
+  },
+  "maxRecordingTimeValue": "Unlimited",
+  "@maxRecordingTimeValue": {
+    "description": "Maximum recording time value"
+  },
+  "standardQuality": "Standard",
+  "@standardQuality": {
+    "description": "Standard audio quality"
+  },
+  "autoSaveIntervalValue": "3 minutes",
+  "@autoSaveIntervalValue": {
+    "description": "Auto save interval value"
+  },
+  "systemFont": "System Font",
+  "@systemFont": {
+    "description": "System font option"
+  },
+  "appVersion": "Litten v1.0.0",
+  "@appVersion": {
+    "description": "App version information"
+  },
+  "appDescription": "Cross-platform integrated note app",
+  "@appDescription": {
+    "description": "App description"
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Close button"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  "addSchedule": "Add Schedule",
+  "@addSchedule": {
+    "description": "Add schedule checkbox label"
+  },
+  "selectDate": "Select Date",
+  "@selectDate": {
+    "description": "Date picker help text"
+  },
+  "selectStartTime": "Select Start Time",
+  "@selectStartTime": {
+    "description": "Start time picker help text"
+  },
+  "selectEndTime": "Select End Time",
+  "@selectEndTime": {
+    "description": "End time picker help text"
+  },
+  "startTime": "Start Time",
+  "@startTime": {
+    "description": "Start time label"
+  },
+  "endTime": "End Time",
+  "@endTime": {
+    "description": "End time label"
+  },
+  "date": "Date",
+  "@date": {
+    "description": "Date label"
+  },
+  "notes": "Notes",
+  "@notes": {
+    "description": "Notes field label"
+  },
+  "scheduleNotesHint": "Enter notes for this schedule (optional)",
+  "@scheduleNotesHint": {
+    "description": "Schedule notes field hint text"
+  },
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Confirm button"
+  },
+  "enableNotifications": "Enable Notifications",
+  "@enableNotifications": {
+    "description": "Enable notifications checkbox label"
+  },
+  "frequency": "Frequency",
+  "@frequency": {
+    "description": "Frequency column header in notification settings"
+  },
+  "enabledNotifications": "Enabled Notifications",
+  "@enabledNotifications": {
+    "description": "Enabled notifications summary title"
+  },
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications panel title"
+  },
+  "noNotifications": "No notifications",
+  "@noNotifications": {
+    "description": "Empty notifications message"
+  },
+  "clearAll": "Clear All",
+  "@clearAll": {
+    "description": "Clear all notifications button"
+  },
+  "freeUserLimits": "Free user limits:",
+  "@freeUserLimits": {
+    "description": "Free user limits section title"
+  },
+  "maxLittens": "• Litten",
+  "@maxLittens": {
+    "description": "Maximum littens for free users"
+  },
+  "maxRecordingFiles": "• Recording files",
+  "@maxRecordingFiles": {
+    "description": "Maximum recording files for free users"
+  },
+  "maxTextFiles": "• Text files",
+  "@maxTextFiles": {
+    "description": "Maximum text files for free users"
+  },
+  "maxHandwritingFiles": "• Handwriting files",
+  "@maxHandwritingFiles": {
+    "description": "Maximum handwriting files for free users"
+  },
+  "maxLittensLimit": "Max 5",
+  "@maxLittensLimit": {
+    "description": "Maximum limit for littens"
+  },
+  "maxRecordingFilesLimit": "Max 10",
+  "@maxRecordingFilesLimit": {
+    "description": "Maximum limit for recording files"
+  },
+  "maxTextFilesLimit": "Max 5",
+  "@maxTextFilesLimit": {
+    "description": "Maximum limit for text files"
+  },
+  "maxHandwritingFilesLimit": "Max 5",
+  "@maxHandwritingFilesLimit": {
+    "description": "Maximum limit for handwriting files"
+  },
+  "upgradeToStandard": "Upgrade to Standard Plan?",
+  "@upgradeToStandard": {
+    "description": "Upgrade to standard plan dialog title"
+  },
+  "upgradeBenefits": "• Remove ads\n• Unlimited littens and files\n• $4.99/month",
+  "@upgradeBenefits": {
+    "description": "Upgrade benefits description"
+  },
+  "upgradedToStandard": "Upgraded to Standard Plan! (Simulation)",
+  "@upgradedToStandard": {
+    "description": "Upgrade success message"
+  },
   "selectTheme": "Sélectionner le thème",
+  "@selectTheme": {
+    "description": "Theme selection dialog title"
+  },
+  "selectLanguage": "Sélectionner la langue",
+  "@selectLanguage": {
+    "description": "Language selection dialog title"
+  },
+  "totalFiles": "Total files",
+  "@totalFiles": {
+    "description": "Total files count"
+  },
+  "noLittenSelected": "Please select a Litten",
+  "@noLittenSelected": {
+    "description": "Message when no litten is selected"
+  },
+  "selectLittenFirst": "To start listening, first select or create a Litten from the Home tab.",
+  "@selectLittenFirst": {
+    "description": "Description when no litten is selected"
+  },
+  "goToHome": "Go to Home",
+  "@goToHome": {
+    "description": "Button to go to home tab"
+  },
+  "noAudioFilesYet": "No audio files yet",
+  "@noAudioFilesYet": {
+    "description": "Title when no audio files exist"
+  },
+  "startFirstRecording": "Click the button below to start your first recording",
+  "@startFirstRecording": {
+    "description": "Description to start first recording"
+  },
+  "selectLittenFirstMessage": "Please select or create a Litten first.",
+  "@selectLittenFirstMessage": {
+    "description": "Message to select litten first"
+  },
+  "recordingStoppedAndSaved": "Recording stopped and file saved.",
+  "@recordingStoppedAndSaved": {
+    "description": "Message when recording is stopped and saved"
+  },
+  "recordingStarted": "Recording started.",
+  "@recordingStarted": {
+    "description": "Message when recording starts"
+  },
+  "recordingFailed": "Failed to start recording. Please check permissions.",
+  "@recordingFailed": {
+    "description": "Message when recording fails"
+  },
+  "playbackFailed": "Playback failed.",
+  "@playbackFailed": {
+    "description": "Message when audio playback fails"
+  },
+  "deleteFile": "Delete File",
+  "@deleteFile": {
+    "description": "Delete file dialog title"
+  },
+  "confirmDeleteFile": "Are you sure you want to delete the file {fileName}?",
+  "@confirmDeleteFile": {
+    "description": "Confirm delete file message",
+    "placeholders": {
+      "fileName": {
+        "type": "String",
+        "example": "recording.m4a"
+      }
+    }
+  },
+  "fileDeleted": "File deleted.",
+  "@fileDeleted": {
+    "description": "Message when file is deleted"
+  },
+  "selectPlaybackSpeed": "Select Playback Speed",
+  "@selectPlaybackSpeed": {
+    "description": "Playback speed selection dialog title"
+  },
+  "playbackSpeed": "Playback Speed",
+  "@playbackSpeed": {
+    "description": "Playback speed tooltip"
+  },
+  "recordingInProgress": "Recording...",
+  "@recordingInProgress": {
+    "description": "Recording in progress text"
+  },
+  "created": "Created",
+  "@created": {
+    "description": "Created date label"
+  },
+  "title": "Title",
+  "@title": {
+    "description": "Title input label"
+  },
+  "create": "Create",
+  "@create": {
+    "description": "Create button"
+  },
+  "pleaseEnterTitle": "Please enter a title.",
+  "@pleaseEnterTitle": {
+    "description": "Message when title is empty"
+  },
+  "littenCreated": "{title} litten has been created.",
+  "@littenCreated": {
+    "description": "Message when litten is created",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  "error": "Error",
+  "@error": {
+    "description": "Error label"
+  },
+  "renameLitten": "Rename Litten",
+  "@renameLitten": {
+    "description": "Rename litten dialog title"
+  },
+  "newName": "New Name",
+  "@newName": {
+    "description": "New name input label"
+  },
+  "change": "Change",
+  "@change": {
+    "description": "Change button"
+  },
+  "littenRenamed": "Litten name has been changed to '{newName}'.",
+  "@littenRenamed": {
+    "description": "Message when litten is renamed",
+    "placeholders": {
+      "newName": {
+        "type": "String",
+        "example": "New Name"
+      }
+    }
+  },
+  "deleteLitten": "Delete Litten",
+  "@deleteLitten": {
+    "description": "Delete litten dialog title"
+  },
+  "confirmDeleteLitten": "'{title}' litten will be deleted.\n\nThis action cannot be undone and all related files will be deleted together.",
+  "@confirmDeleteLitten": {
+    "description": "Confirm delete litten message",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  "freeUserLimitMessage": "Free users can only create up to 5 littens. Upgrade to create unlimited!",
+  "@freeUserLimitMessage": {
+    "description": "Message for free user limit"
+  },
+  "littenDeleted": "{title} litten has been deleted.",
+  "@littenDeleted": {
+    "description": "Message when litten is deleted",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  "confirmDeleteLittenMessage": "'{title}' litten will be deleted.\n\nThis action cannot be undone and all related files will be deleted together.",
+  "@confirmDeleteLittenMessage": {
+    "description": "Confirm delete litten message content",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "My Note"
+      }
+    }
+  },
+  "defaultLitten": "Default Litten",
+  "@defaultLitten": {
+    "description": "Default litten title for new users"
+  },
+  "lecture": "Lecture",
+  "@lecture": {
+    "description": "Lecture litten title for new users"
+  },
+  "meeting": "Meeting",
+  "@meeting": {
+    "description": "Meeting litten title for new users"
+  },
+  "defaultLittenDescription": "Default space for files created without selecting a litten.",
+  "@defaultLittenDescription": {
+    "description": "Description for default litten"
+  },
+  "lectureDescription": "Store files related to lectures here.",
+  "@lectureDescription": {
+    "description": "Description for lecture litten"
+  },
+  "meetingDescription": "Store files related to meetings here.",
+  "@meetingDescription": {
+    "description": "Description for meeting litten"
+  },
+  "selectLanguageDescription": "Veuillez sélectionner la langue à utiliser dans l'application",
+  "@selectLanguageDescription": {
+    "description": "Language selection description in onboarding"
+  },
   "themeRecommendationMessage": "Le thème recommandé pour la langue sélectionnée a été automatiquement sélectionné",
+  "@themeRecommendationMessage": {
+    "description": "Theme recommendation message in onboarding"
+  },
   "recommended": "Recommandé",
+  "@recommended": {
+    "description": "Recommended label for themes"
+  },
   "previous": "Précédent",
+  "@previous": {
+    "description": "Previous button in onboarding"
+  },
   "next": "Suivant",
-  "getStarted": "Commencer"
+  "@next": {
+    "description": "Next button in onboarding"
+  },
+  "getStarted": "Commencer",
+  "@getStarted": {
+    "description": "Get started button in onboarding"
+  },
+  "welcomeDescription": "Application de notes intelligente qui intègre\nécouter, écrire et dessiner",
+  "@welcomeDescription": {
+    "description": "Welcome page description in onboarding"
+  },
+  "listen": "Écouter",
+  "@listen": {
+    "description": "Listen feature title"
+  },
+  "listenDescription": "Enregistrement et lecture vocale",
+  "@listenDescription": {
+    "description": "Listen feature description"
+  },
+  "write": "Écrire",
+  "@write": {
+    "description": "Write feature title"
+  },
+  "writeDescription": "Création et édition de texte",
+  "@writeDescription": {
+    "description": "Write feature description"
+  },
+  "draw": "Dessiner",
+  "@draw": {
+    "description": "Draw feature title"
+  },
+  "drawDescription": "Écriture à la main sur des images",
+  "@drawDescription": {
+    "description": "Draw feature description"
+  },
+  "selectSubscriptionPlan": "Select Subscription Plan",
+  "@selectSubscriptionPlan": {
+    "description": "Subscription plan selection title in onboarding"
+  },
+  "subscriptionDescription": "Choose your preferred plan",
+  "@subscriptionDescription": {
+    "description": "Subscription plan selection description"
+  },
+  "unlimitedLittens": "Unlimited littens",
+  "@unlimitedLittens": {
+    "description": "Unlimited littens feature"
+  },
+  "unlimitedFiles": "Unlimited files",
+  "@unlimitedFiles": {
+    "description": "Unlimited files feature"
+  },
+  "allStandardFeatures": "All Standard features",
+  "@allStandardFeatures": {
+    "description": "Premium plan includes all standard features"
+  },
+  "cloudSync": "Cloud sync",
+  "@cloudSync": {
+    "description": "Cloud synchronization feature"
+  },
+  "multiDeviceSupport": "Multi-device support",
+  "@multiDeviceSupport": {
+    "description": "Multi-device support feature"
+  },
+  "comingSoon": "Coming Soon",
+  "@comingSoon": {
+    "description": "Coming soon label"
+  },
+  "login": "Login",
+  "@login": {
+    "description": "Login button text"
+  },
+  "loginComingSoon": "Login feature coming soon",
+  "@loginComingSoon": {
+    "description": "Login feature coming soon message"
+  },
+  "welcomeBack": "Welcome Back",
+  "@welcomeBack": {
+    "description": "Welcome back message on login screen"
+  },
+  "loginDescription": "Login to your account to securely store files in the cloud",
+  "@loginDescription": {
+    "description": "Login screen description"
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Email input label"
+  },
+  "emailHint": "example@email.com",
+  "@emailHint": {
+    "description": "Email input hint"
+  },
+  "emailRequired": "Please enter your email",
+  "@emailRequired": {
+    "description": "Email required validation message"
+  },
+  "emailInvalid": "Invalid email format",
+  "@emailInvalid": {
+    "description": "Email invalid validation message"
+  },
+  "password": "Password",
+  "@password": {
+    "description": "Password input label"
+  },
+  "passwordHint": "Enter your password",
+  "@passwordHint": {
+    "description": "Password input hint"
+  },
+  "passwordRequired": "Please enter your password",
+  "@passwordRequired": {
+    "description": "Password required validation message"
+  },
+  "passwordTooShort": "Password must be at least 6 characters",
+  "@passwordTooShort": {
+    "description": "Password too short validation message"
+  },
+  "forgotPassword": "Forgot your password?",
+  "@forgotPassword": {
+    "description": "Forgot password link text"
+  },
+  "orLoginWith": "Or login with",
+  "@orLoginWith": {
+    "description": "Social login separator text"
+  },
+  "loginWithGoogle": "Login with Google",
+  "@loginWithGoogle": {
+    "description": "Login with Google button text"
+  },
+  "loginWithApple": "Login with Apple",
+  "@loginWithApple": {
+    "description": "Login with Apple button text"
+  },
+  "noAccount": "Don't have an account?",
+  "@noAccount": {
+    "description": "No account message"
+  },
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Sign up button text"
+  },
+  "manageSubscription": "Manage Subscription",
+  "@manageSubscription": {
+    "description": "Manage subscription dialog title"
+  },
+  "currentPlan": "Current Plan",
+  "@currentPlan": {
+    "description": "Current plan label"
+  },
+  "availablePlans": "Available Plans",
+  "@availablePlans": {
+    "description": "Available plans label"
+  },
+  "subscriptionChanged": "Subscription changed",
+  "@subscriptionChanged": {
+    "description": "Subscription changed message"
+  },
+  "signUpComingSoon": "Sign up feature coming soon",
+  "@signUpComingSoon": {
+    "description": "Sign up feature coming soon message"
+  },
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account title on sign up screen"
+  },
+  "signUpDescription": "Create your free account and get started",
+  "@signUpDescription": {
+    "description": "Sign up screen description"
+  },
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Confirm password input label"
+  },
+  "confirmPasswordHint": "Re-enter your password",
+  "@confirmPasswordHint": {
+    "description": "Confirm password input hint"
+  },
+  "confirmPasswordRequired": "Please confirm your password",
+  "@confirmPasswordRequired": {
+    "description": "Confirm password required validation message"
+  },
+  "passwordMismatch": "Passwords do not match",
+  "@passwordMismatch": {
+    "description": "Password mismatch validation message"
+  },
+  "orSignUpWith": "Or sign up with",
+  "@orSignUpWith": {
+    "description": "Social sign up separator text"
+  },
+  "signUpWithGoogle": "Sign up with Google",
+  "@signUpWithGoogle": {
+    "description": "Sign up with Google button text"
+  },
+  "signUpWithApple": "Sign up with Apple",
+  "@signUpWithApple": {
+    "description": "Sign up with Apple button text"
+  },
+  "alreadyHaveAccount": "Already have an account?",
+  "@alreadyHaveAccount": {
+    "description": "Already have account message"
+  },
+  "signUpEmailNote": "Please provide your own email for smooth service usage",
+  "@signUpEmailNote": {
+    "description": "Sign up email note"
+  },
+  "forgotPasswordDescription": "Enter your registered email address and\nwe'll send you a password reset link",
+  "@forgotPasswordDescription": {
+    "description": "Forgot password screen description"
+  },
+  "sendResetLink": "Send Reset Link",
+  "@sendResetLink": {
+    "description": "Send reset link button text"
+  },
+  "backToLogin": "Back to Login",
+  "@backToLogin": {
+    "description": "Back to login button text"
+  },
+  "emailSent": "Email Sent",
+  "@emailSent": {
+    "description": "Email sent confirmation title"
+  },
+  "resetEmailSentDescription": "We've sent a password reset link to {email}.\n\nPlease check your email and click the link\nto set a new password.",
+  "@resetEmailSentDescription": {
+    "description": "Password reset email sent description",
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "user@example.com"
+      }
+    }
+  },
+  "resetEmailNote": "If you don't see the email, please check your spam folder",
+  "@resetEmailNote": {
+    "description": "Reset email note about spam folder"
+  },
+  "resendEmail": "Resend Email",
+  "@resendEmail": {
+    "description": "Resend email button text"
+  },
+  "changePassword": "Change Password",
+  "@changePassword": {
+    "description": "Change password menu and screen title"
+  },
+  "changePasswordDescription": "Change your account password",
+  "@changePasswordDescription": {
+    "description": "Change password menu subtitle"
+  },
+  "changePasswordInfo": "Please change your password regularly for security",
+  "@changePasswordInfo": {
+    "description": "Change password info message"
+  },
+  "currentPassword": "Current Password",
+  "@currentPassword": {
+    "description": "Current password input label"
+  },
+  "currentPasswordHint": "Enter your current password",
+  "@currentPasswordHint": {
+    "description": "Current password input hint"
+  },
+  "currentPasswordRequired": "Please enter your current password",
+  "@currentPasswordRequired": {
+    "description": "Current password required validation message"
+  },
+  "newPassword": "New Password",
+  "@newPassword": {
+    "description": "New password input label"
+  },
+  "newPasswordHint": "Enter your new password",
+  "@newPasswordHint": {
+    "description": "New password input hint"
+  },
+  "newPasswordRequired": "Please enter your new password",
+  "@newPasswordRequired": {
+    "description": "New password required validation message"
+  },
+  "newPasswordSameAsCurrent": "New password is the same as current password",
+  "@newPasswordSameAsCurrent": {
+    "description": "New password same as current validation message"
+  },
+  "confirmNewPassword": "Confirm New Password",
+  "@confirmNewPassword": {
+    "description": "Confirm new password input label"
+  },
+  "confirmNewPasswordHint": "Re-enter your new password",
+  "@confirmNewPasswordHint": {
+    "description": "Confirm new password input hint"
+  },
+  "passwordChanged": "Password has been changed",
+  "@passwordChanged": {
+    "description": "Password changed success message"
+  },
+  "passwordChangeComingSoon": "Password change feature coming soon",
+  "@passwordChangeComingSoon": {
+    "description": "Password change feature coming soon message"
+  },
+  "textTab": "Text",
+  "@textTab": {
+    "description": "Text tab title in writing screen"
+  },
+  "handwritingTab": "Handwriting",
+  "@handwritingTab": {
+    "description": "Handwriting tab title in writing screen"
+  },
+  "audioTab": "Recording",
+  "@audioTab": {
+    "description": "Audio/Recording tab title in writing screen"
+  },
+  "browserTab": "Search",
+  "@browserTab": {
+    "description": "Browser/Search tab title in writing screen"
+  },
+  "subscription": "Subscription",
+  "@subscription": {
+    "description": "Subscription section title"
+  },
+  "subscriptionPlan": "Subscription Plan",
+  "@subscriptionPlan": {
+    "description": "Subscription plan item title"
+  },
+  "free": "Free",
+  "@free": {
+    "description": "Free subscription tier"
+  },
+  "standard": "Standard",
+  "@standard": {
+    "description": "Standard subscription tier"
+  },
+  "premium": "Premium",
+  "@premium": {
+    "description": "Premium subscription tier"
+  },
+  "account": "Account",
+  "@account": {
+    "description": "Account section title"
+  },
+  "loggedOut": "Logged out",
+  "@loggedOut": {
+    "description": "Logged out status"
+  },
+  "loggedIn": "Logged in",
+  "@loggedIn": {
+    "description": "Logged in status"
+  },
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout button"
+  },
+  "logoutConfirmTitle": "Logout",
+  "@logoutConfirmTitle": {
+    "description": "Logout confirmation dialog title"
+  },
+  "logoutConfirmMessage": "Are you sure you want to logout?",
+  "@logoutConfirmMessage": {
+    "description": "Logout confirmation message"
+  },
+  "logoutConfirmPremiumMessage": "If you logout while on Premium, you won't be able to share files.\nAre you sure you want to logout?",
+  "@logoutConfirmPremiumMessage": {
+    "description": "Logout confirmation message for premium users"
+  },
+  "logoutSuccess": "Logged out successfully.",
+  "@logoutSuccess": {
+    "description": "Logout success message"
+  },
+  "logoutFailed": "Logout failed: {error}",
+  "@logoutFailed": {
+    "description": "Logout failed message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginToAccount": "Login to your account",
+  "@loginToAccount": {
+    "description": "Login subtitle"
+  },
+  "deleteAccount": "Delete Account",
+  "@deleteAccount": {
+    "description": "Delete account title"
+  },
+  "deleteAccountSubtitle": "Permanently delete your account",
+  "@deleteAccountSubtitle": {
+    "description": "Delete account subtitle"
+  },
+  "deleteAccountTitle": "Delete Account",
+  "@deleteAccountTitle": {
+    "description": "Delete account dialog title"
+  },
+  "deleteAccountConfirm": "Are you sure you want to delete your account?",
+  "@deleteAccountConfirm": {
+    "description": "Delete account confirmation question"
+  },
+  "deleteAccountWarningTitle": "Please note the following:",
+  "@deleteAccountWarningTitle": {
+    "description": "Delete account warning title"
+  },
+  "deleteAccountWarning1": "• All data will be permanently deleted",
+  "@deleteAccountWarning1": {
+    "description": "Delete account warning 1"
+  },
+  "deleteAccountWarning2": "• All files on the server will be deleted",
+  "@deleteAccountWarning2": {
+    "description": "Delete account warning 2"
+  },
+  "deleteAccountWarning3": "• Account recovery is not possible",
+  "@deleteAccountWarning3": {
+    "description": "Delete account warning 3"
+  },
+  "deleteAccountWarning4": "• Subscription will be automatically cancelled",
+  "@deleteAccountWarning4": {
+    "description": "Delete account warning 4"
+  },
+  "deleteAccountWarning5": "• Cells you created are deleted, and shares you sent are marked as 'withdrawn' to others",
+  "@deleteAccountWarning5": {
+    "description": "Delete account warning 5 - Cell deletion"
+  },
+  "deleteAccountWarning6": "• Schedules synced to the server are deleted (local schedules are kept)",
+  "@deleteAccountWarning6": {
+    "description": "Delete account warning 6 - schedule deletion"
+  },
+  "deleteAccountButton": "Delete Account",
+  "@deleteAccountButton": {
+    "description": "Delete account button"
+  },
+  "deleteAccountFinalConfirmTitle": "Final Confirmation",
+  "@deleteAccountFinalConfirmTitle": {
+    "description": "Final confirmation dialog title"
+  },
+  "deleteAccountFinalConfirmMessage": "Are you sure you want to delete your account?\nThis action cannot be undone.",
+  "@deleteAccountFinalConfirmMessage": {
+    "description": "Final confirmation message"
+  },
+  "deleteAccountFinalConfirmHint": "Press \"Confirm Delete\" to proceed",
+  "@deleteAccountFinalConfirmHint": {
+    "description": "Final confirmation hint"
+  },
+  "deleteAccountConfirmButton": "Confirm Delete",
+  "@deleteAccountConfirmButton": {
+    "description": "Confirm delete button"
+  },
+  "deleteAccountProgress": "Deleting account...",
+  "@deleteAccountProgress": {
+    "description": "Delete account progress message"
+  },
+  "deleteAccountSuccess": "Account deleted. Local files are preserved and plan changed to Free.",
+  "@deleteAccountSuccess": {
+    "description": "Delete account success message"
+  },
+  "deleteAccountFailed": "Failed to delete account: {error}",
+  "@deleteAccountFailed": {
+    "description": "Delete account failed message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "selectPlan": "Select Subscription Plan",
+  "@selectPlan": {
+    "description": "Select plan dialog title"
+  },
+  "planFree": "Free",
+  "@planFree": {
+    "description": "Free plan name"
+  },
+  "planStandard": "Standard",
+  "@planStandard": {
+    "description": "Standard plan name"
+  },
+  "planPremium": "Premium",
+  "@planPremium": {
+    "description": "Premium plan name"
+  },
+  "planFreeDescription": "With ads, limited to 5 littens",
+  "@planFreeDescription": {
+    "description": "Free plan description"
+  },
+  "planStandardDescription": "$4.99/month - No ads, unlimited",
+  "@planStandardDescription": {
+    "description": "Standard plan description"
+  },
+  "planPremiumDescription": "$9.99/month - Cloud sync",
+  "@planPremiumDescription": {
+    "description": "Premium plan description"
+  },
+  "planPremiumDescriptionLoginRequired": "$9.99/month - Cloud sync (Login required)",
+  "@planPremiumDescriptionLoginRequired": {
+    "description": "Premium plan description with login requirement"
+  },
+  "planChanged": "Changed to {plan} plan",
+  "@planChanged": {
+    "description": "Plan changed message",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "planSelect": "Select",
+  "@planSelect": {
+    "description": "Plan select button"
+  },
+  "planCurrent": "Current",
+  "@planCurrent": {
+    "description": "Current plan label"
+  },
+  "premiumRequiresLogin": "Premium requires login",
+  "@premiumRequiresLogin": {
+    "description": "Premium requires login message"
+  },
+  "changePasswordSubtitle": "Change your account password",
+  "@changePasswordSubtitle": {
+    "description": "Change password subtitle"
+  },
+  "editSchedule": "Edit Schedule",
+  "@editSchedule": {
+    "description": "Edit schedule dialog title"
+  },
+  "scheduleTitle": "Schedule Title",
+  "@scheduleTitle": {
+    "description": "Schedule title placeholder"
+  },
+  "addScheduleTab": "Add Schedule",
+  "@addScheduleTab": {
+    "description": "Add schedule tab label"
+  },
+  "notificationSettingTab": "Notifications",
+  "@notificationSettingTab": {
+    "description": "Notification setting tab label"
+  },
+  "setScheduleFirst": "Please set a schedule first",
+  "@setScheduleFirst": {
+    "description": "Message when notification tab is disabled"
+  },
+  "setScheduleToEnableNotification": "Set a schedule in the Add Schedule tab\nto enable notification settings",
+  "@setScheduleToEnableNotification": {
+    "description": "Instructions to enable notification settings"
+  },
+  "startTimeCannotBeAfterEndTime": "Start time cannot be after end time.",
+  "@startTimeCannotBeAfterEndTime": {
+    "description": "Error message for invalid time range"
+  },
+  "littenUpdated": "{title} has been updated.",
+  "@littenUpdated": {
+    "description": "Success message when litten is updated",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionPlanTitle": "Subscription Plan",
+  "@subscriptionPlanTitle": {
+    "description": "Subscription plan label"
+  },
+  "createSchedule": "Create Schedule",
+  "@createSchedule": {
+    "description": "Title for create schedule dialog"
+  },
+  "littenAlreadyExists": "A litten with the same name already exists on {dateStr}: \"{title}\"",
+  "@littenAlreadyExists": {
+    "description": "Error message when a litten with same name already exists",
+    "placeholders": {
+      "dateStr": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "noTextFiles": "No text files",
+  "@noTextFiles": {
+    "description": "Empty state message for text files"
+  },
+  "noHandwritingFiles": "No handwriting files",
+  "@noHandwritingFiles": {
+    "description": "Empty state message for handwriting files"
+  },
+  "enterSearchTerm": "Enter search term...",
+  "@enterSearchTerm": {
+    "description": "Placeholder text for search input"
+  },
+  "noSearchHistory": "No search history yet",
+  "@noSearchHistory": {
+    "description": "Message when search history is empty"
+  },
+  "trySearching": "Try entering a search term",
+  "@trySearching": {
+    "description": "Hint to try searching"
+  },
+  "dragTabHere": "Drag tab here ({position})",
+  "@dragTabHere": {
+    "description": "Message for drag and drop area",
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "adUpgradeStandard": "Standard Plan - $4.99/month",
+  "@adUpgradeStandard": {
+    "description": "Standard plan pricing in ad dialog"
+  },
+  "adUpgradePremium": "Premium Plan - $9.99/month",
+  "@adUpgradePremium": {
+    "description": "Premium plan pricing in ad dialog"
+  },
+  "adBenefitRemoveAds": "✓ Remove ads",
+  "@adBenefitRemoveAds": {
+    "description": "Benefit: remove ads"
+  },
+  "adBenefitUnlimitedLittens": "✓ Unlimited littens",
+  "@adBenefitUnlimitedLittens": {
+    "description": "Benefit: unlimited littens"
+  },
+  "adBenefitUnlimitedFiles": "✓ Unlimited files",
+  "@adBenefitUnlimitedFiles": {
+    "description": "Benefit: unlimited files"
+  },
+  "adBenefitAllStandard": "✓ All Standard plan features",
+  "@adBenefitAllStandard": {
+    "description": "Benefit: all standard features"
+  },
+  "adBenefitCloudSync": "✓ Cloud synchronization",
+  "@adBenefitCloudSync": {
+    "description": "Benefit: cloud sync"
+  },
+  "adBenefitLargeFiles": "✓ Large file support",
+  "@adBenefitLargeFiles": {
+    "description": "Benefit: large files"
+  },
+  "adBenefitPrioritySupport": "✓ Priority customer support",
+  "@adBenefitPrioritySupport": {
+    "description": "Benefit: priority support"
+  },
+  "standardPlanUpgraded": "Upgraded to Standard plan! (Simulation)",
+  "@standardPlanUpgraded": {
+    "description": "Success message for standard plan upgrade simulation"
+  },
+  "adLoadingError": "Unable to load ad",
+  "@adLoadingError": {
+    "description": "Error message when ad fails to load"
+  },
+  "adLoading": "Loading ad...",
+  "@adLoading": {
+    "description": "Loading message for ad"
+  },
+  "positionTopLeft": "Top Left",
+  "@positionTopLeft": {
+    "description": "Tab position: top left"
+  },
+  "positionTopRight": "Top Right",
+  "@positionTopRight": {
+    "description": "Tab position: top right"
+  },
+  "positionBottomLeft": "Bottom Left",
+  "@positionBottomLeft": {
+    "description": "Tab position: bottom left"
+  },
+  "positionBottomRight": "Bottom Right",
+  "@positionBottomRight": {
+    "description": "Tab position: bottom right"
+  },
+  "loginFailed": "Login failed: {error}",
+  "@loginFailed": {
+    "description": "Login failure message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarTab": "Calendar",
+  "@calendarTab": {
+    "description": "Calendar bottom nav tab label"
+  },
+  "noteOption": "Note",
+  "@noteOption": {
+    "description": "Note option in start screen dialog"
+  },
+  "quizLabel": "Quiz",
+  "@quizLabel": {
+    "description": "Quiz chip label when count is 0"
+  },
+  "quizCount": "Quiz {count}",
+  "@quizCount": {
+    "description": "Quiz chip label with pending count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noVoiceMemos": "No voice memos.\nTap below to start.",
+  "@noVoiceMemos": {
+    "description": "Empty state for voice memo tab"
+  },
+  "noFilesPrompt": "No files.\nTap below to add.",
+  "@noFilesPrompt": {
+    "description": "Empty state for all files tab"
+  },
+  "notSynced": "Not synced",
+  "@notSynced": {
+    "description": "Sync status: not synced"
+  },
+  "menuTooltip": "Menu",
+  "@menuTooltip": {
+    "description": "Tooltip for more menu button"
+  },
+  "editLabel": "Edit",
+  "@editLabel": {
+    "description": "Edit action in popup menu"
+  },
+  "viewSummary": "View Summary",
+  "@viewSummary": {
+    "description": "Tooltip for view summary button"
+  },
+  "noSummary": "No summary",
+  "@noSummary": {
+    "description": "Tooltip when file has no summary"
+  },
+  "share": "Share",
+  "@share": {
+    "description": "Share action tooltip"
+  },
+  "characterCount": "{count} chars",
+  "@characterCount": {
+    "description": "Character count badge on text file",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pageCount": "{count} pages",
+  "@pageCount": {
+    "description": "Page count badge on handwriting file",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryUnsupported": "Summary unavailable",
+  "@summaryUnsupported": {
+    "description": "Tooltip when summary is not supported"
+  },
+  "memoLabel": "Memo",
+  "@memoLabel": {
+    "description": "Memo FAB label"
+  },
+  "recordingStatus": "Recording... {time}",
+  "@recordingStatus": {
+    "description": "Recording in progress label with duration",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceMemoLabel": "Voice Memo",
+  "@voiceMemoLabel": {
+    "description": "Voice memo FAB label"
+  },
+  "allFilesLabel": "All",
+  "@allFilesLabel": {
+    "description": "All files tab label in note tab visibility"
+  },
+  "sttMemoLabel": "Voice Memo",
+  "@sttMemoLabel": {
+    "description": "STT memo tab label in note tab visibility"
+  },
+  "noneLabel": "None",
+  "@noneLabel": {
+    "description": "None option label (e.g. no FAB buttons selected)"
+  },
+  "visibleAreas": "Visible Areas",
+  "@visibleAreas": {
+    "description": "Settings item: visible areas"
+  },
+  "noteTabView": "Note Tab View",
+  "@noteTabView": {
+    "description": "Settings item: note tab view"
+  },
+  "allTabFab": "All Tab Button",
+  "@allTabFab": {
+    "description": "Settings item: all tab FAB buttons"
+  },
+  "showAds": "Show Ads",
+  "@showAds": {
+    "description": "Settings item: show ads toggle"
+  },
+  "paidPlanNoAds": "Paid plan - ads off by default",
+  "@paidPlanNoAds": {
+    "description": "Show ads subtitle for paid users (ads off, toggleable)"
+  },
+  "freeShowAds": "Show banner ad",
+  "@freeShowAds": {
+    "description": "Show ads subtitle for free users (locked)"
+  },
+  "availableInPaidPlans": "Available in Standard & Premium plans",
+  "@availableInPaidPlans": {
+    "description": "Account section disabled subtitle"
+  },
+  "loginForCloudSync": "Login for cloud sync",
+  "@loginForCloudSync": {
+    "description": "Account login subtitle"
+  },
+  "topLeftOnly": "Top left only",
+  "@topLeftOnly": {
+    "description": "Visible areas text when only top left is shown"
+  },
+  "topLeftWith": "Top left + {areas}",
+  "@topLeftWith": {
+    "description": "Visible areas text with additional areas",
+    "placeholders": {
+      "areas": {
+        "type": "String"
+      }
+    }
+  },
+  "rename": "Rename",
+  "@rename": {
+    "description": "Rename action label"
+  },
+  "fileNameHint": "File name",
+  "@fileNameHint": {
+    "description": "File name input hint text"
+  },
+  "noQuizItems": "Extract from summaries\nand they'll appear here",
+  "@noQuizItems": {
+    "description": "Quiz panel empty state message"
+  },
+  "cloudSyncPlanChanged": "Changed to {plan} plan.\n\nTo use cloud sync, please login at Settings > Account.",
+  "@cloudSyncPlanChanged": {
+    "description": "Cloud sync info dialog content after plan change",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "viewScheduleList": "View Schedule List",
+  "@viewScheduleList": {
+    "description": "Calendar chip label when no upcoming schedule"
+  },
+  "startDate": "Start Date",
+  "@startDate": {
+    "description": "Start date label in schedule picker"
+  },
+  "endDate": "End Date",
+  "@endDate": {
+    "description": "End date label in schedule picker"
+  },
+  "notSelected": "Not selected",
+  "@notSelected": {
+    "description": "Placeholder when end date is not selected"
+  },
+  "durationMinutes": "Total {minutes} min",
+  "@durationMinutes": {
+    "description": "Schedule duration in minutes only",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHours": "Total {hours} hr",
+  "@durationHours": {
+    "description": "Schedule duration in hours only",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursMinutes": "Total {hours} hr {minutes} min",
+  "@durationHoursMinutes": {
+    "description": "Schedule duration in hours and minutes",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "selectWeekdays": "Select Days",
+  "@selectWeekdays": {
+    "description": "Weekday selection dialog title"
+  },
+  "daySun": "Sun",
+  "@daySun": {
+    "description": "Short day name: Sunday"
+  },
+  "dayMon": "Mon",
+  "@dayMon": {
+    "description": "Short day name: Monday"
+  },
+  "dayTue": "Tue",
+  "@dayTue": {
+    "description": "Short day name: Tuesday"
+  },
+  "dayWed": "Wed",
+  "@dayWed": {
+    "description": "Short day name: Wednesday"
+  },
+  "dayThu": "Thu",
+  "@dayThu": {
+    "description": "Short day name: Thursday"
+  },
+  "dayFri": "Fri",
+  "@dayFri": {
+    "description": "Short day name: Friday"
+  },
+  "daySat": "Sat",
+  "@daySat": {
+    "description": "Short day name: Saturday"
+  },
+  "renameFile": "Rename File",
+  "@renameFile": {
+    "description": "Dialog title for renaming a file"
+  },
+  "newFileName": "New file name",
+  "@newFileName": {
+    "description": "Label for file rename input field"
+  },
+  "fileNameInputHint": "Enter file name",
+  "@fileNameInputHint": {
+    "description": "Hint text for file rename input field"
+  },
+  "confirmDeleteFileMessage": "Delete \"{name}\"?\n\nThis action cannot be undone.",
+  "@confirmDeleteFileMessage": {
+    "description": "Delete file confirmation dialog content",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "fileRenameSuccessName": "File renamed to \"{name}\".",
+  "@fileRenameSuccessName": {
+    "description": "Snackbar after successful file rename with new name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "fileRenameSuccess": "File renamed.",
+  "@fileRenameSuccess": {
+    "description": "Snackbar after successful file rename"
+  },
+  "fileRenameFailed": "Failed to rename file: {error}",
+  "@fileRenameFailed": {
+    "description": "Snackbar after failed file rename",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileDeleteSuccess": "{name} deleted.",
+  "@fileDeleteSuccess": {
+    "description": "Snackbar after successful file delete",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "fileDeleteFailed": "Failed to delete file: {error}",
+  "@fileDeleteFailed": {
+    "description": "Snackbar after failed file delete",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "planChange": "Plan Change",
+  "@planChange": {
+    "description": "Downgrade dialog title"
+  },
+  "changeAndLogout": "Change & Logout",
+  "@changeAndLogout": {
+    "description": "Downgrade confirmation button"
+  },
+  "allTabFixed": "All Tab (fixed)",
+  "@allTabFixed": {
+    "description": "Subtitle for the always-visible top-left area in visible areas dialog"
+  },
+  "downgradeFromPremiumMessage": "Switching from Premium to {plan} plan will stop cloud sync and automatically log you out.\n\nDo you want to continue?",
+  "@downgradeFromPremiumMessage": {
+    "description": "Downgrade confirmation dialog content",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "planChangedAndLoggedOut": "Changed to {plan} plan. Logged out.",
+  "@planChangedAndLoggedOut": {
+    "description": "Snackbar after downgrade and logout",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceMemoSettings": "Voice Memo Settings",
+  "@voiceMemoSettings": {
+    "description": "STT memo settings dialog title"
+  },
+  "transcriptionLanguage": "Transcription Language",
+  "@transcriptionLanguage": {
+    "description": "Label for STT source language"
+  },
+  "summaryLanguage": "Summary Language",
+  "@summaryLanguage": {
+    "description": "Label for AI summary output language"
+  },
+  "summaryLevel": "Summary Level",
+  "@summaryLevel": {
+    "description": "Label for AI summary depth selector"
+  },
+  "summaryLevelOneLiner": "One-line Summary",
+  "@summaryLevelOneLiner": {
+    "description": "Summary level 1 label"
+  },
+  "summaryLevelBrief": "Brief Summary",
+  "@summaryLevelBrief": {
+    "description": "Summary level 2 label"
+  },
+  "summaryLevelNormal": "Normal Summary",
+  "@summaryLevelNormal": {
+    "description": "Summary level 3 label"
+  },
+  "summaryLevelDetailed": "Detailed Summary",
+  "@summaryLevelDetailed": {
+    "description": "Summary level 4 label"
+  },
+  "summaryLevelFull": "Nearly Full",
+  "@summaryLevelFull": {
+    "description": "Summary level 5 label"
+  },
+  "summaryLevelDesc1": "Key topics and conclusions only · ~10%",
+  "@summaryLevelDesc1": {
+    "description": "Summary level 1 description"
+  },
+  "summaryLevelDesc2": "Main points and key discussions · ~25%",
+  "@summaryLevelDesc2": {
+    "description": "Summary level 2 description"
+  },
+  "summaryLevelDesc3": "Practical flow and design intent · ~40–50%",
+  "@summaryLevelDesc3": {
+    "description": "Summary level 3 description"
+  },
+  "summaryLevelDesc4": "Most of the discussion flow · ~70%",
+  "@summaryLevelDesc4": {
+    "description": "Summary level 4 description"
+  },
+  "summaryLevelDesc5": "Maximum context preserved · ~90%",
+  "@summaryLevelDesc5": {
+    "description": "Summary level 5 description"
+  },
+  "autoSummaryInterval": "Auto Summary Interval",
+  "@autoSummaryInterval": {
+    "description": "Label for auto summary timing selector"
+  },
+  "intervalMin": "{n}min",
+  "@intervalMin": {
+    "description": "Interval option label in minutes",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "intervalOnStop": "On Stop",
+  "@intervalOnStop": {
+    "description": "Interval option: summarize when recording stops"
+  },
+  "intervalOff": "Off",
+  "@intervalOff": {
+    "description": "Interval option: no auto summary"
+  },
+  "startButton": "Start",
+  "@startButton": {
+    "description": "Start button in voice memo settings dialog"
+  },
+  "aiSummary": "AI Summary",
+  "@aiSummary": {
+    "description": "Label in STT summary panel header"
+  },
+  "summarizing": "Summarizing...",
+  "@summarizing": {
+    "description": "Loading text while AI summary is in progress"
+  },
+  "autoSummaryEveryMinutes": "Auto summary every {minutes} min after recording starts.",
+  "@autoSummaryEveryMinutes": {
+    "description": "Hint text when interval summary is enabled",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "autoSummaryOnStop": "Auto summary when recording stops.",
+  "@autoSummaryOnStop": {
+    "description": "Hint text when on-stop summary is enabled"
+  },
+  "autoSummaryDisabled": "Auto summary is disabled.",
+  "@autoSummaryDisabled": {
+    "description": "Hint text when auto summary is off"
+  },
+  "summaryFailed": "Summary failed: {error}",
+  "@summaryFailed": {
+    "description": "Snackbar when AI summary fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryLevelShortOneLiner": "1-line",
+  "@summaryLevelShortOneLiner": {
+    "description": "Short label for summary level 1 in dropdown"
+  },
+  "summaryLevelShortBrief": "Brief",
+  "@summaryLevelShortBrief": {
+    "description": "Short label for summary level 2 in dropdown"
+  },
+  "summaryLevelShortNormal": "Normal",
+  "@summaryLevelShortNormal": {
+    "description": "Short label for summary level 3 in dropdown"
+  },
+  "summaryLevelShortDetailed": "Detail",
+  "@summaryLevelShortDetailed": {
+    "description": "Short label for summary level 4 in dropdown"
+  },
+  "summaryLevelShortFull": "Full",
+  "@summaryLevelShortFull": {
+    "description": "Short label for summary level 5 in dropdown"
+  },
+  "summaryHistory": "Summary History",
+  "@summaryHistory": {
+    "description": "Label for past summary records dropdown"
+  },
+  "targetLanguage": "Target Language",
+  "@targetLanguage": {
+    "description": "Label for the source text language selector in summary dialog"
+  },
+  "aiSummarizing": "AI is summarizing...",
+  "@aiSummarizing": {
+    "description": "Loading text shown while AI summary is in progress in summary dialog"
+  },
+  "summarize": "Summarize",
+  "@summarize": {
+    "description": "Button label to start summarization"
+  },
+  "summarizeAgain": "Re-summarize",
+  "@summarizeAgain": {
+    "description": "Button label to summarize again when history exists"
+  },
+  "summaryAdded": "Summary added to file.",
+  "@summaryAdded": {
+    "description": "Snackbar when summary is successfully added to file"
+  },
+  "summaryAddedWithQuiz": "Summary added. {count} quiz(s) created.",
+  "@summaryAddedWithQuiz": {
+    "description": "Snackbar when summary is added and quiz items are created",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summarySaveFailed": "Failed to save summary: {error}",
+  "@summarySaveFailed": {
+    "description": "Snackbar when saving summary to file fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cell": "Cell",
+  "@cell": {
+    "description": "Cell - the shared space for conversation and materials. Kept untranslated across locales as a product term."
+  },
+  "cellName": "Cell name",
+  "@cellName": {
+    "description": "Label of the text field for entering a Cell name"
+  },
+  "newCell": "New Cell",
+  "@newCell": {
+    "description": "Title of the new Cell dialog, and tooltip of the new Cell FAB"
+  },
+  "noCellsYet": "No Cells yet.\nTap the + button below to create a Cell or share a file.",
+  "@noCellsYet": {
+    "description": "Empty state shown when the user has no Cells"
+  },
+  "startCell": "Start a Cell",
+  "@startCell": {
+    "description": "Placeholder shown when a Cell has no conversation yet"
+  },
+  "cellLoginRequired": "Signing up and logging in is required to use Cells.",
+  "@cellLoginRequired": {
+    "description": "Dialog body shown when a logged-out user taps a Cell feature"
+  },
+  "myCell": "My Cell: {name}",
+  "@myCell": {
+    "description": "Subtitle of a file that belongs to the user's own (self-chat) Cell",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createMyCell": "Create my Cell",
+  "@createMyCell": {
+    "description": "Button that creates a Cell used only by the current user"
+  },
+  "myCellDescription": "A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)",
+  "@myCellDescription": {
+    "description": "Explanation of the self-chat Cell shown in the new Cell dialog"
+  },
+  "oneToOneCell": "1:1 Cell",
+  "@oneToOneCell": {
+    "description": "Tab for creating a Cell with a single other person"
+  },
+  "groupCell": "Group Cell",
+  "@groupCell": {
+    "description": "Tab for creating a Cell shared by a group"
+  },
+  "myOwnCell": "My own Cell",
+  "@myOwnCell": {
+    "description": "Tab for creating a Cell only the current user belongs to"
+  },
+  "createCell": "Create Cell",
+  "@createCell": {
+    "description": "Button that creates the Cell configured in the dialog"
+  },
+  "createNewCell": "Create new Cell",
+  "@createNewCell": {
+    "description": "Button that opens the dialog for creating a new group Cell"
+  },
+  "cellGroupManagement": "Cell group management",
+  "@cellGroupManagement": {
+    "description": "Title and tooltip of the dialog for managing Cell groups and their members"
+  },
+  "allowMemberSchedule": "Members can create schedules",
+  "@allowMemberSchedule": {
+    "description": "Permission toggle letting members add schedules to the Cell"
+  },
+  "allowMemberScheduleHint": "When off, only the owner can create schedules.",
+  "@allowMemberScheduleHint": {
+    "description": "Subtitle explaining the member schedule permission"
+  }
 }

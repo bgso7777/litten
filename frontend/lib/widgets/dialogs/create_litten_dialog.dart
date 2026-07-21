@@ -6,6 +6,8 @@ import '../../l10n/app_localizations.dart';
 import '../../services/app_state_provider.dart';
 import '../../models/litten.dart';
 import '../../config/themes.dart';
+import '../home/schedule_color_picker.dart';
+import '../home/schedule_form_tab.dart';
 import '../home/schedule_picker.dart';
 import '../home/notification_settings.dart';
 
@@ -29,7 +31,7 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
   LittenSchedule? _selectedSchedule;
   bool _userInteractedWithSchedule = false;
   int _currentTabIndex = 0;
-  int _selectedColorIndex = AppColors.defaultScheduleColorIndex; // 일정 색(기본 로즈)
+  int _selectedColorIndex = AppColors.defaultScheduleColorIndex; // 일정 색(기본 파랑)
 
   @override
   void initState() {
@@ -83,7 +85,10 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _buildColorPicker(),
+                ScheduleColorPicker(
+                  selectedIndex: _selectedColorIndex,
+                  onChanged: (i) => setState(() => _selectedColorIndex = i),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -171,38 +176,6 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
     );
   }
 
-  /// 일정 색 선택기 — 세로 롤링(번호 고르듯). 가운데(선택 밴드)에 온 색이 선택된다.
-  Widget _buildColorPicker() {
-    return SizedBox(
-      width: 40,
-      height: 78, // itemExtent 26 × 3칸
-      child: CupertinoPicker(
-        itemExtent: 26,
-        looping: true, // 완전 롤링(끝에서 처음으로 무한 순환)
-        scrollController:
-            FixedExtentScrollController(initialItem: _selectedColorIndex),
-        onSelectedItemChanged: (i) {
-          final n = AppColors.scheduleColors.length;
-          setState(() => _selectedColorIndex = ((i % n) + n) % n);
-        },
-        children: [
-          for (final c in AppColors.scheduleColors)
-            Center(
-              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
-              child: Container(
-                width: 34,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: c,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCreateScheduleTabView(AppLocalizations? l10n) {
     return DefaultTabController(
       length: 2,
@@ -221,25 +194,16 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
               widget.onScheduleIndexChanged(index);
             },
             tabs: [
-              _buildTab(
+              ScheduleFormTab(
                 isActive: _currentTabIndex == 0,
-                checkIcon: _userInteractedWithSchedule && _selectedSchedule != null
-                    ? Icons.check_box
-                    : Icons.check_box_outline_blank,
-                checkColor: _userInteractedWithSchedule && _selectedSchedule != null
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey.shade500,
+                checked: _userInteractedWithSchedule && _selectedSchedule != null,
                 icon: Icons.schedule,
                 label: l10n?.addScheduleTab ?? '일정추가',
               ),
-              _buildTab(
+              ScheduleFormTab(
                 isActive: _currentTabIndex == 1,
-                checkIcon: _userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true
-                    ? Icons.check_box
-                    : Icons.check_box_outline_blank,
-                checkColor: _userInteractedWithSchedule && _selectedSchedule?.notificationRules.isNotEmpty == true
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey.shade500,
+                checked: _userInteractedWithSchedule &&
+                    _selectedSchedule?.notificationRules.isNotEmpty == true,
                 icon: Icons.notifications,
                 label: l10n?.notificationSettingTab ?? '알림설정',
               ),
@@ -278,10 +242,17 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
                             setState(() {
                               _selectedSchedule = LittenSchedule(
                                 date: _selectedSchedule!.date,
+                                // endDate·알림 시간대도 보존한다(누락 시 다중일 일정이
+                                // 알림 규칙만 바꿔도 종료일을 잃는 버그가 있었음).
+                                endDate: _selectedSchedule!.endDate,
                                 startTime: _selectedSchedule!.startTime,
                                 endTime: _selectedSchedule!.endTime,
                                 notes: _selectedSchedule!.notes,
                                 notificationRules: rules,
+                                notificationStartTime:
+                                    _selectedSchedule!.notificationStartTime,
+                                notificationEndTime:
+                                    _selectedSchedule!.notificationEndTime,
                               );
                             });
                           },
@@ -296,38 +267,6 @@ class _CreateLittenDialogState extends State<CreateLittenDialog> {
     );
   }
 
-  Widget _buildTab({
-    required bool isActive,
-    required IconData checkIcon,
-    required Color checkColor,
-    required IconData icon,
-    required String label,
-  }) {
-    final primaryColor = Theme.of(context).primaryColor;
-    return Tab(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.transparent,
-          border: Border.all(
-            color: isActive ? primaryColor.withValues(alpha: 0.3) : Colors.transparent,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(checkIcon, size: 16, color: checkColor),
-            const SizedBox(width: 4),
-            Icon(icon, size: 16),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDisabledNotificationTab() {
     return Center(

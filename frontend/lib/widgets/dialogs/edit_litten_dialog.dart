@@ -6,6 +6,8 @@ import '../../l10n/app_localizations.dart';
 import '../../services/app_state_provider.dart';
 import '../../models/litten.dart';
 import '../../config/themes.dart';
+import '../home/schedule_color_picker.dart';
+import '../home/schedule_form_tab.dart';
 import '../home/schedule_picker.dart';
 import '../home/notification_settings.dart';
 
@@ -74,37 +76,30 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _titleController,
-                    builder: (context, value, child) {
-                      return TextField(
-                        controller: _titleController,
-                        focusNode: _titleFocusNode,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText:
-                              l10n?.scheduleTitle ?? '일정 제목을 입력하세요.',
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-                        ),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );
-                    },
+                  // 캘린더 생성 창·셀 일정 창과 동일한 제목란(T 아이콘 + 검정 라벨).
+                  child: TextField(
+                    controller: _titleController,
+                    focusNode: _titleFocusNode,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: l10n?.scheduleTitle ?? '일정 제목',
+                      labelStyle: const TextStyle(color: Colors.black),
+                      floatingLabelStyle: const TextStyle(color: Colors.black),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.title),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                _buildColorPicker(),
+                ScheduleColorPicker(
+                  selectedIndex: _selectedColorIndex,
+                  onChanged: (i) => setState(() => _selectedColorIndex = i),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -138,38 +133,6 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
     );
   }
 
-  /// 일정 색 선택기 — 세로 롤링(번호 고르듯). 가운데(선택 밴드)에 온 색이 선택된다.
-  Widget _buildColorPicker() {
-    return SizedBox(
-      width: 40,
-      height: 78, // itemExtent 26 × 3칸
-      child: CupertinoPicker(
-        itemExtent: 26,
-        looping: true, // 완전 롤링(끝에서 처음으로 무한 순환)
-        scrollController:
-            FixedExtentScrollController(initialItem: _selectedColorIndex),
-        onSelectedItemChanged: (i) {
-          final n = AppColors.scheduleColors.length;
-          setState(() => _selectedColorIndex = ((i % n) + n) % n);
-        },
-        children: [
-          for (final c in AppColors.scheduleColors)
-            Center(
-              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
-              child: Container(
-                width: 34,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: c,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildScheduleTabView(AppLocalizations? l10n) {
     return DefaultTabController(
       length: 2,
@@ -177,17 +140,10 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 탭바
+          // 탭바 — 캘린더 생성 창·셀 일정 창과 동일한 배경박스 방식(ScheduleFormTab).
           TabBar(
-            labelColor: _selectedSchedule != null && widget.litten.schedule != null
-                ? Theme.of(context).primaryColor
-                : Colors.grey,
-            unselectedLabelColor: Colors.grey,
-            indicator: _selectedSchedule != null && widget.litten.schedule != null
-                ? UnderlineTabIndicator(
-                    borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
-                  )
-                : null,
+            indicator: const BoxDecoration(),
+            labelPadding: EdgeInsets.zero,
             onTap: (index) {
               setState(() {
                 _currentTabIndex = index;
@@ -195,54 +151,18 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
               widget.onScheduleIndexChanged(index);
             },
             tabs: [
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _selectedSchedule != null && widget.litten.schedule != null
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 16,
-                      color: _selectedSchedule != null && widget.litten.schedule != null
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.schedule, size: 16),
-                    const SizedBox(width: 4),
-                    Text(l10n?.addScheduleTab ?? '일정추가'),
-                  ],
-                ),
+              ScheduleFormTab(
+                isActive: _currentTabIndex == 0,
+                checked: _selectedSchedule != null && widget.litten.schedule != null,
+                icon: Icons.schedule,
+                label: l10n?.addScheduleTab ?? '일정추가',
               ),
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      (_selectedSchedule != null && _selectedSchedule?.notificationRules.isNotEmpty == true)
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
-                      size: 16,
-                      color: (_selectedSchedule != null && _selectedSchedule?.notificationRules.isNotEmpty == true)
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade500,
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.notifications,
-                      size: 16,
-                      color: _selectedSchedule != null ? null : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      l10n?.notificationSettingTab ?? '알림설정',
-                      style: TextStyle(
-                        color: _selectedSchedule != null ? null : Colors.grey.shade400,
-                      ),
-                    ),
-                  ],
-                ),
+              ScheduleFormTab(
+                isActive: _currentTabIndex == 1,
+                checked: _selectedSchedule != null &&
+                    _selectedSchedule?.notificationRules.isNotEmpty == true,
+                icon: Icons.notifications,
+                label: l10n?.notificationSettingTab ?? '알림설정',
               ),
             ],
           ),
@@ -277,10 +197,17 @@ class _EditLittenDialogState extends State<EditLittenDialog> {
                             setState(() {
                               _selectedSchedule = LittenSchedule(
                                 date: _selectedSchedule!.date,
+                                // endDate·알림 시간대도 보존한다(누락 시 다중일 일정이
+                                // 알림 규칙만 바꿔도 종료일을 잃는 버그가 있었음).
+                                endDate: _selectedSchedule!.endDate,
                                 startTime: _selectedSchedule!.startTime,
                                 endTime: _selectedSchedule!.endTime,
                                 notes: _selectedSchedule!.notes,
                                 notificationRules: rules,
+                                notificationStartTime:
+                                    _selectedSchedule!.notificationStartTime,
+                                notificationEndTime:
+                                    _selectedSchedule!.notificationEndTime,
                               );
                             });
                           },

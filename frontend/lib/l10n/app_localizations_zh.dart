@@ -9,13 +9,13 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => '利腾';
+  String get appTitle => 'Litten';
 
   @override
-  String get homeTitle => '首页';
+  String get homeTitle => '主页';
 
   @override
-  String get recordingTitle => '听写';
+  String get recordingTitle => '聆听';
 
   @override
   String get writingTitle => '笔记';
@@ -24,7 +24,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTitle => '设置';
 
   @override
-  String get createLitten => '创建笔记本';
+  String get createLitten => '创建 Litten';
 
   @override
   String get emptyLittenTitle => '创建或选择一个笔记本';
@@ -57,7 +57,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get upgrade => '升级';
 
   @override
-  String get removeAds => '移除广告';
+  String get removeAds => '去除广告';
 
   @override
   String get freeVersion => '免费';
@@ -165,10 +165,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancel => '取消';
 
   @override
-  String get addSchedule => 'Add Schedule';
+  String get addSchedule => '添加日程';
 
   @override
-  String get selectDate => 'Select Date';
+  String get selectDate => '选择日期';
 
   @override
   String get selectStartTime => 'Select Start Time';
@@ -177,40 +177,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectEndTime => 'Select End Time';
 
   @override
-  String get startTime => 'Start Time';
+  String get startTime => '开始时间';
 
   @override
-  String get endTime => 'End Time';
+  String get endTime => '结束时间';
 
   @override
-  String get date => 'Date';
+  String get date => '日期';
 
   @override
-  String get notes => 'Notes';
+  String get notes => '备注';
 
   @override
   String get scheduleNotesHint => 'Enter notes for this schedule (optional)';
 
   @override
-  String get confirm => 'Confirm';
+  String get confirm => '确认';
 
   @override
-  String get enableNotifications => 'Enable Notifications';
+  String get enableNotifications => '启用通知';
 
   @override
-  String get frequency => 'Frequency';
+  String get frequency => '频率';
 
   @override
   String get enabledNotifications => 'Enabled Notifications';
 
   @override
-  String get notifications => 'Notifications';
+  String get notifications => '通知';
 
   @override
-  String get noNotifications => 'No notifications';
+  String get noNotifications => '暂无通知';
 
   @override
-  String get clearAll => 'Clear All';
+  String get clearAll => '全部清除';
 
   @override
   String get freeUserLimits => '免费用户限制：';
@@ -296,7 +296,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fileDeleted => '文件已删除。';
+  String get fileDeleted => '文件已删除';
 
   @override
   String get selectPlaybackSpeed => '选择播放速度';
@@ -317,7 +317,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get create => '创建';
 
   @override
-  String get pleaseEnterTitle => '请输入标题。';
+  String get pleaseEnterTitle => '请输入标题';
 
   @override
   String littenCreated(String title) {
@@ -390,10 +390,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recommended => '推荐';
 
   @override
-  String get previous => '上一步';
+  String get previous => '上一个';
 
   @override
-  String get next => '下一步';
+  String get next => '下一个';
 
   @override
   String get getStarted => '开始使用';
@@ -444,7 +444,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get comingSoon => 'Coming Soon';
 
   @override
-  String get login => 'Login';
+  String get login => '登录';
 
   @override
   String get loginComingSoon => 'Login feature coming soon';
@@ -457,7 +457,7 @@ class AppLocalizationsZh extends AppLocalizations {
       'Login to your account to securely store files in the cloud';
 
   @override
-  String get email => 'Email';
+  String get email => '邮箱';
 
   @override
   String get emailHint => 'example@email.com';
@@ -469,7 +469,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailInvalid => 'Invalid email format';
 
   @override
-  String get password => 'Password';
+  String get password => '密码';
 
   @override
   String get passwordHint => 'Enter your password';
@@ -496,7 +496,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noAccount => 'Don\'t have an account?';
 
   @override
-  String get signUp => 'Sign Up';
+  String get signUp => '注册';
 
   @override
   String get manageSubscription => 'Manage Subscription';
@@ -617,34 +617,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get passwordChangeComingSoon => 'Password change feature coming soon';
 
   @override
-  String get textTab => 'Text';
+  String get textTab => '文本';
 
   @override
-  String get handwritingTab => 'Handwriting';
+  String get handwritingTab => '手写';
 
   @override
-  String get audioTab => 'Recording';
+  String get audioTab => '录音';
 
   @override
-  String get browserTab => 'Search';
+  String get browserTab => '搜索';
 
   @override
-  String get subscription => 'Subscription';
+  String get subscription => '订阅';
 
   @override
   String get subscriptionPlan => 'Subscription Plan';
 
   @override
-  String get free => 'Free';
+  String get free => '免费';
 
   @override
-  String get standard => 'Standard';
+  String get standard => '标准版';
 
   @override
-  String get premium => 'Premium';
+  String get premium => '高级版';
 
   @override
-  String get account => 'Account';
+  String get account => '账户';
 
   @override
   String get loggedOut => 'Logged out';
@@ -653,7 +653,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loggedIn => 'Logged in';
 
   @override
-  String get logout => 'Logout';
+  String get logout => '退出登录';
 
   @override
   String get logoutConfirmTitle => 'Logout';
@@ -744,7 +744,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get selectPlan => 'Select Subscription Plan';
+  String get selectPlan => '选择套餐';
 
   @override
   String get planFree => 'Free';
@@ -786,16 +786,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get changePasswordSubtitle => 'Change your account password';
 
   @override
-  String get editSchedule => 'Edit Schedule';
+  String get editSchedule => '编辑日程';
 
   @override
-  String get scheduleTitle => 'Schedule Title';
+  String get scheduleTitle => '日程标题';
 
   @override
-  String get addScheduleTab => 'Add Schedule';
+  String get addScheduleTab => '添加日程';
 
   @override
-  String get notificationSettingTab => 'Notifications';
+  String get notificationSettingTab => '通知';
 
   @override
   String get setScheduleFirst => 'Please set a schedule first';
@@ -898,13 +898,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get calendarTab => 'Calendar';
+  String get calendarTab => '日历';
 
   @override
-  String get noteOption => 'Note';
+  String get noteOption => '笔记';
 
   @override
-  String get quizLabel => 'Quiz';
+  String get quizLabel => '测验';
 
   @override
   String quizCount(int count) {
@@ -924,16 +924,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menuTooltip => 'Menu';
 
   @override
-  String get editLabel => 'Edit';
+  String get editLabel => '编辑';
 
   @override
-  String get viewSummary => 'View Summary';
+  String get viewSummary => '查看摘要';
 
   @override
-  String get noSummary => 'No summary';
+  String get noSummary => '暂无摘要';
 
   @override
-  String get share => 'Share';
+  String get share => '分享';
 
   @override
   String characterCount(int count) {
@@ -949,7 +949,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get summaryUnsupported => 'Summary unavailable';
 
   @override
-  String get memoLabel => 'Memo';
+  String get memoLabel => '备忘';
 
   @override
   String recordingStatus(String time) {
@@ -957,7 +957,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get voiceMemoLabel => 'Voice Memo';
+  String get voiceMemoLabel => '语音备忘';
 
   @override
   String get allFilesLabel => 'All';
@@ -1001,7 +1001,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get rename => 'Rename';
+  String get rename => '重命名';
 
   @override
   String get fileNameHint => 'File name';
@@ -1015,13 +1015,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get viewScheduleList => 'View Schedule List';
+  String get viewScheduleList => '查看日程列表';
 
   @override
-  String get startDate => 'Start Date';
+  String get startDate => '开始日期';
 
   @override
-  String get endDate => 'End Date';
+  String get endDate => '结束日期';
 
   @override
   String get notSelected => 'Not selected';
@@ -1042,28 +1042,28 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get selectWeekdays => 'Select Days';
+  String get selectWeekdays => '选择星期';
 
   @override
-  String get daySun => 'Sun';
+  String get daySun => '日';
 
   @override
-  String get dayMon => 'Mon';
+  String get dayMon => '一';
 
   @override
-  String get dayTue => 'Tue';
+  String get dayTue => '二';
 
   @override
-  String get dayWed => 'Wed';
+  String get dayWed => '三';
 
   @override
-  String get dayThu => 'Thu';
+  String get dayThu => '四';
 
   @override
-  String get dayFri => 'Fri';
+  String get dayFri => '五';
 
   @override
-  String get daySat => 'Sat';
+  String get daySat => '六';
 
   @override
   String get renameFile => 'Rename File';
@@ -1181,10 +1181,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get startButton => 'Start';
 
   @override
-  String get aiSummary => 'AI Summary';
+  String get aiSummary => 'AI 摘要';
 
   @override
-  String get summarizing => 'Summarizing...';
+  String get summarizing => '摘要生成中...';
 
   @override
   String autoSummaryEveryMinutes(int minutes) {
@@ -1227,7 +1227,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiSummarizing => 'AI is summarizing...';
 
   @override
-  String get summarize => 'Summarize';
+  String get summarize => '生成摘要';
 
   @override
   String get summarizeAgain => 'Re-summarize';
@@ -1246,20 +1246,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get cell => 'Cell';
+  String get cell => '单元格';
 
   @override
-  String get cellName => 'Cell name';
+  String get cellName => '单元格名称';
 
   @override
-  String get newCell => 'New Cell';
+  String get newCell => '新建单元格';
 
   @override
   String get noCellsYet =>
       'No Cells yet.\nTap the + button below to create a Cell or share a file.';
 
   @override
-  String get startCell => 'Start a Cell';
+  String get startCell => '开始一个单元格';
 
   @override
   String get cellLoginRequired =>
@@ -1271,29 +1271,29 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get createMyCell => 'Create my Cell';
+  String get createMyCell => '创建我的单元格';
 
   @override
   String get myCellDescription =>
       'A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)';
 
   @override
-  String get oneToOneCell => '1:1 Cell';
+  String get oneToOneCell => '1:1 单元格';
 
   @override
-  String get groupCell => 'Group Cell';
+  String get groupCell => '群组单元格';
 
   @override
-  String get myOwnCell => 'My own Cell';
+  String get myOwnCell => '我的专属单元格';
 
   @override
-  String get createCell => 'Create Cell';
+  String get createCell => '创建单元格';
 
   @override
-  String get createNewCell => 'Create new Cell';
+  String get createNewCell => '新建单元格';
 
   @override
-  String get cellGroupManagement => 'Cell group management';
+  String get cellGroupManagement => '单元格群组管理';
 
   @override
   String get allowMemberSchedule => 'Members can create schedules';

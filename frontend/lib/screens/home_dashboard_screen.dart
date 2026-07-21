@@ -22,6 +22,8 @@ import 'package:flutter/services.dart';
 import '../config/themes.dart';
 import '../widgets/home/notification_settings.dart';
 import '../utils/schedule_utils.dart' as schedule_utils;
+import '../widgets/home/schedule_color_picker.dart';
+import '../widgets/home/schedule_form_tab.dart';
 import '../widgets/home/schedule_picker.dart';
 
 /// 홈 탭 — 대시보드.
@@ -4132,70 +4134,7 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
 
   /// 탭 한 칸 — 캘린더 일정 등록 창과 같은 형태.
   /// 체크박스로 해당 탭의 입력이 채워졌는지 알려주고, 활성 탭은 배경 박스로 표시한다.
-  Widget _buildTab({
-    required bool isActive,
-    required bool checked,
-    required IconData icon,
-    required String label,
-  }) {
-    final primaryColor = Theme.of(context).primaryColor;
-    return Tab(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.transparent,
-          border: Border.all(
-            color: isActive ? primaryColor.withValues(alpha: 0.3) : Colors.transparent,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(checked ? Icons.check_box : Icons.check_box_outline_blank,
-                size: 16,
-                color: checked ? primaryColor : Colors.grey.shade500),
-            const SizedBox(width: 4),
-            Icon(icon, size: 16),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
 
-  /// 일정 색 선택기 — 캘린더의 리튼 생성 창과 같은 세로 롤링 방식.
-  Widget _buildColorPicker() {
-    return SizedBox(
-      width: 40,
-      height: 78, // itemExtent 26 × 3칸
-      child: CupertinoPicker(
-        itemExtent: 26,
-        looping: true,
-        scrollController: FixedExtentScrollController(initialItem: _colorIndex),
-        onSelectedItemChanged: (i) {
-          final n = AppColors.scheduleColors.length;
-          setState(() => _colorIndex = ((i % n) + n) % n);
-        },
-        children: [
-          for (final c in AppColors.scheduleColors)
-            Center(
-              // 캘린더의 일정 바와 같은 직사각형 견본. 선택기 크기(40×78)는 그대로 둔다.
-              child: Container(
-                width: 34,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: c,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -4243,7 +4182,10 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _buildColorPicker(),
+                  ScheduleColorPicker(
+                    selectedIndex: _colorIndex,
+                    onChanged: (i) => setState(() => _colorIndex = i),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -4253,13 +4195,13 @@ class _RoomScheduleDialogState extends State<_RoomScheduleDialog> {
                 labelPadding: EdgeInsets.zero,
                 onTap: (i) => setState(() => _tabIndex = i),
                 tabs: [
-                  _buildTab(
+                  ScheduleFormTab(
                     isActive: _tabIndex == 0,
                     checked: hasSchedule,
                     icon: Icons.schedule,
                     label: '일정추가',
                   ),
-                  _buildTab(
+                  ScheduleFormTab(
                     isActive: _tabIndex == 1,
                     checked: _schedule?.notificationRules.isNotEmpty == true,
                     icon: Icons.notifications,

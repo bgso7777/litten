@@ -1512,22 +1512,16 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     for (final rs in appState.roomSchedules) {
       // 내가 공유한 내 일정은 원본이 이미 표시되므로 중복 제외
       if (schedule_utils.roomScheduleDuplicatesMine(rs, appState.littens)) continue;
-      final startStr = rs['date']?.toString();
-      if (startStr == null || startStr.isEmpty) continue;
-      final start = DateTime.tryParse(startStr);
-      if (start == null) continue;
-      final startDay = DateTime(start.year, start.month, start.day);
-
-      final endStr = rs['endDate']?.toString();
-      final end = (endStr != null && endStr.isNotEmpty) ? DateTime.tryParse(endStr) : null;
-      if (end == null) {
-        if (startDay.isAtSameMomentAs(target)) result.add(rs);
-        continue;
-      }
-      final endDay = DateTime(end.year, end.month, end.day);
-      if (!target.isBefore(startDay) && !target.isAfter(endDay)) result.add(rs);
+      if (_roomScheduleOccursOn(rs, target)) result.add(rs);
     }
     return result;
+  }
+
+  /// 셀 일정이 특정 날짜에 발생하는지 — 시작~종료일 구간 + 반복 규칙 반영.
+  bool _roomScheduleOccursOn(Map<String, dynamic> rs, DateTime target) {
+    final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
+    if (sc == null) return false;
+    return schedule_utils.scheduleOccursOnDay(sc, target);
   }
 
   /// 칩에 표시할 제목 선택.
@@ -1602,8 +1596,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       debugPrint('📅 일정 추가: ${litten.title}, $startDate ~ $endDate');
     }
 
-    // 셀(공유) 일정도 같은 규칙으로 바를 그린다.
-    // 개인 일정과 달리 반복 규칙을 로컬에서 계산하지 않고, 서버가 준 시작~종료일 구간만 사용한다.
+    // 셀(공유) 일정도 같은 규칙으로 바를 그린다. 반복 규칙(매일/매주/매월/매년)도
+    // 개인 일정과 동일하게 반영해, 이 달에 걸리는 발생일마다 단일일 바를 추가한다.
     final firstDayOfMonthForRoom = DateTime(focusedYear, focusedMonth, 1);
     final lastDayOfMonthForRoom = DateTime(focusedYear, focusedMonth + 1, 0);
     for (final rs in appState.roomSchedules) {
@@ -1623,18 +1617,28 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           ? DateTime(endParsed.year, endParsed.month, endParsed.day)
           : startDate;
 
-      if (endDate.isBefore(firstDayOfMonthForRoom) || startDate.isAfter(lastDayOfMonthForRoom)) {
-        continue;
-      }
-
       // 바 색은 제목으로 조회하므로, 셀 일정이 고른 색을 같은 맵에 등록한다.
       titleColorIndex[title] = (rs['colorIndex'] as num?)?.toInt() ?? 0;
-      schedules.add({
-        'title': title,
-        'startDate': startDate,
-        'endDate': endDate,
-      });
-      debugPrint('📅 셀 일정 바 추가: $title, $startDate ~ $endDate');
+
+      // 1) 시작~종료일 구간이 이 달과 겹치면 그 구간 바를 그린다(여러 날 일정 포함).
+      if (!endDate.isBefore(firstDayOfMonthForRoom) &&
+          !startDate.isAfter(lastDayOfMonthForRoom)) {
+        schedules.add({'title': title, 'startDate': startDate, 'endDate': endDate});
+        debugPrint('📅 셀 일정 바 추가: $title, $startDate ~ $endDate');
+      }
+
+      // 2) 반복 발생일 — 이 달의 각 날짜를 훑어 등록 구간 밖의 발생일에 단일 바 추가.
+      final sc = schedule_utils.roomScheduleToLittenSchedule(rs);
+      if (sc == null) continue;
+      for (var d = firstDayOfMonthForRoom;
+          !d.isAfter(lastDayOfMonthForRoom);
+          d = d.add(const Duration(days: 1))) {
+        // 등록 구간(start~end)은 위에서 이미 그렸으므로 제외
+        if (!d.isBefore(startDate) && !d.isAfter(endDate)) continue;
+        if (!schedule_utils.scheduleOccursOnDay(sc, d)) continue;
+        schedules.add({'title': title, 'startDate': d, 'endDate': d});
+        debugPrint('📅 셀 반복 일정 바 추가: $title, $d');
+      }
     }
 
     // 매주 반복(요일 지정) 일정의 발생일도 등록일과 동일하게 단일일 바로 추가

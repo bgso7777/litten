@@ -9,13 +9,13 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
-  String get appTitle => 'リッテン';
+  String get appTitle => 'Litten';
 
   @override
   String get homeTitle => 'ホーム';
 
   @override
-  String get recordingTitle => '聞く';
+  String get recordingTitle => '聴く';
 
   @override
   String get writingTitle => 'ノート';
@@ -24,7 +24,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsTitle => '設定';
 
   @override
-  String get createLitten => 'リッテンを作成';
+  String get createLitten => 'リトゥン作成';
 
   @override
   String get emptyLittenTitle => 'リッテンを作成または選択';
@@ -159,16 +159,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appDescription => 'Cross-platform integrated note app';
 
   @override
-  String get close => 'Close';
+  String get close => '閉じる';
 
   @override
-  String get cancel => 'Cancel';
+  String get cancel => 'キャンセル';
 
   @override
-  String get addSchedule => 'Add Schedule';
+  String get addSchedule => '予定を追加';
 
   @override
-  String get selectDate => 'Select Date';
+  String get selectDate => '日付を選択';
 
   @override
   String get selectStartTime => 'Select Start Time';
@@ -177,40 +177,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get selectEndTime => 'Select End Time';
 
   @override
-  String get startTime => 'Start Time';
+  String get startTime => '開始時刻';
 
   @override
-  String get endTime => 'End Time';
+  String get endTime => '終了時刻';
 
   @override
-  String get date => 'Date';
+  String get date => '日付';
 
   @override
-  String get notes => 'Notes';
+  String get notes => 'メモ';
 
   @override
   String get scheduleNotesHint => 'Enter notes for this schedule (optional)';
 
   @override
-  String get confirm => 'Confirm';
+  String get confirm => '確認';
 
   @override
-  String get enableNotifications => 'Enable Notifications';
+  String get enableNotifications => '通知を有効にする';
 
   @override
-  String get frequency => 'Frequency';
+  String get frequency => '頻度';
 
   @override
   String get enabledNotifications => 'Enabled Notifications';
 
   @override
-  String get notifications => 'Notifications';
+  String get notifications => '通知';
 
   @override
-  String get noNotifications => 'No notifications';
+  String get noNotifications => '通知なし';
 
   @override
-  String get clearAll => 'Clear All';
+  String get clearAll => 'すべて消去';
 
   @override
   String get freeUserLimits => 'Free user limits:';
@@ -293,7 +293,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get playbackFailed => 'Playback failed.';
 
   @override
-  String get deleteFile => 'Delete File';
+  String get deleteFile => 'ファイルを削除';
 
   @override
   String confirmDeleteFile(String fileName) {
@@ -301,7 +301,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get fileDeleted => 'File deleted.';
+  String get fileDeleted => 'ファイルを削除しました';
 
   @override
   String get selectPlaybackSpeed => 'Select Playback Speed';
@@ -316,13 +316,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get created => 'Created';
 
   @override
-  String get title => 'Title';
+  String get title => 'タイトル';
 
   @override
-  String get create => 'Create';
+  String get create => '作成';
 
   @override
-  String get pleaseEnterTitle => 'Please enter a title.';
+  String get pleaseEnterTitle => 'タイトルを入力してください';
 
   @override
   String littenCreated(String title) {
@@ -330,7 +330,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get error => 'Error';
+  String get error => 'エラー';
 
   @override
   String get renameLitten => 'Rename Litten';
@@ -339,7 +339,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get newName => 'New Name';
 
   @override
-  String get change => 'Change';
+  String get change => '変更';
 
   @override
   String littenRenamed(String newName) {
@@ -451,7 +451,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get comingSoon => 'Coming Soon';
 
   @override
-  String get login => 'Login';
+  String get login => 'ログイン';
 
   @override
   String get loginComingSoon => 'Login feature coming soon';
@@ -464,7 +464,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'Login to your account to securely store files in the cloud';
 
   @override
-  String get email => 'Email';
+  String get email => 'メール';
 
   @override
   String get emailHint => 'example@email.com';
@@ -476,7 +476,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get emailInvalid => 'Invalid email format';
 
   @override
-  String get password => 'Password';
+  String get password => 'パスワード';
 
   @override
   String get passwordHint => 'Enter your password';
@@ -503,7 +503,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get noAccount => 'Don\'t have an account?';
 
   @override
-  String get signUp => 'Sign Up';
+  String get signUp => '新規登録';
 
   @override
   String get manageSubscription => 'Manage Subscription';
@@ -624,34 +624,34 @@ class AppLocalizationsJa extends AppLocalizations {
   String get passwordChangeComingSoon => 'Password change feature coming soon';
 
   @override
-  String get textTab => 'Text';
+  String get textTab => 'テキスト';
 
   @override
-  String get handwritingTab => 'Handwriting';
+  String get handwritingTab => '手書き';
 
   @override
-  String get audioTab => 'Recording';
+  String get audioTab => '録音';
 
   @override
-  String get browserTab => 'Search';
+  String get browserTab => '検索';
 
   @override
-  String get subscription => 'Subscription';
+  String get subscription => 'サブスクリプション';
 
   @override
   String get subscriptionPlan => 'Subscription Plan';
 
   @override
-  String get free => 'Free';
+  String get free => '無料';
 
   @override
-  String get standard => 'Standard';
+  String get standard => 'スタンダード';
 
   @override
-  String get premium => 'Premium';
+  String get premium => 'プレミアム';
 
   @override
-  String get account => 'Account';
+  String get account => 'アカウント';
 
   @override
   String get loggedOut => 'Logged out';
@@ -660,7 +660,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loggedIn => 'Logged in';
 
   @override
-  String get logout => 'Logout';
+  String get logout => 'ログアウト';
 
   @override
   String get logoutConfirmTitle => 'Logout';
@@ -751,7 +751,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get selectPlan => 'Select Subscription Plan';
+  String get selectPlan => 'プランを選択';
 
   @override
   String get planFree => 'Free';
@@ -793,16 +793,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get changePasswordSubtitle => 'Change your account password';
 
   @override
-  String get editSchedule => 'Edit Schedule';
+  String get editSchedule => '予定を編集';
 
   @override
-  String get scheduleTitle => 'Schedule Title';
+  String get scheduleTitle => '予定タイトル';
 
   @override
-  String get addScheduleTab => 'Add Schedule';
+  String get addScheduleTab => '予定追加';
 
   @override
-  String get notificationSettingTab => 'Notifications';
+  String get notificationSettingTab => '通知';
 
   @override
   String get setScheduleFirst => 'Please set a schedule first';
@@ -905,13 +905,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get calendarTab => 'Calendar';
+  String get calendarTab => 'カレンダー';
 
   @override
-  String get noteOption => 'Note';
+  String get noteOption => 'ノート';
 
   @override
-  String get quizLabel => 'Quiz';
+  String get quizLabel => 'クイズ';
 
   @override
   String quizCount(int count) {
@@ -931,16 +931,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get menuTooltip => 'Menu';
 
   @override
-  String get editLabel => 'Edit';
+  String get editLabel => '編集';
 
   @override
-  String get viewSummary => 'View Summary';
+  String get viewSummary => '要約を表示';
 
   @override
-  String get noSummary => 'No summary';
+  String get noSummary => '要約なし';
 
   @override
-  String get share => 'Share';
+  String get share => '共有';
 
   @override
   String characterCount(int count) {
@@ -956,7 +956,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get summaryUnsupported => 'Summary unavailable';
 
   @override
-  String get memoLabel => 'Memo';
+  String get memoLabel => 'メモ';
 
   @override
   String recordingStatus(String time) {
@@ -964,7 +964,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get voiceMemoLabel => 'Voice Memo';
+  String get voiceMemoLabel => 'ボイスメモ';
 
   @override
   String get allFilesLabel => 'All';
@@ -1008,7 +1008,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get rename => 'Rename';
+  String get rename => '名前を変更';
 
   @override
   String get fileNameHint => 'File name';
@@ -1022,13 +1022,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get viewScheduleList => 'View Schedule List';
+  String get viewScheduleList => '予定リストを表示';
 
   @override
-  String get startDate => 'Start Date';
+  String get startDate => '開始日';
 
   @override
-  String get endDate => 'End Date';
+  String get endDate => '終了日';
 
   @override
   String get notSelected => 'Not selected';
@@ -1049,28 +1049,28 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get selectWeekdays => 'Select Days';
+  String get selectWeekdays => '曜日を選択';
 
   @override
-  String get daySun => 'Sun';
+  String get daySun => '日';
 
   @override
-  String get dayMon => 'Mon';
+  String get dayMon => '月';
 
   @override
-  String get dayTue => 'Tue';
+  String get dayTue => '火';
 
   @override
-  String get dayWed => 'Wed';
+  String get dayWed => '水';
 
   @override
-  String get dayThu => 'Thu';
+  String get dayThu => '木';
 
   @override
-  String get dayFri => 'Fri';
+  String get dayFri => '金';
 
   @override
-  String get daySat => 'Sat';
+  String get daySat => '土';
 
   @override
   String get renameFile => 'Rename File';
@@ -1188,10 +1188,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get startButton => 'Start';
 
   @override
-  String get aiSummary => 'AI Summary';
+  String get aiSummary => 'AI要約';
 
   @override
-  String get summarizing => 'Summarizing...';
+  String get summarizing => '要約中...';
 
   @override
   String autoSummaryEveryMinutes(int minutes) {
@@ -1234,7 +1234,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiSummarizing => 'AI is summarizing...';
 
   @override
-  String get summarize => 'Summarize';
+  String get summarize => '要約する';
 
   @override
   String get summarizeAgain => 'Re-summarize';
@@ -1253,20 +1253,20 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get cell => 'Cell';
+  String get cell => 'セル';
 
   @override
-  String get cellName => 'Cell name';
+  String get cellName => 'セル名';
 
   @override
-  String get newCell => 'New Cell';
+  String get newCell => '新しいセル';
 
   @override
   String get noCellsYet =>
       'No Cells yet.\nTap the + button below to create a Cell or share a file.';
 
   @override
-  String get startCell => 'Start a Cell';
+  String get startCell => 'セルを始める';
 
   @override
   String get cellLoginRequired =>
@@ -1278,29 +1278,29 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get createMyCell => 'Create my Cell';
+  String get createMyCell => '自分のセルを作成';
 
   @override
   String get myCellDescription =>
       'A Cell you use on your own.\nJot things down freely, like a memo. (multiple allowed)';
 
   @override
-  String get oneToOneCell => '1:1 Cell';
+  String get oneToOneCell => '1:1セル';
 
   @override
-  String get groupCell => 'Group Cell';
+  String get groupCell => 'グループセル';
 
   @override
-  String get myOwnCell => 'My own Cell';
+  String get myOwnCell => '自分だけのセル';
 
   @override
-  String get createCell => 'Create Cell';
+  String get createCell => 'セルを作成';
 
   @override
-  String get createNewCell => 'Create new Cell';
+  String get createNewCell => '新しいセルを作成';
 
   @override
-  String get cellGroupManagement => 'Cell group management';
+  String get cellGroupManagement => 'セルグループ管理';
 
   @override
   String get allowMemberSchedule => 'Members can create schedules';
