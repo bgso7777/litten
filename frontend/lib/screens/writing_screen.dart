@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state_provider.dart';
 import '../widgets/draggable_tab_layout.dart';
-import '../widgets/common/record_memo_icon.dart';
 import '../l10n/app_localizations.dart';
 // 실제 기능 탭들을 import
 import '../widgets/recording_tab.dart';
@@ -35,6 +34,8 @@ class _WritingScreenState extends State<WritingScreen>
   final GlobalKey<State<StatefulWidget>> _sttMemoTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _browserTabKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _youtubeTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _photoTabKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _videoTabKey = GlobalKey();
 
   @override
   void initState() {
@@ -138,24 +139,26 @@ class _WritingScreenState extends State<WritingScreen>
         position: parsePosition(savedPositions['pdf'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('pdf'),
       ),
-      TabItem(
-        id: 'files',
-        title: attachmentCount.toString(),
-        icon: Icons.drive_folder_upload,
-        content: AllFilesTab(key: _filesTabKey, showOnlyAttachments: true),
-        position: parsePosition(savedPositions['files'] ?? 'topLeft'),
-        isVisible: noteTabVisibility.contains('files'),
-      ),
+      // ── 우상단 그룹(기본): 녹음메모, 영상채널 ──
       TabItem(
         id: 'sttMemo',
         title: sttMemoCount.toString(),
+        // 전체탭 하단 칩과 아이콘 일치 — 녹음메모 = record_voice_over.
         icon: Icons.record_voice_over,
-        // 녹음 메모 탭 아이콘 — 녹음+메모 합성 아이콘.
-        iconWidget: const RecordMemoIcon(),
         content: AllFilesTab(key: _sttMemoTabKey, showOnlySTT: true),
         position: parsePosition(savedPositions['sttMemo'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('sttMemo'),
       ),
+      TabItem(
+        id: 'youtube',
+        title: youtubeCount.toString(),
+        // 전체탭 하단 칩과 아이콘 일치 — 영상채널 = subscriptions.
+        icon: Icons.subscriptions,
+        content: YoutubeTab(key: _youtubeTabKey),
+        position: parsePosition(savedPositions['youtube'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('youtube'),
+      ),
+      // ── 우하단 그룹(기본): 녹음, 파일, 사진, 비디오 ──
       TabItem(
         id: 'audio',
         title: audioCount.toString(),
@@ -165,21 +168,39 @@ class _WritingScreenState extends State<WritingScreen>
         isVisible: noteTabVisibility.contains('audio'),
       ),
       TabItem(
+        id: 'files',
+        title: attachmentCount.toString(),
+        icon: Icons.drive_folder_upload,
+        content: AllFilesTab(key: _filesTabKey, showOnlyAttachments: true),
+        position: parsePosition(savedPositions['files'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('files'),
+      ),
+      TabItem(
+        id: 'photo',
+        title: '',
+        // 전체탭 하단 칩과 아이콘 일치 — 사진 = photo_camera.
+        icon: Icons.photo_camera,
+        content: AllFilesTab(key: _photoTabKey, showOnlyPhoto: true),
+        position: parsePosition(savedPositions['photo'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('photo'),
+      ),
+      TabItem(
+        id: 'video',
+        title: '',
+        // 전체탭 하단 칩과 아이콘 일치 — 비디오 = videocam.
+        icon: Icons.videocam,
+        content: AllFilesTab(key: _videoTabKey, showOnlyVideo: true),
+        position: parsePosition(savedPositions['video'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('video'),
+      ),
+      // ── 검색(browser): 기본 노출 제외이나 탭은 유지 ──
+      TabItem(
         id: 'browser',
         title: l10n?.browserTab ?? '검색',
         icon: Icons.public,
         content: BrowserTab(key: _browserTabKey),
         position: parsePosition(savedPositions['browser'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('browser'),
-      ),
-      TabItem(
-        id: 'youtube',
-        title: youtubeCount.toString(),
-        icon: Icons.notes,
-        iconWidget: const YoutubeTabIcon(),
-        content: YoutubeTab(key: _youtubeTabKey),
-        position: parsePosition(savedPositions['youtube'] ?? 'topLeft'),
-        isVisible: noteTabVisibility.contains('youtube'),
       ),
     ];
   }

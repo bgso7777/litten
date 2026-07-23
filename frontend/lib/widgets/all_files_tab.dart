@@ -118,7 +118,10 @@ class _MergedFile {
 class AllFilesTab extends StatefulWidget {
   final bool showOnlySTT;
   final bool showOnlyAttachments;
-  const AllFilesTab({super.key, this.showOnlySTT = false, this.showOnlyAttachments = false});
+  final bool showOnlyPhoto; // 이미지(사진) 첨부만 표시
+  final bool showOnlyVideo; // 동영상(비디오) 첨부만 표시
+  const AllFilesTab({super.key, this.showOnlySTT = false, this.showOnlyAttachments = false,
+      this.showOnlyPhoto = false, this.showOnlyVideo = false});
 
   @override
   State<AllFilesTab> createState() => _AllFilesTabState();
@@ -191,10 +194,21 @@ class _AllFilesTabState extends State<AllFilesTab> {
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
 
+  // 첨부 계열 단일필터(첨부/사진/비디오) — 녹음·작성 컨트롤을 숨기는 '자료 전용' 탭인지.
+  bool get _attachOnly => widget.showOnlyAttachments || widget.showOnlyPhoto || widget.showOnlyVideo;
+  bool get _singleFilter => widget.showOnlySTT || _attachOnly;
+
   // 병합 정렬 파일 목록 (updatedAt 내림차순 = 최근 수정 파일이 상위)
   List<_MergedFile> get _mergedFiles {
-    if (widget.showOnlyAttachments) {
-      final list = _attachmentFiles
+    if (_attachOnly) {
+      // 사진 탭=이미지 첨부만, 비디오 탭=동영상 첨부만, 파일 탭=전체 첨부.
+      Iterable<AttachmentFile> src = _attachmentFiles;
+      if (widget.showOnlyPhoto) {
+        src = src.where((f) => f.isImage);
+      } else if (widget.showOnlyVideo) {
+        src = src.where((f) => f.isVideo);
+      }
+      final list = src
           .map((f) => _MergedFile(type: _FileType.attachment, file: f, sortAt: f.updatedAt))
           .toList();
       list.sort((a, b) => b.sortAt.compareTo(a.sortAt));
@@ -348,7 +362,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
   }
 
   Future<void> _loadYoutubeChannels() async {
-    if (widget.showOnlySTT || widget.showOnlyAttachments) return;
+    if (_singleFilter) return;
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     if (!appState.showYoutubeInAllTab) {
       debugPrint('[AllFilesTab] 전체탭 영상 채널 표시 OFF - 로드 생략');
@@ -1090,14 +1104,18 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   else
                     _buildFileList(),
                   // STT 전용 / 첨부 전용 모드는 기존 단일 FAB 유지
-                  if (widget.showOnlySTT || widget.showOnlyAttachments)
+                  if (_singleFilter)
                     Positioned(
                       bottom: 28,
                       left: 0,
                       right: 0,
                       child: widget.showOnlySTT
                           ? _buildSttOnlyFab(color: Theme.of(context).primaryColor)
-                          : _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor),
+                          : widget.showOnlyPhoto
+                              ? _buildMediaOnlyFab(color: Theme.of(context).primaryColor, isVideo: false)
+                              : widget.showOnlyVideo
+                                  ? _buildMediaOnlyFab(color: Theme.of(context).primaryColor, isVideo: true)
+                                  : _buildAttachmentsOnlyFab(color: Theme.of(context).primaryColor),
                     ),
                   // ── 기존 일반 노트 스피드다이얼 FAB — 메인메뉴 위 칩 행(_CreateChipBar)으로 대체.
                   //    빠르게 되돌릴 수 있도록 주석으로 보존(이 블록 주석 해제 + 아래 _CreateChipBar 제거 시 복구). ──
@@ -1124,7 +1142,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
             ),
             // ⭐ 일반 노트 모드: 메인메뉴 바로 위에 항상 표시되는 생성 칩 행(가로 스크롤).
             //    +(노트) → + → 목록의 2단계 펼침을 없애고, 칩 한 번 탭으로 즉시 생성.
-            if (!widget.showOnlySTT && !widget.showOnlyAttachments)
+            if (!_singleFilter)
               _CreateChipBar(
                 onText: () async { if (await _blockedByLimit('text')) return; _openEditorView(_EditorType.text, autoCreate: true); },
                 onTextWithSTT: () async { if (await _blockedByLimit('stt')) return; _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true); },
@@ -1214,6 +1232,23 @@ class _AllFilesTabState extends State<AllFilesTab> {
     );
   }
 
+  /// 사진/비디오 전용 탭의 추가 FAB — 갤러리에서 이미지/동영상 선택.
+  Widget _buildMediaOnlyFab({required Color color, required bool isVideo}) {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: FloatingActionButton(
+          heroTag: isVideo ? 'video_only_fab' : 'photo_only_fab',
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          onPressed: isVideo ? _addVideo : _addPhoto,
+          child: Icon(isVideo ? Icons.videocam : Icons.photo_camera),
+        ),
+      ),
+    );
+  }
+
   // 현재 전체탭 필터(공유 상태). 탭바 버튼의 드롭다운에서 변경되며 Provider로 공유된다.
   _FileFilter get _fileFilter {
     final s = Provider.of<AppStateProvider>(context, listen: false).allTabFileFilter;
@@ -1291,7 +1326,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     final hidden = appState.allTabHiddenTypes;
     // 검색은 전체탭('all') 제목 검색바에서만 구동 — STT/첨부 전용 뷰엔 미적용.
-    final q = (widget.showOnlySTT || widget.showOnlyAttachments)
+    final q = _singleFilter
         ? ''
         : appState.allTabSearchQuery.trim().toLowerCase();
     // 단일 필터(드롭다운, 현재 히든) + 제목 아이콘 토글 숨김 + 파일명 검색을 함께 적용
@@ -1301,7 +1336,7 @@ class _AllFilesTabState extends State<AllFilesTab> {
         .toList();
     // 검색 중에는 파일(이름) 결과에 집중 — 영상 채널 섹션은 숨긴다.
     final showYoutubeSection = q.isEmpty
-        && !widget.showOnlySTT && !widget.showOnlyAttachments
+        && !_singleFilter
         && (_fileFilter == _FileFilter.all || _fileFilter == _FileFilter.youtube)
         && !hidden.contains('youtube')
         && appState.showYoutubeInAllTab
@@ -1318,9 +1353,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                 : Icon(
                     searching
                         ? Icons.search_off
-                        : widget.showOnlyAttachments
-                            ? Icons.drive_folder_upload
-                            : Icons.folder_open,
+                        : widget.showOnlyPhoto
+                            ? Icons.photo_camera
+                            : widget.showOnlyVideo
+                                ? Icons.videocam
+                                : widget.showOnlyAttachments
+                                    ? Icons.drive_folder_upload
+                                    : Icons.folder_open,
                     size: 48,
                     color: Colors.grey[400],
                   ),
@@ -1332,9 +1371,13 @@ class _AllFilesTabState extends State<AllFilesTab> {
                     ? '"$q"\n검색 결과가 없습니다'
                     : widget.showOnlySTT
                         ? (l10n?.noVoiceMemos ?? '녹음 메모가 없습니다.\n아래 버튼으로 시작하세요.')
-                        : widget.showOnlyAttachments
-                            ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
-                            : (l10n?.noFilesPrompt ?? '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요'),
+                        : widget.showOnlyPhoto
+                            ? '사진이 없습니다.\n아래 버튼으로 추가하세요.'
+                            : widget.showOnlyVideo
+                                ? '비디오가 없습니다.\n아래 버튼으로 추가하세요.'
+                                : widget.showOnlyAttachments
+                                    ? '파일이 없습니다.\n아래 버튼으로 추가하세요.'
+                                    : (l10n?.noFilesPrompt ?? '첫 기록을 시작해보세요\n아래 버튼으로 듣기·쓰기·필기를 추가할 수 있어요'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500]),
               );

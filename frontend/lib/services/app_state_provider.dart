@@ -1371,24 +1371,26 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       if (isTablet) {
         // 패드 기본값: 3분할(좌하단 미사용), 각 영역에 복수 탭 배치
-        //  - 좌상단: 전체(all), 파일(files)
-        //  - 우상단: PDF(pdf), 필기(handwriting), 메모(text)
-        //  - 우하단: 녹음(audio), 녹음메모(sttMemo), 검색(browser)
+        //  - 좌상단: 전체(all)
+        //  - 우상단: 메모(text), 필기(handwriting), 녹음메모(sttMemo), 영상채널(youtube)
+        //  - 우하단: 녹음(audio), 파일(files), 사진(photo), 비디오(video)
+        //  - 좌하단: 미사용 / PDF·검색은 기본 노출 제외(PDF는 필기로 통합)
         _visibleAreas    = {'topLeft', 'topRight', 'bottomRight'};
-        _noteTabVisibility = {'all', 'files', 'pdf', 'handwriting', 'text', 'audio', 'sttMemo', 'browser'};
+        _noteTabVisibility = {'all', 'text', 'handwriting', 'sttMemo', 'youtube', 'audio', 'files', 'photo', 'video'};
         _writingTabPositions = {
           'all':         'topLeft',
-          'files':       'topLeft',
-          'pdf':         'topRight',
-          'handwriting': 'topRight',
           'text':        'topRight',
+          'handwriting': 'topRight',
+          'sttMemo':     'topRight',
+          'youtube':     'topRight',
           'audio':       'bottomRight',
-          'sttMemo':     'bottomRight',
-          'browser':     'bottomRight',
+          'files':       'bottomRight',
+          'photo':       'bottomRight',
+          'video':       'bottomRight',
         };
-        // 패드 기본 패널 크기: 좌측 컬럼 너비 절반(0.25), 우하단 높이 절반(우상단 0.75/우하단 0.25)
+        // 패드 기본 패널 크기: 좌측 컬럼 너비 0.25, 우측은 우상단/우하단을 50:50으로.
         _columnWidthRatio = 0.25;
-        _rightHeightRatio = 0.75;
+        _rightHeightRatio = 0.5;
       } else {
         // 폰 기본값: 좌상단만 + 전체탭만
         _visibleAreas      = {'topLeft'};
@@ -1846,6 +1848,71 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     return list;
   }
 
+  // ── AI 셀 (주제 기반 AI 대화) — 로그인 회원 전용 ─────────────────
+  // 대화 이어가기(메모리)는 서버가 담당(하이브리드: 최근N턴 원문 + 러닝요약).
+  // 프론트는 서버가 주는 목록/메시지를 그대로 표시만 한다(로컬 캐시 없음 = 항상 최신).
+  List<Map<String, dynamic>> _aiChats = [];
+  List<Map<String, dynamic>> get aiChats => _aiChats;
+
+  /// 서버에서 내 AI 셀 목록을 불러온다(비로그인/미배포면 조용히 빈 목록).
+  Future<void> reloadAiChats() async {
+    final token = await _shareToken();
+    if (token == null) {
+      if (_aiChats.isNotEmpty) { _aiChats = []; notifyListeners(); }
+      return;
+    }
+    final list = await _shareApi.aiChatList(token: token);
+    if (list != null) {
+      _aiChats = list;
+      notifyListeners();
+    }
+  }
+
+  /// 주제로 AI 셀 생성. 성공 시 목록 갱신 후 생성된 방{id, topic, title} 반환.
+  Future<Map<String, dynamic>?> createAiChat(String topic) async {
+    final token = await _shareToken();
+    if (token == null) return null;
+    final clientId = DateTime.now().millisecondsSinceEpoch.toString();
+    final chat = await _shareApi.aiChatCreate(token: token, topic: topic, clientId: clientId);
+    if (chat != null) await reloadAiChats();
+    return chat;
+  }
+
+  /// AI 셀 메시지 전체 조회(화면 표시용).
+  Future<List<Map<String, dynamic>>?> aiChatMessages(int chatId) async {
+    final token = await _shareToken();
+    if (token == null) return null;
+    return _shareApi.aiChatMessages(token: token, chatId: chatId);
+  }
+
+  /// 사용자 메시지 전송 → AI 응답. 반환 {userMessage, assistantMessage}.
+  Future<Map<String, dynamic>?> sendAiChatMessage(int chatId, String text) async {
+    final token = await _shareToken();
+    if (token == null) return null;
+    final r = await _shareApi.aiChatSend(token: token, chatId: chatId, text: text);
+    if (r != null) reloadAiChats(); // 목록의 최근메시지·정렬 갱신(대기 안 함)
+    return r;
+  }
+
+  Future<bool> deleteAiChat(int chatId) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.aiChatDelete(token: token, chatId: chatId);
+    if (ok) {
+      _aiChats.removeWhere((c) => (c['id'] as num?)?.toInt() == chatId);
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> renameAiChat(int chatId, String title) async {
+    final token = await _shareToken();
+    if (token == null) return false;
+    final ok = await _shareApi.aiChatRename(token: token, chatId: chatId, title: title);
+    if (ok) await reloadAiChats();
+    return ok;
+  }
+
   Future<void> loadSelfChats() async {
     await _loadConvCustomNames(); // 대화 표시 이름(별칭) 로드
     final prefs = await SharedPreferences.getInstance();
@@ -1871,6 +1938,7 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
     await _syncSelfChatsWithServer(); // 서버 배포 시 다기기 동기화(미배포면 조용히 무시)
+    await reloadAiChats(); // AI 셀 목록도 함께 로드(로그인 시에만 채워짐)
   }
 
   /// 로컬 방/항목을 서버와 정합화한다(best-effort, 서버 기준 양방향).

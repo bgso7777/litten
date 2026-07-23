@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../models/litten.dart';
 import 'login_screen.dart';
+import 'ai_chat_screen.dart';
 import '../services/app_state_provider.dart';
 import '../services/file_storage_service.dart';
 import '../services/shared_snapshot_service.dart';
@@ -647,6 +648,68 @@ class _ShareSectionState extends State<_ShareSection>
     app.loadRoomSchedules();
   }
 
+  /// AI 셀 열기 — 전용 AiChatScreen 으로 이동(과거 대화는 서버에서 불러와 이어감).
+  Future<void> _openAiChat(_Conv c) async {
+    if (c.aiChatId == null) return;
+    debugPrint('🤖 [셀] AI 셀 열기 - chatId: ${c.aiChatId}, 주제: ${c.topic}');
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AiChatScreen(
+        chatId: c.aiChatId!,
+        title: c.label,
+        topic: c.topic,
+      ),
+    ));
+    // 돌아오면 목록의 최근 메시지·정렬을 갱신
+    if (mounted) context.read<AppStateProvider>().reloadAiChats();
+  }
+
+  /// AI 셀 이름(표시명) 변경.
+  Future<void> _renameAiChat(_Conv c) async {
+    if (c.aiChatId == null) return;
+    final ctrl = TextEditingController(text: c.label);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 수정'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '표시할 이름'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('저장')),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || !mounted) return;
+    final ok = await context.read<AppStateProvider>().renameAiChat(c.aiChatId!, newName);
+    if (mounted && !ok) _cellSnack('이름 변경에 실패했어요.');
+  }
+
+  /// AI 셀 삭제(대화 전체 삭제).
+  Future<void> _deleteAiChat(_Conv c) async {
+    if (c.aiChatId == null) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('대화 삭제'),
+        content: Text("'${c.label}' 대화를 삭제할까요?\n삭제하면 대화 내용을 되돌릴 수 없어요."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final ok = await context.read<AppStateProvider>().deleteAiChat(c.aiChatId!);
+    if (mounted && !ok) _cellSnack('삭제에 실패했어요.');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1050,6 +1113,31 @@ class _ShareSectionState extends State<_ShareSection>
       }
     }
 
+    // AI 셀 — 서버 기반 주제 대화방. key 'ai:{id}'. 탭하면 전용 AiChatScreen 으로 이동.
+    for (final ac in appState.aiChats) {
+      final id = (ac['id'] as num?)?.toInt();
+      if (id == null) continue;
+      final key = 'ai:$id';
+      final conv = convs.putIfAbsent(
+          key,
+          () => _Conv(
+              key: key, isGroup: false,
+              label: (ac['title']?.toString().isNotEmpty ?? false)
+                  ? ac['title'].toString()
+                  : (ac['topic']?.toString() ?? 'AI 셀'),
+              isAi: true, aiChatId: id, topic: ac['topic']?.toString() ?? ''));
+      // 목록 미리보기·정렬용 마지막 메시지 1건(서버 updatedAt 기준).
+      final lastMsg = ac['lastMessage']?.toString();
+      conv.items.add(_ShareItem(
+          received: true,
+          data: {
+            'content': (lastMsg == null || lastMsg.isEmpty) ? 'AI와 대화를 시작해 보세요.' : lastMsg,
+            'sharedAt': ac['updatedAt'],
+          },
+          at: _parseAt(ac['updatedAt']),
+          group: '', isMessage: true));
+    }
+
     // 사용자가 지정한 대화 표시 이름(로컬 별칭) 적용 — 그룹/1:1. (나와의 대화는 sc['name'] 사용)
     for (final conv in convs.values) {
       final custom = appState.convCustomName(conv.key);
@@ -1326,7 +1414,7 @@ class _ShareSectionState extends State<_ShareSection>
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: color,
                   tabs: [
-                    Tab(text: AppLocalizations.of(context)?.oneToOneCell ?? '1:1 셀'),
+                    Tab(text: AppLocalizations.of(context)?.aiCell ?? 'AI 셀'),
                     Tab(text: AppLocalizations.of(context)?.groupCell ?? '그룹 셀'),
                     Tab(text: AppLocalizations.of(context)?.myOwnCell ?? '나만의 셀'),
                   ],
@@ -1334,11 +1422,11 @@ class _ShareSectionState extends State<_ShareSection>
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // 1:1 탭 — 이메일/닉네임 검색 후(가입 회원 확인) 대화 시작
-                      _NewChatOneToOneTab(
+                      // AI 탭 — 주제 입력 후 AI 셀 생성(로그인 필요). 재방문 시 과거 대화 이어감.
+                      _NewChatAiTab(
                         color: color,
-                        onSearch: (q) => appState.authService.searchMember(q),
-                        onStart: (email) => Navigator.pop(ctx, 'u:$email'),
+                        isLoggedIn: appState.isLoggedIn,
+                        onStart: (topic) => Navigator.pop(ctx, '__aichat__::$topic'),
                       ),
                       // 그룹 탭 — 새 그룹 만들기 + 내 그룹 목록
                       Padding(
@@ -1426,6 +1514,26 @@ class _ShareSectionState extends State<_ShareSection>
       if (mounted) _openConv('self:${room['id']}');
       return;
     }
+    if (result.startsWith('__aichat__::')) {
+      // AI 셀 — 주제로 서버에 방 생성 후 전용 채팅 화면으로 이동
+      final topic = result.substring('__aichat__::'.length);
+      final chat = await appState.createAiChat(topic);
+      if (!mounted) return;
+      final id = (chat?['id'] as num?)?.toInt();
+      if (chat == null || id == null) {
+        _cellSnack('AI 셀을 만들지 못했어요. 로그인 상태를 확인해 주세요.');
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AiChatScreen(
+          chatId: id,
+          title: chat['title']?.toString() ?? topic,
+          topic: chat['topic']?.toString() ?? topic,
+        ),
+      ));
+      if (mounted) context.read<AppStateProvider>().reloadAiChats();
+      return;
+    }
     _openConv(result);
   }
 
@@ -1433,6 +1541,7 @@ class _ShareSectionState extends State<_ShareSection>
   /// 나와의 채팅(상대가 나 자신)=1, 1:1=2(나+상대),
   /// 내 그룹=memberCount(나 제외)+1, 수신 그룹=recipients(발신자 제외)+발신자.
   int _peopleCount(_Conv c, Map<String, Map<String, dynamic>> ownedByName, String myEmail) {
+    if (c.isAi) return 1;   // AI 셀 = 나 + AI(아바타는 AI 아이콘)
     if (c.isSelf) return 1; // 나와의 대화 = 나 1명
     if (!c.isGroup) {
       final other = c.email ?? '';
@@ -2090,12 +2199,17 @@ class _ShareSectionState extends State<_ShareSection>
             padding: EdgeInsets.zero,
             tooltip: '메뉴',
             onSelected: (v) {
+              if (c.isAi) {
+                if (v == 'leave') _deleteAiChat(c);
+                else if (v == 'rename') _renameAiChat(c);
+                return;
+              }
               if (v == 'leave') _leaveConv(c);
               else if (v == 'rename') _renameConv(c);
             },
             itemBuilder: (_) => [
-              // 내가 만든 채팅방(나와의 대화 + 내가 만든 그룹)만 이름 수정 가능. 1:1/받은 그룹은 제외.
-              if (c.isSelf || isOwned)
+              // 내가 만든 채팅방(나와의 대화 + 내가 만든 그룹 + AI 셀)만 이름 수정 가능. 1:1/받은 그룹은 제외.
+              if (c.isSelf || isOwned || c.isAi)
                 PopupMenuItem<String>(
                   value: 'rename',
                   child: Row(children: [
@@ -2107,10 +2221,10 @@ class _ShareSectionState extends State<_ShareSection>
               PopupMenuItem<String>(
                 value: 'leave',
                 child: Row(children: [
-                  Icon(c.isSelf ? Icons.delete_outline : Icons.logout,
+                  Icon((c.isSelf || c.isAi) ? Icons.delete_outline : Icons.logout,
                       size: 18, color: Colors.red),
                   const SizedBox(width: 8),
-                  Text(c.isSelf ? '대화 삭제' : '방 나가기',
+                  Text((c.isSelf || c.isAi) ? '대화 삭제' : '방 나가기',
                       style: const TextStyle(color: Colors.red)),
                 ]),
               ),
@@ -2119,6 +2233,10 @@ class _ShareSectionState extends State<_ShareSection>
         ],
       ),
       onTap: () {
+        if (c.isAi) {
+          _openAiChat(c); // AI 셀은 전용 화면으로(인플레이스 대화뷰 아님)
+          return;
+        }
         if (locked) {
           _promptGroupPassword(c.label, recvPw, c.key, c.lastAt);
           return;
@@ -3457,10 +3575,14 @@ class _Conv {
   String? recvGroupPassword; // 수신 그룹(남의 그룹)의 비밀번호 — 수신자 잠금 해제 검증용
   int? recvGroupId;       // 수신 그룹의 id — 멤버가 그룹 대화/공유에 사용
   final bool isSelf;      // 나와의 대화(로컬 셀프 채팅방)인지
+  final bool isAi;        // AI 셀(주제 기반 AI 대화)인지
+  final int? aiChatId;    // AI 셀 서버 id
+  final String topic;     // AI 셀 주제
   bool senderWithdrawn = false; // 개인 대화 상대(발신자)가 탈퇴했는지
   final List<_ShareItem> items = [];
   _Conv({required this.key, required this.isGroup, this.groupId, this.email,
-      required this.label, this.isSelf = false});
+      required this.label, this.isSelf = false,
+      this.isAi = false, this.aiChatId, this.topic = ''});
 
   DateTime get lastAt => items.isEmpty
       ? DateTime(2000)
@@ -3846,6 +3968,92 @@ class _SentCard extends StatelessWidget {
 /// 새 채팅 다이얼로그의 1:1 탭.
 /// 이메일 또는 닉네임을 입력 → [검색]으로 가입 회원 조회 → 찾으면 [대화 시작] 활성화.
 /// 닉네임으로 찾아도 실제 상대는 이메일(id) 기준으로 연결한다.
+/// '새 셀' 다이얼로그의 AI 탭 — 주제를 입력해 AI 셀을 만든다(로그인 필요).
+class _NewChatAiTab extends StatefulWidget {
+  final Color color;
+  final bool isLoggedIn;
+  final void Function(String topic) onStart;
+  const _NewChatAiTab({
+    required this.color,
+    required this.isLoggedIn,
+    required this.onStart,
+  });
+
+  @override
+  State<_NewChatAiTab> createState() => _NewChatAiTabState();
+}
+
+class _NewChatAiTabState extends State<_NewChatAiTab> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _start() {
+    final t = _ctrl.text.trim();
+    if (t.isEmpty) return;
+    widget.onStart(t);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final color = widget.color;
+    if (!widget.isLoggedIn) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.smart_toy_outlined, size: 40, color: color.withValues(alpha: 0.5)),
+            const SizedBox(height: 12),
+            Text(l10n?.aiCellLoginRequired ?? 'AI 셀은 로그인 후 이용할 수 있어요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+              l10n?.aiCellDescription ??
+                  '주제를 정하고 AI와 대화해요. 다시 들어오면 이전 대화를 기억하고 이어가요.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _start(),
+            decoration: InputDecoration(
+              labelText: l10n?.aiCellTopicLabel ?? '대화 주제',
+              hintText: l10n?.aiCellTopicHint ?? '예: 영어 공부, 여행 계획, 코딩 도움',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.topic_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: _start,
+            style: ElevatedButton.styleFrom(
+                backgroundColor: color, foregroundColor: Colors.white),
+            icon: const Icon(Icons.smart_toy_outlined, size: 18),
+            label: Text(l10n?.aiCellCreate ?? 'AI 대화 시작'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NewChatOneToOneTab extends StatefulWidget {
   final Color color;
   final Future<Map<String, dynamic>> Function(String query) onSearch;

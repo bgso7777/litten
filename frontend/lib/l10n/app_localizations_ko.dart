@@ -1269,6 +1269,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String get oneToOneCell => '1:1 셀';
 
   @override
+  String get aiCell => 'AI 셀';
+
+  @override
+  String get aiCellDescription => '주제를 정하고 AI와 대화해요. 다시 들어오면 이전 대화를 기억하고 이어가요.';
+
+  @override
+  String get aiCellTopicLabel => '대화 주제';
+
+  @override
+  String get aiCellTopicHint => '예: 영어 공부, 여행 계획, 코딩 도움';
+
+  @override
+  String get aiCellCreate => 'AI 대화 시작';
+
+  @override
+  String get aiCellLoginRequired => 'AI 셀은 로그인 후 이용할 수 있어요.';
+
+  @override
   String get groupCell => '그룹 셀';
 
   @override

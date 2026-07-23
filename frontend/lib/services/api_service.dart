@@ -59,6 +59,7 @@ class ApiService {
   static const String _messagesEndpoint = '/litten/note/v1/room-messages';
   static const String _hiddenConvEndpoint = '/litten/note/v1/hidden-rooms';
   static const String _selfChatEndpoint = '/litten/note/v1/my-study-rooms';
+  static const String _aiChatEndpoint = '/litten/note/v1/ai-chat';
 
   /// HTTP 헤더 생성
   /// 비로그인(게스트) 식별용 디바이스 UUID.
@@ -564,7 +565,10 @@ class ApiService {
 
       debugPrint('[ApiService] loginSocial - URL: $url');
 
-      final response = await http.post(url, headers: _getHeaders(), body: body);
+      // 타임아웃 필수 — 없으면 서버 지연/네트워크 문제 시 화면이 무한 로딩(뺑뺑이)된다.
+      final response = await http
+          .post(url, headers: _getHeaders(), body: body)
+          .timeout(const Duration(seconds: 30));
 
       debugPrint(
         '[ApiService] loginSocial - Response status: ${response.statusCode}',
@@ -1622,6 +1626,120 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] addSelfChatMessage - 오류: $e');
       return null;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  AI 셀 (주제 기반 AI 대화) — 로그인 회원 전용
+  //  대화 이어가기(메모리)는 서버가 담당(하이브리드: 최근N턴 원문 + 러닝요약).
+  //  프론트는 주제 생성 → 메시지 조회 → 메시지 전송(AI 응답 수신)만 하면 된다.
+  // ══════════════════════════════════════════════════════════════════════
+
+  /// 내 AI 셀 목록. 반환: [{id, clientId, topic, title, updatedAt, lastMessage, messageCount}] or null.
+  Future<List<Map<String, dynamic>>?> aiChatList({required String token}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl$_aiChatEndpoint'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return (data['chats'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatList - 오류: $e');
+      return null;
+    }
+  }
+
+  /// AI 셀 생성(주제 지정, clientId로 업서트). 반환: {id, clientId, topic, title} or null.
+  Future<Map<String, dynamic>?> aiChatCreate(
+      {required String token, required String topic, required String clientId}) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl$_aiChatEndpoint'),
+              headers: _getHeaders(token: token),
+              body: jsonEncode({'topic': topic, 'clientId': clientId}))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data['chat'] ?? {});
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatCreate - 오류: $e');
+      return null;
+    }
+  }
+
+  /// AI 셀 전체 메시지 조회. 반환: [{messageId, role, content, createdAt}] or null.
+  Future<List<Map<String, dynamic>>?> aiChatMessages(
+      {required String token, required int chatId}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl$_aiChatEndpoint/$chatId/messages'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return (data['messages'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatMessages - 오류: $e');
+      return null;
+    }
+  }
+
+  /// AI 셀에 메시지 전송 → AI 응답 수신. 반환: {userMessage:{...}, assistantMessage:{...}} or null.
+  /// AI 생성이 걸릴 수 있어 타임아웃을 넉넉히(2분) 둔다.
+  Future<Map<String, dynamic>?> aiChatSend(
+      {required String token, required int chatId, required String text}) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl$_aiChatEndpoint/$chatId/message'),
+              headers: _getHeaders(token: token), body: jsonEncode({'text': text}))
+          .timeout(const Duration(seconds: 125));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true) return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatSend - 오류: $e');
+      return null;
+    }
+  }
+
+  /// AI 셀 표시 이름 변경.
+  Future<bool> aiChatRename(
+      {required String token, required int chatId, required String title}) async {
+    try {
+      final res = await http.patch(Uri.parse('$baseUrl$_aiChatEndpoint/$chatId'),
+              headers: _getHeaders(token: token), body: jsonEncode({'title': title}))
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatRename - 오류: $e');
+      return false;
+    }
+  }
+
+  /// AI 셀 삭제.
+  Future<bool> aiChatDelete({required String token, required int chatId}) async {
+    try {
+      final res = await http.delete(Uri.parse('$baseUrl$_aiChatEndpoint/$chatId'),
+              headers: _getHeaders(token: token))
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] aiChatDelete - 오류: $e');
+      return false;
     }
   }
 

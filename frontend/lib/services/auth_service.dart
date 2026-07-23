@@ -415,16 +415,19 @@ class AuthServiceImpl extends AuthService {
     debugPrint('🔐 AuthService: 토큰 자동 갱신 저장');
   }
 
-  /// 회원탈퇴 시 모든 인증 정보 삭제 (registered_email 포함)
+  /// 회원탈퇴/강제 로그아웃 시 인증 정보 삭제.
+  ///
+  /// 단, registered_email(이 기기의 최초 가입 이메일)은 **일부러 남긴다**.
+  /// 탈퇴 후에도 이 기기에서는 그 아이디로만 재가입할 수 있게(기기-아이디 잠금)
+  /// 하기 위함 — 이 값을 지우면 다른 아이디로 가입이 열려 버린다.
   Future<void> _clearAllAuthData() async {
-    debugPrint('🔐 AuthService: 모든 인증 정보 삭제 (회원탈퇴)');
+    debugPrint('🔐 AuthService: 인증 정보 삭제 (registered_email 은 유지)');
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyToken);
     await prefs.remove(_keyEmail);
     await prefs.remove(_keyUserId);
-    await prefs.remove(_keyRegisteredEmail);
-    debugPrint('🔐 AuthService: registered_email 삭제 완료');
+    // registered_email 은 지우지 않는다 — 탈퇴한 아이디로만 재가입 가능하도록 기기 잠금 유지.
   }
 
   @override
@@ -644,17 +647,9 @@ class AuthServiceImpl extends AuthService {
       _authStatus = AuthStatus.loading;
       notifyListeners();
 
-      // 카카오톡 설치 시 앱 로그인, 아니면 카카오계정(웹) 로그인. 실패 시 계정 로그인으로 폴백.
-      OAuthToken token;
-      try {
-        if (await isKakaoTalkInstalled()) {
-          token = await UserApi.instance.loginWithKakaoTalk();
-        } else {
-          token = await UserApi.instance.loginWithKakaoAccount();
-        }
-      } catch (_) {
-        token = await UserApi.instance.loginWithKakaoAccount();
-      }
+      // [iOS 26 우회] 카카오톡 앱 경로(loginWithKakaoTalk)는 카카오톡→앱 복귀 콜백이
+      // 실패해 로그인이 안 됨. 계정(웹) 로그인으로 고정한다(ASWebAuthenticationSession).
+      OAuthToken token = await UserApi.instance.loginWithKakaoAccount();
       final accessToken = token.accessToken;
       if (accessToken.isEmpty) {
         throw Exception('카카오 accessToken을 가져오지 못했습니다.');
@@ -750,10 +745,18 @@ class AuthServiceImpl extends AuthService {
       tokenExpiredDate: tokenExpiredDate,
     );
 
-    // 서버에서 구독 플랜 조회 후 저장
-    await _fetchAndSaveSubscriptionPlan(token: token);
-    // 게스트(device-uuid) 데이터를 회원으로 이관 (최초 로그인 시 1회)
-    await _migrateGuestDataOnce(token);
+    // 로그인 자체는 위에서 이미 완료(토큰 저장·인증 상태). 아래 후처리는 실패해도
+    // 로그인을 무효화하지 않도록 각각 예외를 삼킨다 — 안 그러면 "가입은 됐는데 폼으로 튕김"이 발생.
+    try {
+      await _fetchAndSaveSubscriptionPlan(token: token);
+    } catch (e) {
+      debugPrint('⚠️ AuthService: 구독 플랜 조회 실패(무시) - $e');
+    }
+    try {
+      await _migrateGuestDataOnce(token);
+    } catch (e) {
+      debugPrint('⚠️ AuthService: 게스트 데이터 이관 실패(무시) - $e');
+    }
 
     notifyListeners();
     debugPrint('🔐 AuthService: 소셜 로그인 성공 - $provider / $memberId');

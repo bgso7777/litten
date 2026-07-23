@@ -95,14 +95,14 @@
 		<string>naversearchapp</string>
 		<string>naversearchthirdlogin</string>
 	</array>
-	<!-- 네이버 로그인 (flutter_naver_login) -->
-	<key>naverConsumerKey</key>
+	<!-- 네이버 로그인 (flutter_naver_login 2.1.0+ — Nid* 키로 변경됨) -->
+	<key>NidClientID</key>
 	<string>yDQd0W6KVkAYZFPqdEdI</string>
-	<key>naverConsumerSecret</key>
+	<key>NidClientSecret</key>
 	<string>3xslYh9JDw</string>
-	<key>naverServiceAppName</key>
+	<key>NidAppName</key>
 	<string>리튼</string>
-	<key>naverServiceAppUrlScheme</key>
+	<key>NidUrlScheme</key>
 	<string>littennaver</string>
 </dict>
 </plist>

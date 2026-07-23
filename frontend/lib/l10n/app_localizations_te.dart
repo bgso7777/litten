@@ -1292,6 +1292,26 @@ class AppLocalizationsTe extends AppLocalizations {
   String get oneToOneCell => '1:1 Cell';
 
   @override
+  String get aiCell => 'AI Cell';
+
+  @override
+  String get aiCellDescription =>
+      'Set a topic and chat with AI. It remembers your past conversation when you return.';
+
+  @override
+  String get aiCellTopicLabel => 'Chat topic';
+
+  @override
+  String get aiCellTopicHint =>
+      'e.g. English study, trip planning, coding help';
+
+  @override
+  String get aiCellCreate => 'Start AI chat';
+
+  @override
+  String get aiCellLoginRequired => 'Log in to use AI Cell.';
+
+  @override
   String get groupCell => 'Group Cell';
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_state_provider.dart';
 import 'main_tab_screen.dart';
@@ -35,9 +36,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _sendingCode = false; // 인증번호 발송 중
   bool _verifyingCode = false; // 인증번호 검증 중
 
+  /// 이 기기에 잠긴 최초 가입 이메일. 값이 있으면(=예전에 가입/탈퇴한 이력) 그 이메일로만
+  /// 재가입할 수 있게 이메일 필드를 고정한다. null이면(새 기기) 자유 입력.
+  String? _registeredEmail;
+
   /// 메일 템플릿 언어코드 — 현재 로케일이 한국어면 KR, 그 외 EN.
   String get _mailLanCd =>
       Localizations.localeOf(context).languageCode == 'ko' ? 'KR' : 'EN';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisteredEmail();
+  }
+
+  /// 이 기기 최초 가입 이메일을 불러와, 있으면 이메일 필드를 그 값으로 고정한다.
+  /// (탈퇴 후에도 이 값은 남아 있어 '탈퇴한 아이디로만 재가입 가능'을 강제한다.)
+  Future<void> _loadRegisteredEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('registered_email');
+    if (email != null && email.isNotEmpty && mounted) {
+      setState(() {
+        _registeredEmail = email;
+        _emailController.text = email;
+      });
+      debugPrint('[SignUpScreen] 기기 잠금 이메일 고정: $email');
+    }
+  }
 
   @override
   void dispose() {
@@ -272,12 +297,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
             msg.contains('cancelled')) {
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context)?.loginFailed(msg) ?? '로그인 실패: $e',
-            ),
-            backgroundColor: Colors.red,
+        // 실패 원인을 명확히 볼 수 있게 다이얼로그로 표시(스낵바는 짧아 놓치기 쉬움).
+        // 백엔드/SDK가 준 실제 메시지를 그대로 보여줘 원인 파악이 되게 한다.
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('소셜 가입 실패'),
+            content: Text(msg.replaceAll('Exception: ', '')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
       }
@@ -332,6 +364,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           hintText: AppLocalizations.of(context)?.emailHint ?? 'example@email.com',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: const OutlineInputBorder(),
+                          helperText: _registeredEmail != null
+                              ? '이 기기는 이 이메일로만 가입할 수 있어요.'
+                              : null,
+                          helperMaxLines: 2,
                           suffixIcon: _emailVerified
                               ? const Padding(
                                   padding: EdgeInsets.all(12),
@@ -355,8 +391,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         validator: _validateEmail,
-                        // 인증 완료 후에는 이메일 변경 불가(재인증 방지)
-                        enabled: !_isLoading && !_emailVerified,
+                        // 인증 완료 후에는 이메일 변경 불가(재인증 방지).
+                        // 이 기기에 잠긴 이메일이 있으면(탈퇴 이력) 그 이메일로만 가입 가능 → 고정.
+                        enabled: !_isLoading && !_emailVerified && _registeredEmail == null,
                         onChanged: (_) {
                           // 이메일을 바꾸면 발송/인증 상태를 초기화
                           if (_codeSent || _emailVerified) {

@@ -2512,6 +2512,42 @@ abstract class AppLocalizations {
   /// **'1:1 Cell'**
   String get oneToOneCell;
 
+  /// Tab/label for the AI chat cell
+  ///
+  /// In en, this message translates to:
+  /// **'AI Cell'**
+  String get aiCell;
+
+  /// Explanation of the AI cell
+  ///
+  /// In en, this message translates to:
+  /// **'Set a topic and chat with AI. It remembers your past conversation when you return.'**
+  String get aiCellDescription;
+
+  /// Label for the AI cell topic input
+  ///
+  /// In en, this message translates to:
+  /// **'Chat topic'**
+  String get aiCellTopicLabel;
+
+  /// Hint for the AI cell topic input
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. English study, trip planning, coding help'**
+  String get aiCellTopicHint;
+
+  /// Button to create/start the AI chat cell
+  ///
+  /// In en, this message translates to:
+  /// **'Start AI chat'**
+  String get aiCellCreate;
+
+  /// Shown when a guest tries to use AI cell
+  ///
+  /// In en, this message translates to:
+  /// **'Log in to use AI Cell.'**
+  String get aiCellLoginRequired;
+
   /// Tab for creating a Cell shared by a group
   ///
   /// In en, this message translates to:

@@ -241,6 +241,11 @@ public class SecurityConfiguration {
                 AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
                 AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
                 AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
+        // AI 셀 (주제 기반 AI 대화) API — 로그인 회원 전용, 게스트 차단
+        .requestMatchers("/note/v1/ai-chat", "/note/v1/ai-chat/**").hasAnyAuthority(
+                AuthoritiesConstants.MEMBER_INDIVIDUAL, AuthoritiesConstants.MEMBER_INDIVIDUAL_MASTER,
+                AuthoritiesConstants.MEMBER_COMPANY, AuthoritiesConstants.MEMBER_COMPANY_MASTER,
+                AuthoritiesConstants.MEMBER_ADMIN_ADMIN)
         // 회원 인증 필요 API (로그인 전용 — 게스트 차단)
         .requestMatchers("/note/v1/members/me", "/note/v1/members/plan", "/note/v1/members/migrate",
                 "/note/v1/members/logout", "/note/v1/members/devices", "/note/v1/members/nickname")
