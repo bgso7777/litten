@@ -43,7 +43,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 <body>
 <header>
   <h1>리튼(Litten) — 광고·무료·유료 전략 정리</h1>
-  <p>2026년 7월 · 4단계 요금제 확정본(프리/라이트/크리에이터/마스터) 반영 · 의사결정 검토용 요약</p>
+  <p>2026년 7월 · 4단계 요금제(프리/라이트/크리에이터/마스터) · <b>v3.6 정합</b>(무료원가 상한 ₩132 통일·전송료 반영) · 의사결정 검토용 요약</p>
 </header>
 <nav>
   <a href="#s0">한 줄 결론</a><a href="#s1">전략 개요</a><a href="#s2">광고 배치</a><a href="#s3">글로벌 근거</a><a href="#s4">무료 경제성</a><a href="#s5">광고 수익</a><a href="#s6">전환율 영향</a><a href="#s7">미결 논점</a>
@@ -94,29 +94,31 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 <div class="twrap"><table>
 <tr><th>원가 항목 (월 상한)</th><th class="num">프리</th><th class="num">라이트</th><th class="num">크리에이터</th><th class="num">마스터</th></tr>
 <tr><td>AI (Haiku·텍스트)</td><td class="num">≤132<br>(각 3)</td><td class="num">≤220<br>(각 5)</td><td class="num">≤1,320<br>(각 30)</td><td class="num">≤4,400<br>(각 100)</td></tr>
-<tr><td>저장·서버 (S3 등)</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">≈340 (10GB)</td><td class="num">≈1,020 (30GB)</td></tr>
-<tr><td><b>월 실원가 상한</b></td><td class="num pos"><b>≈₩132</b></td><td class="num"><b>≈₩220</b></td><td class="num"><b>≈₩1,660</b></td><td class="num"><b>≈₩5,420</b></td></tr>
+<tr><td>저장 (S3)</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">≈340 (10GB)</td><td class="num">≈1,020 (30GB)</td></tr>
+<tr><td>동기화 전송(egress)</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">≈250</td><td class="num">≈1,470</td></tr>
+<tr><td><b>월 실원가 상한</b></td><td class="num pos"><b>≈₩132</b></td><td class="num"><b>≈₩220</b></td><td class="num"><b>≈₩1,910</b></td><td class="num"><b>≈₩6,890</b></td></tr>
 </table></div>
-<p>프리 유저 원가 상한은 <b>유료 티어보다 훨씬 낮고</b>, <b>평균 실원가는 ₩50 안팎</b>(AI 미사용 유저가 다수)이라 광고로 충분히 상쇄 가능한 수준이다. 유료 티어는 AI 한도가 상한(하한 아님)이라 원가가 확정적이다.</p>
+<p>프리 유저 원가 상한은 <b>유료 티어보다 훨씬 낮다</b>. <b>[v3.6 정정] 광고 상쇄 계산은 이 상한 ₩132를 기준</b>으로 한다(이전엔 유리한 평균 ₩50을 섞어 써 원가표와 숫자가 어긋났다). 실제 평균은 AI 미사용 유저가 많아 더 낮을 수 있으나(₩50 가정), <b>미검증이므로 실측 전까지 보수적으로 상한을 쓴다</b>. 크리에이터·마스터 원가는 v3.6에서 <b>전송료를 더해 1,910·6,890</b>으로 상향됐다.</p>
 </section>
 
 <section id="s5">
 <h2>5. 광고 수익 규모 — 작다 (원가 상쇄 수준)</h2>
-<p>셀+일정 한정, 무료 유저당 월 노출 40회 가정. 지역 eCPM 차등, <b>원가 기준은 무료 평균 실원가 ₩50</b>(상한 ₩132이지만 평균은 낮음 — §4):</p>
+<p>셀+일정 한정, 무료 유저당 월 노출 40회 가정. 지역 eCPM 차등, <b>원가 기준은 상한 ₩132로 통일</b>(v3.6, 원가표 §8·9와 일치):</p>
 <div class="twrap"><table>
-<tr><th>티어</th><th class="num">eCPM</th><th class="num">광고수익/월</th><th class="num">순익(−평균원가 ₩50)</th><th class="num">원가 커버율</th></tr>
-<tr><td>선진국</td><td class="num">$1.5</td><td class="num">₩84</td><td class="num pos">+34</td><td class="num pos">168%</td></tr>
-<tr><td>신흥국</td><td class="num">$0.4</td><td class="num">₩22</td><td class="num neg">−28</td><td class="num">45%</td></tr>
-<tr><td>개도국</td><td class="num">$0.1</td><td class="num">₩6</td><td class="num neg">−44</td><td class="num">11%</td></tr>
-<tr><td><b>글로벌 평균</b></td><td class="num">—</td><td class="num">₩27</td><td class="num neg">−23</td><td class="num warn"><b>54%</b></td></tr>
+<tr><th>티어</th><th class="num">eCPM</th><th class="num">광고수익/월</th><th class="num">순익(−원가 ₩132)</th><th class="num">원가 커버율</th></tr>
+<tr><td>선진국 40노출</td><td class="num">$1.5</td><td class="num">₩84</td><td class="num neg">−48</td><td class="num">64%</td></tr>
+<tr><td>선진국 80노출</td><td class="num">$1.5</td><td class="num">₩168</td><td class="num pos">+36</td><td class="num pos">127%</td></tr>
+<tr><td>신흥국 40노출</td><td class="num">$0.4</td><td class="num">₩22</td><td class="num neg">−110</td><td class="num">17%</td></tr>
+<tr><td>개도국 40노출</td><td class="num">$0.1</td><td class="num">₩6</td><td class="num neg">−126</td><td class="num">5%</td></tr>
+<tr><td><b>글로벌 평균 40노출</b></td><td class="num">—</td><td class="num">₩27</td><td class="num neg">−105</td><td class="num warn"><b>20%</b></td></tr>
 </table></div>
 <ul>
-  <li>선진국은 광고만으로 <b>흑자</b>. 신흥/개도국은 원가 부분 커버지만 <b>손실 절대액이 월 ₩수십 원</b>이라 무의미한 수준.</li>
-  <li>글로벌 평균 <b>광고가 무료 평균원가의 ~54% 커버</b> → 전 세계 무료 기반을 "거의 적자 없이" 확장.</li>
-  <li>Haiku 전환으로 유료 티어 AI 원가가 낮게 유지되고(라이트 220·크리에이터 1,320·마스터 4,400원), 무료 평균원가도 낮아 → <b>광고 커버 구조가 오히려 안정</b>.</li>
-  <li><b>커버율 지렛대</b>: 셀·일정 사용률↑(노출 40→80이면 커버 ~108% 흑자), eCPM 높은 지역 비중↑, 무료 원가↓.</li>
+  <li><b>[정정] 상한 기준으론 선진국조차 40노출로는 적자</b>(−48, 커버 64%). 40노출로 흑자 내려면 <b>노출을 80회로 올리거나</b>(+36) eCPM이 더 높아야 한다.</li>
+  <li>즉 광고는 초기 40노출로 무료를 흑자로 만드는 장치가 아니라 <b>적자를 줄이는 장치</b>. 무료 기반 확장 규모는 원가 실측 후 신중히 정한다.</li>
+  <li>Haiku 전환으로 유료 티어 AI 원가가 낮게 유지되나(라이트 220·크리에이터 1,320·마스터 4,400원), 전송료 반영으로 크리에이터·마스터 원가는 1,910·6,890으로 상향됐다.</li>
+  <li><b>커버율 지렛대</b>: 셀·일정 사용률↑(노출 40→80이면 선진국 흑자), eCPM 높은 지역 비중↑, 무료 실사용 원가↓.</li>
 </ul>
-<div class="note">주의: 무료 원가 <b>상한은 ₩132</b>(AI 3+3회 전부 사용 시)지만, 커버율 표는 <b>평균 실원가 ₩50</b> 기준이다. 만약 무료 유저가 AI를 상한까지 쓴다면 커버율은 이보다 낮아진다. 실무에선 무료 AI 한도(3회)가 상한을 눌러줘 원가 폭주를 막는다.</div>
+<div class="note">주의: 커버율 표는 <b>보수적으로 상한 ₩132</b>를 쓴다(이전엔 평균 ₩50 혼용 → 원가표와 불일치했음, v3.6에서 통일). <b>낙관(미검증):</b> 실제 무료 평균원가가 ₩50이라면 선진국 40노출 +34(커버 168%)·글로벌 −23(커버 54%). 상한과 평균 중 실제가 어디에 가까운지는 베타 실측이 결정한다.</div>
 </section>
 
 <section id="s6">
@@ -147,7 +149,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 <div class="q"><b>Q1.</b> 광고 도입 <b>시점</b>을 언제로? (예: 무료 MAU 10만 돌파 / 서버 비용 부담 시 / 특정 지역 먼저)</div>
 <div class="q"><b>Q2.</b> 지역별로 <b>다르게</b> 갈까? (개도국=광고 ON, 선진국=무광고 유지 등 지역 차등)</div>
 <div class="q"><b>Q3.</b> 광고 형식은? (배너만 vs 셀 진입 시 1회 등 — 강도 조절)</div>
-<div class="q"><b>Q4. ✅ 결정됨</b> — "광고 제거"는 <b>라이트(₩490)부터 제공</b>(별도 초저가 광고제거 티어는 없음). 남은 판단: 라이트 순익(₩123)이 광고 이탈 손실을 상회하는지 실측 확인(라이트는 마진보다 체험·바이럴 목적).</div>
+<div class="q"><b>Q4. ✅ 결정됨</b> — "광고 제거"는 <b>라이트(₩490)부터 제공</b>(별도 초저가 광고제거 티어는 없음). 남은 판단: 라이트 공헌이익(부가세 반영 <b>+92</b>(수수료 30%)·+159(15%))이 광고 이탈 손실을 상회하는지 실측 확인(라이트는 마진보다 체험·바이럴 목적).</div>
 <div class="q"><b>Q5.</b> 전환율 손익분기: 광고가 선진국 전환을 몇 % 깎으면 총매출(구독+광고)이 오히려 손해? → <a href="price.html">가격 그래프(price.html)</a>에서 전환율 슬라이더로 검증 가능.</div>
 <div class="note">관련 수치 모델: <a href="Cost.html"><b>원가표(Cost.html, 4단계·Haiku 기준)</b></a> 및 <a href="price.html"><b>가격 그래프(price.html)</b></a>. 입력값(노출·원가·eCPM·비중·전환율·구성비)을 바꿔 재계산 가능. (노출 40회·eCPM 가정은 원가표와 통일됨)</div>
 </section>

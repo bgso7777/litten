@@ -4,7 +4,7 @@
   리튼(Litten) 가격별·유저수별 매출·순이익 그래프  ·  파일명: price.html
   버전은 파일명이 아니라 이 파일 내부에서 관리합니다.
   ------------------------------------------------------------
-  현재 버전: v3.5  (최종 수정 2026-07-21)
+  현재 버전: v3.6  (최종 수정 2026-07-23)
     v2.x : 3단계(무료/스탠다드/프리미엄) · USD 가격 시나리오
     v3.0 : 4단계 고정 KRW · Haiku · 유료 3티어 구성비
     v3.1 : 고정비에 서버·DB비 추가
@@ -14,12 +14,18 @@
     v3.5 : 라이트 ₩2,900→490 · AI 각 10→5회(원가 440→220) — 체험 관문 저가화
            · 가격 ₩0 / 490 / 7,900 / 13,900
            · 원가(월 상한) 프리 132 · 라이트 220 · 크리에이터 1,660 · 마스터 5,420
-  데이터 기준: 홈페이지 4단계 요금제(프리/라이트/크리에이터/마스터) 2026-07-21
-    · 앱스토어 수수료 30% · AI Haiku(요약 24원·퀴즈 20원, 텍스트)
+    v3.6 : [정밀화] 전송료·부가세·수수료·CAC·이탈률 반영
+           · 원가에 전송료 추가 → 크리에이터 1,660→1,910 · 마스터 5,420→6,890
+           · 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료)−원가
+           · 앱스토어 수수료 15%(소상공인)/30% 토글
+           · 마케팅비 = "월 고정"이 아니라 CAC × 월 신규(이탈 보충)로 전환
+           · 이탈률(churn) 입력 신설 → 유지 CAC·LTV·LTV:CAC 계산
+  데이터 기준: 홈페이지 4단계 요금제(프리/라이트/크리에이터/마스터) 2026-07-23
+    · 앱스토어 수수료 15%/30% · 부가세 10% · AI Haiku(요약 24원·퀴즈 20원, 텍스트)
     · 월 AI 상한 — 프리 132 · 라이트 220 · 크리에이터 1,320 · 마스터 4,400
-    · 저장(S3) — 크리에이터 10GB 340 · 마스터 30GB 1,020 (원가에 포함)
+    · 저장(S3) — 크리에이터 10GB 340 · 마스터 30GB 1,020, 전송 250·1,470 (원가에 포함)
     · 무료(프리) 월 실원가 상한 ₩132 · 광고순익 = 광고수익 − 132
-    · 마케팅비 월 ₩500,000 고정 · 서버·DB비 = 가입자 수 자동
+    · 마케팅비 = 설치CAC × 월 신규(=총가입자×이탈률) · 서버·DB비 = 가입자 수 자동
   ============================================================
 -->
 <html lang="ko">
@@ -123,8 +129,8 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     <div class="pricegrid">
       <div class="pc"><div class="n">프리</div><div class="v">₩0</div><div class="c">원가 ₩132</div></div>
       <div class="pc"><div class="n">라이트</div><div class="v">₩490</div><div class="c">원가 ₩220</div></div>
-      <div class="pc hl"><div class="n">크리에이터</div><div class="v">₩7,900</div><div class="c">원가 ₩1,660</div></div>
-      <div class="pc"><div class="n">마스터</div><div class="v">₩13,900</div><div class="c">원가 ₩5,420</div></div>
+      <div class="pc hl"><div class="n">크리에이터</div><div class="v">₩7,900</div><div class="c">원가 ₩1,910</div></div>
+      <div class="pc"><div class="n">마스터</div><div class="v">₩13,900</div><div class="c">원가 ₩6,890</div></div>
     </div>
     <p class="selinfo" id="selInfo" style="margin-bottom:0"></p>
   </div>
@@ -149,6 +155,14 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
         <button data-period="month" class="active">월간</button>
         <button data-period="year">연간 (×12)</button>
       </div>
+    </div>
+    <div class="ctrl">
+      <label>앱스토어 수수료</label>
+      <div class="toggle" id="feeToggle" style="margin:0">
+        <button data-fee="0.15" class="active">15% (소상공인·초기)</button>
+        <button data-fee="0.30">30% (일반)</button>
+      </div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">연매출 $1M 이하는 15%(Apple 소상공인·Google Play). 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료)−원가.</div>
     </div>
     <div class="ctrl">
       <label>③ 유료 전환율 : <span class="val" id="convVal">5%</span> <span style="font-weight:400;color:var(--muted);font-size:.74rem">(무료→유료 전체)</span></label>
@@ -195,8 +209,24 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
       <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">EC2·RDS 등 시스템 고정비 — 규모 단계로 자동 증가(Cost.html 기준): ~300명 ₩3만 · ~2천 ₩8만 · ~5천 ₩23.5만 · ~1만 ₩56만 · ~5만 ₩160만 · ~10만 ₩280만. 상단 🎚 전체 가입자 슬라이더에 연동.</div>
     </div>
     <div class="ctrl">
-      <label>마케팅·광고비 (월) : <span class="val" id="mktVal">₩500,000</span> <span style="font-weight:400;color:var(--muted);font-size:.74rem">(고정 · 지출)</span></label>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">앱 홍보 광고 집행비(≠ 무료 유저에게 보여주는 <b>광고 수익</b>) — 월 <b>₩500,000 고정</b>. → <b>월 고정비 합계 = 인건비 + 서버비 + 마케팅비 = <span id="fixedCalc">₩580,000</span></b></div>
+      <label>설치 1건당 획득비 (CAC) : <span class="val" id="cacVal">₩800</span></label>
+      <input type="range" id="cacRange" min="0" max="3000" step="100" value="800">
+      <div class="presets" id="cacPresets">
+        <button data-v="0">오가닉 0</button><button data-v="500">저CPI 500</button><button data-v="800">기본 800</button><button data-v="1500">한국 1,500</button>
+      </div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">가입자 1명 데려오는 광고비. 오가닉(입소문·ASO)은 ≈0이나 시간이 듦. → 유료 1명 획득비 = CAC ÷ 전환율.</div>
+    </div>
+    <div class="ctrl">
+      <label>월 이탈률 (churn) : <span class="val" id="churnVal">5%</span></label>
+      <input type="range" id="churnRange" min="0" max="15" step="0.5" value="5">
+      <div class="presets" id="churnPresets">
+        <button data-v="3">우수 3%</button><button data-v="5">기본 5%</button><button data-v="8">주의 8%</button><button data-v="10">위험 10%</button>
+      </div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">매달 빠져나가는 비율. 유지하려면 매달 <b>총가입자×이탈률</b>만큼 새로 데려와야 함(재획득 마케팅비). 평균 수명 = 1÷이탈률.</div>
+    </div>
+    <div class="ctrl" style="grid-column:1 / -1;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
+      <label>💸 월 마케팅비(이탈 보충) = CAC × (총가입자 × 이탈률) : <span class="val" id="mktVal">₩0</span></label>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem;background:#fff;">더 이상 "월 ₩50만 고정"이 아니라 <b>가입자 규모·이탈률에 비례</b>합니다(현상 유지에 필요한 최소 획득비 — 성장은 그 위에 추가). → <b>월 고정+마케팅 합계 = 인건비 + 서버비 + 마케팅비 = <span id="fixedCalc">₩0</span></b></div>
     </div>
   </div>
 </section>
@@ -207,8 +237,8 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 
   <div class="callout">
     📌 <b>유료 결제자 구성 = 위에서 선택한 구성비.</b> 유료로 전환한 사용자를
-    <b>라이트(₩490) · 크리에이터(₩7,900) · 마스터(₩13,900)</b> 세 티어로 나눠 각 티어의 매출·순이익을 계산합니다.
-    티어별 순이익 = 가격×0.7(수수료 30% 차감) − 월 원가.
+    <b>라이트(₩490) · 크리에이터(₩7,900) · 마스터(₩13,900)</b> 세 티어로 나눠 각 티어의 매출·공헌이익을 계산합니다.
+    티어별 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료) − 월 원가. 수수료는 상단 토글(15%/30%).
     <div class="ratio-bar" id="mixBar1"></div>
     <div class="ratio-lab" id="mixLab1"></div>
   </div>
@@ -220,16 +250,16 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   </div>
 
   <div class="legend">
-    <span><i class="dot" style="background:#16a34a"></i> 매출액 (수수료 차감 전 총매출)</span>
-    <span><i class="dot" style="background:#dc2626"></i> 순이익 (흑자)</span>
-    <span><i class="dot" style="background:#2563eb"></i> 순이익 (적자)</span>
+    <span><i class="dot" style="background:#16a34a"></i> 매출액 (부가세·수수료 차감 전 총매출)</span>
+    <span><i class="dot" style="background:#dc2626"></i> 공헌이익 (흑자·고정비 前)</span>
+    <span><i class="dot" style="background:#2563eb"></i> 공헌이익 (적자)</span>
   </div>
   <div class="chart-wrap"><canvas id="chart"></canvas></div>
   <div class="twrap"><table id="dataTable"></table></div>
 
   <div class="note">
-    <b>계산 기준:</b> 수수료 30% · 원가(월 상한) 라이트 ₩220 · 크리에이터 ₩1,660 · 마스터 ₩5,420 (Haiku·텍스트·저장 포함).
-    선택한 전체 가입자 × 전환율 = 유료, 이를 <b>구성비</b>로 세 티어에 나눠 각 그룹의 <b>매출</b>(가격×인원)과 <b>순이익</b>((가격×0.7)−원가)을 계산합니다. 고정비는 섹션2에서 반영.
+    <b>계산 기준:</b> 수수료 15%/30%(토글) · 부가세 10% 제외 · 원가(월 상한) 라이트 ₩220 · 크리에이터 ₩1,910 · 마스터 ₩6,890 (Haiku·텍스트·저장·전송 포함).
+    선택한 전체 가입자 × 전환율 = 유료, 이를 <b>구성비</b>로 세 티어에 나눠 각 그룹의 <b>매출</b>(가격×인원)과 <b>공헌이익</b>(가격÷1.1×(1−수수료)−원가)을 계산합니다. 마케팅(CAC)·고정비는 섹션2에서 반영.
   </div>
 </section>
 
@@ -249,16 +279,16 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 
   <div class="legend">
     <span><i class="dot" style="background:#16a34a"></i> 총매출 (구독 + 광고)</span>
-    <span><i class="dot" style="background:#dc2626"></i> 순이익 (흑자·고정비 차감 후)</span>
+    <span><i class="dot" style="background:#dc2626"></i> 순이익 (흑자·마케팅+고정비 차감 후)</span>
     <span><i class="dot" style="background:#2563eb"></i> 순이익 (적자)</span>
   </div>
   <div class="chart-wrap"><canvas id="bizChart"></canvas></div>
   <div class="twrap"><table id="bizTable"></table></div>
 
   <div class="note">
-    <b>계산:</b> 총 가입자 T명 중 유료 = T×전환율(구성비로 3티어 분할), 무료 = 나머지.
-    <b>총매출</b> = 유료 구독매출 + 무료 광고수익. <b>순이익</b> = (유료 순이익 + 무료 광고순익) − 월 고정비(인건비 + 서버·DB비 + 마케팅·광고비).
-    <b>손익분기 총 가입자</b> = 고정비 ÷ (가입자 1명당 공헌이익).
+    <b>계산(v3.6):</b> 총 가입자 T명 중 유료 = T×전환율(구성비로 3티어 분할), 무료 = 나머지.
+    <b>총매출</b> = 유료 구독매출 + 무료 광고수익. <b>순이익</b> = (유료 공헌이익 + 무료 광고순익) − <b>마케팅비(CAC×이탈보충 인원)</b> − 고정비(인건비 + 서버·DB비).
+    마케팅비는 더 이상 고정이 아니라 <b>가입자·이탈률에 비례하는 변동비</b>라, <b>손익분기 총 가입자 = 고정비(인건비+서버) ÷ (가입자 1명당 순공헌이익)</b>이고 순공헌이익엔 유지 CAC가 이미 빠져 있습니다. 유지 CAC가 공헌이익보다 크면 규모를 키워도 흑자가 불가능합니다.
   </div>
 </section>
 </main>
@@ -266,13 +296,12 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function(){
-  var FEE=0.30;
+  var VAT=1.1;    // 부가세 10% — 매출에서 ÷1.1로 먼저 제외(국가 납부분)
   /* 확정 가격 (KRW/월) */
   var PRICE={lite:490, creator:7900, master:13900};
-  /* 월 원가 (KRW/인) — Haiku·텍스트·월 상한 (AI + 저장) */
-  var COST={free:132, lite:220, creator:1660, master:5420};
+  /* 월 원가 (KRW/인) — Haiku·텍스트·월 상한 (AI + 저장 + 전송) */
+  var COST={free:132, lite:220, creator:1910, master:6890};
   var FREE_COST=COST.free;
-  var MKT=500000; // 마케팅·광고비 월 고정
 
   /* 유료 구성비 시나리오 (라이트 : 크리에이터 : 마스터) */
   var MIXES=[
@@ -281,7 +310,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     {label:'30:40:30', lite:0.30, creator:0.40, master:0.30},
     {label:'25:45:30', lite:0.25, creator:0.45, master:0.30}
   ];
-  var state={mix:0, period:'month', conv:5, freeNet:0, heads:1, perPerson:0, total:1000};
+  var state={mix:0, period:'month', conv:5, freeNet:0, heads:1, perPerson:0, total:1000, fee:0.15, cac:800, churn:5};
 
   function serverCost(T){
     if(T<=300) return 30000;
@@ -292,12 +321,17 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     return 2800000;
   }
   function M(){ return MIXES[state.mix]; }
-  function tierProf(t){ return PRICE[t]*(1-FEE)-COST[t]; } // 티어 1인 월 순이익
+  /* 티어 1인 월 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료) − 원가 */
+  function tierProf(t){ return PRICE[t]/VAT*(1-state.fee)-COST[t]; }
   function revPU(m){ return m.lite*PRICE.lite + m.creator*PRICE.creator + m.master*PRICE.master; }
   function profPU(m){ return m.lite*tierProf('lite') + m.creator*tierProf('creator') + m.master*tierProf('master'); }
   function fac(){ return state.period==='year'?12:1; }
   function pw(){ return state.period==='year'?'연':'월'; }
-  function fixedCost(){ return state.heads*state.perPerson + serverCost(state.total) + MKT; }
+  /* 유지 CAC: 이탈로 빠진 만큼 매달 재획득 → 유저 1명당 월 마케팅비 */
+  function retCAC(){ return state.cac*(state.churn/100); }
+  function marketingCost(){ return retCAC()*state.total; }        // 월 총 이탈보충 마케팅비
+  function trueFixed(){ return state.heads*state.perPerson + serverCost(state.total); } // 인건비+서버(진짜 고정비)
+  function fixedCost(){ return trueFixed() + marketingCost(); }    // 표시용: 고정+마케팅 합계
 
   function won(v){
     var a=Math.abs(v), s=v<0?'-':'';
@@ -333,7 +367,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var ctx=document.getElementById('chart').getContext('2d');
     var data={labels:labels,datasets:[
       {label:'매출액'+suf, data:rev, backgroundColor:'#16a34a', borderRadius:4},
-      {label:'순이익'+suf, data:prof, backgroundColor:profColor, borderRadius:4}
+      {label:'공헌이익'+suf, data:prof, backgroundColor:profColor, borderRadius:4}
     ]};
     var opts={responsive:true,maintainAspectRatio:false,animation:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+wonFull(c.parsed.y);}}}},
@@ -346,7 +380,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
     function row(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
     var m=M();
-    var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>순이익(₩/'+P+')</th></tr>';
+    var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>공헌이익(₩/'+P+')</th></tr>';
     html+=row('라이트 ('+Math.round(m.lite*100)+'%) · ₩490', c.lite, revL, pfL);
     html+=row('크리에이터 ('+Math.round(m.creator*100)+'%) · ₩7,900', c.creator, revC, pfC);
     html+=row('마스터 ('+Math.round(m.master*100)+'%) · ₩13,900', c.master, revM, pfM);
@@ -400,7 +434,8 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var adRevFree=state.freeNet+FREE_COST;
     return {
       rev: c*revPU(m) + (1-c)*adRevFree,
-      contrib: c*profPU(m) + (1-c)*state.freeNet
+      /* 순공헌이익 = 유료·무료 공헌 − 유지 CAC(유저당). 인건비·서버는 별도 고정비 */
+      contrib: c*profPU(m) + (1-c)*state.freeNet - retCAC()
     };
   }
   var bizChart=null;
@@ -408,11 +443,11 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var f=fac(), P=pw(), c=counts();
     var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
     var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
-    var fixed=fixedCost()*f, totRev=revFree+revL+revC+revM, totProf=pfFree+pfL+pfC+pfM-fixed;
+    var mkt=marketingCost()*f, fixed=trueFixed()*f, totRev=revFree+revL+revC+revM, totProf=pfFree+pfL+pfC+pfM-mkt-fixed;
     var rev=[revFree,revL,revC,revM,totRev], prof=[pfFree,pfL,pfC,pfM,totProf];
     var profColor=prof.map(function(v){ return v>=0?'#dc2626':'#2563eb'; });
     var ctx=document.getElementById('bizChart').getContext('2d');
-    var data={labels:[['프리','('+man(c.free)+'명)'],['라이트','('+man(c.lite)+'명)'],['크리에이터','('+man(c.creator)+'명)'],['마스터','('+man(c.master)+'명)'],['합계','(고정비 후)']],datasets:[
+    var data={labels:[['프리','('+man(c.free)+'명)'],['라이트','('+man(c.lite)+'명)'],['크리에이터','('+man(c.creator)+'명)'],['마스터','('+man(c.master)+'명)'],['합계','(마케팅·고정비 후)']],datasets:[
       {label:'매출액 ('+P+')', data:rev, backgroundColor:'#16a34a', borderRadius:4},
       {label:'순이익 ('+P+')', data:prof, backgroundColor:profColor, borderRadius:4}
     ]};
@@ -425,30 +460,33 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     var f=fac(), P=pw(), c=counts(), T=state.total;
     var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
     var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
-    var fixed=fixedCost()*f, preRev=revFree+revL+revC+revM, preProf=pfFree+pfL+pfC+pfM, net=preProf-fixed;
+    var mkt=marketingCost()*f, fixed=trueFixed()*f, preRev=revFree+revL+revC+revM, preProf=pfFree+pfL+pfC+pfM, net=preProf-mkt-fixed;
     function rowg(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
-    var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>순이익(₩/'+P+')</th></tr>';
+    var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>공헌이익(₩/'+P+')</th></tr>';
     html+=rowg('프리 (광고)',c.free,revFree,pfFree);
     html+=rowg('라이트',c.lite,revL,pfL);
     html+=rowg('크리에이터',c.creator,revC,pfC);
     html+=rowg('마스터',c.master,revM,pfM);
-    html+='<tr class="peruser"><td>합계 (고정비 전)</td><td>'+Math.round(T).toLocaleString()+'명</td><td>'+Math.round(preRev).toLocaleString()+'</td><td>'+(preProf>=0?'+':'')+Math.round(preProf).toLocaleString()+'</td></tr>';
-    html+='<tr class="mix"><td>고정비 차감</td><td>—</td><td>—</td><td>-'+Math.round(fixed).toLocaleString()+'</td></tr>';
+    html+='<tr class="peruser"><td>합계 (공헌이익, 마케팅·고정비 前)</td><td>'+Math.round(T).toLocaleString()+'명</td><td>'+Math.round(preRev).toLocaleString()+'</td><td>'+(preProf>=0?'+':'')+Math.round(preProf).toLocaleString()+'</td></tr>';
+    html+='<tr class="mix"><td>마케팅(CAC) 차감</td><td>이탈보충 '+Math.round(state.total*state.churn/100).toLocaleString()+'명/월</td><td>—</td><td>-'+Math.round(mkt).toLocaleString()+'</td></tr>';
+    html+='<tr class="mix"><td>고정비(인건비+서버) 차감</td><td>—</td><td>—</td><td>-'+Math.round(fixed).toLocaleString()+'</td></tr>';
     html+='<tr class="peruser"><td><b>최종 순이익</b></td><td>—</td><td>—</td><td class="'+(net>=0?'pos':'neg')+'"><b>'+(net>=0?'+':'')+Math.round(net).toLocaleString()+'</b></td></tr>';
     document.getElementById('bizTable').innerHTML=html;
   }
   function buildBE(){
     var pt=perTotalUser(), c=state.conv/100, box=document.getElementById('beBox');
+    var fixedBE=trueFixed();
     if(pt.contrib>0){
-      var beT=fixedCost()/pt.contrib;
+      var beT=fixedBE/pt.contrib;
       var bePaid=beT*c;
       box.className='bebox';
-      box.innerHTML='월 고정비 <b>₩'+fixedCost().toLocaleString()+'</b> (인건비 ₩'+(state.heads*state.perPerson).toLocaleString()+' + 서버 ₩'+serverCost(state.total).toLocaleString()+' + 마케팅 ₩'+MKT.toLocaleString()+') 기준 · 손익분기 <b>총 가입자 ≈ '+man(beT)+'명</b> '
-        +'(유료 ≈ '+man(bePaid)+'명) · 가입자 1명당 공헌이익 ₩'+Math.round(pt.contrib).toLocaleString()+'/월';
+      box.innerHTML='고정비(인건비 ₩'+(state.heads*state.perPerson).toLocaleString()+' + 서버 ₩'+serverCost(state.total).toLocaleString()+' = <b>₩'+fixedBE.toLocaleString()+'</b>) 기준 · 손익분기 <b>총 가입자 ≈ '+man(beT)+'명</b> '
+        +'(유료 ≈ '+man(bePaid)+'명) · 가입자 1명당 <b>순공헌이익 ₩'+Math.round(pt.contrib).toLocaleString()+'/월</b> (유지 CAC ₩'+Math.round(retCAC()).toLocaleString()+'/유저 이미 차감). '
+        +'<span style="color:#7c2d12">※ 마케팅비는 가입자에 비례(변동비)라 유저당 순공헌이익에 반영됨.</span>';
     }else{
       box.className='bebox bad';
-      box.innerHTML='⚠ 현재 설정에선 <b>규모를 키워도 흑자 전환 불가</b> — 가입자 1명당 공헌이익이 ₩'+Math.round(pt.contrib).toLocaleString()
-        +'/월(≤0)입니다. 무료 유저 광고순익이 음수라 유료 이익을 갉아먹는 구조. <b>전환율↑ 또는 무료 광고순익↑(원가↓)</b>가 필요합니다.';
+      box.innerHTML='⚠ 현재 설정에선 <b>규모를 키워도 흑자 전환 불가</b> — 가입자 1명당 순공헌이익이 ₩'+Math.round(pt.contrib).toLocaleString()
+        +'/월(≤0)입니다. 유지 CAC(₩'+Math.round(retCAC()).toLocaleString()+'/유저 = 설치CAC ₩'+state.cac.toLocaleString()+'×이탈 '+state.churn+'%)나 무료 광고 적자가 유료 이익을 상쇄하는 구조. <b>전환율↑ · 이탈률↓ · CAC↓ · 크리에이터 비중↑</b>가 필요합니다.';
     }
   }
 
@@ -456,9 +494,11 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('headsVal').textContent=state.heads+'명';
     document.getElementById('perPersonVal').textContent='₩'+state.perPerson.toLocaleString();
     document.getElementById('serverVal').textContent='₩'+serverCost(state.total).toLocaleString();
-    document.getElementById('mktVal').textContent='₩'+MKT.toLocaleString();
+    document.getElementById('cacVal').textContent='₩'+state.cac.toLocaleString();
+    document.getElementById('churnVal').textContent=state.churn+'%';
+    document.getElementById('mktVal').textContent='₩'+Math.round(marketingCost()).toLocaleString();
     document.getElementById('laborCalc').textContent='₩'+(state.heads*state.perPerson).toLocaleString();
-    document.getElementById('fixedCalc').textContent='₩'+fixedCost().toLocaleString();
+    document.getElementById('fixedCalc').textContent='₩'+Math.round(fixedCost()).toLocaleString();
   }
 
   function drawAll(){
@@ -473,15 +513,23 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('totalPaid').textContent=Math.round(paid).toLocaleString()+'명';
     document.getElementById('totalFree').textContent=Math.round(free).toLocaleString()+'명';
     var subRev=paid*revPU(m)*f, adRev=free*(state.freeNet+FREE_COST)*f, totRev=subRev+adRev;
-    var paidProf=paid*profPU(m)*f, freeProf=free*state.freeNet*f, fixed=fixedCost()*f;
-    var net=paidProf+freeProf-fixed;
+    var paidProf=paid*profPU(m)*f, freeProf=free*state.freeNet*f, mkt=marketingCost()*f, fixed=trueFixed()*f;
+    var net=paidProf+freeProf-mkt-fixed;
+    /* LTV:CAC — 유료 1인 기준 */
+    var paidLTV=state.churn>0 ? profPU(m)/(state.churn/100) : profPU(m)*999;
+    var paidCAC=state.conv>0 ? state.cac/(state.conv/100) : 0;
+    var ratio = paidCAC>0 ? paidLTV/paidCAC : 999;
+    var ratioTxt = state.churn<=0 ? '∞' : (paidCAC<=0 ? '∞(오가닉)' : ratio.toFixed(2));
+    var ratioColor = (paidCAC<=0||ratio>=3)?'#16a34a':(ratio>=1?'#d97706':'#dc2626');
     document.getElementById('kpiBox').innerHTML=
       '<div class="k big"><div class="t">전체 가입자 ('+P+' 기준)</div><div class="v">'+T.toLocaleString()+'명</div>'
         +'<div class="t">유료 '+Math.round(paid).toLocaleString()+'명 · 무료 '+Math.round(free).toLocaleString()+'명</div></div>'
       +'<div class="k"><div class="t">총매출 ('+P+')</div><div class="v" style="color:#16a34a">'+won(totRev)+'</div>'
         +'<div class="t">구독 '+won(subRev)+' + 광고 '+won(adRev)+'</div></div>'
-      +'<div class="k"><div class="t">순이익 ('+P+', 고정비 후)</div><div class="v" style="color:'+(net>=0?'#dc2626':'#2563eb')+'">'+(net>=0?'+':'')+won(net)+'</div>'
-        +'<div class="t">유료 '+won(paidProf)+' + 무료 '+won(freeProf)+' − 고정비 '+won(fixed)+'</div></div>';
+      +'<div class="k"><div class="t">순이익 ('+P+', 마케팅·고정비 후)</div><div class="v" style="color:'+(net>=0?'#dc2626':'#2563eb')+'">'+(net>=0?'+':'')+won(net)+'</div>'
+        +'<div class="t">공헌 '+won(paidProf+freeProf)+' − 마케팅 '+won(mkt)+' − 고정비 '+won(fixed)+'</div></div>'
+      +'<div class="k"><div class="t">LTV : CAC (유료 1인)</div><div class="v" style="color:'+ratioColor+'">'+ratioTxt+'</div>'
+        +'<div class="t">LTV '+won(paidLTV)+' / CAC '+(paidCAC>0?won(paidCAC):'≈0')+' · 건전 ≥ 3</div></div>';
   }
 
   function drawBiz(){ buildKPI(); buildBE(); buildBizTable(); buildBiz(); }
@@ -512,6 +560,22 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   var totalR=document.getElementById('totalRange');
   totalR.oninput=function(){ state.total=parseInt(totalR.value,10); drawAll(); };
   document.querySelectorAll('#totalPresets button').forEach(function(b){ b.onclick=function(){ state.total=parseInt(b.getAttribute('data-v'),10); totalR.value=state.total; drawAll(); }; });
+
+  document.querySelectorAll('#feeToggle button').forEach(function(btn){
+    btn.onclick=function(){
+      state.fee=parseFloat(btn.getAttribute('data-fee'));
+      document.querySelectorAll('#feeToggle button').forEach(function(b){ b.classList.toggle('active', parseFloat(b.getAttribute('data-fee'))===state.fee); });
+      render();
+    };
+  });
+
+  var cacR=document.getElementById('cacRange');
+  cacR.oninput=function(){ state.cac=parseInt(cacR.value,10); refreshFixed(); };
+  document.querySelectorAll('#cacPresets button').forEach(function(b){ b.onclick=function(){ state.cac=parseInt(b.getAttribute('data-v'),10); cacR.value=state.cac; refreshFixed(); }; });
+
+  var churnR=document.getElementById('churnRange');
+  churnR.oninput=function(){ state.churn=parseFloat(churnR.value); refreshFixed(); };
+  document.querySelectorAll('#churnPresets button').forEach(function(b){ b.onclick=function(){ state.churn=parseFloat(b.getAttribute('data-v')); churnR.value=state.churn; refreshFixed(); }; });
 
   render();
 })();

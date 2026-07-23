@@ -4,7 +4,7 @@
   리튼(Litten) 원가표  ·  파일명 고정: Cost.html
   버전은 파일명이 아니라 이 파일 내부에서 관리합니다.
   ------------------------------------------------------------
-  현재 버전: v3.5  (최종 수정 2026-07-21)
+  현재 버전: v3.6  (최종 수정 2026-07-23)
   변경 이력:
     v1~v2.1 : 사용량 기반(라이트/미디엄/헤비) 원가표
     v3.0 : 4단계(무료/광고제거/스탠다드/프리미엄) · STT 제외 · Haiku · 플랜 한도 기반
@@ -14,6 +14,13 @@
            · AI 월 한도 요약·퀴즈 각 3 / 5 / 30 / 100회
            · 저장 크리에이터 10GB · 마스터 30GB · 파일(PDF) 변환 한도 추가
            · 월 원가 상한 프리 132 · 라이트 220 · 크리에이터 1,660 · 마스터 5,420
+    v3.6 : [정밀화] 누락 항목 반영으로 현실 원가·이익 재계산
+           · 데이터 전송료(egress) 원가에 추가 → 크리에이터 1,660→1,910 · 마스터 5,420→6,890
+           · 부가세(VAT 10%) 매출에서 제외 후 공헌이익 계산(가격÷1.1×(1−수수료)−원가)
+           · 앱스토어 수수료 15%(소상공인)/30% 병기 — 초기 15% 적용 가능
+           · "순수익" → "공헌이익"으로 용어 정정(고정비 차감 前 값임을 명시)
+           · 무료(프리) 원가를 상한 ₩132로 통일(₩50은 미검증 낙관 평균으로만 표기)
+           · CAC(가입자 획득비)·이탈률(churn) 시트 신설 — 사업 손익의 실제 병목
   ※ 상세 변경 이력은 문서 하단 "11_변경사항" 시트 참조.
   ============================================================
 -->
@@ -21,7 +28,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>리튼(Litten) 원가표 v3.4</title>
+<title>리튼(Litten) 원가표 v3.6</title>
 <style>
 :root {
   --bg:#f5f7fa; --card:#ffffff; --ink:#1a2233; --muted:#5b6879;
@@ -93,8 +100,8 @@ tbody tr:hover td { background:#f1f5f9; }
 </head>
 <body>
 <header>
-  <h1>리튼(Litten) 원가표 v3.5</h1>
-  <p>작성일: 2026년 7월 · 4단계 요금제(프리/라이트/크리에이터/마스터) · 텍스트 입력·Claude Haiku·플랜 한도 기반 원가</p>
+  <h1>리튼(Litten) 원가표 v3.6</h1>
+  <p>작성일: 2026년 7월 · 4단계 요금제(프리/라이트/크리에이터/마스터) · 텍스트 입력·Claude Haiku·플랜 한도 기반 원가 · <b>전송료·부가세·수수료·CAC·이탈률 반영</b></p>
 </header>
 <nav>
   <a href="#sheet-0">0_요약</a>
@@ -103,17 +110,22 @@ tbody tr:hover td { background:#f1f5f9; }
   <a href="#sheet-3">3_플랜당원가</a>
   <a href="#sheet-4">4_규모별원가</a>
   <a href="#sheet-5">5_CDN효과</a>
-  <a href="#sheet-6">6_순수익</a>
+  <a href="#sheet-6">6_공헌이익</a>
   <a href="#sheet-7">7_경쟁사</a>
   <a href="#sheet-8">8_광고선진국</a>
   <a href="#sheet-9">9_광고글로벌</a>
   <a href="#sheet-10">10_유료전환</a>
+  <a href="#sheet-12">12_획득비CAC</a>
+  <a href="#sheet-13">13_이탈률</a>
   <a href="#sheet-11">11_변경사항</a>
 </nav>
 <main>
 
+<div class="callout warn">
+<b>v3.6 정밀화:</b> 이전 버전에서 <b>빠져 있던 항목</b>을 넣어 현실 이익을 다시 계산했습니다 — ① <b>데이터 전송료(egress)</b>를 원가에 추가(크리에이터 1,660→1,910·마스터 5,420→6,890), ② <b>부가세 10%</b>를 매출에서 제외한 뒤 이익 계산, ③ 앱스토어 수수료 <b>15%(소상공인)/30%</b> 병기, ④ "순수익"→<b>"공헌이익"</b>으로 정정(인건비·마케팅·서버 등 <b>고정비 차감 前</b> 값), ⑤ 무료 원가를 상한 <b>₩132로 통일</b>. 또한 <b>CAC(획득비)·이탈률</b> 시트를 신설했습니다(→ 사업 손익의 실제 병목). 상세는 <a href="#sheet-11">11_변경사항</a> 참조.
+</div>
 <div class="callout">
-<b>v3.5 개편:</b> 요금제가 <b>프리 / 라이트 / 크리에이터 / 마스터</b> 4단계입니다(가격 ₩0 / 490 / 7,900 / 13,900). 라이트를 <b>₩490·AI 각 5회</b>로 낮춰 체험·학습자 관문을 열었습니다. AI 월 한도(요약·퀴즈 각 3/5/30/100회)와 저장 용량(크리에이터 10GB·마스터 30GB), 파일(PDF) 변환 한도를 반영했습니다. 상세는 <a href="#sheet-11">11_변경사항</a> 참조.
+<b>용어 주의 — 공헌이익 ≠ 회사 순이익:</b> 이 문서의 플랜별 "공헌이익"은 <b>가입자 1명이 벌어다 주는 돈에서 그 1명의 변동원가만 뺀 값</b>입니다. 여기에서 <b>인건비·마케팅(CAC)·서버 고정비를 더 빼야 진짜 회사 순이익</b>이 됩니다. 전 플랜 "공헌이익 흑자"라는 말이 "사업이 흑자"라는 뜻이 <b>아닙니다</b>. 회사 전체 손익·손익분기는 <a href="price.html">price.html</a>에서 확인하세요.
 </div>
 
 <div class="legend">
@@ -126,17 +138,17 @@ tbody tr:hover td { background:#f1f5f9; }
 <!-- ============ 0_요약 ============ -->
 <section id="sheet-0"><h2>0_요약</h2>
 <div class="twrap"><table>
-<tr class="title"><td colspan="5">리튼(Litten) 원가표 요약 v3.4 — 프리/라이트/크리에이터/마스터</td></tr>
-<tr><td>작성일: 2026년 7월 · 텍스트 입력·Haiku·월 한도 기준</td><td></td><td></td><td></td><td></td></tr>
+<tr class="title"><td colspan="5">리튼(Litten) 원가표 요약 v3.6 — 프리/라이트/크리에이터/마스터</td></tr>
+<tr><td>작성일: 2026년 7월 · 텍스트 입력·Haiku·월 한도 기준 · 전송료·부가세 반영</td><td></td><td></td><td></td><td></td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="section"><td colspan="5">▶ 확정 요금 & 월 원가(상한) · 순수익</td></tr>
-<tr><th>플랜</th><th>월 가격(₩)</th><th>월 원가 상한(₩)</th><th>순수익(수수료 30%)</th><th>순수익(15%·연구독)</th></tr>
-<tr><td>프리</td><td class="num">0</td><td class="num">132</td><td class="num">광고로 상쇄</td><td class="num">—</td></tr>
-<tr><td>라이트</td><td class="num">490</td><td class="num">220</td><td class="num pos">+123</td><td class="num pos">+197</td></tr>
-<tr class="cur"><td>크리에이터 <b>(핵심)</b></td><td class="num">7,900</td><td class="num">1,660</td><td class="num pos">+3,870</td><td class="num pos">+5,055</td></tr>
-<tr><td>마스터</td><td class="num">13,900</td><td class="num">5,420</td><td class="num pos">+4,310</td><td class="num pos">+6,395</td></tr>
-<tr class="note"><td colspan="5">순수익 = 가격 × (1−수수료) − 월 원가 상한. 원가 상한 = AI 한도 100% 소진 가정(실제 평균은 더 낮음). 크리에이터 원가 = AI 1,320 + 저장 10GB 340. 마스터 = AI 4,400 + 저장 30GB 1,020.</td></tr>
+<tr class="section"><td colspan="5">▶ 확정 요금 & 월 원가(상한) · 공헌이익 (부가세 반영)</td></tr>
+<tr><th>플랜</th><th>월 가격(₩)</th><th>월 원가 상한(₩)</th><th>공헌이익(수수료 30%)</th><th>공헌이익(15%·소상공인)</th></tr>
+<tr><td>프리</td><td class="num">0</td><td class="num">132</td><td class="num">광고로 상쇄(§8·9)</td><td class="num">—</td></tr>
+<tr><td>라이트</td><td class="num">490</td><td class="num">220</td><td class="num pos">+92</td><td class="num pos">+159</td></tr>
+<tr class="cur"><td>크리에이터 <b>(핵심)</b></td><td class="num">7,900</td><td class="num">1,910</td><td class="num pos">+3,117</td><td class="num pos">+4,194</td></tr>
+<tr><td>마스터</td><td class="num">13,900</td><td class="num">6,890</td><td class="num pos">+1,955</td><td class="num pos">+3,851</td></tr>
+<tr class="note"><td colspan="5"><b>공헌이익 = 가격 ÷ 1.1(부가세 제외) × (1−수수료) − 월 원가 상한.</b> 인건비·마케팅·서버 고정비는 아직 안 뺀 값(→ price.html에서 회사 순이익 계산). 원가 상한 = AI 한도 100% 소진 가정. 크리에이터 원가 = AI 1,320 + 저장 10GB 340 + 전송 250 = 1,910. 마스터 = AI 4,400 + 저장 30GB 1,020 + 전송 1,470 = 6,890. <b>마스터는 전송료를 넣으니 공헌이익이 5,420→1,955로 크게 줄었다</b>(상위 티어가 손실 리더에 가까움).</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="section"><td colspan="5">▶ AI 원가 (Claude Haiku 4.5 · 텍스트 입력)</td></tr>
@@ -144,23 +156,24 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td>요약</td><td class="num">24</td><td class="num">72</td><td class="num">120</td><td class="num">720 / 2,400</td></tr>
 <tr><td>퀴즈</td><td class="num">20</td><td class="num">60</td><td class="num">100</td><td class="num">600 / 2,000</td></tr>
 <tr class="section"><td>월 AI 원가 상한</td><td class="num">—</td><td class="num"><b>132</b></td><td class="num"><b>220</b></td><td class="num"><b>1,320 / 4,400</b></td></tr>
-<tr class="note"><td colspan="5">크리에이터·마스터는 여기에 클라우드 저장(각 340·1,020원)이 더해져 월 원가 상한 1,660·5,420이 된다.</td></tr>
+<tr class="note"><td colspan="5">크리에이터·마스터는 여기에 클라우드 저장(각 340·1,020원)과 <b>동기화 전송료(각 250·1,470원)</b>가 더해져 월 원가 상한 <b>1,910·6,890</b>이 된다.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
-<tr class="section"><td colspan="5">▶ 광고 시나리오 (무료 유저 원가 상쇄)</td></tr>
+<tr class="section"><td colspan="5">▶ 광고 시나리오 (무료 유저 원가 상쇄) — 원가 상한 ₩132 기준</td></tr>
 <tr><th>시나리오</th><th>대상</th><th>1인당 순익</th><th>원가 커버</th><th>사용 시점</th></tr>
-<tr><td>선진국 한정 (시트 8)</td><td>한국·일본·미국·유럽</td><td class="num pos">+34원</td><td class="num pos">흑자</td><td>초기 진출</td></tr>
-<tr><td>글로벌 가중 (시트 9)</td><td>선·신흥·개도국 혼합</td><td class="num neg">-23원</td><td class="num">평균 ~54%</td><td>글로벌 확장</td></tr>
-<tr class="note"><td colspan="5">광고 커버는 무료(프리) <b>평균</b> 실원가 ₩50 기준(상한 ₩132이나 대다수는 AI 미사용 → 평균 낮음). 노출 월 40회(셀+일정 한정) 가정.</td></tr>
+<tr class="warn"><td>선진국 40노출 (시트 8)</td><td>한국·일본·미국·유럽</td><td class="num neg">−48원</td><td class="num">64%</td><td>초기 진출</td></tr>
+<tr><td>선진국 80노출</td><td>셀·일정 사용률↑</td><td class="num pos">+36원</td><td class="num pos">흑자</td><td>활성 유저</td></tr>
+<tr><td>글로벌 가중 (시트 9)</td><td>선·신흥·개도국 혼합</td><td class="num neg">−105원</td><td class="num">20%</td><td>글로벌 확장</td></tr>
+<tr class="note"><td colspan="5"><b>v3.6에서 무료 원가를 상한 ₩132로 통일</b>(이전엔 ₩50 평균과 혼용해 불일치). 상한 기준으론 선진국조차 40노출로는 적자(−48)이고, <b>노출 80회↑ 또는 실측 평균원가 확인</b>이 있어야 흑자. 노출 월 40회(셀+일정 한정) 가정. <i>낙관(미검증): 평균 실원가가 ₩50이면 선진국 40노출도 +34.</i></td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="section"><td colspan="5">▶ 핵심 인사이트</td></tr>
 <tr><td class="inp">1</td><td>STT 제외로 원가 급락</td><td colspan="3">AI 입력을 텍스트로 확정해 STT($/분)를 제거. AI는 요약·퀴즈 LLM 호출뿐.</td></tr>
 <tr><td class="inp">2</td><td>Haiku로 회당 원가 최소화</td><td colspan="3">요약 24원·퀴즈 20원. Sonnet/Opus였다면 3~5배 → 마스터 적자 위험. Haiku가 전 플랜 흑자의 핵심.</td></tr>
 <tr><td class="inp">3</td><td>월 한도 = 원가 상한 확정</td><td colspan="3">AI 요약·퀴즈 한도(3/10/30/100)가 하한 아닌 상한 → 원가 폭주 불가. 예측 가능.</td></tr>
-<tr><td class="inp">4</td><td>전 플랜 흑자</td><td colspan="3">라이트 +123, 크리에이터 +3,870, 마스터 +4,310(수수료 30% 후). 라이트는 얇지만 흑자 — 베이스·셀 바이럴로 메우는 전략.</td></tr>
-<tr><td class="inp">5</td><td>라이트 = 체험 관문</td><td colspan="3">라이트 AI 원가 220원(각 5회) → 흑자 최소가 220÷0.7 ≈ 314원. ₩490은 위(순익 +123). 저가로 프리→라이트 활성화 유도.</td></tr>
-<tr><td class="inp">6</td><td>남은 검증 = 무료 원가·광고 ARPU</td><td colspan="3">무료 평균 원가와 광고 ARPU는 베타 실측 필요.</td></tr>
+<tr><td class="inp">4</td><td>전 플랜 <b>공헌이익</b> 흑자(≠회사 흑자)</td><td colspan="3">라이트 +92, 크리에이터 +3,117, 마스터 +1,955(수수료 30%·부가세 반영 後). 단 이는 <b>고정비(인건비·마케팅·서버) 차감 前</b>이라 "사업 흑자"가 아님 — 회사 손익은 price.html에서.</td></tr>
+<tr class="warn"><td class="inp">5</td><td>마스터가 손실 리더에 근접</td><td colspan="3">전송료 반영 시 마스터 원가 6,890 → 공헌이익 +1,955(수수료 30%). 가격은 크리에이터의 1.76배인데 원가는 3.6배 → <b>마스터가 많이 팔릴수록 평균 마진 하락</b>. 한도 축소나 가격 재검토 대상.</td></tr>
+<tr class="warn"><td class="inp">6</td><td>진짜 병목 = CAC·이탈률</td><td colspan="3">원가·이익 구조는 견고하나, <b>가입자를 어떻게 데려오고(CAC·시트12) 붙잡아 두는지(이탈률·시트13)</b>가 사업 성패를 가른다. 무료 평균원가·광고 ARPU와 함께 베타 실측 필요.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="section"><td colspan="5">▶ 시트 구성</td></tr>
@@ -169,12 +182,14 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td class="inp">3_플랜당원가</td><td colspan="4">플랜 1명당 월 원가(AI 한도 + 저장)</td></tr>
 <tr><td class="inp">4_규모별원가</td><td colspan="4">유저 규모·구성별 총 원가</td></tr>
 <tr><td class="inp">5_CDN효과</td><td colspan="4">CloudFront 도입 효과</td></tr>
-<tr><td class="inp">6_순수익</td><td colspan="4">4단계 플랜별 순수익</td></tr>
+<tr><td class="inp">6_공헌이익</td><td colspan="4">4단계 플랜별 공헌이익(고정비 前)</td></tr>
 <tr><td class="inp">7_경쟁사</td><td colspan="4">한국 노트앱 기능·가격 비교</td></tr>
 <tr><td class="inp">8_광고선진국</td><td colspan="4">선진국 한정 광고 시나리오</td></tr>
 <tr><td class="inp">9_광고글로벌</td><td colspan="4">글로벌 지역 차등 광고 시나리오</td></tr>
 <tr><td class="inp">10_유료전환</td><td colspan="4">유료 목표별 필요 가입자</td></tr>
-<tr><td class="inp">11_변경사항</td><td colspan="4">v3.0 → v3.4 개편 내역</td></tr>
+<tr><td class="inp">12_획득비CAC</td><td colspan="4">가입자 1명 데려오는 데 드는 마케팅비 · LTV 대비</td></tr>
+<tr><td class="inp">13_이탈률</td><td colspan="4">월 이탈률별 유지 인원·재획득 부담·LTV</td></tr>
+<tr><td class="inp">11_변경사항</td><td colspan="4">v3.0 → v3.6 개편 내역</td></tr>
 </table></div></section>
 
 <!-- ============ 1_단가정보 ============ -->
@@ -182,7 +197,9 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr class="title"><td colspan="5">리튼(Litten) 원가 단가 정보</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 <tr><td>환율 (₩/USD)</td><td class="inp num">1,350</td><td>가정값 (수시 조정)</td><td></td><td></td></tr>
-<tr><td>앱스토어 수수료</td><td class="inp num">30% / 15%</td><td>월간 30% · 연구독 1년 후 15%</td><td></td><td></td></tr>
+<tr><td>앱스토어 수수료</td><td class="inp num">15% / 30%</td><td><b>연매출 $1M 이하 = 15%</b>(Apple 소상공인·Google Play 소액 개발자 → 초기 적용). 이후 30%.</td><td></td><td></td></tr>
+<tr><td>부가세 (VAT)</td><td class="inp num">10%</td><td><b>표시가에 포함 → 국가에 납부(내 매출 아님)</b>. 이익 계산 시 가격÷1.1로 먼저 제외.</td><td></td><td></td></tr>
+<tr class="note"><td colspan="5"><b>공헌이익 공식(v3.6):</b> 가격 ÷ 1.1 (부가세 제외) × (1 − 수수료) − 월 원가. 예) 크리에이터 15% = 7,900÷1.1×0.85 − 1,910 = <b>+4,194</b>. 30% = 7,900÷1.1×0.7 − 1,910 = <b>+3,117</b>.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="note"><td colspan="5">1. Claude AI 단가 (Haiku 4.5, 텍스트 입력)</td></tr>
@@ -200,7 +217,11 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td>PUT/COPY/POST/LIST 요청</td><td class="inp num">0.0045</td><td>1,000요청</td><td class="num">6.1</td><td>AWS 공식</td></tr>
 <tr><td>GET/SELECT 요청</td><td class="inp num">0.00035</td><td>1,000요청</td><td class="num">0.47</td><td>AWS 공식</td></tr>
 <tr><td>데이터 전송 (인터넷, 첫 10TB)</td><td class="inp num">0.09</td><td>GB</td><td class="num">122</td><td>AWS 공식</td></tr>
-<tr class="note"><td colspan="5">저장 원가 예: 크리에이터 10GB × 34원 = 340원/월, 마스터 30GB × 34원 = 1,020원/월. 프리·라이트는 동기화 1대·소용량이라 저장 원가 ≈0(개인 노트 로컬 우선).</td></tr>
+<tr><td>동기화 재전송율 (가정)</td><td class="inp num">20%</td><td>월 저장의 %</td><td class="num">×(기기수−1)</td><td>가정값</td></tr>
+<tr class="note"><td colspan="5"><b>저장 원가:</b> 크리에이터 10GB × 34 = 340원/월, 마스터 30GB × 34 = 1,020원/월. 프리·라이트는 동기화 1대·소용량이라 저장 ≈0.<br>
+<b>전송(egress) 원가 [v3.6 신규]:</b> 다른 기기로 내려받는 트래픽. 가정 = 월 저장의 20% × (동기화 기기수−1) × ₩122/GB.
+크리에이터(10GB·2대): 10×0.2×1 = 2GB → <b>₩250</b>. 마스터(30GB·3대): 30×0.2×2 = 12GB → <b>₩1,470</b>.
+<span style="color:#dc2626">이 항목이 v3.5까지 통째로 빠져 있어 특히 마스터 이익이 과대평가됐다.</span> 재전송율·기기수를 바꾸면 값이 크게 변하므로 실측 필요.</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 
 <tr class="note"><td colspan="5">3. 파일(PDF) 변환 · CloudFront · 서버</td></tr>
@@ -215,7 +236,7 @@ tbody tr:hover td { background:#f1f5f9; }
 </table></div></section>
 
 <!-- ============ 2_플랜한도 ============ -->
-<section id="sheet-2"><h2>2_플랜한도 <span class="badge-fix">v3.4</span></h2><div class="twrap"><table>
+<section id="sheet-2"><h2>2_플랜한도 <span class="badge-fix">v3.6</span></h2><div class="twrap"><table>
 <tr class="title"><td colspan="5">4단계 플랜별 기능 한도 (원가 산정 기준)</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 <tr><th>기능</th><th>프리</th><th>라이트</th><th>크리에이터</th><th>마스터</th></tr>
@@ -233,42 +254,44 @@ tbody tr:hover td { background:#f1f5f9; }
 </table></div></section>
 
 <!-- ============ 3_플랜당원가 ============ -->
-<section id="sheet-3"><h2>3_플랜당원가 <span class="badge-fix">v3.4</span></h2><div class="twrap"><table>
+<section id="sheet-3"><h2>3_플랜당원가 <span class="badge-fix">v3.6</span></h2><div class="twrap"><table>
 <tr class="title"><td colspan="5">플랜 1명당 월 원가 (상한 = AI 한도 100% 소진)</td></tr>
 <tr class="spacer"><td colspan="5"></td></tr>
 <tr><th>원가 항목</th><th>프리</th><th>라이트</th><th>크리에이터</th><th>마스터</th></tr>
 <tr><td>AI 요약 (24원 × 한도)</td><td class="num">72</td><td class="num">120</td><td class="num">720</td><td class="num">2,400</td></tr>
 <tr><td>AI 퀴즈 (20원 × 한도)</td><td class="num">60</td><td class="num">100</td><td class="num">600</td><td class="num">2,000</td></tr>
 <tr><td>클라우드 저장 (S3)</td><td class="num">≈0</td><td class="num">≈0</td><td class="num">340</td><td class="num">1,020</td></tr>
+<tr><td><b>동기화 전송 (egress) [신규]</b></td><td class="num">≈0</td><td class="num">≈0</td><td class="num">250</td><td class="num">1,470</td></tr>
 <tr><td>파일 변환·서버 분담</td><td class="num">≈0</td><td class="num">소액</td><td class="num">소액</td><td class="num">소액</td></tr>
-<tr class="section"><td><b>월 원가 상한 (₩)</b></td><td class="num"><b>132</b></td><td class="num"><b>220</b></td><td class="num"><b>1,660</b></td><td class="num"><b>5,420</b></td></tr>
-<tr class="note"><td colspan="5">저장: 크리에이터 10GB×34=340, 마스터 30GB×34=1,020. 프리·라이트는 동기화 1대·소용량이라 저장 ≈0. 파일 변환은 서버 CPU 소액.</td></tr>
+<tr class="section"><td><b>월 원가 상한 (₩)</b></td><td class="num"><b>132</b></td><td class="num"><b>220</b></td><td class="num"><b>1,910</b></td><td class="num"><b>6,890</b></td></tr>
+<tr class="note"><td colspan="5">저장: 크리에이터 10GB×34=340, 마스터 30GB×34=1,020. 전송: 크리에이터 2GB→250, 마스터 12GB→1,470(월 저장 20%×(기기수−1)). 프리·라이트는 동기화 1대·소용량이라 저장·전송 ≈0. 파일 변환은 서버 CPU 소액.</td></tr>
 </table></div>
 <div class="callout warn">
-<b>⚠ 무료(프리) 유저 평균 원가:</b> 위 프리 ₩132는 <b>AI 요약·퀴즈를 매월 3회씩 모두 소진한 상한</b>입니다. 실제 프리 유저 다수는 AI를 거의 쓰지 않아 <b>평균 실원가는 ₩50 안팎</b>으로 봅니다(광고 원가 상쇄 계산은 이 평균을 사용 — 시트 8·9). 베타 실측으로 검증 필요.
+<b>⚠ 무료(프리) 유저 원가 — v3.6부터 상한 ₩132로 통일:</b> 프리 ₩132는 <b>AI 요약·퀴즈를 매월 3회씩 모두 소진한 상한</b>입니다. 이전 버전은 광고 상쇄 계산에만 유리한 <b>평균 ₩50</b>을 섞어 써 문서 간 숫자가 어긋났습니다. v3.6은 <b>모든 손익 계산을 상한 ₩132로 통일</b>하고, ₩50은 "AI를 거의 안 쓰는 유저가 많을 경우의 <b>미검증 낙관 평균</b>"으로만 표기합니다(실측 전까지 근거로 단독 사용 금지).
 </div>
 <ul class="memo">
-  <li><b>라이트 최소 흑자가:</b> AI 원가 220원(각 5회) → 흑자 최소가 = 220 ÷ 0.7 ≈ <b>314원</b>. 라이트 ₩490은 위(순익 +123, 얇지만 흑자).</li>
+  <li><b>라이트 최소 흑자가(부가세 반영):</b> 원가 220원 → 흑자 최소가 = 220 × 1.1 ÷ 0.7 ≈ <b>346원</b>(30%) · 285원(15%). 라이트 ₩490은 위(공헌이익 +92/+159, 얇지만 흑자).</li>
   <li><b>원가 예측성:</b> AI가 월 한도로 상한이 걸려 있어, 사용량 폭주 리스크가 구조적으로 없다.</li>
+  <li><b>고정비는 별도:</b> 위 공헌이익에는 인건비·마케팅(CAC)·서버 고정비가 <b>아직 빠져 있다</b>. 회사 순이익·손익분기는 시트12·13과 price.html에서.</li>
 </ul>
 </section>
 
 <!-- ============ 4_규모별원가 ============ -->
-<section id="sheet-4"><h2>4_규모별원가 <span class="badge-fix">v3.4</span></h2><div class="twrap"><table>
+<section id="sheet-4"><h2>4_규모별원가 <span class="badge-fix">v3.6</span></h2><div class="twrap"><table>
 <tr class="title"><td colspan="4">유저 규모별 월 총 원가 (구성 가정 반영)</td></tr>
 <tr class="spacer"><td colspan="4"></td></tr>
-<tr class="note"><td colspan="4">구성 가정: 유료 전환율 5% · 유료 구성 라이트 50 : 크리에이터 35 : 마스터 15 · 무료(프리)는 평균 원가 ₩50 적용(상한 아님)</td></tr>
+<tr class="note"><td colspan="4">구성 가정: 유료 전환율 5% · 유료 구성 라이트 50 : 크리에이터 35 : 마스터 15 · <b>무료(프리)는 상한 ₩132 적용(v3.6 통일)</b> · 크리에이터·마스터는 전송료 포함(1,910·6,890)</td></tr>
 <tr class="spacer"><td colspan="4"></td></tr>
 
 <tr><th>구분</th><th>1,000명</th><th>10,000명</th><th>100,000명</th></tr>
-<tr><td>프리 (95%) · ₩50</td><td class="num">47,500</td><td class="num">475,000</td><td class="num">4,750,000</td></tr>
+<tr><td>프리 (95%) · ₩132</td><td class="num">125,400</td><td class="num">1,254,000</td><td class="num">12,540,000</td></tr>
 <tr><td>라이트 (2.5%) · ₩220</td><td class="num">5,500</td><td class="num">55,000</td><td class="num">550,000</td></tr>
-<tr><td>크리에이터 (1.75%) · ₩1,660</td><td class="num">29,050</td><td class="num">290,500</td><td class="num">2,905,000</td></tr>
-<tr><td>마스터 (0.75%) · ₩5,420</td><td class="num">40,650</td><td class="num">406,500</td><td class="num">4,065,000</td></tr>
+<tr><td>크리에이터 (1.75%) · ₩1,910</td><td class="num">33,425</td><td class="num">334,250</td><td class="num">3,342,500</td></tr>
+<tr><td>마스터 (0.75%) · ₩6,890</td><td class="num">51,675</td><td class="num">516,750</td><td class="num">5,167,500</td></tr>
 <tr><td>서버·DB 고정비</td><td class="inp num">80,000</td><td class="inp num">560,000</td><td class="inp num">2,800,000</td></tr>
-<tr class="section"><td><b>월 총 원가 (₩)</b></td><td class="num"><b>202,700</b></td><td class="num"><b>1,787,000</b></td><td class="num"><b>15,070,000</b></td></tr>
-<tr class="section"><td><b>가입자당 평균 (₩)</b></td><td class="num"><b>203</b></td><td class="num"><b>179</b></td><td class="num"><b>151</b></td></tr>
-<tr class="note"><td colspan="4">무료 원가에 <b>상한 ₩132</b>를 적용하면 총원가가 크게 오른다(1,000명 무료분 47,500→125,400). 실무에선 무료 AI 한도(3회)가 상한을 눌러 평균이 낮게 유지된다. 서버·DB비는 규모 단계로 자동 증가(price.html 연동).</td></tr>
+<tr class="section"><td><b>월 총 원가 (₩)</b></td><td class="num"><b>296,000</b></td><td class="num"><b>2,720,000</b></td><td class="num"><b>24,400,000</b></td></tr>
+<tr class="section"><td><b>가입자당 평균 (₩)</b></td><td class="num"><b>296</b></td><td class="num"><b>272</b></td><td class="num"><b>244</b></td></tr>
+<tr class="note"><td colspan="4"><b>v3.6: 무료 원가를 상한 ₩132로 통일</b>(이전 ₩50 대비 무료분·총원가가 크게 오름 — 1,000명 총원가 202,700→296,000). 이는 <b>보수적 상한</b>이며, 실측 평균이 ₩50에 가깝다면 총원가는 이보다 낮아진다. 서버·DB비는 규모 단계로 자동 증가(price.html 연동). <b>이 표는 매출이 아니라 원가만</b> — 회사 손익은 price.html.</td></tr>
 <tr class="spacer"><td colspan="4"></td></tr>
 
 <tr><td colspan="4">▶ 권장 인프라 단계</td></tr>
@@ -292,40 +315,41 @@ tbody tr:hover td { background:#f1f5f9; }
 </section>
 
 <!-- ============ 6_순수익 ============ -->
-<section id="sheet-6"><h2>6_순수익분석 <span class="badge-fix">v3.4</span></h2>
-<div class="callout">
-<b>핵심:</b> 텍스트 입력·Haiku·월 한도 확정으로 <b>전 플랜이 안정적 흑자</b>입니다. 마스터도 30GB 저장원가를 얹은 뒤 순수익 +4,310원(수수료 30%)로 여유가 있습니다.
+<section id="sheet-6"><h2>6_공헌이익분석 <span class="badge-fix">v3.6</span></h2>
+<div class="callout warn">
+<b>용어 정정:</b> 이전 "순수익"은 정확히는 <b>공헌이익</b>(가입자 1명이 벌어다 주는 돈 − 그 1명의 변동원가)입니다. 여기엔 <b>인건비·마케팅(CAC)·서버 고정비가 빠져 있어</b>, "공헌이익 흑자"가 곧 "회사 흑자"는 아닙니다. 부가세 10% 제외·전송료 반영 후 <b>라이트 +92 · 크리에이터 +3,117 · 마스터 +1,955</b>(수수료 30%). <b>마스터는 전송료 반영으로 +4,310→+1,955로 급락</b>했습니다.
 </div>
 <div class="twrap"><table>
-<tr class="title"><td colspan="6">▶ 표 A · 플랜 1명당 월 순수익</td></tr>
-<tr><th>플랜</th><th>월 가격(₩)</th><th>수수료(₩)</th><th>월 원가 상한(₩)</th><th>순수익(₩)</th><th>순수익률</th></tr>
-<tr><td>라이트</td><td class="num inp">490</td><td class="num">147</td><td class="num inp">220</td><td class="num pos">+123</td><td class="num pos">+25.1%</td></tr>
-<tr class="cur"><td>크리에이터 <b>(핵심)</b></td><td class="num inp">7,900</td><td class="num">2,370</td><td class="num inp">1,660</td><td class="num pos">+3,870</td><td class="num pos">+49.0%</td></tr>
-<tr><td>마스터</td><td class="num inp">13,900</td><td class="num">4,170</td><td class="num inp">5,420</td><td class="num pos">+4,310</td><td class="num pos">+31.0%</td></tr>
-<tr class="note"><td colspan="6">수수료 30%(월간). 연구독은 1년 후 15% → 순수익 라이트 +197 · 크리에이터 +5,055 · 마스터 +6,395.</td></tr>
+<tr class="title"><td colspan="6">▶ 표 A · 플랜 1명당 월 공헌이익 (부가세+수수료 30% 반영)</td></tr>
+<tr><th>플랜</th><th>월 가격(₩)</th><th>부가세+수수료(₩)</th><th>월 원가 상한(₩)</th><th>공헌이익(₩)</th><th>이익률</th></tr>
+<tr><td>라이트</td><td class="num inp">490</td><td class="num">178</td><td class="num inp">220</td><td class="num pos">+92</td><td class="num pos">+18.8%</td></tr>
+<tr class="cur"><td>크리에이터 <b>(핵심)</b></td><td class="num inp">7,900</td><td class="num">2,873</td><td class="num inp">1,910</td><td class="num pos">+3,117</td><td class="num pos">+39.5%</td></tr>
+<tr><td>마스터</td><td class="num inp">13,900</td><td class="num">5,055</td><td class="num inp">6,890</td><td class="num pos">+1,955</td><td class="num pos">+14.1%</td></tr>
+<tr class="note"><td colspan="6">공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료)−원가. <b>수수료 15%(소상공인·초기)면</b> → 라이트 +159 · 크리에이터 +4,194 · 마스터 +3,851.</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 플랜별 × 유료 유저수 월 순수익 (수수료 30%)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 플랜별 × 유료 유저수 월 공헌이익 (부가세+수수료 30%)</td></tr>
 <tr><th>플랜</th><th>100명</th><th>1,000명</th><th>10,000명</th><th>50,000명</th></tr>
-<tr><td>라이트 (+123)</td><td class="num pos">12,300</td><td class="num pos">123,000</td><td class="num pos">1,230,000</td><td class="num pos">6,150,000</td></tr>
-<tr><td>크리에이터 (+3,870)</td><td class="num pos">387,000</td><td class="num pos">3,870,000</td><td class="num pos">38,700,000</td><td class="num pos">193,500,000</td></tr>
-<tr><td>마스터 (+4,310)</td><td class="num pos">431,000</td><td class="num pos">4,310,000</td><td class="num pos">43,100,000</td><td class="num pos">215,500,000</td></tr>
+<tr><td>라이트 (+92)</td><td class="num pos">9,200</td><td class="num pos">92,000</td><td class="num pos">920,000</td><td class="num pos">4,600,000</td></tr>
+<tr><td>크리에이터 (+3,117)</td><td class="num pos">311,700</td><td class="num pos">3,117,000</td><td class="num pos">31,170,000</td><td class="num pos">155,850,000</td></tr>
+<tr><td>마스터 (+1,955)</td><td class="num pos">195,500</td><td class="num pos">1,955,000</td><td class="num pos">19,550,000</td><td class="num pos">97,750,000</td></tr>
+<tr class="note"><td colspan="5">이 표도 <b>고정비 차감 前 공헌이익</b>입니다. 인건비·마케팅(CAC)·서버를 빼야 회사 순이익(→ price.html).</td></tr>
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="4">▶ 표 C · 크리에이터 가격 민감도 (월 순수익, 원가 ₩1,660·수수료 30%)</td></tr>
-<tr><th>월 가격(₩)</th><th>순수익(₩/인)</th><th>1,000명</th><th>10,000명</th></tr>
-<tr><td class="inp">5,900</td><td class="num pos">+2,470</td><td class="num pos">2,470,000</td><td class="num pos">24,700,000</td></tr>
-<tr><td class="inp">6,900</td><td class="num pos">+3,170</td><td class="num pos">3,170,000</td><td class="num pos">31,700,000</td></tr>
-<tr class="cur"><td class="inp">7,900 <b>(현재)</b></td><td class="num pos">+3,870</td><td class="num pos">3,870,000</td><td class="num pos">38,700,000</td></tr>
-<tr><td class="inp">8,900</td><td class="num pos">+4,570</td><td class="num pos">4,570,000</td><td class="num pos">45,700,000</td></tr>
+<tr class="title"><td colspan="4">▶ 표 C · 크리에이터 가격 민감도 (월 공헌이익, 원가 ₩1,910·부가세+수수료 30%)</td></tr>
+<tr><th>월 가격(₩)</th><th>공헌이익(₩/인)</th><th>1,000명</th><th>10,000명</th></tr>
+<tr><td class="inp">5,900</td><td class="num pos">+1,845</td><td class="num pos">1,845,000</td><td class="num pos">18,450,000</td></tr>
+<tr><td class="inp">6,900</td><td class="num pos">+2,481</td><td class="num pos">2,481,000</td><td class="num pos">24,810,000</td></tr>
+<tr class="cur"><td class="inp">7,900 <b>(현재)</b></td><td class="num pos">+3,117</td><td class="num pos">3,117,000</td><td class="num pos">31,170,000</td></tr>
+<tr><td class="inp">8,900</td><td class="num pos">+3,754</td><td class="num pos">3,754,000</td><td class="num pos">37,540,000</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>순수익 정의:</b> 월 가격 − 앱스토어 수수료 − 월 원가 상한. 개발·마케팅·CS 등 고정비는 별도(→ <a href="price.html">price.html</a> 사업 손익 참고).</li>
-  <li><b>원가 상한 기준:</b> AI 한도 100% 소진 가정이라 실제 순수익은 이보다 높을 가능성이 큼.</li>
-  <li><b>티어별 최소 흑자가:</b> 라이트 ≥₩629 · 크리에이터 ≥₩2,371 · 마스터 ≥₩7,743(= 원가 ÷ 0.7). 확정가는 모두 이 위.</li>
+  <li><b>공헌이익 정의:</b> 가격 ÷ 1.1(부가세 제외) − 앱스토어 수수료 − 월 원가 상한. <b>개발·마케팅(CAC)·CS·서버 고정비는 아직 안 뺀 값</b>(→ <a href="price.html">price.html</a> 사업 손익·손익분기 참고).</li>
+  <li><b>원가 상한 기준:</b> AI 한도 100% 소진 가정이라 실제 공헌이익은 이보다 높을 가능성이 큼(단 전송료는 실사용에 비례해 오를 수 있음).</li>
+  <li><b>티어별 최소 흑자가(부가세 반영):</b> 라이트 ≥₩346 · 크리에이터 ≥₩3,002 · 마스터 ≥₩10,826(= 원가 × 1.1 ÷ 0.7). 확정가는 모두 이 위지만 <b>마스터는 여유가 얇다</b>(13,900 vs 10,826).</li>
 </ul>
 </section>
 
@@ -346,7 +370,7 @@ tbody tr:hover td { background:#f1f5f9; }
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table class="cmp">
-<tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월) <span class="badge-fix">v3.4</span></td></tr>
+<tr class="title"><td colspan="5">▶ 표 G · 가격 비교 (월 기준, 2026년 7월) <span class="badge-fix">v3.6</span></td></tr>
 <tr><th>앱</th><th>무료 플랜</th><th>유료 플랜</th><th>월 가격</th><th>주요 유료 혜택</th></tr>
 <tr><td class="lt"><b>리튼(Litten)</b></td><td>프리: 광고·셀3·AI 월3회·동기화1대</td><td>라이트 / 크리에이터 / 마스터</td><td class="num">₩490 / 7,900 / 13,900</td><td class="sub2">광고제거·셀캘린더무제한·AI5 / 무제한·AI30·10GB / AI100·30GB</td></tr>
 <tr><td><b>네이버 클로바노트</b></td><td>월 300분·AI요약 월 15회</td><td>개인 유료 없음(기업 Lite)</td><td class="num">개인 0원<br><span class='sub'>기업 20,000원/인</span></td><td class="sub2">기업 Lite: 월 6,000분·AI요약 무제한</td></tr>
@@ -371,7 +395,7 @@ tbody tr:hover td { background:#f1f5f9; }
 <!-- ============ 8_광고선진국 ============ -->
 <section id="sheet-8"><h2>8_광고선진국 · 선진국 한정 광고</h2>
 <div class="callout warn">
-<b>전제:</b> 광고는 <b>무료(프리) 유저 한정, 셀+일정 두 화면 배너만</b>(월 40노출). 핵심 학습(녹음·필기·메모·AI 복습)은 전 지역 무광고. 원가는 무료 <b>평균</b> 실원가 ₩50 기준(상한 ₩132이나 대다수 AI 미사용 → 평균 낮음, 시트3 참조).
+<b>전제:</b> 광고는 <b>무료(프리) 유저 한정, 셀+일정 두 화면 배너만</b>(월 40노출). 핵심 학습(녹음·필기·메모·AI 복습)은 전 지역 무광고. <b>원가는 v3.6부터 상한 ₩132로 통일</b>(이전엔 평균 ₩50 혼용). 상한 기준이라 커버율이 보수적으로 나온다. 실측 평균이 낮으면(₩50 가정) 흑자 구간이 넓어진다.
 </div>
 
 <div class="twrap"><table>
@@ -381,15 +405,16 @@ tbody tr:hover td { background:#f1f5f9; }
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 순익 (광고수익 − 평균원가 ₩50)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 순익 (광고수익 − <b>원가 상한 ₩132</b>)</td></tr>
 <tr><th>월 노출</th><th>eCPM $0.5</th><th>eCPM $1.0</th><th>eCPM $1.5 (기본)</th><th>eCPM $2.0</th></tr>
-<tr class="cur"><td>40회</td><td class="num neg">-22</td><td class="num pos">+6</td><td class="num pos">+34</td><td class="num pos">+62</td></tr>
+<tr class="cur"><td>40회</td><td class="num neg">−104</td><td class="num neg">−76</td><td class="num neg">−48</td><td class="num neg">−20</td></tr>
+<tr><td>80회</td><td class="num neg">−76</td><td class="num neg">−20</td><td class="num pos">+36</td><td class="num pos">+92</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>선진국 광고 흑자 조건:</b> 40노출 기준 eCPM 약 $0.9 이상이면 흑자. 선진국 배너 eCPM(≈$1.5)에서 +34원.</li>
-  <li><b>노출 지렛대:</b> 셀·일정 사용률↑로 노출 40→80회면 순익 약 2배. 핵심 학습은 무광고 유지가 전제.</li>
-  <li><b>주의:</b> 무료 원가 <b>상한(₩132)</b>을 쓰면 커버율이 낮아진다. 실무에선 AI 한도(3회)가 상한을 눌러 평균 ₩50 안팎 유지. eCPM·노출·평균원가는 베타 실측 필요.</li>
+  <li><b>상한 기준 흑자 조건:</b> 40노출·eCPM $1.5로는 <b>−48원 적자</b>(커버 64%). 흑자되려면 eCPM ≈ <b>$2.4↑</b> 또는 <b>노출 80회↑</b>(선진국 80노출 $1.5 = +36).</li>
+  <li><b>노출 지렛대:</b> 셀·일정 사용률↑로 노출 40→80회가 흑자의 관건. 핵심 학습은 무광고 유지가 전제.</li>
+  <li><b>낙관(미검증):</b> 실제 무료 평균원가가 ₩50이라면 40노출·$1.5에서 +34원 흑자. 이 값은 <b>베타 실측</b>으로만 확정.</li>
   <li><b>라이트(₩490) 광고제거 티어</b>는 "광고 싫은" 선진국 유저를 흡수하는 추가 수익원이자 체험 관문.</li>
 </ul>
 </section>
@@ -397,7 +422,7 @@ tbody tr:hover td { background:#f1f5f9; }
 <!-- ============ 9_광고글로벌 ============ -->
 <section id="sheet-9"><h2>9_광고글로벌 · 지역별 차등 (확장기)</h2>
 <div class="callout warn">
-<b>단계 차이:</b> 8번=선진국만 진출(초기), 9번=신흥·개도국 유입 후(확장). 노출·평균원가 가정은 8번과 동일(월 40노출·평균 ₩50).
+<b>단계 차이:</b> 8번=선진국만 진출(초기), 9번=신흥·개도국 유입 후(확장). 노출·원가 가정은 8번과 동일(월 40노출·<b>원가 상한 ₩132</b>).
 </div>
 
 <div class="twrap"><table>
@@ -409,18 +434,19 @@ tbody tr:hover td { background:#f1f5f9; }
 </table></div>
 
 <div class="twrap" style="margin-top:18px"><table>
-<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 (광고수익 − 평균원가 ₩50)</td></tr>
+<tr class="title"><td colspan="5">▶ 표 B · 무료 유저 1명당 월 (광고수익 − <b>원가 상한 ₩132</b>)</td></tr>
 <tr><th>티어</th><th>광고수익(₩)</th><th>원가(₩)</th><th>순익(₩)</th><th>원가 커버율</th></tr>
-<tr><td><b>선진국</b></td><td class="num">84</td><td class="num">50</td><td class="num pos">+34</td><td class="num pos">168% ✅</td></tr>
-<tr><td><b>신흥국</b></td><td class="num">22</td><td class="num">50</td><td class="num neg">-28</td><td class="num">45%</td></tr>
-<tr><td><b>개도국</b></td><td class="num">6</td><td class="num">50</td><td class="num neg">-44</td><td class="num">11%</td></tr>
-<tr class="section"><td>글로벌 가중평균</td><td class="num">27</td><td class="num">50</td><td class="num neg">-23</td><td class="num">54%</td></tr>
+<tr><td><b>선진국</b></td><td class="num">84</td><td class="num">132</td><td class="num neg">−48</td><td class="num">64%</td></tr>
+<tr><td><b>신흥국</b></td><td class="num">22</td><td class="num">132</td><td class="num neg">−110</td><td class="num">17%</td></tr>
+<tr><td><b>개도국</b></td><td class="num">6</td><td class="num">132</td><td class="num neg">−126</td><td class="num">5%</td></tr>
+<tr class="section"><td>글로벌 가중평균</td><td class="num">27</td><td class="num">132</td><td class="num neg">−105</td><td class="num">20%</td></tr>
 </table></div>
 
 <ul class="memo">
-  <li><b>선진국은 광고만으로 흑자</b>(커버율 168%). 글로벌 평균은 무료 평균원가의 약 54% 커버 → "부분 적자"로 전 세계 무료 기반 확장.</li>
-  <li><b>커버율 지렛대:</b> 셀·일정 노출↑, eCPM 높은 지역 비중↑, 무료 원가↓. 노출 40→80이면 글로벌 커버 약 109%.</li>
-  <li>광고는 수익 엔진이 아니라 <b>무료 유저 원가 상쇄 장치</b>. Haiku 저원가 + AI 한도로 무료 원가가 낮게 유지돼 커버 구조가 안정.</li>
+  <li><b>상한 기준으론 선진국 40노출도 적자</b>(−48, 커버 64%). 40노출로 흑자 내려면 노출·eCPM을 더 올려야 한다(§8). 즉 광고는 "적자를 줄이는 장치"이지 초기 40노출로 무료를 흑자로 만들지 못한다.</li>
+  <li><b>커버율 지렛대:</b> 셀·일정 노출↑(40→80이면 선진국 흑자), eCPM 높은 지역 비중↑, 무료 실사용 원가↓.</li>
+  <li><b>낙관(미검증):</b> 실제 무료 평균원가가 ₩50이라면 선진국 +34(커버 168%)·글로벌 −23(커버 54%). 상한(₩132)과 평균(₩50) 중 어디에 가까운지는 <b>베타 실측</b>이 결정.</li>
+  <li>광고는 수익 엔진이 아니라 <b>무료 유저 원가 상쇄 장치</b>. 상한 기준으론 상쇄가 부분적이라, 무료 기반 확장 규모는 원가 실측 후 신중히.</li>
 </ul>
 </section>
 
@@ -443,7 +469,7 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td>크리에이터 (35%)</td><td class="num">3,500</td><td class="num">7,900</td><td class="num">27,650,000</td></tr>
 <tr><td>마스터 (15%)</td><td class="num">1,500</td><td class="num">13,900</td><td class="num">20,850,000</td></tr>
 <tr class="section"><td><b>합계</b></td><td class="num"><b>10,000</b></td><td class="num">—</td><td class="num"><b>50,950,000</b></td></tr>
-<tr class="note"><td colspan="4">총매출(gross) 기준 — 수수료(15~30%)·인프라 원가 차감 전. 순액은 시트6 순수익 기준으로 별도 산정. 연 환산 약 6.11억. 라이트 저가화로 매출 기여는 크리에이터·마스터가 주도.</td></tr>
+<tr class="note"><td colspan="4"><b>총매출(gross)</b> 기준 — <b>부가세(÷1.1)·수수료(15~30%)·인프라 원가 차감 前</b>. 실수령(공헌이익 합)은 시트6 기준 별도 산정: 이 구성의 유료 1인 공헌이익 ≈ ₩1,430(30%)이라 10,000명이면 월 ≈ <b>1,430만원</b>(고정비 차감 前). 연 환산 총매출 약 6.11억. 라이트 저가화로 매출·이익 기여는 크리에이터·마스터가 주도.</td></tr>
 </table></div>
 
 <ul class="memo">
@@ -452,10 +478,71 @@ tbody tr:hover td { background:#f1f5f9; }
 </ul>
 </section>
 
+<!-- ============ 12_획득비CAC ============ -->
+<section id="sheet-12"><h2>12_획득비(CAC) <span class="badge-fix">v3.6 신규</span></h2>
+<div class="callout warn">
+<b>이전 원가표에 통째로 빠져 있던 항목입니다.</b> price.html의 마케팅비는 "월 ₩50만 고정"이었을 뿐, <b>가입자 1명을 데려오는 비용(CAC)</b>과 그 경로가 없었습니다. 이 CAC가 회사가 흑자로 가는지를 가르는 <b>핵심 병목</b>입니다.
+</div>
+<div class="twrap"><table>
+<tr class="title"><td colspan="4">▶ 표 A · 설치 1건당 획득비(CPI/CAC) 가정</td></tr>
+<tr><th>채널</th><th>설치당 비용(₩)</th><th>비고</th><th>현실성</th></tr>
+<tr><td>오가닉(입소문·ASO·콘텐츠)</td><td class="num inp">≈0</td><td>비용은 0이나 <b>시간·꾸준함</b>이 듦</td><td>solo의 주력</td></tr>
+<tr><td>저CPI 지역 유료광고</td><td class="num inp">300~1,000</td><td>동남아·인도 등</td><td>전환율 낮음</td></tr>
+<tr><td>한국 유료광고(CPI)</td><td class="num inp">1,500~3,000</td><td>페북·구글 UAC 등</td><td>전환율 높음</td></tr>
+<tr class="note"><td colspan="4">설치(install) ≠ 가입 ≠ 유료. 아래는 설치 CAC를 <b>유료 1명 획득비</b>로 환산.</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 B · 유료 1명 획득비 = 설치CAC ÷ 유료전환율</td></tr>
+<tr><th>설치 CAC</th><th>전환 2%</th><th>전환 3%</th><th>전환 5%</th></tr>
+<tr><td>₩800</td><td class="num">40,000</td><td class="num">26,667</td><td class="num">16,000</td></tr>
+<tr><td>₩1,500</td><td class="num">75,000</td><td class="num">50,000</td><td class="num">30,000</td></tr>
+<tr class="note"><td colspan="4">전환율이 낮을수록 유료 1명 값이 폭등한다. 예) 설치 ₩800·전환 3% → 유료 1명 <b>₩26,667</b>.</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 C · LTV : CAC 판정 (건전성 기준 ≥ 3)</td></tr>
+<tr><th>구성·이탈</th><th>유료 LTV(₩)</th><th>유료 획득비(₩)</th><th>LTV:CAC</th></tr>
+<tr class="warn"><td>라이트多(50:35:15)·이탈 5%</td><td class="num">28,600</td><td class="num">26,667</td><td class="num neg">1.07 ⚠</td></tr>
+<tr><td>크리에이터多(30:50:20)·이탈 5%</td><td class="num">50,600</td><td class="num">26,667</td><td class="num">1.90</td></tr>
+<tr class="cur"><td>크리에이터多·이탈 3%·오가닉</td><td class="num">84,300</td><td class="num pos">≈낮음</td><td class="num pos">건전 ✅</td></tr>
+<tr class="note"><td colspan="4">LTV = 유료 1인 월 공헌이익 × 평균 수명(1÷이탈률) — 시트13. 유료 획득비는 표 B(설치 ₩800·전환 3%) 기준. <b>라이트 위주 + 유료광고로는 CAC 회수가 사실상 불가(1.07)</b>. 회수하려면 ① 크리에이터 비중↑(LTV↑) ② 이탈률↓(수명↑) ③ 오가닉 위주로 CAC↓ — 셋 중 최소 둘이 필요.</td></tr>
+</table></div>
+<ul class="memo">
+  <li><b>결론:</b> 유료광고로 성장하려면 라이트 위주 구성에선 밑진다. <b>solo는 오가닉(CAC≈0) + 크리에이터 중심 구성</b>이 사실상 유일한 건전 경로.</li>
+  <li>price.html의 마케팅비를 <b>"CAC × 월 신규(이탈 보충)"</b>로 바꿔 이 부담을 손익에 직접 반영했다.</li>
+</ul>
+</section>
+
+<!-- ============ 13_이탈률 ============ -->
+<section id="sheet-13"><h2>13_이탈률(Churn) <span class="badge-fix">v3.6 신규</span></h2>
+<div class="callout warn">
+<b>이것도 이전 모델에 없던 항목입니다.</b> 손익분기 계산이 "한 번 모은 가입자는 안 빠진다"를 전제했지만, 실제 구독은 <b>매달 일정 비율이 이탈</b>합니다. 이탈률이 곧 <b>고객 수명·LTV·재획득 마케팅비</b>를 결정합니다.
+</div>
+<div class="twrap"><table>
+<tr class="title"><td colspan="5">▶ 표 A · 월 이탈률별 유지·수명·LTV (유료 1인 공헌이익 ₩1,430 기준)</td></tr>
+<tr><th>월 이탈률</th><th>12개월 유지율</th><th>평균 수명(개월)</th><th>유료 LTV(₩)</th><th>평가</th></tr>
+<tr><td>3%</td><td class="num">69%</td><td class="num">33</td><td class="num pos">47,190</td><td class="fc ok">우수</td></tr>
+<tr class="cur"><td>5% (기본 가정)</td><td class="num">54%</td><td class="num">20</td><td class="num">28,600</td><td class="fc mid">보통</td></tr>
+<tr><td>8%</td><td class="num">37%</td><td class="num">12.5</td><td class="num">17,875</td><td class="fc no">주의</td></tr>
+<tr class="warn"><td>10%</td><td class="num">28%</td><td class="num">10</td><td class="num neg">14,300</td><td class="fc no">위험</td></tr>
+<tr class="note"><td colspan="5">유지율 = (1−이탈률)¹². 평균 수명 = 1÷이탈률. LTV = 월 공헌이익 × 수명. B2C 구독 앱 월 이탈은 통상 <b>5~10%</b>. 라이트(공헌 ₩92)만 보면 LTV는 ₩1,840~3,036에 불과 — 어떤 유료광고도 회수 불가.</td></tr>
+</table></div>
+<div class="twrap" style="margin-top:18px"><table>
+<tr class="title"><td colspan="4">▶ 표 B · 재획득 부담 — T명을 유지하려면 매달 T×이탈만큼 새로 데려와야 함</td></tr>
+<tr><th>유지 목표(총 가입자)</th><th>이탈 3%</th><th>이탈 5%</th><th>이탈 8%</th></tr>
+<tr><td>10,000명</td><td class="num">월 300명</td><td class="num">월 500명</td><td class="num">월 800명</td></tr>
+<tr><td>100,000명</td><td class="num">월 3,000명</td><td class="num">월 5,000명</td><td class="num">월 8,000명</td></tr>
+<tr class="note"><td colspan="4">이만큼을 <b>매달 CAC를 들여 새로 채워야 현상 유지</b>(성장은 그 위에 추가). 예) 10만명·이탈 5%·설치CAC ₩800 → 월 재획득 마케팅비 = 5,000×800 = <b>₩400만</b>. 오가닉이 아니면 이 비용이 매달 반복된다.</td></tr>
+</table></div>
+<ul class="memo">
+  <li><b>핵심:</b> 이탈률이 LTV를 좌우하고, LTV가 CAC 회수 가능성(시트12)을 좌우한다. <b>구독 사업의 생존은 이탈률 관리</b>(온보딩·복습 리마인더·셀 활동으로 재방문 유도).</li>
+  <li><b>solo 시사점:</b> 이탈이 높으면 매달 재획득에 시간·돈이 빨려 성장이 멈춘다. 오가닉·낮은 이탈·크리에이터 중심이 함께 가야 손익분기가 현실 범위로 내려온다.</li>
+</ul>
+</section>
+
 <!-- ============ 11_변경사항 ============ -->
-<section id="sheet-11"><h2>11_변경사항 <span class="badge-fix">v3.5</span></h2>
+<section id="sheet-11"><h2>11_변경사항 <span class="badge-fix">v3.6</span></h2>
 <div class="callout">
-<b>v3.0 → v3.5 개편 요약:</b> 요금제가 프리/라이트/크리에이터/마스터 4단계로 재편되고, 라이트를 ₩490·AI 각 5회로 낮춰 체험 관문을 열었습니다.
+<b>v3.0 → v3.6 개편 요약:</b> v3.4~3.5에서 요금제를 프리/라이트/크리에이터/마스터 4단계로 재편(라이트 ₩490 관문화)했고, <b>v3.6에서 누락 항목(전송료·부가세·수수료 15%·CAC·이탈률)을 반영하고 "순수익"을 "공헌이익"으로 정정</b>해 현실 손익에 가깝게 정밀화했습니다.
 </div>
 <div class="twrap"><table>
 <tr class="title"><td colspan="4">▶ v3.5 주요 변경</td></tr>
@@ -465,20 +552,33 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr><td class="inp">3</td><td><b>저장 용량 명시</b></td><td>크리에이터 10GB·마스터 30GB → 저장 원가 340·1,020원 반영.</td><td>월 원가 크리에이터 1,660, 마스터 5,420</td></tr>
 <tr><td class="inp">4</td><td><b>파일(PDF) 변환 한도</b></td><td>프리 제한·라이트 월5·크리에이터 월50·마스터 무제한. 서버 CPU 소액.</td><td>원가 영향 작음(서버 부하 관리)</td></tr>
 <tr><td class="inp">5</td><td><b>기기 동기화</b></td><td>프리·라이트 1대 / 크리에이터 2대 / 마스터 3대.</td><td>프리도 1대 동기화 제공</td></tr>
-<tr><td class="inp">6</td><td><b>순수익 재계산</b></td><td>라이트 +123 · 크리에이터 +3,870 · 마스터 +4,310(수수료 30%).</td><td>전 플랜 흑자(라이트는 얇음)</td></tr>
+<tr><td class="inp">6</td><td><b>공헌이익 재계산(v3.6 대체)</b></td><td>라이트 +92 · 크리에이터 +3,117 · 마스터 +1,955(부가세+수수료 30%). ※v3.5의 +123/+3,870/+4,310은 부가세·전송료 미반영 값.</td><td>전 플랜 공헌이익 흑자(라이트·마스터는 얇음)</td></tr>
+</table></div>
+<div style="height:18px"></div>
+<div class="twrap"><table>
+<tr class="title"><td colspan="4">▶ v3.6 주요 변경 (누락 항목 반영·정밀화)</td></tr>
+<tr><th>번호</th><th>변경</th><th>내용</th><th>영향</th></tr>
+<tr><td class="inp">1</td><td><b>데이터 전송료(egress) 추가</b></td><td>동기화로 다른 기기에 내려받는 트래픽 ₩122/GB. 가정 = 월 저장 20%×(기기수−1).</td><td>크리에이터 원가 1,660→1,910 · 마스터 5,420→<b>6,890</b></td></tr>
+<tr><td class="inp">2</td><td><b>부가세(VAT 10%) 반영</b></td><td>표시가에 포함된 부가세는 국가 납부분 → 매출에서 ÷1.1로 먼저 제외 후 이익 계산.</td><td>전 플랜 공헌이익 13~25%↓</td></tr>
+<tr><td class="inp">3</td><td><b>수수료 15%/30% 병기</b></td><td>연매출 $1M 이하 소상공인은 초기 15% 적용 가능.</td><td>15%면 라이트 +159·크리에이터 +4,194·마스터 +3,851</td></tr>
+<tr><td class="inp">4</td><td><b>"순수익"→"공헌이익" 정정</b></td><td>고정비(인건비·마케팅·서버) 차감 前 값임을 전 시트에 명시.</td><td>"공헌이익 흑자 ≠ 회사 흑자" 오독 방지</td></tr>
+<tr><td class="inp">5</td><td><b>무료 원가 ₩132로 통일</b></td><td>광고 시트가 유리한 ₩50을, 손익 시트가 ₩132를 쓰던 불일치 제거. ₩50은 미검증 낙관으로만.</td><td>광고 커버율 하향(선진국 40노출 −48)</td></tr>
+<tr><td class="inp">6</td><td><b>CAC·이탈률 시트 신설</b></td><td>가입자 획득비(시트12)·이탈률(시트13) 추가. price.html 마케팅비를 CAC×월신규로 전환.</td><td>사업 손익의 실제 병목을 모델에 반영</td></tr>
 </table></div>
 <div style="height:18px"></div>
 <div class="twrap"><table>
 <tr class="title"><td colspan="3">▶ 여전히 남은 검증 이슈</td></tr>
 <tr><th>이슈</th><th>내용</th><th>대응</th></tr>
 <tr><td><b>무료 평균 원가</b></td><td>상한 ₩132 vs 평균 ₩50 가정. 광고 커버 계산이 평균에 의존</td><td>베타 실측으로 무료 AI 사용률 측정</td></tr>
-<tr><td><b>광고 ARPU</b></td><td>eCPM·노출 추정치. 라이트 순익(₩1,590~)과 비교해 광고 이탈 손익 판단</td><td>지역별 실측·A/B</td></tr>
-<tr><td><b>유료 구성비</b></td><td>라이트 비중이 매출 기여를 좌우</td><td><a href="price.html">price.html</a>에서 시나리오 조정</td></tr>
-<tr><td><b>저장 용량 실사용</b></td><td>크리에이터 10GB·마스터 30GB는 상한. 실제 평균 사용은 더 낮을 수 있음</td><td>실측 후 저장 원가 정밀화</td></tr>
+<tr><td><b>CAC·전환율</b></td><td>설치당 획득비와 유료 전환율이 CAC 회수를 좌우(시트12)</td><td>오가닉 채널 우선·전환 실측</td></tr>
+<tr><td><b>이탈률(churn)</b></td><td>월 이탈률이 LTV·재획득 부담을 결정(시트13)</td><td>온보딩·리마인더로 이탈 관리, 실측</td></tr>
+<tr><td><b>전송료 가정</b></td><td>재전송율 20%×(기기수−1)은 가정값. 실사용 편차 큼</td><td>실측 후 egress 정밀화</td></tr>
+<tr><td><b>유료 구성비</b></td><td>라이트 비중이 매출·이익·CAC 회수를 좌우</td><td><a href="price.html">price.html</a>에서 시나리오 조정</td></tr>
 </table></div>
 <ul class="memo">
-  <li><b>결론:</b> 4단계 재편 후에도 <b>전 플랜 흑자</b>. 라이트는 AI 원가 220원(각 5회)에 확정가 ₩490 → 순익 +123(얇지만 흑자). 베이스 규모·셀 바이럴·연간(+197)으로 보완.</li>
-  <li><b>다음 단계:</b> 베타 실측 → 무료 AI 사용률·광고 eCPM·유료 구성비·저장 실사용 확정 → v3.5 정밀화.</li>
+  <li><b>결론(v3.6):</b> 부가세·전송료 반영 후에도 <b>전 플랜 공헌이익은 흑자</b>이나, 마스터는 +1,955로 얇고 라이트는 +92로 매우 얇다. <b>이는 고정비(인건비·마케팅·서버) 차감 前 값</b>이라 "회사 흑자"가 아니다. 회사 손익·손익분기는 <a href="price.html">price.html</a>에서 CAC·이탈률까지 넣어 확인.</li>
+  <li><b>진짜 관건:</b> 원가·이익 구조는 견고. 남은 승부처는 <b>CAC(어떻게 데려오나)·이탈률(어떻게 붙잡나)·유료 구성비(크리에이터 비중)</b> — 셋 다 베타 실측이 필요하다.</li>
+  <li><b>다음 단계:</b> 베타 실측 → 무료 AI 사용률·광고 eCPM·전환율·이탈률·전송 실사용 확정 → 정밀화.</li>
 </ul>
 </section>
 
