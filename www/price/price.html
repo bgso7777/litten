@@ -205,11 +205,11 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     </div>
     <div class="ctrl">
       <label>1인당 월 인건비 : <span class="val" id="perPersonVal">₩0</span></label>
-      <input type="range" id="perPersonRange" min="0" max="10000000" step="500000" value="0">
+      <input type="range" id="perPersonRange" min="0" max="10000000" step="500000" value="7000000">
     </div>
     <div class="ctrl">
       <label>서버·DB 월 고정비 : <span class="val" id="serverVal">₩80,000</span> <span style="font-weight:400;color:var(--muted);font-size:.74rem">(전체 가입자 수에 따라 자동 증가)</span></label>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">EC2·RDS 등 시스템 고정비 — 규모 단계로 자동 증가(Cost.html 기준): ~300명 ₩3만 · ~2천 ₩8만 · ~5천 ₩23.5만 · ~1만 ₩56만 · ~5만 ₩160만 · ~10만 ₩280만. 상단 🎚 전체 가입자 슬라이더에 연동.</div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem"><b>서버=카페24 VPS</b>(리눅스·VAT포함)·<b>DB=서버에 함께</b>(별도 RDS 0)·<b>저장/전송=S3</b>(각 플랜 원가에 별도 반영). 규모 단계 자동 증가: ~300명 <b>₩0.7만</b> · ~2천 <b>₩2.2만</b> · ~5천 <b>₩5.5만</b> · ~1만 <b>₩11만</b> · ~5만 <b>₩30만</b> · ~10만+ <b>₩60만</b>. 상단 🎚 전체 가입자 슬라이더에 연동. (AWS EC2 대비 4~5배↓)</div>
     </div>
     <div class="ctrl">
       <label>설치 1건당 획득비 (CAC) : <span class="val" id="cacVal">₩800</span></label>
@@ -229,7 +229,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     </div>
     <div class="ctrl" style="grid-column:1 / -1;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
       <label>💸 월 마케팅비(이탈 보충) = CAC × (총가입자 × 이탈률) : <span class="val" id="mktVal">₩0</span></label>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem;background:#fff;">더 이상 "월 ₩50만 고정"이 아니라 <b>가입자 규모·이탈률에 비례</b>합니다(현상 유지에 필요한 최소 획득비 — 성장은 그 위에 추가). → <b>월 고정+마케팅 합계 = 인건비 + 서버비 + 마케팅비 = <span id="fixedCalc">₩0</span></b></div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem;background:#fff;">더 이상 "월 ₩50만 고정"이 아니라 <b>가입자 규모·이탈률에 비례</b>합니다(현상 유지에 필요한 최소 획득비 — 성장은 그 위에 추가). → <b>월 고정+마케팅 합계 = 인건비 <span id="laborAmt">₩0</span> + 서버비 <span id="serverAmt">₩0</span> + 마케팅비 <span id="mktAmt">₩0</span> = <span id="fixedCalc">₩0</span></b></div>
     </div>
   </div>
 </section>
@@ -327,15 +327,17 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     {label:'30:40:30', lite:0.30, creator:0.40, master:0.30},
     {label:'25:45:30', lite:0.25, creator:0.45, master:0.30}
   ];
-  var state={mix:0, period:'month', conv:5, freeAdj:1, heads:1, perPerson:0, total:1000, fee:0.15, cac:800, churn:5};
+  var state={mix:0, period:'month', conv:5, freeAdj:1, heads:1, perPerson:7000000, total:1000, fee:0.15, cac:800, churn:5};
 
+  /* 서버비(월) — [v3.7] 컴퓨트는 카페24 VPS(리눅스, VAT포함). MariaDB는 소규모 시 서버에 함께(별도 RDS 0),
+     대규모는 DB 전용 박스. 저장·전송은 S3 유지(각 플랜 COST에 별도 반영). 로컬-퍼스트라 서버 부하 낮음 가정. */
   function serverCost(T){
-    if(T<=300) return 30000;
-    if(T<=2000) return 80000;
-    if(T<=5000) return 235000;
-    if(T<=10000) return 560000;
-    if(T<=50000) return 1600000;
-    return 2800000;
+    if(T<=300)   return 7000;    // 일반형 1GB
+    if(T<=2000)  return 22000;   // 퍼스트클래스 3GB (앱+DB)
+    if(T<=5000)  return 55000;   // 자이언트플러스 6GB (앱+DB)
+    if(T<=10000) return 110000;  // VPS 2대 (앱 + DB 분리)
+    if(T<=50000) return 300000;  // VPS/단독 다중 + DB 전용
+    return 600000;               // 단독서버 클러스터 + DB
   }
   function M(){ return MIXES[state.mix]; }
   /* 티어 1인 월 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료) − 원가 */
@@ -518,6 +520,9 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('churnVal').textContent=state.churn+'%';
     document.getElementById('mktVal').textContent='₩'+Math.round(marketingCost()).toLocaleString();
     document.getElementById('laborCalc').textContent='₩'+(state.heads*state.perPerson).toLocaleString();
+    document.getElementById('laborAmt').textContent='₩'+(state.heads*state.perPerson).toLocaleString();
+    document.getElementById('serverAmt').textContent='₩'+serverCost(state.total).toLocaleString();
+    document.getElementById('mktAmt').textContent='₩'+Math.round(marketingCost()).toLocaleString();
     document.getElementById('fixedCalc').textContent='₩'+Math.round(fixedCost()).toLocaleString();
   }
 

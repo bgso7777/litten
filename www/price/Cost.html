@@ -237,12 +237,13 @@ tbody tr:hover td { background:#f1f5f9; }
 <tr class="note"><td colspan="5">3. 파일(PDF) 변환 · CloudFront · 서버</td></tr>
 <tr><th>항목</th><th>월 요금 (₩)</th><th>사양</th><th>지원 사용자</th><th>출처</th></tr>
 <tr><td>파일 변환(DOC/XLS/PPT→PDF)</td><td class="inp num">≈0</td><td>서버 CPU(OpenOffice)</td><td>회당 소액</td><td>서버 부하</td></tr>
-<tr><td>CloudFront (아시아 전송)</td><td class="inp num">0.12</td><td>USD/GB</td><td>—</td><td>AWS 공식</td></tr>
-<tr><td>초기 서버 (Cafe24 가상)</td><td class="inp num">30,000</td><td>1vCPU/1GB</td><td>약 300명</td><td>Cafe24 참조</td></tr>
-<tr><td>성장 서버 (AWS EC2 t3.medium)</td><td class="inp num">55,000</td><td>2vCPU/4GB</td><td>약 2,000명</td><td>AWS 참조</td></tr>
-<tr><td>확대 서버 (AWS EC2 t3.xlarge)</td><td class="inp num">210,000</td><td>4vCPU/16GB</td><td>약 5,000명</td><td>AWS 참조</td></tr>
-<tr><td>DB (AWS RDS db.t3.micro)</td><td class="inp num">25,000</td><td>MariaDB 기본</td><td>약 1,000명</td><td>AWS 참조</td></tr>
-<tr class="note"><td colspan="5">파일 변환은 서버 CPU를 잠깐 쓰는 정도라 회당 원가가 매우 작음. 변환 한도(라이트 월5·크리에이터 월50·마스터 무제한)는 원가보다 서버 부하 관리 목적.</td></tr>
+<tr><td>서버 일반형 (Cafe24 VPS)</td><td class="inp num">7,000</td><td>1GB / 30GB SSD</td><td>약 300명</td><td>Cafe24 공식(VAT포함)</td></tr>
+<tr><td>서버 퍼스트클래스 (Cafe24 VPS)</td><td class="inp num">22,000</td><td>3GB / 50GB · 앱+DB</td><td>약 2,000명</td><td>Cafe24 공식</td></tr>
+<tr><td>서버 자이언트플러스 (Cafe24 VPS)</td><td class="inp num">55,000</td><td>6GB / 150GB · 앱+DB</td><td>약 5,000명</td><td>Cafe24 공식</td></tr>
+<tr><td>대규모 (VPS 다중·단독 + DB 전용)</td><td class="inp num">110,000~600,000</td><td>DB 분리</td><td>1만~10만명</td><td>Cafe24 추정</td></tr>
+<tr><td>DB (MariaDB)</td><td class="inp num">0 / 별도</td><td>소규모=서버 내장 · 대규모=전용 박스</td><td>—</td><td>온박스</td></tr>
+<tr><td>저장·전송 (AWS S3) — 유지</td><td class="inp num">플랜 원가</td><td>저장 340·1,020 + 전송 250·1,470</td><td>—</td><td>각 플랜 COST 반영</td></tr>
+<tr class="note"><td colspan="5"><b>[v3.7] 서버(컴퓨트)를 AWS EC2/RDS → 카페24 VPS로 전환.</b> DB(MariaDB)는 소규모 시 같은 서버에 올려 <b>별도 RDS 비용 제거</b>, 저장·전송은 <b>S3 유지</b>(각 플랜 원가에 이미 포함). 서버 고정비가 <b>AWS 대비 약 4~5배 저렴</b>(예 5만명 160만→30만) → 손익분기 하락. 단, 자동 스케일 없음·수동 운영·트래픽 초과 165원/GB. 지원 인원은 로컬-퍼스트(서버 부하 낮음) 가정 추정치이므로 실측 필요. 파일 변환은 서버 CPU 소액.</td></tr>
 </table></div></section>
 
 <!-- ============ 2_플랜한도 ============ -->
