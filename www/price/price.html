@@ -4,7 +4,7 @@
   리튼(Litten) 가격별·유저수별 매출·순이익 그래프  ·  파일명: price.html
   버전은 파일명이 아니라 이 파일 내부에서 관리합니다.
   ------------------------------------------------------------
-  현재 버전: v3.6  (최종 수정 2026-07-23)
+  현재 버전: v3.7  (최종 수정 2026-07-24)
     v2.x : 3단계(무료/스탠다드/프리미엄) · USD 가격 시나리오
     v3.0 : 4단계 고정 KRW · Haiku · 유료 3티어 구성비
     v3.1 : 고정비에 서버·DB비 추가
@@ -20,11 +20,15 @@
            · 앱스토어 수수료 15%(소상공인)/30% 토글
            · 마케팅비 = "월 고정"이 아니라 CAC × 월 신규(이탈 보충)로 전환
            · 이탈률(churn) 입력 신설 → 유지 CAC·LTV·LTV:CAC 계산
-  데이터 기준: 홈페이지 4단계 요금제(프리/라이트/크리에이터/마스터) 2026-07-23
-    · 앱스토어 수수료 15%/30% · 부가세 10% · AI Haiku(요약 24원·퀴즈 20원, 텍스트)
-    · 월 AI 상한 — 프리 132 · 라이트 220 · 크리에이터 1,320 · 마스터 4,400
+    v3.7 : [AI 티쳐 반영] 셀 AI 티쳐(gpt-4o-mini 대화형) 월 메시지 상한(5/40/400/1,000, ₩3/메시지)
+           · 원가 프리 132→147 · 라이트 220→340 · 크리에이터 1,910→3,110 · 마스터 6,890→9,890
+           · [조치] 전 티어 재책정 라이트 490→780·크리에이터 7,900→7,800·마스터 13,900→17,800
+           · 재책정 후 30% 공헌이익 라이트 +156·크리에이터 +1,854·마스터 +1,437 (전 티어 흑자) · 프리 체험 5메시지 유지
+  데이터 기준: 홈페이지 4단계 요금제(프리/라이트/크리에이터/마스터) 2026-07-24
+    · 앱스토어 수수료 15%/30% · 부가세 10% · AI Haiku(요약 24원·퀴즈 20원)·gpt-4o-mini(AI 티쳐 3원/메시지)
+    · 월 AI 상한 — 프리 147 · 라이트 340 · 크리에이터 2,520 · 마스터 7,400 (요약·퀴즈+티쳐)
     · 저장(S3) — 크리에이터 10GB 340 · 마스터 30GB 1,020, 전송 250·1,470 (원가에 포함)
-    · 무료(프리) 월 실원가 상한 ₩132 · 광고순익 = 광고수익 − 132
+    · 무료(프리) 월 실원가 상한 ₩147 · 광고순익 = 광고수익 − 147
     · 마케팅비 = 설치CAC × 월 신규(=총가입자×이탈률) · 서버·DB비 = 가입자 수 자동
   ============================================================
 -->
@@ -127,10 +131,10 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   <div class="ctrl" style="margin-bottom:12px">
     <label>확정 가격 (월, 앱스토어 인앱결제)</label>
     <div class="pricegrid">
-      <div class="pc"><div class="n">프리</div><div class="v">₩0</div><div class="c">원가 ₩132</div></div>
-      <div class="pc"><div class="n">라이트</div><div class="v">₩490</div><div class="c">원가 ₩220</div></div>
-      <div class="pc hl"><div class="n">크리에이터</div><div class="v">₩7,900</div><div class="c">원가 ₩1,910</div></div>
-      <div class="pc"><div class="n">마스터</div><div class="v">₩13,900</div><div class="c">원가 ₩6,890</div></div>
+      <div class="pc"><div class="n">프리</div><div class="v">₩0</div><div class="c">원가 ₩147</div></div>
+      <div class="pc"><div class="n">라이트</div><div class="v">₩780</div><div class="c">원가 ₩340</div></div>
+      <div class="pc hl"><div class="n">크리에이터</div><div class="v">₩7,800</div><div class="c">원가 ₩3,110</div></div>
+      <div class="pc"><div class="n">마스터</div><div class="v">₩17,800</div><div class="c">원가 ₩9,890</div></div>
     </div>
     <p class="selinfo" id="selInfo" style="margin-bottom:0"></p>
   </div>
@@ -187,10 +191,10 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
       <select id="freeSel">
         <option value="100">+100 (광고 양호)</option>
         <option value="0" selected>0 (무료 손익 중립)</option>
-        <option value="-66">−66 (원가 절반만 커버)</option>
-        <option value="-132">−132 (광고수익 0 = 원가만큼 적자)</option>
+        <option value="-73">−73 (원가 절반만 커버)</option>
+        <option value="-147">−147 (광고수익 0 = 원가만큼 적자)</option>
       </select>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">광고순익 = 광고수익 − 무료원가 ₩132(AI 3+3회). 음수면 무료 유저가 원가를 다 못 벌어 적자.</div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">광고순익 = 광고수익 − 무료원가 ₩147(AI 요약·퀴즈 각 3 + 티쳐 5, v3.7). 음수면 무료 유저가 원가를 다 못 벌어 적자.</div>
     </div>
     <div class="ctrl">
       <label>① 인원수 : <span class="val" id="headsVal">1명</span> <span style="font-weight:400;color:var(--muted);font-size:.76rem">(1인 = 개발+운영+CS 겸임)</span></label>
@@ -237,7 +241,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 
   <div class="callout">
     📌 <b>유료 결제자 구성 = 위에서 선택한 구성비.</b> 유료로 전환한 사용자를
-    <b>라이트(₩490) · 크리에이터(₩7,900) · 마스터(₩13,900)</b> 세 티어로 나눠 각 티어의 매출·공헌이익을 계산합니다.
+    <b>라이트(₩780) · 크리에이터(₩7,800) · 마스터(₩17,800)</b> 세 티어로 나눠 각 티어의 매출·공헌이익을 계산합니다.
     티어별 공헌이익 = 가격÷1.1(부가세 제외)×(1−수수료) − 월 원가. 수수료는 상단 토글(15%/30%).
     <div class="ratio-bar" id="mixBar1"></div>
     <div class="ratio-lab" id="mixLab1"></div>
@@ -258,7 +262,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   <div class="twrap"><table id="dataTable"></table></div>
 
   <div class="note">
-    <b>계산 기준:</b> 수수료 15%/30%(토글) · 부가세 10% 제외 · 원가(월 상한) 라이트 ₩220 · 크리에이터 ₩1,910 · 마스터 ₩6,890 (Haiku·텍스트·저장·전송 포함).
+    <b>계산 기준:</b> 수수료 15%/30%(토글) · 부가세 10% 제외 · 원가(월 상한) 라이트 ₩340 · 크리에이터 ₩3,110 · 마스터 ₩9,890 (Haiku·gpt-4o-mini AI 티쳐·텍스트·저장·전송 포함, v3.7).
     선택한 전체 가입자 × 전환율 = 유료, 이를 <b>구성비</b>로 세 티어에 나눠 각 그룹의 <b>매출</b>(가격×인원)과 <b>공헌이익</b>(가격÷1.1×(1−수수료)−원가)을 계산합니다. 마케팅(CAC)·고정비는 섹션2에서 반영.
   </div>
 </section>
@@ -298,9 +302,9 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
 (function(){
   var VAT=1.1;    // 부가세 10% — 매출에서 ÷1.1로 먼저 제외(국가 납부분)
   /* 확정 가격 (KRW/월) */
-  var PRICE={lite:490, creator:7900, master:13900};
-  /* 월 원가 (KRW/인) — Haiku·텍스트·월 상한 (AI + 저장 + 전송) */
-  var COST={free:132, lite:220, creator:1910, master:6890};
+  var PRICE={lite:780, creator:7800, master:17800};
+  /* 월 원가 (KRW/인) — Haiku(요약·퀴즈)·gpt-4o-mini(AI 티쳐)·월 상한 (AI + 저장 + 전송) [v3.7] */
+  var COST={free:147, lite:340, creator:3110, master:9890};
   var FREE_COST=COST.free;
 
   /* 유료 구성비 시나리오 (라이트 : 크리에이터 : 마스터) */
@@ -381,9 +385,9 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     function row(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
     var m=M();
     var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>공헌이익(₩/'+P+')</th></tr>';
-    html+=row('라이트 ('+Math.round(m.lite*100)+'%) · ₩490', c.lite, revL, pfL);
-    html+=row('크리에이터 ('+Math.round(m.creator*100)+'%) · ₩7,900', c.creator, revC, pfC);
-    html+=row('마스터 ('+Math.round(m.master*100)+'%) · ₩13,900', c.master, revM, pfM);
+    html+=row('라이트 ('+Math.round(m.lite*100)+'%) · ₩780', c.lite, revL, pfL);
+    html+=row('크리에이터 ('+Math.round(m.creator*100)+'%) · ₩7,800', c.creator, revC, pfC);
+    html+=row('마스터 ('+Math.round(m.master*100)+'%) · ₩17,800', c.master, revM, pfM);
     html+='<tr class="peruser"><td><b>유료 합계</b></td><td>'+Math.round(c.paid).toLocaleString()+'명</td><td>'+Math.round(revL+revC+revM).toLocaleString()+'</td><td>'+((pfL+pfC+pfM)>=0?'+':'')+Math.round(pfL+pfC+pfM).toLocaleString()+'</td></tr>';
     document.getElementById('dataTable').innerHTML=html;
   }
