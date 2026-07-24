@@ -187,14 +187,13 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
       <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.76rem">유료 결제자 중 세 티어 비중(가정) → 기본 <b>50:35:15</b></div>
     </div>
     <div class="ctrl">
-      <label>② 무료 유저 광고순익 (₩/월·인)</label>
+      <label>② 무료 유저 광고순익 : <span class="val" id="freeNetVal">₩0</span> <span style="font-weight:400;color:var(--muted);font-size:.74rem">(전체 가입자수 기준 자동 평균)</span></label>
       <select id="freeSel">
-        <option value="100">+100 (광고 양호)</option>
-        <option value="0" selected>0 (무료 손익 중립)</option>
-        <option value="-73">−73 (원가 절반만 커버)</option>
-        <option value="-147">−147 (광고수익 0 = 원가만큼 적자)</option>
+        <option value="0.7">보수 (eCPM 낮음·글로벌 비중↑)</option>
+        <option value="1" selected>기본</option>
+        <option value="1.3">낙관 (직접딜·선진국 활성↑)</option>
       </select>
-      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">광고순익 = 광고수익 − 무료원가 ₩147(AI 요약·퀴즈 각 3 + 티쳐 5, v3.7). 음수면 무료 유저가 원가를 다 못 벌어 적자.</div>
+      <div class="note" style="margin:6px 0 0;padding:6px 10px;font-size:.78rem">광고순익 = <b>광고총수익 − 무료원가 ₩70(현실적 평균)</b>. 대다수 무료 유저가 AI를 가볍게 쓰므로 상한 147이 아닌 <b>평균 70</b>을 기본으로 씀(상한 147은 최악 케이스). 광고총수익은 <b>전체 가입자수↑ → eCPM·직접딜↑</b>로 자동 상승(기본 배율): ~1천 <b>−40</b> · ~1만 <b>0</b> · ~5만 <b>+40</b> · ~10만 <b>+80</b> · ~50만 <b>+120</b> · 50만+ <b>+160</b>. 상단 🎚 전체 가입자 슬라이더에 연동.</div>
     </div>
     <div class="ctrl">
       <label>① 인원수 : <span class="val" id="headsVal">1명</span> <span style="font-weight:400;color:var(--muted);font-size:.76rem">(1인 = 개발+운영+CS 겸임)</span></label>
@@ -305,7 +304,21 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   var PRICE={lite:780, creator:7800, master:17800};
   /* 월 원가 (KRW/인) — Haiku(요약·퀴즈)·gpt-4o-mini(AI 티쳐)·월 상한 (AI + 저장 + 전송) [v3.7] */
   var COST={free:147, lite:340, creator:3110, master:9890};
-  var FREE_COST=COST.free;
+  var FREE_COST=COST.free;         // 무료 원가 상한(AI 100% 소진) = 147, 최악 케이스
+  var FREE_COST_AVG=70;            // 무료 원가 현실적 평균(대다수 유저 AI 가볍게 사용) — 손익 기본값
+
+  /* 무료 유저 광고총수익(₩/월·인) — 전체 가입자수↑ → 광고 성숙도(eCPM·직접딜·선진국 비중)↑.
+     규모 단계로 자동 증가(초기엔 fill·eCPM 낮아 거의 못 붙이고, 대규모일수록 단가·직접딜 상승). */
+  function adGrossFree(T){
+    if(T<=1000)   return 30;
+    if(T<=10000)  return 70;
+    if(T<=50000)  return 110;
+    if(T<=100000) return 150;
+    if(T<=500000) return 190;
+    return 230;
+  }
+  /* 무료 유저 광고순익(평균) = 광고총수익 × 성숙도배율(보수/기본/낙관) − 현실적 평균원가(₩70) */
+  function freeNetAvg(){ return Math.round(adGrossFree(state.total)*state.freeAdj) - FREE_COST_AVG; }
 
   /* 유료 구성비 시나리오 (라이트 : 크리에이터 : 마스터) */
   var MIXES=[
@@ -314,7 +327,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     {label:'30:40:30', lite:0.30, creator:0.40, master:0.30},
     {label:'25:45:30', lite:0.25, creator:0.45, master:0.30}
   ];
-  var state={mix:0, period:'month', conv:5, freeNet:0, heads:1, perPerson:0, total:1000, fee:0.15, cac:800, churn:5};
+  var state={mix:0, period:'month', conv:5, freeAdj:1, heads:1, perPerson:0, total:1000, fee:0.15, cac:800, churn:5};
 
   function serverCost(T){
     if(T<=300) return 30000;
@@ -435,18 +448,19 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   /* ---------- 섹션 2: 사업 손익 ---------- */
   function perTotalUser(){
     var m=M(), c=state.conv/100;
-    var adRevFree=state.freeNet+FREE_COST;
+    var fn=freeNetAvg(), adRevFree=fn+FREE_COST_AVG;
     return {
       rev: c*revPU(m) + (1-c)*adRevFree,
       /* 순공헌이익 = 유료·무료 공헌 − 유지 CAC(유저당). 인건비·서버는 별도 고정비 */
-      contrib: c*profPU(m) + (1-c)*state.freeNet - retCAC()
+      contrib: c*profPU(m) + (1-c)*fn - retCAC()
     };
   }
   var bizChart=null;
   function buildBiz(){
     var f=fac(), P=pw(), c=counts();
-    var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
-    var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
+    var fn=freeNetAvg();
+    var revFree=c.free*(fn+FREE_COST_AVG)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfFree=c.free*fn*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
     var mkt=marketingCost()*f, fixed=trueFixed()*f, totRev=revFree+revL+revC+revM, totProf=pfFree+pfL+pfC+pfM-mkt-fixed;
     var rev=[revFree,revL,revC,revM,totRev], prof=[pfFree,pfL,pfC,pfM,totProf];
     var profColor=prof.map(function(v){ return v>=0?'#dc2626':'#2563eb'; });
@@ -462,8 +476,9 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   }
   function buildBizTable(){
     var f=fac(), P=pw(), c=counts(), T=state.total;
-    var revFree=c.free*(state.freeNet+FREE_COST)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
-    var pfFree=c.free*state.freeNet*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
+    var fn=freeNetAvg();
+    var revFree=c.free*(fn+FREE_COST_AVG)*f, revL=c.lite*PRICE.lite*f, revC=c.creator*PRICE.creator*f, revM=c.master*PRICE.master*f;
+    var pfFree=c.free*fn*f, pfL=c.lite*tierProf('lite')*f, pfC=c.creator*tierProf('creator')*f, pfM=c.master*tierProf('master')*f;
     var mkt=marketingCost()*f, fixed=trueFixed()*f, preRev=revFree+revL+revC+revM, preProf=pfFree+pfL+pfC+pfM, net=preProf-mkt-fixed;
     function rowg(lbl,n,rev,pf){ return '<tr><td>'+lbl+'</td><td>'+Math.round(n).toLocaleString()+'명</td><td>'+Math.round(rev).toLocaleString()+'</td><td class="'+(pf>=0?'pos':'neg')+'">'+(pf>=0?'+':'')+Math.round(pf).toLocaleString()+'</td></tr>'; }
     var html='<tr><th>구분</th><th>인원</th><th>매출액(₩/'+P+')</th><th>공헌이익(₩/'+P+')</th></tr>';
@@ -498,6 +513,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('headsVal').textContent=state.heads+'명';
     document.getElementById('perPersonVal').textContent='₩'+state.perPerson.toLocaleString();
     document.getElementById('serverVal').textContent='₩'+serverCost(state.total).toLocaleString();
+    var _fn=freeNetAvg(); document.getElementById('freeNetVal').textContent=(_fn>=0?'+₩':'−₩')+Math.abs(_fn).toLocaleString();
     document.getElementById('cacVal').textContent='₩'+state.cac.toLocaleString();
     document.getElementById('churnVal').textContent=state.churn+'%';
     document.getElementById('mktVal').textContent='₩'+Math.round(marketingCost()).toLocaleString();
@@ -516,8 +532,9 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
     document.getElementById('totalVal').textContent=T.toLocaleString()+'명';
     document.getElementById('totalPaid').textContent=Math.round(paid).toLocaleString()+'명';
     document.getElementById('totalFree').textContent=Math.round(free).toLocaleString()+'명';
-    var subRev=paid*revPU(m)*f, adRev=free*(state.freeNet+FREE_COST)*f, totRev=subRev+adRev;
-    var paidProf=paid*profPU(m)*f, freeProf=free*state.freeNet*f, mkt=marketingCost()*f, fixed=trueFixed()*f;
+    var fn=freeNetAvg();
+    var subRev=paid*revPU(m)*f, adRev=free*(fn+FREE_COST_AVG)*f, totRev=subRev+adRev;
+    var paidProf=paid*profPU(m)*f, freeProf=free*fn*f, mkt=marketingCost()*f, fixed=trueFixed()*f;
     var net=paidProf+freeProf-mkt-fixed;
     /* LTV:CAC — 유료 1인 기준 */
     var paidLTV=state.churn>0 ? profPU(m)/(state.churn/100) : profPU(m)*999;
@@ -552,7 +569,7 @@ tr.mix td{background:#faf7ff;color:#6d28d9;font-size:.8rem;}
   convR.oninput=function(){ state.conv=parseFloat(convR.value); document.getElementById('convVal').textContent=state.conv+'%'; drawAll(); };
   document.querySelectorAll('#convPresets button').forEach(function(b){ b.onclick=function(){ state.conv=parseFloat(b.getAttribute('data-v')); convR.value=state.conv; document.getElementById('convVal').textContent=state.conv+'%'; drawAll(); }; });
 
-  document.getElementById('freeSel').onchange=function(){ state.freeNet=parseFloat(this.value); drawBiz(); };
+  document.getElementById('freeSel').onchange=function(){ state.freeAdj=parseFloat(this.value); updateFixedDisplay(); drawBiz(); };
 
   function refreshFixed(){ updateFixedDisplay(); drawBiz(); }
   var headsR=document.getElementById('headsRange');
