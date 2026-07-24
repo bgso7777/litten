@@ -93,10 +93,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   void _jumpToBottom() {
+    // reverse:true 리스트에선 맨 아래(최신)가 offset 0. 새 메시지 전송 후 최신으로 붙인다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
         _scroll.animateTo(
-          _scroll.position.maxScrollExtent + 80,
+          0,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -115,7 +116,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.smart_toy_outlined, size: 18),
+                const Icon(Icons.auto_awesome, size: 18),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(widget.title,
@@ -141,13 +142,16 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     ? _emptyHint(color)
                     : ListView.builder(
                         controller: _scroll,
+                        // 카카오톡 방식: 최신 메시지가 항상 맨 아래(입력창 바로 위)에 오고,
+                        // 진입 시 자동으로 최신이 보이도록 역방향 리스트를 쓴다(index 0 = 맨 아래).
+                        reverse: true,
                         padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                         itemCount: _messages.length + (_sending ? 1 : 0),
                         itemBuilder: (ctx, i) {
-                          if (_sending && i == _messages.length) {
-                            return _typingBubble(color);
-                          }
-                          final m = _messages[i];
+                          // 전송 중이면 맨 아래(i=0)에 'AI 입력 중' 버블을 둔다.
+                          if (_sending && i == 0) return _typingBubble(color);
+                          final idx = _messages.length - 1 - (_sending ? i - 1 : i);
+                          final m = _messages[idx];
                           final isUser = m['role'] == 'user';
                           return _bubble(m['content']?.toString() ?? '', isUser, color);
                         },
@@ -166,7 +170,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smart_toy_outlined, size: 48, color: color.withValues(alpha: 0.5)),
+            Icon(Icons.auto_awesome, size: 48, color: color.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(
               widget.topic.isNotEmpty

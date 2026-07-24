@@ -759,7 +759,7 @@ class _RemindBodyViewState extends State<_RemindBodyView>
           ),
         ),
         child: SizedBox(
-          height: 28.0,
+          height: 31.0, // 검색창 +10% 높이에 맞춤(기존 28)
           child: searchOn
               // 검색 모드: 리마인드 제목의 검색과 동일한 크기(고정 180×28)로, 가운데 정렬.
               ? Center(

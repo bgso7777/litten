@@ -1106,7 +1106,8 @@ class _AllFilesTabState extends State<AllFilesTab> {
                   // STT 전용 / 첨부 전용 모드는 기존 단일 FAB 유지
                   if (_singleFilter)
                     Positioned(
-                      bottom: 28,
+                      // 메모 탭 FAB(bottom:16)와 수직 위치 일치 — 탭 전환 시 버튼이 튀지 않도록.
+                      bottom: 16,
                       left: 0,
                       right: 0,
                       child: widget.showOnlySTT
@@ -1206,11 +1207,19 @@ class _AllFilesTabState extends State<AllFilesTab> {
         padding: const EdgeInsets.only(right: 16),
         child: FloatingActionButton(
           heroTag: 'stt_memo_fab',
+          mini: true,
           backgroundColor: color,
           foregroundColor: Colors.white,
           onPressed: () => _openEditorView(_EditorType.text, autoCreate: true, autoStartSTT: true),
-          // 흰 아이콘/색 배경 FAB → 색 배지 변형(RecordMemoSpeedDialIcon) 사용.
-          child: const RecordMemoSpeedDialIcon(),
+          // 메모 탭처럼 "아이콘+" 형태 — 녹음메모(RecordMemoSpeedDialIcon) 아이콘 + 추가(+).
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RecordMemoSpeedDialIcon(),
+              SizedBox(width: 2),
+              Icon(Icons.add, size: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -1223,10 +1232,19 @@ class _AllFilesTabState extends State<AllFilesTab> {
         padding: const EdgeInsets.only(right: 16),
         child: FloatingActionButton(
           heroTag: 'attachments_only_fab',
+          mini: true,
           backgroundColor: color,
           foregroundColor: Colors.white,
           onPressed: _addAttachmentFromFiles,
-          child: const Icon(Icons.drive_folder_upload),
+          // 메모 탭처럼 "아이콘+" 형태 — 파일(drive_folder_upload) 아이콘 + 추가(+).
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.drive_folder_upload, size: 16),
+              SizedBox(width: 2),
+              Icon(Icons.add, size: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -1240,10 +1258,19 @@ class _AllFilesTabState extends State<AllFilesTab> {
         padding: const EdgeInsets.only(right: 16),
         child: FloatingActionButton(
           heroTag: isVideo ? 'video_only_fab' : 'photo_only_fab',
+          mini: true,
           backgroundColor: color,
           foregroundColor: Colors.white,
           onPressed: isVideo ? _addVideo : _addPhoto,
-          child: Icon(isVideo ? Icons.videocam : Icons.photo_camera),
+          // 메모 탭처럼 "아이콘+" 형태 — 사진/비디오 아이콘 + 추가(+).
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isVideo ? Icons.videocam : Icons.photo_camera, size: 16),
+              const SizedBox(width: 2),
+              const Icon(Icons.add, size: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -4225,8 +4252,8 @@ class _AllTabTitleSearchState extends State<_AllTabTitleSearch> {
     final l10n = AppLocalizations.of(context);
     // 하단 생성 칩 알약과 동일한 크기·스타일 (radius 20, 테두리 alpha0.2, 바탕 alpha0.15, 아이콘16, 폰트13, 세로패딩3)
     return SizedBox(
-      width: 180,
-      height: 28,
+      width: 216, // 기존 180에서 좌우 +20%
+      height: 31, // 기존 28에서 상하 +10%
       child: TextField(
         controller: _c,
         onChanged: (v) {

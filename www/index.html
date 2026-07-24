@@ -774,7 +774,7 @@
                 <span><span class="fe">💬</span> 셀</span>
             </div>
             <h1>배우고 기록하고,<br>복습하고 나누다</h1>
-            <p class="tagline">학습 채널로 <strong>예습</strong>하고, 수업을 노트에 담고, <strong>AI 요약·퀴즈</strong>로 복습하고,<br class="d-br"><strong>셀</strong>에서 함께 — 리튼은 학습의 전 과정을 하나로 잇습니다</p>
+            <p class="tagline">AI 티쳐와 학습 채널로 <strong>예습</strong>하고, 수업을 노트에 담고, <strong>AI 요약·퀴즈</strong>로 복습하고,<br class="d-br"><strong>셀</strong>에서 함께 — 리튼은 학습의 전 과정을 하나로 잇습니다</p>
             <div class="cta-buttons">
                 <a href="#pricing" class="btn btn-primary">무료로 시작하기</a>
                 <a href="#core" class="btn btn-secondary">기능 살펴보기</a>
@@ -792,8 +792,8 @@
     <section id="core" class="core">
         <div class="section-head reveal">
             <span class="eyebrow">Learning Cycle</span>
-            <h2 class="section-title">예습부터 복습까지, 학습의 한 사이클</h2>
-            <p class="section-subtitle">학습 영상으로 예습하고 · 노트로 배우고 · 리마인드로 복습하고 · 셀에서 함께</p>
+            <h2 class="section-title">AI와 함께, 예습부터 복습까지 함께<br>학습의 한 사이클</h2>
+            <p class="section-subtitle">AI 티쳐·채널로 예습하고 · 노트로 배우고 · AI 요약·퀴즈로 복습하고 · AI 셀·스터디셀에서 함께</p>
         </div>
         <div class="core-grid" id="coreGrid"></div>
     </section>
@@ -1043,7 +1043,7 @@
             { key:'ai',   label:'🤖 AI 정리·학습', sub:'요약·번역·퀴즈로 복습까지 한 번에',    color:'#7c6bd6', tile:'#ece9fb' },
             { key:'정리', label:'🗂️ 정리',        sub:'리튼 공간·파일을 모으고 검색',          color:'#2aa79b', tile:'#dcf3ef' },
             { key:'일정', label:'📅 일정',        sub:'캘린더와 알림으로 일정 관리',           color:'#d9608f', tile:'#fbe6ef' },
-            { key:'공유', label:'💬 공유·미디어',  sub:'셀에서 함께, 영상·웹까지',        color:'#e0805a', tile:'#fbe9e1' },
+            { key:'공유', label:'💬 셀·공유',      sub:'AI 셀·스터디셀에서 함께 공부',    color:'#e0805a', tile:'#fbe9e1' },
             { key:'저장', label:'☁️ 저장·동기화',  sub:'어디서나 안전하게 보관하고 동기화',      color:'#5577b3', tile:'#e7edf8' },
             { key:'맞춤', label:'⚙️ 맞춤·글로벌',  sub:'30개 언어·5가지 테마로 내 맘대로',      color:'#d59128', tile:'#fbefd8' },
         ];
@@ -1057,10 +1057,11 @@
             { g:'기록', t:'photo',    name:'사진',      desc:'사진을 첨부해 함께 보관' },
             { g:'기록', t:'video',    name:'비디오',    desc:'영상을 첨부하고 재생' },
             // 🤖 AI 정리·학습
-            { g:'ai',   t:'summary',  name:'AI 요약',   desc:'텍스트·음성·PDF를 자동 요약' },
+            { g:'ai',   t:'summary',  name:'AI 요약',   desc:'텍스트·PDF를 자동 요약' },
             { g:'ai',   t:'translate',name:'다국어 요약', desc:'원문을 다른 언어로 요약·번역' },
             { g:'ai',   t:'quiz',     name:'퀴즈',      desc:'AI가 학습 퀴즈를 자동 생성' },
             { g:'ai',   t:'remind',   name:'리마인드',  desc:'요약·퀴즈를 모아 복습' },
+            { g:'ai',   t:'channel',  name:'영상채널',  desc:'유튜브 채널 구독·영상 요약' },
             // 🗂️ 정리·일정
             { g:'정리', t:'space',    name:'리튼 공간', desc:'듣기·쓰기·필기를 한 공간에 통합' },
             { g:'정리', t:'file',     name:'파일',      desc:'다양한 문서·파일 첨부 관리' },
@@ -1068,12 +1069,12 @@
             { g:'정리', t:'search',   name:'파일 검색', desc:'파일명·내용을 빠르게 검색' },
             { g:'일정', t:'calendar', name:'캘린더',    desc:'일정을 한눈에 관리' },
             { g:'일정', t:'alarm',    name:'일정 알림', desc:'정시·10분 전 등 맞춤 알림' },
-            // 💬 공유·미디어
-            { g:'공유', t:'studyroom',name:'셀',      desc:'1:1·그룹·나만의 셀로 학습자료 공유' },
+            // 💬 셀·공유
+            { g:'공유', t:'aicell',   name:'AI 셀',    desc:'AI 튜터와 주제를 정해 1:1로 배우고 질문', badge:'NEW' },
+            { g:'공유', t:'studyroom',name:'스터디셀',  desc:'그룹으로 자료를 나누며 함께 공부하는 셀' },
             { g:'공유', t:'studytalk',name:'셀 대화',  desc:'셀 멤버와 대화하며 함께 학습' },
             { g:'공유', t:'share',    name:'공유',      desc:'리튼·파일을 손쉽게 공유' },
-            { g:'공유', t:'channel',  name:'영상채널',  desc:'유튜브 채널 구독·영상 요약' },
-            { g:'공유', t:'browser',  name:'인앱 브라우저', desc:'앱에서 바로 웹 검색·자료 열람' },
+            { g:'공유', t:'calendar', name:'일정 공유',  desc:'셀 멤버와 일정을 공유하고 함께 관리' },
             // ☁️ 저장·동기화
             { g:'저장', t:'sync',     name:'동기화',    desc:'기기 간 클라우드 자동 동기화' },
             { g:'저장', t:'backup',   name:'클라우드 백업', desc:'파일을 서버에 안전하게 보관' },
@@ -1083,6 +1084,7 @@
             { g:'맞춤', t:'split',    name:'4면 분할', desc:'화면을 4분할해 동시 작업' },
             { g:'맞춤', t:'fab',      name:'FAB 커스터마이즈', desc:'빠른 추가 버튼을 내 맘대로 구성' },
             { g:'맞춤', t:'layout',   name:'화면 구성 맞춤', desc:'태블릿·폰 화면을 내 맘대로 구성' },
+            { g:'맞춤', t:'browser',  name:'인앱 브라우저', desc:'앱에서 바로 웹 검색·자료 열람' },
             { g:'맞춤', t:'lang',     name:'30개 언어', desc:'전 세계 30개 언어 지원' },
             { g:'맞춤', t:'theme',    name:'5가지 테마', desc:'취향대로 5가지 색상 테마' },
         ];
@@ -1149,6 +1151,10 @@
                     <circle cx="8" cy="10.7" r="1.25" fill="${cut}"/>
                     <circle cx="12" cy="10.7" r="1.25" fill="${cut}"/>
                     <circle cx="16" cy="10.7" r="1.25" fill="${cut}"/>`,
+                aicell: `<rect x="3" y="3.6" width="18" height="13" rx="3.2" fill="${body}"/>
+                    <path d="M8 16.4 L8 20.4 L13.6 16.4 Z" fill="${body}"/>
+                    <path d="M12 5.7 L13.2 8.9 L16.4 10.1 L13.2 11.3 L12 14.5 L10.8 11.3 L7.6 10.1 L10.8 8.9 Z" fill="${cut}"/>
+                    <path d="M17 5 L17.5 6.4 L18.9 6.9 L17.5 7.4 L17 8.8 L16.5 7.4 L15.1 6.9 L16.5 6.4 Z" fill="${cut}" opacity="0.85"/>`,
                 search: `<circle cx="10.2" cy="10.2" r="6.4" fill="none" stroke="${body}" stroke-width="2.4"/>
                     <circle cx="10.2" cy="10.2" r="3" fill="${cut}"/>
                     <path d="M15 15 L20.2 20.2" stroke="${body}" stroke-width="2.7" stroke-linecap="round"/>`,
@@ -1243,14 +1249,14 @@
 
         // ── 학습 사이클 4단계 (기능 섹션과 동일한 소프트 아이콘 컨셉) ──
         const CORE = [
-            { t:'channel',  color:'#3f86d8', tile:'#e3eefb', step:'예습', title:'채널 구독으로 예습', desc:'관심 학습 채널을 구독하고 영상을 미리 학습하세요.',
-              li:['유튜브 채널 구독·새 영상 알림','영상 자막 추출','영상 AI 요약·퀴즈','링크 하나로 저장'] },
+            { t:'channel',  color:'#3f86d8', tile:'#e3eefb', step:'예습', title:'AI 티쳐와 채널 구독으로 예습', desc:'AI 티쳐에게 배울 주제를 미리 묻고, 관심 학습 채널을 구독해 영상으로 예습하세요.',
+              li:['AI 티쳐와 주제별 예습·질문','유튜브 채널 구독·새 영상 알림','영상 자막 추출','영상 AI 요약·퀴즈'] },
             { t:'memo',     color:'#2aa79b', tile:'#dcf3ef', step:'노트', title:'수업을 노트로 기록', desc:'메모·필기·PDF 주석·녹음으로 수업을 자유롭게 담으세요.',
               li:['리치 텍스트 메모','이미지·PDF 위 필기','PDF 하이라이트·주석','음성 녹음 + STT'] },
             { t:'remind',   color:'#7c6bd6', tile:'#ece9fb', step:'복습', title:'AI로 정리하고 복습', desc:'AI 요약·퀴즈로 정리하고 리마인드로 반복 복습하세요.',
               li:['AI 요약 (1~5단계)','학습 퀴즈 자동 생성','리마인드 모아보기','일정 알림으로 복습'] },
-            { t:'studyroom', color:'#e0805a', tile:'#fbe9e1', step:'공유', title:'셀에서 함께', desc:'자료와 대화를 나누며 친구·셀 멤버와 함께 공부하세요.',
-              li:['1:1 · 그룹 · 나만의 셀','학습자료 공유','셀 대화','셀별 자료·대화 관리'] },
+            { t:'aicell', color:'#e0805a', tile:'#fbe9e1', step:'공유', title:'AI 셀·스터디셀에서 함께', desc:'AI 튜터와 1:1로 배우고, 스터디셀에서 친구들과 자료·대화를 나누며 함께 공부하세요.',
+              li:['AI 셀 — AI 튜터와 주제별 학습','스터디셀 — 그룹으로 함께 공부','학습자료 공유 · 셀 대화','셀별 자료·대화 관리'] },
         ];
         document.getElementById('coreGrid').innerHTML = CORE.map((c, i) =>
             `<div class="core-card reveal" style="--accent:${c.color}"><span class="core-step">STEP ${i + 1} · ${c.step}</span><div class="core-icon">${tileSoft(sym(c.t, c.color, '#ffffff'), c.tile)}</div><h3>${c.title}</h3><p>${c.desc}</p><ul>${c.li.map(x => `<li>${x}</li>`).join('')}</ul></div>`

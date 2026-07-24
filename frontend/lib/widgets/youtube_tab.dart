@@ -1281,7 +1281,16 @@ class _YoutubeTabState extends State<YoutubeTab> with AutomaticKeepAliveClientMi
             onPressed: _openManagementSheet,
             tooltip: '채널 구독 관리',
             backgroundColor: Theme.of(context).primaryColor,
-            child: const YoutubeSpeedDialIcon(),
+            foregroundColor: Colors.white,
+            // 메모 탭처럼 "아이콘+" 형태 — 전체탭 칩의 영상채널(subscriptions) 아이콘 + 추가(+).
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.subscriptions, size: 16),
+                SizedBox(width: 2),
+                Icon(Icons.add, size: 16),
+              ],
+            ),
           ),
         ),
       ],

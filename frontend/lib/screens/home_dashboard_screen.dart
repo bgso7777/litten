@@ -599,9 +599,21 @@ class _ShareSectionState extends State<_ShareSection>
   }
 
   /// 대화방 메시지 리스트를 맨 아래(최신)로 이동. 렌더 후 실제 최대 스크롤 위치로.
+  /// ListView.builder는 화면 밖 항목 높이를 지연 측정하므로 첫 jump가 실제 바닥에
+  /// 못 미쳐 '중간에서 멈춤'이 생긴다. 여러 프레임에 걸쳐 재보정해 확실히 최신(맨 아래)에 도달시킨다.
   void _jumpChatToBottom() {
     if (!_chatScrollCtrl.hasClients) return;
     _chatScrollCtrl.jumpTo(_chatScrollCtrl.position.maxScrollExtent);
+    for (int n = 1; n <= 6; n++) {
+      Future.delayed(Duration(milliseconds: n * 60), () {
+        if (!_chatScrollCtrl.hasClients) return;
+        final max = _chatScrollCtrl.position.maxScrollExtent;
+        // 아직 실제 바닥에 못 왔으면(레이아웃이 더 늘어났으면) 다시 바닥으로.
+        if ((_chatScrollCtrl.offset - max).abs() > 4) {
+          _chatScrollCtrl.jumpTo(max);
+        }
+      });
+    }
   }
 
   Future<void> _loadConvRead() async {
@@ -1127,9 +1139,10 @@ class _ShareSectionState extends State<_ShareSection>
                   : (ac['topic']?.toString() ?? 'AI 셀'),
               isAi: true, aiChatId: id, topic: ac['topic']?.toString() ?? ''));
       // 목록 미리보기·정렬용 마지막 메시지 1건(서버 updatedAt 기준).
+      // received:false — AI 셀은 '받은 안읽음' 개념이 없으므로 안읽음 뱃지(1) 표시 안 되게 한다.
       final lastMsg = ac['lastMessage']?.toString();
       conv.items.add(_ShareItem(
-          received: true,
+          received: false,
           data: {
             'content': (lastMsg == null || lastMsg.isEmpty) ? 'AI와 대화를 시작해 보세요.' : lastMsg,
             'sharedAt': ac['updatedAt'],
@@ -2126,6 +2139,38 @@ class _ShareSectionState extends State<_ShareSection>
     );
   }
 
+  /// AI 셀 아바타 — 육각형 배경 + 사람 아이콘 + 우하단에 AI(스파클) 뱃지.
+  /// '나 + AI'가 대화하는 셀임을 한눈에 보여준다.
+  Widget _aiAvatar(Color color) {
+    return _HexAvatar(
+      background: color.withValues(alpha: 0.15),
+      child: SizedBox(
+        width: 26,
+        height: 26,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.person, color: color, size: 20),
+            Positioned(
+              right: -3,
+              bottom: -3,
+              child: Container(
+                padding: const EdgeInsets.all(1.5),
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+                child: const Icon(Icons.auto_awesome, size: 9, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 대화 목록 한 줄 (상대/그룹). 탭하면 대화방 진입(잠금 그룹은 비밀번호 확인).
   Widget _convRow(_Conv c, Map<String, Map<String, dynamic>> ownedByName, Color color,
       String myEmail) {
@@ -2155,8 +2200,10 @@ class _ShareSectionState extends State<_ShareSection>
     }
 
     return ListTile(
-      leading: _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
-          mine: isOwned || c.isSelf),
+      leading: c.isAi
+          ? _aiAvatar(color)
+          : _peopleAvatar(_peopleCount(c, ownedByName, myEmail), color, isOwned,
+              mine: isOwned || c.isSelf),
       title: Row(children: [
         Flexible(
           child: Text(c.label, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -3047,7 +3094,7 @@ class _ShareSectionState extends State<_ShareSection>
                   bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.3))),
             ),
             child: SizedBox(
-              height: 28.0,
+              height: 31.0, // 검색창 +10% 높이에 맞춤(기존 28)
               // 상단 탭제목과 동일한 통계↔검색 토글. 통계=파일아이콘+카운트, 검색=검색창.
               // 우측 토글: 검색 중이면 통계아이콘, 통계 중이면 검색아이콘.
               child: Center(
@@ -4008,7 +4055,7 @@ class _NewChatAiTabState extends State<_NewChatAiTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smart_toy_outlined, size: 40, color: color.withValues(alpha: 0.5)),
+            Icon(Icons.auto_awesome, size: 40, color: color.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(l10n?.aiCellLoginRequired ?? 'AI 셀은 로그인 후 이용할 수 있어요.',
                 textAlign: TextAlign.center,
@@ -4045,7 +4092,7 @@ class _NewChatAiTabState extends State<_NewChatAiTab> {
             onPressed: _start,
             style: ElevatedButton.styleFrom(
                 backgroundColor: color, foregroundColor: Colors.white),
-            icon: const Icon(Icons.smart_toy_outlined, size: 18),
+            icon: const Icon(Icons.auto_awesome, size: 18),
             label: Text(l10n?.aiCellCreate ?? 'AI 대화 시작'),
           ),
         ],

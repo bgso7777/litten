@@ -16,7 +16,7 @@ class TabTitleSearchField extends StatefulWidget {
     super.key,
     required this.initialValue,
     required this.onChanged,
-    this.width = 180,
+    this.width = 216, // 기존 180에서 좌우 +20%
   });
 
   @override
@@ -45,7 +45,7 @@ class _TabTitleSearchFieldState extends State<TabTitleSearchField> {
     // 하단 생성 칩 알약과 동일한 크기·스타일(radius 20, 테두리 alpha0.2, 바탕 alpha0.15, 아이콘16, 폰트13, 세로패딩3).
     return SizedBox(
       width: widget.width,
-      height: 28,
+      height: 31, // 기존 28에서 상하 +10%
       child: TextField(
         controller: _c,
         onChanged: (v) {

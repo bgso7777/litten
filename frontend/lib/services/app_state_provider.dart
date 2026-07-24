@@ -1318,9 +1318,13 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       'all':         savedTabPositionAll ?? 'topLeft',
       'text':        prefs.getString('tab_position_text') ?? 'topLeft',
       'handwriting': prefs.getString('tab_position_handwriting') ?? 'topLeft',
+      'files':       prefs.getString('tab_position_files') ?? 'topLeft',
+      'youtube':     prefs.getString('tab_position_youtube') ?? 'topLeft',
       'pdf':         prefs.getString('tab_position_pdf') ?? 'topLeft',
       'sttMemo':     prefs.getString('tab_position_sttMemo') ?? 'topLeft',
       'audio':       prefs.getString('tab_position_audio') ?? 'topLeft',
+      'photo':       prefs.getString('tab_position_photo') ?? 'topLeft',
+      'video':       prefs.getString('tab_position_video') ?? 'topLeft',
       'browser':     prefs.getString('tab_position_browser') ?? 'topLeft',
     };
     debugPrint('✅ [AppStateProvider] 저장된 탭 위치들 복원: $_writingTabPositions');
@@ -1372,19 +1376,19 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (isTablet) {
         // 패드 기본값: 3분할(좌하단 미사용), 각 영역에 복수 탭 배치
         //  - 좌상단: 전체(all)
-        //  - 우상단: 메모(text), 필기(handwriting), 녹음메모(sttMemo), 영상채널(youtube)
-        //  - 우하단: 녹음(audio), 파일(files), 사진(photo), 비디오(video)
+        //  - 우상단: 메모(text), 필기(handwriting), 파일(files), 영상채널(youtube)
+        //  - 우하단: 녹음(audio), 녹음메모(sttMemo), 사진(photo), 비디오(video)
         //  - 좌하단: 미사용 / PDF·검색은 기본 노출 제외(PDF는 필기로 통합)
         _visibleAreas    = {'topLeft', 'topRight', 'bottomRight'};
-        _noteTabVisibility = {'all', 'text', 'handwriting', 'sttMemo', 'youtube', 'audio', 'files', 'photo', 'video'};
+        _noteTabVisibility = {'all', 'text', 'handwriting', 'files', 'youtube', 'audio', 'sttMemo', 'photo', 'video'};
         _writingTabPositions = {
           'all':         'topLeft',
           'text':        'topRight',
           'handwriting': 'topRight',
-          'sttMemo':     'topRight',
+          'files':       'topRight',
           'youtube':     'topRight',
           'audio':       'bottomRight',
-          'files':       'bottomRight',
+          'sttMemo':     'bottomRight',
           'photo':       'bottomRight',
           'video':       'bottomRight',
         };
@@ -1418,6 +1422,42 @@ class AppStateProvider extends ChangeNotifier with WidgetsBindingObserver {
       _visibleAreas = _dockingEnabled ? {'topLeft', 'bottomLeft'} : {'topLeft'};
     }
     debugPrint('✅ [AppStateProvider] 영역 보기 복원: $_visibleAreas');
+
+    // ⭐ 태블릿 기본 레이아웃 마이그레이션(v2): 신규 탭(files/youtube/photo/video)과
+    //    3분할 기본 배치 도입 전에 설치된 태블릿은 기존 저장값이 좌상단에 몰려 깨져 보인다.
+    //    기존 태블릿 설치본에 한해 1회 기본 배치를 재적용한다(플래그로 재실행 방지).
+    if (!isFirstLaunch && _detectIsTablet()) {
+      final tabletLayoutMigrated = prefs.getBool('tablet_layout_v2_migrated') ?? false;
+      if (!tabletLayoutMigrated) {
+        debugPrint('📱 [AppStateProvider] 태블릿 레이아웃 v2 마이그레이션 적용');
+        _visibleAreas = {'topLeft', 'topRight', 'bottomRight'};
+        _noteTabVisibility = {'all', 'text', 'handwriting', 'files', 'youtube', 'audio', 'sttMemo', 'photo', 'video'};
+        _writingTabPositions = {
+          'all':         'topLeft',
+          'text':        'topRight',
+          'handwriting': 'topRight',
+          'files':       'topRight',
+          'youtube':     'topRight',
+          'audio':       'bottomRight',
+          'sttMemo':     'bottomRight',
+          'photo':       'bottomRight',
+          'video':       'bottomRight',
+        };
+        _columnWidthRatio = 0.25;
+        _rightHeightRatio = 0.5;
+        _leftHeightRatio = 0.5;
+        await prefs.setStringList('visible_areas', _visibleAreas.toList());
+        await prefs.setStringList('note_tab_visibility', _noteTabVisibility.toList());
+        for (final entry in _writingTabPositions.entries) {
+          await prefs.setString('tab_position_${entry.key}', entry.value);
+        }
+        await prefs.setDouble('tab_area_column_ratio', _columnWidthRatio);
+        await prefs.setDouble('tab_area_right_height_ratio', _rightHeightRatio);
+        await prefs.setDouble('tab_area_left_height_ratio', _leftHeightRatio);
+        await prefs.setBool('tablet_layout_v2_migrated', true);
+        debugPrint('💾 [AppStateProvider] 태블릿 v2 배치 저장 완료: areas=$_visibleAreas, positions=$_writingTabPositions');
+      }
+    }
 
     // 분할 패널 크기 비율 복원 (없으면 0.5, 안전 범위로 clamp)
     _columnWidthRatio = (prefs.getDouble('tab_area_column_ratio') ?? 0.5).clamp(0.1, 0.9);

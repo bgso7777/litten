@@ -10,6 +10,7 @@ import '../widgets/handwriting_tab.dart';
 import '../widgets/browser_tab.dart';
 import '../widgets/all_files_tab.dart';
 import '../widgets/youtube_tab.dart';
+import '../widgets/common/record_memo_icon.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -131,34 +132,25 @@ class _WritingScreenState extends State<WritingScreen>
         position: parsePosition(savedPositions['handwriting'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('handwriting'),
       ),
+      // ── 우상단 그룹(기본): 파일, 영상채널 (메모·필기는 위에) ──
       TabItem(
-        id: 'pdf',
-        title: pdfCount.toString(),
-        icon: Icons.picture_as_pdf,
-        content: HandwritingTab(key: _pdfTabKey, mode: HandwritingTabMode.pdfOnly),
-        position: parsePosition(savedPositions['pdf'] ?? 'topLeft'),
-        isVisible: noteTabVisibility.contains('pdf'),
-      ),
-      // ── 우상단 그룹(기본): 녹음메모, 영상채널 ──
-      TabItem(
-        id: 'sttMemo',
-        title: sttMemoCount.toString(),
-        // 전체탭 하단 칩과 아이콘 일치 — 녹음메모 = record_voice_over.
-        icon: Icons.record_voice_over,
-        content: AllFilesTab(key: _sttMemoTabKey, showOnlySTT: true),
-        position: parsePosition(savedPositions['sttMemo'] ?? 'topLeft'),
-        isVisible: noteTabVisibility.contains('sttMemo'),
+        id: 'files',
+        title: attachmentCount.toString(),
+        icon: Icons.drive_folder_upload,
+        content: AllFilesTab(key: _filesTabKey, showOnlyAttachments: true),
+        position: parsePosition(savedPositions['files'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('files'),
       ),
       TabItem(
         id: 'youtube',
         title: youtubeCount.toString(),
-        // 전체탭 하단 칩과 아이콘 일치 — 영상채널 = subscriptions.
+        // 전체탭 칩(알약)의 영상채널 아이콘과 일치 — subscriptions.
         icon: Icons.subscriptions,
         content: YoutubeTab(key: _youtubeTabKey),
         position: parsePosition(savedPositions['youtube'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('youtube'),
       ),
-      // ── 우하단 그룹(기본): 녹음, 파일, 사진, 비디오 ──
+      // ── 우하단 그룹(기본): 녹음, 녹음메모, 사진, 비디오 ──
       TabItem(
         id: 'audio',
         title: audioCount.toString(),
@@ -168,12 +160,14 @@ class _WritingScreenState extends State<WritingScreen>
         isVisible: noteTabVisibility.contains('audio'),
       ),
       TabItem(
-        id: 'files',
-        title: attachmentCount.toString(),
-        icon: Icons.drive_folder_upload,
-        content: AllFilesTab(key: _filesTabKey, showOnlyAttachments: true),
-        position: parsePosition(savedPositions['files'] ?? 'topLeft'),
-        isVisible: noteTabVisibility.contains('files'),
+        id: 'sttMemo',
+        title: sttMemoCount.toString(),
+        // 전체탭 하단 칩과 아이콘 일치 — 녹음메모 = 녹음+메모 합성 아이콘(RecordMemoIcon).
+        icon: Icons.record_voice_over,
+        iconWidget: const RecordMemoIcon(),
+        content: AllFilesTab(key: _sttMemoTabKey, showOnlySTT: true),
+        position: parsePosition(savedPositions['sttMemo'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('sttMemo'),
       ),
       TabItem(
         id: 'photo',
@@ -193,7 +187,15 @@ class _WritingScreenState extends State<WritingScreen>
         position: parsePosition(savedPositions['video'] ?? 'topLeft'),
         isVisible: noteTabVisibility.contains('video'),
       ),
-      // ── 검색(browser): 기본 노출 제외이나 탭은 유지 ──
+      // ── 기본 노출 제외(탭은 유지): PDF(필기로 통합), 검색 ──
+      TabItem(
+        id: 'pdf',
+        title: pdfCount.toString(),
+        icon: Icons.picture_as_pdf,
+        content: HandwritingTab(key: _pdfTabKey, mode: HandwritingTabMode.pdfOnly),
+        position: parsePosition(savedPositions['pdf'] ?? 'topLeft'),
+        isVisible: noteTabVisibility.contains('pdf'),
+      ),
       TabItem(
         id: 'browser',
         title: l10n?.browserTab ?? '검색',
